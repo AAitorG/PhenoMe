@@ -1,0 +1,46 @@
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.4
+    hooks:
+      - id: ruff
+        args: [--fix, --unsafe-fixes]
+        exclude: \.ipynb$
+      - id: ruff-format
+        exclude: \.ipynb$
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        args: [--config-file=pyproject.toml]
+        files: ^phenome/
+        additional_dependencies:
+          # Keep this lean: do not install torch/matplotlib here (large pre-commit caches).
+          - "numpy>=2.0.0"
+          - "pandas-stubs"
+          - "types-requests"
+          - "types-setuptools"
+        pass_filenames: true
+
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        args: [--quiet, --fail-under=95]
+        pass_filenames: false

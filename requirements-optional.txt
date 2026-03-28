@@ -1,0 +1,13 @@
+# Optional dependencies for full functionality
+
+# UMAP dimensionality reduction (plots, reports, interactive explorer)
+umap-learn
+
+# Distance correlation (analysis.compute_component_correlation with method='dcor')
+dcor
+
+# GPU-accelerated PCA, t-SNE, UMAP (when device is CUDA)
+torchdr
+
+# Memory-efficient KeOps backend for t-SNE/UMAP (linear memory vs O(n^2))
+pykeops

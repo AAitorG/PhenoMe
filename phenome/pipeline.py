@@ -1,0 +1,1654 @@
+"""PhenoMe — main phenotyping analysis pipeline.
+
+Author: Aitor González-Marfil (@AAitorG)
+
+Main orchestrator class for processing images with deep learning models
+and analyzing phenotypic differences via embedding distances.
+
+Embedding lifecycle
+------------------
+- **Eager**: When no checkpoint is used, embeddings live in results.embeddings (np.ndarray).
+- **Lazy**: When a checkpoint is active (self._db), results.embeddings is None; embeddings
+  are read on demand via get_embeddings() from the HDF5 file.
+- **Temporal**: Rows from process_temporal_images() are in-memory only (self._temporal_embeddings)
+  when _db is open; merged with checkpoint data in get_embeddings().
+"""
+
+import json
+import os
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
+from datetime import datetime
+from typing import Any, Literal, Union, cast
+
+import numpy as np
+import pandas as pd
+import torch
+from torch.utils.data import DataLoader
+
+from ._logging import get_logger
+from .core import (
+    PhenoMeResults,
+    build_export_dataframe,
+    get_all_metadata_keys,
+    metadata_to_stable_key,
+    validate_results,
+)
+from .io import CheckpointManager, FileDiscovery
+from .io.checkpoint_alignment import (
+    filter_items_not_in_checkpoint,
+    get_already_committed_metadata_keys,
+    get_already_committed_paths,
+    merge_metadata_from_current_run,
+    rebase_paths_from_current_run,
+)
+from .metadata.base import MetadataBase
+from .mixins import (
+    PhenoMeAnalysis,
+    PhenoMeDistances,
+    PhenoMeProperties,
+    PhenoMeVisualization,
+)
+from .mixins.dataset import PhenoMeDataset, collate_fn
+from .mixins.embedding_extractor import EmbeddingExtractor
+from .utils import TransformBuilder
+from .utils.device import get_default_device, set_determinism
+from .utils.model_wrapper import ModelWrapper
+from .utils.path_utils import path_repr as _path_repr
+
+logger = get_logger(__name__)
+
+
+def _effective_num_workers(num_workers: int) -> int:
+    """Use num_workers=0 in Jupyter to avoid multiprocessing QueueFeederThread crashes."""
+    if num_workers <= 0:
+        return num_workers
+    import sys
+
+    if "ipykernel" in sys.modules:
+        logger.debug("Jupyter detected: using num_workers=0 to avoid multiprocessing issues.")
+        return 0
+    return num_workers
+
+
+class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisualization):
+    """Main class for phenotyping analysis using deep learning embeddings.
+
+    Provides: compute_properties, filter_properties_by_group; compute_clustering,
+    detect_outliers, find_prototypes; compute_reference_distances; plot_pca,
+    plot_tsne, plot_umap, and related methods.
+
+    Args:
+        device: Optional torch.device for GPU-accelerated analysis operations.
+            Recommended for faster computation. If None, operations run on CPU.
+        seed: Optional random seed for reproducibility (default: None).
+            When set, used for all random operations (determinism, clustering,
+            t-SNE, UMAP, mutual information, random sampling in reports).
+            If None, no seeds are set anywhere.
+        use_gpu_for_dr: If True and device is CUDA, uses TorchDR for GPU-accelerated
+            dimensionality reduction (PCA, t-SNE, UMAP). If False (default), always
+            use sklearn/umap-learn on CPU.
+    """
+
+    def __init__(
+        self,
+        device: torch.device | None = None,
+        seed: int | None = None,
+        use_gpu_for_dr: bool = False,
+    ):
+        self.device = device if device is not None else get_default_device()
+
+        # Normalisation parameters (ImageNet)
+        self.mean = (0.485, 0.456, 0.406)
+        self.std = (0.229, 0.224, 0.225)
+
+        # Typed results container — embeddings field is None when absent or lazy.
+        self.results: PhenoMeResults = PhenoMeResults()
+
+        # In-progress embedding buffer used during extraction.
+        # Embeddings accumulate here and are moved to results.embeddings on finalisation.
+        # This buffer never lives inside PhenoMeResults.
+        self._emb_buffer: list[np.ndarray] = []
+        self._metadata_config: MetadataBase | None = None
+
+        self.preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None = None
+        self._processing_params: dict[str, Any] | None = None
+
+        # Transforms applied during embedding extraction; used by visualization (e.g. show_image).
+        self.test_transforms: Any | None = None
+
+        # When a checkpoint path is active, this holds the open CheckpointManager.
+        # results.embeddings is None (lazy sentinel) and embeddings are loaded on demand.
+        self._db: CheckpointManager | None = None
+        self._db_indices: np.ndarray | None = None
+
+        # Temporal (in-memory only) embeddings appended via process_temporal_images().
+        # When _db is open, temporal rows live here; results indices >= _temporal_start_idx.
+        self._temporal_embeddings: np.ndarray | None = None
+        self._temporal_start_idx: int = 0
+
+        # DataFrame describing the dataset used for processing (from find_files).
+        # Stores image and mask filename columns for downstream internal use.
+        self._file_df: pd.DataFrame | None = None
+        self._image_path_col: str | None = None
+        self._channel_path_cols: list[str] | None = None
+        self._mask_path_col: str | None = None
+
+        self.seed: int | None = seed
+        self.use_gpu_for_dr: bool = use_gpu_for_dr
+        if seed is not None:
+            set_determinism(seed)
+
+        self._file_discovery = FileDiscovery()
+        self._transform_builder = TransformBuilder(mean=self.mean, std=self.std)
+
+    # ------------------------------------------------------------------
+    # Reset
+    # ------------------------------------------------------------------
+
+    def reset(self, verbose: bool = False, clear_file_df: bool = False) -> None:
+        """Reset all stored data to a clean state.
+
+        Closes any open HDF5 database handle before clearing results.
+        By default preserves _file_df so compute_properties and audit_data
+        continue to work after process_images. Set clear_file_df=True for a
+        full reset (e.g. when switching to a completely new dataset).
+        """
+        if self._db is not None:
+            try:
+                self._db.close()
+            except OSError as e:
+                logger.debug("Error closing checkpoint on reset: %s", e)
+            self._db = None
+        self._db_indices = None
+        self._emb_buffer = []
+        self._temporal_embeddings = None
+        self._temporal_start_idx = 0
+        self.results = PhenoMeResults()
+        self.reset_properties(verbose=False)
+        self.preprocessing_fn = None
+        self._processing_params = None
+        self.test_transforms = None
+        self._metadata_config = None
+        if clear_file_df:
+            self._file_df = None
+            self._image_path_col = None
+            self._channel_path_cols = None
+            self._mask_path_col = None
+        if verbose:
+            logger.info("Reset: All stored data cleared.")
+
+    def __del__(self) -> None:
+        """Close HDF5 database handle on garbage collection."""
+        if self._db is not None:
+            try:
+                self._db.close()
+            except OSError as e:
+                logger.debug("Error closing checkpoint in __del__: %s", e)
+            self._db = None
+
+    # ------------------------------------------------------------------
+    # Embedding access (lazy or eager)
+    # ------------------------------------------------------------------
+
+    @property
+    def has_embeddings(self) -> bool:
+        """Return True if embedding data is available (lazy or eager)."""
+        if self._db is not None:
+            if self._db.n_committed > 0:
+                return True
+            return bool(
+                self._temporal_embeddings is not None and len(self._temporal_embeddings) > 0
+            )
+        return self.results.has_embeddings
+
+    @property
+    def embedding_dim(self) -> int:
+        """Return the embedding dimensionality, or 0 if unavailable."""
+        if self._db is not None:
+            dim = self._db.embedding_dim or 0
+            if dim > 0:
+                return dim
+            if self._temporal_embeddings is not None and self._temporal_embeddings.ndim == 2:
+                return int(self._temporal_embeddings.shape[1])
+            return 0
+        return self.results.embedding_dim
+
+    def get_embeddings(
+        self,
+        indices: Union[list[int], "np.ndarray"] | None = None,
+    ) -> np.ndarray | None:
+        """Return embeddings for the given row indices.
+
+        When a checkpoint / HDF5 database is active (``self._db`` is not None),
+        only the requested rows are read from disk — the core of the lazy-loading
+        strategy.  When temporal embeddings exist (from process_temporal_images),
+        they are merged with checkpoint data. When no database is active, slices
+        ``results.embeddings``.
+
+        Args:
+            indices: Optional integer array/list of row indices (0-based).
+                If None, returns all embeddings.
+
+        Returns:
+            np.ndarray shape ``(len(indices), D)`` float32, or None if no
+            embeddings are available.
+        """
+        n_total = self.results.n_images
+        temporal_emb = self._temporal_embeddings
+        has_temporal = (
+            temporal_emb is not None and temporal_emb.ndim == 2 and temporal_emb.shape[0] > 0
+        )
+        n_temporal = int(temporal_emb.shape[0]) if temporal_emb is not None and has_temporal else 0
+
+        if self._db is not None:
+            db = self._db
+            db_indices = self._db_indices
+            n_ckpt = len(db_indices) if db_indices is not None else 0
+            if n_ckpt == 0 and n_temporal == 0:
+                return None
+
+            def _fetch(indices_to_use: np.ndarray) -> np.ndarray:
+                # indices_to_use: (K,) int64; out: (K, D) float32
+                dim = self.embedding_dim
+                if dim == 0:
+                    return np.array([], dtype=np.float32).reshape(0, 0)
+                out = np.empty((len(indices_to_use), dim), dtype=np.float32)
+                ckpt_mask = indices_to_use < self._temporal_start_idx
+                temp_mask = ~ckpt_mask
+                if np.any(ckpt_mask) and db_indices is not None and db is not None:
+                    ckpt_pos = np.where(ckpt_mask)[0]
+                    ckpt_indices = indices_to_use[ckpt_mask]
+                    h5_idx = db_indices[np.asarray(ckpt_indices, dtype=np.int64)]
+                    out[ckpt_pos] = db.load_embeddings_by_indices(h5_idx)
+                if np.any(temp_mask) and has_temporal and temporal_emb is not None:
+                    temp_pos = np.where(temp_mask)[0]
+                    local_temp = (
+                        np.asarray(indices_to_use[temp_mask], dtype=np.int64)
+                        - self._temporal_start_idx
+                    )
+                    out[temp_pos] = temporal_emb[local_temp]
+                return out
+
+            if indices is None:
+                indices_arr = np.arange(n_total, dtype=np.int64)
+            else:
+                indices_arr = np.asarray(indices, dtype=np.int64)
+
+            if len(indices_arr) == 0:
+                return None
+
+            out = _fetch(indices_arr)
+            if out.size == 0:
+                return None
+            return out
+
+        emb = self.results.embeddings
+        if emb is None or len(emb) == 0:
+            return None
+        if indices is None:
+            return emb
+        return emb[np.asarray(indices, dtype=np.int64)]
+
+    # ------------------------------------------------------------------
+    # File discovery
+    # ------------------------------------------------------------------
+
+    def set_file_df(self, file_df: pd.DataFrame) -> pd.DataFrame:
+        """Set the internal file DataFrame used for processing.
+
+        Validates that file_df has a 'file_path' column and optionally 'mask_path'.
+        Stores a normalized copy for use by process_images, compute_properties,
+        audit_data, and related methods.
+
+        Args:
+            file_df: DataFrame with 'file_path' column (str or list of str per row).
+                May include 'mask_path' and metadata columns.
+
+        Returns:
+            The normalized DataFrame that was stored.
+        """
+        self._validate_process_images_inputs(file_df)
+        self._file_df = file_df.reset_index(drop=True).copy()
+        self._init_file_df_metadata(self._file_df)
+        return self._file_df
+
+    def find_files(
+        self,
+        image_dir: str,
+        mask_dir: str | None = None,
+        extensions: list[str] | None = None,
+        metadata_fn: Callable[[str], dict[str, Any]] | MetadataBase | None = None,
+        on_missing_metadata: str = "drop",
+        mask_filename_column: str | None = None,
+        mask_extensions: list[str] | None = None,
+    ) -> pd.DataFrame:
+        """Discover image and mask files from directories, cache internally, and return file_df.
+
+        Recursively scans image_dir (and optionally mask_dir) for image files,
+        extracts metadata, resolves mask paths, and stores the result as the
+        internal file_df used by process_images, compute_properties, and audit_data.
+
+        Args:
+            image_dir: Root directory or glob pattern for image files.
+            mask_dir: Root directory for mask files (adds mask_path column).
+            extensions: File-extension filter (e.g. [".tif", ".png"]).
+            metadata_fn: Per-file metadata extractor.
+            on_missing_metadata: 'keep' or 'drop' files with missing metadata.
+            mask_filename_column: Metadata column for custom mask filename.
+            mask_extensions: Extensions to try when exact mask path fails.
+
+        Returns:
+            DataFrame with file_path, mask_path (when mask_dir set), and metadata.
+        """
+        if isinstance(metadata_fn, MetadataBase):
+            self._metadata_config = metadata_fn
+        else:
+            self._metadata_config = None
+        df = self._file_discovery._find_files_from_dir(
+            data_dir=image_dir,
+            extensions=extensions,
+            metadata_fn=metadata_fn,
+            on_missing_metadata=on_missing_metadata,
+            mask_dir=mask_dir,
+            mask_filename_column=mask_filename_column,
+            mask_extensions=mask_extensions,
+        )
+        if isinstance(df, pd.DataFrame) and not df.empty and "file_path" in df.columns:
+            self._file_df = df.reset_index(drop=True).copy()
+            self._init_file_df_metadata(self._file_df)
+        return df
+
+    # ------------------------------------------------------------------
+    # Image processing
+    # ------------------------------------------------------------------
+
+    def process_images(
+        self,
+        model_wrapper: ModelWrapper,
+        batch_size: int = 32,
+        num_workers: int = 4,
+        filters: dict[str, list[Any]] | None = None,
+        exclude: dict[str, list[Any]] | None = None,
+        channel_mode: Literal["split", "combined"] = "split",
+        channels: list[int] | None = None,
+        preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None = None,
+        custom_transformations: Any | None = None,
+        append: bool = False,
+        resize_size: int | None = 224,
+        pad_size: int | None = None,
+        checkpoint_path: str | None = None,
+        force_rgb: bool = True,
+        save_every: int = 5,
+        lazy_checkpoint: bool = True,
+    ) -> None:
+        """Process images through the model and store embeddings.
+
+        Uses the internally stored file_df (set via set_file_df or find_files).
+        Populates self.results with embeddings, img_path, metadata. Properties remain
+        empty until compute_properties() is called.
+        """
+        file_df = self._require_file_df("process_images")
+        self._validate_process_images_inputs(file_df)
+        filtered_data, cur_params, _final_data_dir = self._prepare_for_process_images(
+            file_df,
+            filters,
+            exclude,
+            append,
+            channel_mode=channel_mode,
+            channels=channels,
+            resize_size=resize_size,
+            pad_size=pad_size,
+            force_rgb=force_rgb,
+            preprocessing_fn=preprocessing_fn,
+        )
+        all_requested_data = list(filtered_data)
+
+        ckpt, requested_paths, requested_meta_keys, filtered_data, cur_params = (
+            self._setup_checkpoint_resume(
+                checkpoint_path,
+                cur_params,
+                filtered_data,
+                lazy=lazy_checkpoint,
+            )
+        )
+        self._processing_params = cur_params
+
+        if not filtered_data:
+            if checkpoint_path and ckpt:
+                logger.info("All images already processed. Loading from checkpoint.")
+                self._setup_lazy_results(
+                    ckpt,
+                    requested_paths=requested_paths,
+                    requested_meta_keys=requested_meta_keys,
+                    current_requested_data=all_requested_data,
+                )
+            else:
+                logger.warning("No images to process after filtering.")
+            return
+
+        cur_t = custom_transformations or self._build_transforms(resize_size, pad_size)
+        self.test_transforms = cur_t
+
+        dl = self._create_dataloader(
+            filtered_data,
+            transform=cur_t,
+            cur_params=cur_params,
+            preprocessing_fn=preprocessing_fn,
+            batch_size=batch_size,
+            num_workers=num_workers,
+        )
+
+        ckpt_used = self._run_embedding_extraction(
+            model_wrapper,
+            dl,
+            checkpoint_path=checkpoint_path,
+            ckpt=ckpt,
+            cur_params=cur_params,
+            save_every=save_every,
+            lazy_checkpoint=lazy_checkpoint,
+        )
+
+        self._finalize_processing(
+            checkpoint_path,
+            ckpt_used,
+            requested_paths,
+            requested_meta_keys,
+            len(filtered_data),
+            all_requested_data=all_requested_data,
+        )
+
+    # ------------------------------------------------------------------
+    # Temporal images (in-memory only, no checkpoint persistence)
+    # ------------------------------------------------------------------
+
+    def process_temporal_images(
+        self,
+        model_wrapper: ModelWrapper,
+        files: str | list[str] | pd.DataFrame,
+        batch_size: int = 32,
+        num_workers: int = 4,
+        channel_mode: Literal["split", "combined"] | None = None,
+        channels: list[int] | None = None,
+        preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None = None,
+        custom_transformations: Any | None = None,
+        resize_size: int | None = None,
+        pad_size: int | None = None,
+        force_rgb: bool | None = None,
+        extensions: list[str] | None = None,
+    ) -> None:
+        """Process new images in-memory (temporary) and append to the current session.
+
+        Use this to explore additional images (e.g., from a new condition or replicate)
+        without re-running process_images. Temporal images are not persisted to checkpoint;
+        visualize or export before calling clear_temporal_data() or reset().
+
+        Requires process_images() to have been run first. Processing parameters
+        (channel_mode, channels, resize_size, etc.) are inherited from the base run
+        when not specified. Temporal rows get metadata['source'] = 'NEW'.
+        """
+        if self.results.n_images == 0:
+            raise ValueError("No existing data. Run process_images() first.")
+
+        # Resolve to DataFrame (str→find_files; list→DataFrame; already DataFrame→use)
+        if isinstance(files, pd.DataFrame):
+            file_df = files
+        elif isinstance(files, list):
+            paths = [str(p) for p in files if p]
+            file_df = (
+                pd.DataFrame({"file_path": paths}) if paths else pd.DataFrame(columns=["file_path"])
+            )
+        elif isinstance(files, str):
+            if os.path.isfile(files):
+                file_df = pd.DataFrame({"file_path": [files]})
+            else:
+                file_df = self._file_discovery._find_files_from_dir(files, extensions=extensions)
+            if not file_df.empty:
+                self._file_df = file_df.reset_index(drop=True).copy()
+                self._init_file_df_metadata(self._file_df)
+        else:
+            raise ValueError(f"files must be str, list, or DataFrame, got: {type(files)}")
+
+        fdata = self._prepare_filtered_data(file_df)
+        if not fdata:
+            return
+
+        p = (
+            (self._db.get_processing_params() if self._db else None)
+            or self._processing_params
+            or {}
+        )
+        cur_params = self._resolve_processing_params(
+            p,
+            channel_mode=channel_mode,
+            channels=channels,
+            resize_size=resize_size,
+            pad_size=pad_size,
+            force_rgb=force_rgb,
+        )
+
+        tr = PhenoMeResults()
+        tb: list[np.ndarray] = []
+        rs = cur_params["resize_size"]
+        ps = cur_params["pad_size"]
+        rs_int: int | None = int(rs) if isinstance(rs, (int, float)) and rs != "none" else None
+        ps_int: int | None = int(ps) if isinstance(ps, (int, float)) and ps != "none" else None
+        if rs_int is None and isinstance(rs, str) and rs.lower() == "none":
+            rs_int = None
+        if ps_int is None and isinstance(ps, str) and ps.lower() == "none":
+            ps_int = None
+        ct = custom_transformations or self._build_transforms(rs_int, ps_int)
+        dl = self._create_dataloader(
+            fdata,
+            transform=ct,
+            cur_params=cur_params,
+            preprocessing_fn=preprocessing_fn or self.preprocessing_fn,
+            batch_size=batch_size,
+            num_workers=num_workers,
+        )
+        self._run_embedding_extraction(model_wrapper, dl, results=tr, emb_buffer=tb)
+        if not tb:
+            return
+
+        n_new = len(tb)
+        new_emb = np.stack(tb).astype(np.float32)
+        if self.embedding_dim > 0 and new_emb.shape[1] != self.embedding_dim:
+            raise ValueError(
+                f"Embedding dimension mismatch: {new_emb.shape[1]} vs {self.embedding_dim}"
+            )
+
+        self.results.img_path.extend(tr.img_path)
+        # Ensure temporal metadata has same keys as base so plots include them (color_by, filters)
+        base_keys = get_all_metadata_keys(self.results)
+        meta_list = []
+        for m in tr.metadata:
+            meta = {**(m or {}), "source": "NEW"}
+            for k in base_keys:
+                if k.lower() == "source":
+                    continue
+                if not any(ok.lower() == k.lower() for ok in meta):
+                    meta[k] = "Temporal"
+            meta_list.append(meta)
+        self.results.metadata.extend(meta_list)
+        self.results.properties.extend([{}] * n_new)
+
+        if self._db is not None:
+            self._temporal_embeddings = (
+                np.concatenate([self._temporal_embeddings, new_emb], axis=0)
+                if self._temporal_embeddings is not None
+                else new_emb
+            )
+        else:
+            self.results.embeddings = (
+                np.concatenate([self.results.embeddings, new_emb], axis=0)
+                if self.results.embeddings is not None
+                else new_emb
+            )
+
+        logger.info("Added %d temporal images (total: %d).", n_new, self.results.n_images)
+
+    def clear_temporal_data(self) -> int:
+        """Remove all temporal images (metadata['source'] == 'NEW') from the session.
+
+        Returns:
+            int: Number of temporal rows removed.
+        """
+        keep_mask = [
+            not (isinstance(m, dict) and m.get("source") == "NEW") for m in self.results.metadata
+        ]
+        n_temporal = sum(not k for k in keep_mask)
+        if n_temporal == 0:
+            logger.info("No temporal data to clear.")
+            return 0
+        keep_idx = [i for i, k in enumerate(keep_mask) if k]
+        self.results.img_path = [self.results.img_path[i] for i in keep_idx]
+        self.results.metadata = [self.results.metadata[i] for i in keep_idx]
+        self.results.properties = [self.results.properties[i] for i in keep_idx]
+        self._temporal_embeddings = None
+        # _db_indices unchanged: temporal rows are never in the checkpoint; only base rows
+        # (0 .. _temporal_start_idx-1) are stored, and we only remove temporal rows.
+        if self._db is None and self.results.embeddings is not None:
+            self.results.embeddings = self.results.embeddings[np.array(keep_idx, dtype=np.int64)]
+        self._temporal_start_idx = len(keep_idx)
+        logger.info("Cleared %d temporal images (remaining: %d).", n_temporal, len(keep_idx))
+        return n_temporal
+
+    # ------------------------------------------------------------------
+    # Audit / Info
+    # ------------------------------------------------------------------
+
+    def audit_data(self) -> pd.DataFrame:
+        """Audit image and mask dimensions, shapes, and data ranges. Delegates to FileDiscovery.
+
+        Uses the internally stored file_df (set via set_file_df or find_files).
+        Raises if file_df is not available.
+        """
+        file_df = self._require_file_df("audit_data")
+        return self._file_discovery.audit_data(file_df)
+
+    # ------------------------------------------------------------------
+    # Info / accessors
+    # ------------------------------------------------------------------
+
+    def get_image_info(self, idx: int, distance_results: dict | None = None) -> dict:
+        """Return metadata, properties, and optional distance for image idx.
+
+        Args:
+            idx: Image index (0 to n_images-1).
+            distance_results: Optional dict from compute_reference_distances.
+
+        Returns:
+            dict: Keys idx, img_name, img_path, metadata keys, property keys,
+                distance (if distance_results provided), is_reference (if applicable).
+        """
+        if not isinstance(idx, (int, np.integer)):
+            raise TypeError(f"idx must be int, got: {type(idx)}")
+        idx = int(idx)
+        n = self.results.n_images
+        if idx < 0 or idx >= n:
+            raise IndexError(f"Index {idx} out of range [0, {n - 1}]")
+
+        path = self.results.img_path[idx]
+        path_for_name = path[0] if isinstance(path, list) else path
+        info: dict[str, Any] = {
+            "idx": idx,
+            "img_name": os.path.basename(path_for_name),
+            "img_path": path,
+        }
+
+        if idx < len(self.results.metadata) and isinstance(self.results.metadata[idx], dict):
+            info.update(self.results.metadata[idx])
+
+        if idx < len(self.results.properties) and isinstance(self.results.properties[idx], dict):
+            for k, v in self.results.properties[idx].items():
+                info[k] = float(v) if v is not None and not np.isnan(v) else None
+
+        if distance_results and "distances" in distance_results:
+            info["distance"] = distance_results["distances"][idx]
+            info["is_reference"] = (
+                distance_results.get("reference_indices")
+                and idx in distance_results["reference_indices"]
+            )
+        return info
+
+    def get_available_metadata_keys(self) -> list[str]:
+        """Return sorted metadata keys."""
+        return get_all_metadata_keys(self.results)
+
+    # ------------------------------------------------------------------
+    # Save / Load
+    # ------------------------------------------------------------------
+
+    def save_results(
+        self,
+        output_dir: str | None = None,
+        filename: str | None = None,
+        compression: str = "gzip",
+    ) -> None:
+        """Save results to HDF5 (atomic write or in-place flush).
+
+        When a checkpoint database is already active (``self._db`` is set),
+        the data is already on disk; this method flushes any uncommitted
+        buffers and logs the existing path.  When no database is active,
+        writes ``self.results`` to a new HDF5 file using a temporary-file +
+        atomic rename for crash safety.
+
+        For full reproducibility, also call :meth:`export_experiment_config`
+        to save seed, use_gpu_for_dr, reference_filters, and model name
+        (not stored in the checkpoint).
+
+        Args:
+            output_dir: Directory (creates if needed). Ignored when *filename* given.
+            filename: Explicit output path.
+            compression: HDF5 compression algorithm (used only for new files).
+        """
+        target_path: str | None = None
+        if filename is not None:
+            parent = os.path.dirname(filename)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            _, ext = os.path.splitext(filename)
+            target_path = filename if ext.lower() in (".h5", ".hdf5") else filename + ".h5"
+        elif output_dir is not None:
+            os.makedirs(output_dir, exist_ok=True)
+            target_path = os.path.join(output_dir, "phenome_results.h5")
+        else:
+            raise ValueError("Provide output_dir or filename.")
+
+        if self._db is not None:
+            db_path = os.path.abspath(self._db.path)
+            if os.path.abspath(target_path) == db_path:
+                if self._db.embeddings_buffered:
+                    self._db.commit_embeddings()
+                if self._db.properties_buffered:
+                    self._db.commit_properties()
+                if self._db._file is not None:
+                    self._db._file.flush()
+                logger.info("Results already on disk at %s (flushed).", db_path)
+                return
+            logger.info("Copying HDF5 database from %s to %s …", db_path, target_path)
+            import shutil
+
+            if self._db._file is not None:
+                self._db._file.flush()
+            shutil.copy2(db_path, target_path)
+            logger.info("Results copied to %s", target_path)
+            return
+
+        if self.results.n_images == 0:
+            raise ValueError("No results to save (img_path is empty).")
+
+        has_emb = self.results.has_embeddings
+        has_props = self.results.has_properties
+        if not has_emb and not has_props:
+            raise ValueError("No embeddings or properties to save.")
+
+        CheckpointManager.write_results_to_hdf5(
+            self.results,
+            target_path,
+            compression=compression,
+            processing_params=self._processing_params,
+        )
+        logger.info("Results saved to %s", target_path)
+
+    def export_experiment_config(
+        self,
+        path: str,
+        reference_filters: dict[str, Any] | None = None,
+        model_name: str | None = None,
+        checkpoint_path: str | None = None,
+        **extra: Any,
+    ) -> None:
+        """Export experiment configuration for reproducibility.
+
+        Writes a JSON file with parameters not stored in the HDF5 checkpoint,
+        so that analyses can be fully reproduced. Call after save_results()
+        and pass the same reference_filters used for distance analysis.
+
+        Args:
+            path: Output path for config.json.
+            reference_filters: Optional dict used for compute_reference_distances
+                (e.g. {'condition': 'Control'}). Include for full traceability.
+            model_name: Optional model identifier (e.g. 'dinov2_vitb14_reg').
+            checkpoint_path: Optional checkpoint path used during processing (if not
+                provided and a checkpoint is open, uses self._db.path).
+            **extra: Additional key-value pairs to include in the config.
+        """
+        try:
+            from . import __version__ as pkg_version
+        except ImportError:
+            pkg_version = "unknown"
+
+        config: dict[str, Any] = {
+            "seed": self.seed,
+            "use_gpu_for_dr": self.use_gpu_for_dr,
+            "timestamp": datetime.now().isoformat(),
+            "pipeline_version": pkg_version,
+            **extra,
+        }
+        if reference_filters is not None:
+            config["reference_filters"] = reference_filters
+        if model_name is not None:
+            config["model_name"] = model_name
+
+        if self._processing_params is not None:
+            # Make JSON-serializable (e.g. numpy types -> native)
+            params_copy: dict[str, Any] = {}
+            for k, v in self._processing_params.items():
+                if v is not None and hasattr(v, "tolist"):
+                    params_copy[k] = v.tolist()
+                elif isinstance(v, bytes):
+                    params_copy[k] = v.decode("utf-8")
+                else:
+                    params_copy[k] = v
+            config["processing_params"] = params_copy
+
+        if checkpoint_path is not None:
+            config["checkpoint_path"] = checkpoint_path
+        elif self._db is not None:
+            config["checkpoint_path"] = os.path.abspath(self._db.path)
+
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(config, f, indent=2)
+        logger.info("Experiment config saved to %s", path)
+
+    def export_dataset_table(
+        self,
+        output_path: str | None = None,
+        dist_results: dict[str, Any] | None = None,
+        include_embeddings: bool | Literal["separate"] = False,
+        export_format: Literal["csv", "parquet", "excel"] = "csv",
+    ) -> pd.DataFrame:
+        """Export the dataset as a table (CSV, Parquet, or Excel).
+
+        Args:
+            output_path: Path to save the export. If None, only returns the DataFrame.
+            dist_results: Optional dict from compute_reference_distances.
+            include_embeddings: If True, adds embedding columns; if 'separate', saves
+                embeddings to a companion .npy file.
+            export_format: Output format: 'csv', 'parquet', or 'excel'.
+
+        Returns:
+            DataFrame with image_index, image_path, metadata, properties, distances,
+            and embeddings (if requested).
+        """
+        if self.results.n_images == 0:
+            raise ValueError("No results to export. Run process_images() first.")
+
+        include_emb_in_df = include_embeddings is True
+
+        if include_emb_in_df and self._db is not None:
+            results_for_export = PhenoMeResults(
+                img_path=self.results.img_path,
+                metadata=self.results.metadata,
+                properties=self.results.properties,
+                embeddings=self.get_embeddings(),
+            )
+        else:
+            results_for_export = self.results
+
+        df = build_export_dataframe(
+            results_for_export,
+            dist_results=dist_results,
+            include_embeddings=include_emb_in_df,
+        )
+
+        if output_path is not None:
+            out_dir = os.path.dirname(os.path.abspath(output_path)) or "."
+            if out_dir:
+                os.makedirs(out_dir, exist_ok=True)
+            base, ext = os.path.splitext(output_path)
+            ext_lower = ext.lower() if ext else ""
+            if ext_lower == ".parquet":
+                write_format = "parquet"
+            elif ext_lower in (".xlsx", ".xls"):
+                write_format = "excel"
+            elif ext_lower == ".csv":
+                write_format = "csv"
+            else:
+                write_format = export_format
+                ext_map = {"csv": ".csv", "parquet": ".parquet", "excel": ".xlsx"}
+                output_path = base + ext_map.get(write_format, ".csv")
+
+            if write_format == "csv":
+                df.to_csv(output_path, index=False)
+            elif write_format == "parquet":
+                df.to_parquet(output_path, index=False)
+            elif write_format == "excel":
+                df.to_excel(output_path, index=False)
+            else:
+                raise ValueError(f"Unsupported format: {export_format}")
+
+            if include_embeddings == "separate":
+                embeddings = self.get_embeddings()
+                if isinstance(embeddings, np.ndarray) and embeddings.ndim == 2:
+                    emb_path = base + "_embeddings.npy"
+                    np.save(emb_path, embeddings)
+                    logger.info("Embeddings saved to %s", emb_path)
+
+            logger.info(
+                "Dataset exported to %s (%d rows, %d columns)",
+                output_path,
+                len(df),
+                len(df.columns),
+            )
+
+        return df
+
+    def load_results(
+        self,
+        filename: str,
+        lazy_checkpoint: bool = True,
+    ) -> None:
+        """Load and use an existing results/checkpoint file.
+
+        Metadata and properties are loaded immediately. Embeddings are either
+        loaded into RAM (lazy_checkpoint=False) or accessed on-demand from
+        disk (lazy_checkpoint=True).
+
+        Uses the internally stored file_df (from :meth:`find_files` or
+        :meth:`set_file_df`) to resolve paths so the checkpoint works on this
+        machine. Call find_files or set_file_df first.
+
+        Args:
+            filename: Path to .h5 or .hdf5 file.
+            lazy_checkpoint: If True (default), keep the checkpoint file open.
+                If False, load all data into RAM and close the file.
+
+        Raises:
+            FileNotFoundError: If file does not exist.
+            ValueError: If file format is not recognised as HDF5.
+            RuntimeError: If file_df is not available (call find_files or set_file_df first).
+            ConcurrentCheckpointAccessError: If the checkpoint is already open in
+                another notebook or process (only one instance can access it at a time).
+        """
+        if not os.path.isfile(filename):
+            raise FileNotFoundError(f"Results file not found: {filename}")
+
+        fmt = CheckpointManager.detect_format(filename)
+        if fmt != "hdf5":
+            raise ValueError(f"Unrecognised format for '{filename}'. Expected HDF5.")
+
+        file_df = self._require_file_df("load_results")
+
+        if self._db is not None:
+            try:
+                self._db.close()
+            except OSError as e:
+                logger.debug("Error closing checkpoint before load: %s", e)
+            self._db = None
+
+        ckpt = CheckpointManager(filename, lazy=lazy_checkpoint)
+        self._processing_params = ckpt.get_processing_params()
+
+        # Store for internal downstream use and initialize column metadata.
+        self._file_df = file_df.reset_index(drop=True).copy()
+        self._init_file_df_metadata(self._file_df)
+
+        current_requested_data = self._prepare_filtered_data(file_df)
+
+        # Derive requested_paths for path-based alignment
+        requested_paths = {_path_repr(d["file_path"]) for d in current_requested_data}
+
+        # Derive stable metadata keys when possible for metadata-based alignment
+        meta_keys_builder: set = set()
+        requested_meta_keys: set | None = None
+        for d in current_requested_data:
+            meta = d.get("metadata", {})
+            try:
+                key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
+            except ValueError:
+                requested_meta_keys = None
+                break
+            meta_keys_builder.add(key)
+        else:
+            requested_meta_keys = meta_keys_builder
+
+        self._setup_lazy_results(
+            ckpt,
+            requested_paths=requested_paths,
+            requested_meta_keys=requested_meta_keys,
+            current_requested_data=current_requested_data,
+        )
+
+        # Portability check: verify if the rebased paths actually exist
+        if self.results.n_images > 0:
+            sample_idx = 0
+            sample_path = self.results.primary_path(sample_idx)
+            if not os.path.exists(sample_path):
+                logger.warning(
+                    "Image not found at: %s\n"
+                    "If you moved the dataset, call find_files at the new location "
+                    "first, then load_results.",
+                    sample_path,
+                )
+
+        if self.results.has_properties:
+            self._warn_if_nan_properties()
+
+        n_img = self.results.n_images
+        meta_keys = get_all_metadata_keys(self.results)
+        n_meta = len(meta_keys)
+
+        props = self.results.properties
+        prop_keys = sorted(props[0].keys()) if props and isinstance(props[0], dict) else []
+        n_prop = len(prop_keys)
+
+        n_emb = ckpt.n_committed
+        emb_dim = ckpt.embedding_dim
+        if n_emb > 0 and emb_dim:
+            emb_str = f", {emb_dim}-dim embeddings (lazy, on disk)"
+        else:
+            emb_str = ", no embeddings"
+
+        logger.info(
+            "Loaded %d images from %s (%s)%s. Content: %d metadata keys %s, %d properties %s.",
+            n_img,
+            filename,
+            fmt,
+            emb_str,
+            n_meta,
+            f"({', '.join(meta_keys[:5])}{'...' if n_meta > 5 else ''})",
+            n_prop,
+            f"({', '.join(prop_keys[:5])}{'...' if n_prop > 5 else ''})",
+        )
+
+    @contextmanager
+    def checkpoint_context(
+        self,
+        path: str,
+        lazy_checkpoint: bool = True,
+    ) -> Generator[Any, None, None]:
+        """Context manager that loads a checkpoint and guarantees it is closed on exit.
+
+        More reliable than relying on __del__ for cleanup. Use when you need to
+        ensure the HDF5 file handle is released (e.g. before moving or deleting
+        the file, or when opening multiple checkpoints in sequence).
+
+        Example:
+            pheno.find_files("path/to/images")
+            with pheno.checkpoint_context("results.h5") as p:
+                p.plot_pca(color_by="condition")
+            # Checkpoint closed here
+        """
+        self.load_results(path, lazy_checkpoint=lazy_checkpoint)
+        try:
+            yield self
+        finally:
+            if self._db is not None:
+                try:
+                    self._db.close()
+                except OSError as e:
+                    logger.debug("Error closing checkpoint in context exit: %s", e)
+                self._db = None
+            self._db_indices = None
+
+    # ------------------------------------------------------------------
+    # Report generation
+    # ------------------------------------------------------------------
+
+    def generate_report(
+        self,
+        output_path: str = "pheno_report.html",
+        title: str = "PhenoMe Analysis Report",
+        config: Any | None = None,
+        **overrides: Any,
+    ) -> str:
+        """Generate a comprehensive standalone HTML report from phenotyping results.
+
+        Uses ReportConfig as the primary source of options. Pass config= for full control,
+        or use **overrides to tweak individual settings (e.g. include_plots=False).
+
+        Args:
+            output_path: Path to save the HTML file.
+            title: Report title displayed at the top.
+            config: Optional ReportConfig for defaults. If None, uses ReportConfig().
+            **overrides: Any ReportConfig field to override (e.g. include_plots=False,
+                outlier_threshold=2.5, n_clusters=10).
+
+        Returns:
+            Path to the generated HTML file.
+        """
+        from .report.generator import generate_report as _generate_report
+
+        return _generate_report(
+            pipeline=self,
+            output_path=output_path,
+            title=title,
+            config=config,
+            **overrides,
+        )
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _prepare_for_process_images(
+        self,
+        file_df: pd.DataFrame,
+        filters: dict[str, list[Any]] | None,
+        exclude: dict[str, list[Any]] | None,
+        append: bool,
+        *,
+        channel_mode: str,
+        channels: list[int] | None,
+        resize_size: int | None,
+        pad_size: int | None,
+        force_rgb: bool,
+        preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any], str | None]:
+        """Prepare state and filtered data for process_images. Returns (filtered_data, cur_params, final_data_dir).
+        final_data_dir is inferred from file_df paths for checkpoint internal use."""
+        if not append:
+            self.reset()
+        else:
+            if self._db is not None:
+                if (
+                    self._db_indices is not None
+                    and len(self._db_indices) > 0
+                    and self._db.n_committed > 0
+                ):
+                    try:
+                        existing = self._db.load_embeddings_by_indices(self._db_indices)
+                        if existing is not None and len(existing) > 0:
+                            self._emb_buffer = list(existing)
+                    except (OSError, KeyError, ValueError) as e:
+                        logger.warning(
+                            "Could not load existing embeddings from checkpoint for append: %s",
+                            e,
+                        )
+                try:
+                    self._db.close()
+                except OSError as e:
+                    logger.debug("Error closing checkpoint for append: %s", e)
+                self._db = None
+            if self.results.embeddings is not None:
+                self._emb_buffer = list(self.results.embeddings)
+                self.results.embeddings = None
+
+        fdf = self._filter_dataframe(file_df, filters, exclude)
+        filtered_data = self._prepare_filtered_data(fdf)
+
+        final_data_dir: str | None = None
+        if not file_df.empty:
+            try:
+                paths = file_df["file_path"].tolist()
+                flat_paths = []
+                for p in paths:
+                    if isinstance(p, list):
+                        flat_paths.extend([str(x) for x in p if x])
+                    elif p:
+                        flat_paths.append(str(p))
+                if flat_paths:
+                    abs_paths = [p for p in flat_paths if os.path.isabs(p)]
+                    if abs_paths:
+                        common = os.path.commonpath(abs_paths)
+                        if common and common != "/":
+                            if os.path.isfile(common):
+                                common = os.path.dirname(common)
+                            final_data_dir = common
+                            logger.info("Inferred data_dir from file_df: %s", final_data_dir)
+            except (ValueError, OSError):
+                pass
+
+        cur_params = {
+            "channel_mode": channel_mode,
+            "channels": channels,
+            "resize_size": resize_size,
+            "pad_size": pad_size,
+            "force_rgb": force_rgb,
+        }
+        self.preprocessing_fn = preprocessing_fn
+        self._processing_params = cur_params
+        return filtered_data, cur_params, final_data_dir
+
+    # ------------------------------------------------------------------
+    # Internal file_df helpers
+    # ------------------------------------------------------------------
+
+    def _init_file_df_metadata(self, file_df: pd.DataFrame) -> None:
+        """Initialize cached column names for image and mask paths from file_df.
+
+        Expects ``file_df`` to contain at least a ``'file_path'`` column, possibly
+        with list-valued entries for multi-channel images. When separate per-channel
+        columns are present, they are detected by a simple naming convention.
+        Mask filenames are taken from ``'mask_path'`` when available.
+        """
+        if "file_path" not in file_df.columns:
+            raise ValueError("file_df must contain 'file_path' column.")
+
+        self._image_path_col = "file_path"
+
+        channel_cols: list[str] = []
+        for col in file_df.columns:
+            name = str(col).lower()
+            if name.startswith("channel_") and name.endswith("_path"):
+                channel_cols.append(col)
+        channel_cols.sort()
+        self._channel_path_cols = channel_cols or None
+
+        if "mask_path" in file_df.columns:
+            self._mask_path_col = "mask_path"
+        else:
+            self._mask_path_col = None
+
+    def _resolve_processing_params(
+        self,
+        base: dict[str, Any],
+        *,
+        channel_mode: Literal["split", "combined"] | None = None,
+        channels: list[int] | None = None,
+        resize_size: int | None = None,
+        pad_size: int | None = None,
+        force_rgb: bool | None = None,
+    ) -> dict[str, Any]:
+        """Resolve processing params from base dict and overrides.
+
+        Used by process_temporal_images to inherit from the base run when overrides
+        are not specified. Bytes values (e.g. from HDF5) are decoded to str.
+        """
+
+        def _v(k: str, d: Any) -> Any:
+            x = base.get(k)
+            return x.decode() if isinstance(x, bytes) else (x if x is not None else d)
+
+        return {
+            "channel_mode": channel_mode or _v("channel_mode", "split"),
+            "channels": channels if channels is not None else base.get("channels"),
+            "resize_size": resize_size if resize_size is not None else _v("resize_size", 224),
+            "pad_size": pad_size if pad_size is not None else base.get("pad_size"),
+            "force_rgb": force_rgb if force_rgb is not None else _v("force_rgb", True),
+        }
+
+    def _create_dataloader(
+        self,
+        filtered_data: list[dict[str, Any]],
+        *,
+        transform: Any,
+        cur_params: dict[str, Any],
+        preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None = None,
+        batch_size: int = 32,
+        num_workers: int = 4,
+    ) -> DataLoader:
+        """Create DataLoader for embedding extraction."""
+        ch_mode = cur_params.get("channel_mode", "split")
+        ch_mode_val: Literal["split", "combined"] = cast(
+            Literal["split", "combined"],
+            ch_mode if ch_mode in ("split", "combined") else "split",
+        )
+        ch = cur_params.get("channels")
+        ch_val: list[int] | None = (
+            list(ch)
+            if ch is not None and hasattr(ch, "__iter__") and not isinstance(ch, str)
+            else (ch if isinstance(ch, list) else None)
+        )
+        if ch_val is not None and not all(isinstance(x, int) for x in ch_val):
+            ch_val = [int(x) for x in ch_val] if ch_val else None
+        force_rgb_val = (
+            bool(cur_params["force_rgb"]) if cur_params.get("force_rgb") is not None else True
+        )
+        ds = PhenoMeDataset(
+            filtered_data,
+            transform=transform,
+            channel_mode=ch_mode_val,
+            channels=ch_val,
+            preprocessing_fn=preprocessing_fn,
+            force_rgb=force_rgb_val,
+        )
+        nw = _effective_num_workers(num_workers)
+        return DataLoader(
+            ds,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=nw,
+            collate_fn=collate_fn,
+            pin_memory=torch.cuda.is_available(),
+            prefetch_factor=2 if nw > 0 else None,
+            persistent_workers=False,
+        )
+
+    def _run_embedding_extraction(
+        self,
+        model_wrapper: ModelWrapper,
+        dataloader: DataLoader,
+        *,
+        results: PhenoMeResults | None = None,
+        emb_buffer: list[np.ndarray] | None = None,
+        checkpoint_path: str | None = None,
+        ckpt: CheckpointManager | None = None,
+        cur_params: dict[str, Any] | None = None,
+        save_every: int = 5,
+        lazy_checkpoint: bool = True,
+    ) -> CheckpointManager | None:
+        """Run embedding extraction via EmbeddingExtractor. Thin wrapper for unit-testing."""
+        if results is None:
+            results = self.results
+        if emb_buffer is None:
+            emb_buffer = self._emb_buffer
+        extractor = EmbeddingExtractor(model_wrapper, self.device)
+        return extractor.extract_from_dataloader(
+            dataloader=dataloader,
+            results=results,
+            emb_buffer=emb_buffer,
+            checkpoint_path=checkpoint_path,
+            ckpt=ckpt,
+            cur_params=cur_params,
+            save_every=save_every,
+            lazy_checkpoint=lazy_checkpoint,
+        )
+
+    def _build_transforms(self, resize_size: int | None, pad_size: int | None = None) -> Any:
+        """Build torchvision transform pipeline for image preprocessing."""
+        self.test_transforms = self._transform_builder.build(
+            resize_size=resize_size, pad_size=pad_size
+        )
+        return self.test_transforms
+
+    def _validate_process_images_inputs(self, file_df: pd.DataFrame) -> None:
+        """Validate inputs for process_images method."""
+        if not isinstance(file_df, pd.DataFrame):
+            raise ValueError(f"file_df must be a DataFrame, got: {type(file_df)}")
+        if file_df.empty:
+            raise ValueError("file_df is empty.")
+        if "file_path" not in file_df.columns:
+            raise ValueError("file_df must contain 'file_path' column.")
+        # Ensure file_path contains non-empty values
+        for i, fpath in enumerate(file_df["file_path"]):
+            if isinstance(fpath, (list, tuple)):
+                if not fpath or not any(p for p in fpath if p):
+                    raise ValueError(
+                        f"Row {i}: file_path must not be empty or contain only empty strings."
+                    )
+            elif not fpath or not str(fpath).strip():
+                raise ValueError(f"Row {i}: file_path must not be empty.")
+
+    def _filter_dataframe(
+        self,
+        file_df: pd.DataFrame,
+        filters: dict[str, list[Any]] | None,
+        exclude: dict[str, list[Any]] | None = None,
+    ) -> pd.DataFrame:
+        """Filter DataFrame based on metadata filters and exclusions.
+
+        Both filters and exclude use the same format: metadata key -> single value
+        or list of values. They can be used together; exclude is applied after filters.
+        """
+        fdf: pd.DataFrame = file_df.copy()
+        if filters:
+            for key, allowed in filters.items():
+                cols = [c for c in fdf.columns if c.lower() == key.lower()]
+                if cols:
+                    col = cols[0]
+                    mask = (
+                        fdf[col].isin(allowed)
+                        if isinstance(allowed, list)
+                        else (fdf[col] == allowed)
+                    )
+                    fdf = fdf[mask]
+        if exclude:
+            exclude_mask = pd.Series(True, index=fdf.index)
+            for key, excluded in exclude.items():
+                cols = [c for c in fdf.columns if c.lower() == key.lower()]
+                if cols:
+                    col = cols[0]
+                    excluded_list = excluded if isinstance(excluded, list) else [excluded]
+                    exclude_mask = exclude_mask & fdf[col].isin(excluded_list)
+            fdf = fdf[~exclude_mask]
+        logger.info("Processing %d images after filtering.", len(fdf))
+        return fdf
+
+    def _prepare_filtered_data(self, fdf: pd.DataFrame) -> list[dict[str, Any]]:
+        """Prepare filtered data list from DataFrame."""
+        filtered_data: list[dict[str, Any]] = []
+        for _, row in fdf.iterrows():
+            meta = {
+                str(k).lower(): v for k, v in row.items() if str(k).lower() not in ("file_path",)
+            }
+            fpath = row["file_path"]
+            file_path = fpath if isinstance(fpath, list) else str(fpath)
+            filtered_data.append({"file_path": file_path, "metadata": meta})
+        return filtered_data
+
+    def _setup_checkpoint_resume(
+        self,
+        checkpoint_path: str | None,
+        cur_params: dict[str, Any],
+        filtered_data: list[dict[str, Any]],
+        lazy: bool = True,
+    ) -> tuple[
+        CheckpointManager | None,
+        set | None,
+        set | None,
+        list[dict[str, Any]],
+        dict[str, Any],
+    ]:
+        """Setup checkpoint resume and filter already-processed images.
+
+        When an existing checkpoint is found, the ``channels`` parameter stored in it
+        is adopted for processing the remaining images (overriding the caller's value).
+        This guarantees that newly computed embeddings are compatible with those already
+        committed.  All other parameter mismatches still raise ``ValueError``.
+
+        Args:
+            checkpoint_path: Path to HDF5 checkpoint.
+            cur_params: Current processing parameters.
+            filtered_data: List of images to be processed.
+            lazy: If True, keep the checkpoint file open for lazy loading.
+
+        Returns:
+            Tuple of (ckpt, requested_paths, requested_meta_keys, filtered_data, cur_params).
+            ``cur_params`` may differ from the input when the checkpoint overrides ``channels``.
+        """
+        if checkpoint_path is None:
+            return None, None, None, filtered_data, cur_params
+
+        requested_paths = {_path_repr(d["file_path"]) for d in filtered_data}
+        requested_meta_keys: set | None = None
+
+        if not os.path.isfile(checkpoint_path):
+            return None, requested_paths, None, filtered_data, cur_params
+
+        ckpt = CheckpointManager(checkpoint_path, lazy=lazy)
+
+        ckpt_params = ckpt.get_processing_params() or {}
+
+        if "channels" in ckpt_params:
+            ckpt_channels = ckpt_params["channels"]
+            if ckpt_channels != cur_params.get("channels"):
+                logger.info(
+                    "Adopting channel selection from checkpoint: %s (caller requested: %s).",
+                    ckpt_channels,
+                    cur_params.get("channels"),
+                )
+                cur_params = dict(cur_params, channels=ckpt_channels)
+
+        mismatches = ckpt.validate_processing_params(cur_params)
+        if mismatches:
+            logger.warning("Checkpoint parameter mismatch (%s):", checkpoint_path)
+            for k in CheckpointManager._PARAM_KEYS:
+                cv = cur_params.get(k)
+                sv = ckpt_params.get(k, "<not stored>")
+                diff = " <-- DIFF" if sv != cv else ""
+                logger.warning("  %s: checkpoint=%s  current=%s%s", k, sv, cv, diff)
+            ckpt.close()
+            raise ValueError(
+                "Checkpoint parameter mismatch. Use a different checkpoint path or "
+                "delete the file to start fresh."
+            )
+
+        if ckpt.get_processing_params() is None:
+            ckpt.set_processing_params(cur_params)
+
+        try:
+            requested_meta_keys = {
+                metadata_to_stable_key(d.get("metadata", {})) for d in filtered_data
+            }
+        except ValueError:
+            requested_meta_keys = None
+            logger.info(
+                "Metadata lacks atomic identifiers for checkpoint matching. "
+                "Falling back to path-based matching (not portable across devices)."
+            )
+
+        if requested_meta_keys is not None:
+            already_meta_keys = get_already_committed_metadata_keys(
+                ckpt.get_committed_metadata_list(), ckpt.n_committed
+            )
+            if already_meta_keys:
+                n_before = len(filtered_data)
+                filtered_data = filter_items_not_in_checkpoint(
+                    filtered_data,
+                    already_meta_keys=already_meta_keys,
+                )
+                logger.info(
+                    "Checkpoint: %d embeddings already in file, %d skipped, %d to process.",
+                    len(already_meta_keys),
+                    n_before - len(filtered_data),
+                    len(filtered_data),
+                )
+        else:
+            already_paths_list = ckpt.get_committed_paths_list()
+            already_paths = get_already_committed_paths(already_paths_list, ckpt.n_committed)
+
+            if ckpt.n_committed > 0 and not already_paths.intersection(requested_paths):
+                logger.warning(
+                    "Checkpoint contains %d images, but NONE match your current files.\n"
+                    "This usually means the dataset has moved. Call find_files at the "
+                    "new location first, then load_results.",
+                    ckpt.n_committed,
+                )
+
+            if already_paths:
+                n_before = len(filtered_data)
+                filtered_data = filter_items_not_in_checkpoint(
+                    filtered_data,
+                    already_paths=already_paths,
+                    path_repr_fn=_path_repr,
+                )
+                logger.info(
+                    "Checkpoint: %d embeddings already in file, %d skipped, %d to process.",
+                    len(already_paths),
+                    n_before - len(filtered_data),
+                    len(filtered_data),
+                )
+
+        return ckpt, requested_paths, requested_meta_keys, filtered_data, cur_params
+
+    def _finalize_processing(
+        self,
+        checkpoint_path: str | None,
+        ckpt: CheckpointManager | None,
+        requested_paths: set | None,
+        requested_meta_keys: set | None,
+        n_expected: int,
+        all_requested_data: list[dict[str, Any]] | None = None,
+    ) -> None:
+        """Finalize processing and handle checkpoint commit."""
+        use_ckpt = checkpoint_path is not None
+
+        if use_ckpt and ckpt is not None:
+            n_committed = ckpt.commit_embeddings()
+            logger.info("Checkpoint: saved %d embeddings to %s", n_committed, checkpoint_path)
+            self._setup_lazy_results(
+                ckpt,
+                requested_paths=requested_paths,
+                requested_meta_keys=requested_meta_keys,
+                current_requested_data=all_requested_data,
+            )
+        else:
+            n_actual = self.results.n_images
+            if n_actual < n_expected:
+                logger.warning(
+                    "Some images failed to load: %d processed, %d expected.",
+                    n_actual,
+                    n_expected,
+                )
+            self._finalize_results()
+
+    def _setup_lazy_results(
+        self,
+        ckpt: CheckpointManager,
+        requested_paths: set | None = None,
+        requested_meta_keys: set | None = None,
+        current_requested_data: list[dict[str, Any]] | None = None,
+    ) -> None:
+        """Set up HDF5-backed lazy results after a checkpoint write.
+
+        Loads paths, metadata, and properties into ``self.results``.
+        Embeddings remain on disk; ``results.embeddings`` stays None.
+        ``self._db`` holds the open file handle for lazy reads.
+
+        When ``current_requested_data`` is provided (e.g. from the current run's
+        file_df), checkpoint metadata is merged with it so that extra columns
+        in the new file_df are not lost when the checkpoint had fewer metadata
+        keys.
+
+        Args:
+            ckpt: Open CheckpointManager.
+            requested_paths: Optional set of paths to filter for.
+            requested_meta_keys: Optional set of stable metadata keys to filter for.
+            current_requested_data: Optional list of {file_path, metadata} from the
+                current run's file_df; used to enrich checkpoint metadata with new keys.
+        """
+        if self._db is not None and self._db is not ckpt:
+            try:
+                self._db.close()
+            except OSError as e:
+                logger.debug("Error closing previous checkpoint: %s", e)
+        self._db = ckpt
+
+        paths, metadata = ckpt.load_metadata_and_paths()
+        if current_requested_data:
+            metadata = merge_metadata_from_current_run(
+                paths, metadata, current_requested_data, _path_repr
+            )
+        properties = ckpt.load_properties_all()
+
+        h5_indices = np.arange(len(paths), dtype=np.int64)
+
+        if (requested_paths is not None or requested_meta_keys is not None) and paths:
+            if requested_meta_keys is not None:
+                indices = []
+                for i, meta in enumerate(metadata):
+                    try:
+                        key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
+                        if key in requested_meta_keys:
+                            indices.append(i)
+                    except ValueError:
+                        pass
+            else:
+                indices = [
+                    i for i, p in enumerate(paths) if _path_repr(p) in (requested_paths or set())
+                ]
+
+            if len(indices) != len(paths):
+                paths = [paths[i] for i in indices]
+                metadata = [metadata[i] for i in indices]
+                h5_indices = h5_indices[indices]
+                if properties:
+                    properties = [properties[i] for i in indices if i < len(properties)]
+
+        # When file_df was provided, replace checkpoint paths with file_df paths
+        # so results.img_path points to valid files on this machine.
+        if current_requested_data:
+            paths = rebase_paths_from_current_run(
+                paths, metadata, current_requested_data, _path_repr
+            )
+
+        self._db_indices = h5_indices
+        self._temporal_start_idx = len(paths)
+        self._temporal_embeddings = None
+
+        if len(properties) < len(paths):
+            properties = properties + [{} for _ in range(len(paths) - len(properties))]
+
+        self.results = PhenoMeResults(
+            img_path=paths,
+            metadata=metadata,
+            properties=properties,
+            embeddings=None,  # lazy: access via get_embeddings()
+        )
+        validate_results(self.results)
+        logger.info(
+            "Lazy DB: %d images backed by %s (embeddings on disk).",
+            len(paths),
+            ckpt.path,
+        )
+
+    def _finalize_results(self) -> None:
+        """Finalise: move _emb_buffer into results.embeddings as a stacked array."""
+        if self._emb_buffer:
+            self.results.embeddings = np.stack(self._emb_buffer)
+            self._emb_buffer = []
+
+    def _get_embedding_data(
+        self, method_name: str = "embedding"
+    ) -> tuple[np.ndarray | None, str | None]:
+        """Get all embeddings, loading lazily from HDF5 when a database is active."""
+        emb = self.get_embeddings()
+        if emb is None or len(emb) == 0:
+            logger.warning(
+                "No embedding data available for %s. Run process_images() first.",
+                method_name,
+            )
+            return None, None
+        return emb, "Embeddings"
+
+    def _require_file_df(self, method_name: str = "method") -> pd.DataFrame:
+        """Return the internally stored file_df or raise if unavailable.
+
+        Used by methods that need access to the dataset description without
+        exposing file_df as a public parameter.
+        """
+        if self._file_df is None or self._file_df.empty:
+            logger.warning(
+                "Run find_files() first before calling %s.",
+                method_name,
+            )
+            raise RuntimeError(
+                "file_df not available. Run find_files() first before calling this method."
+            )
+        return self._file_df

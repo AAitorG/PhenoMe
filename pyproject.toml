@@ -1,0 +1,252 @@
+[build-system]
+# setuptools 64+ provides PEP 660 editable installs (`pip install -e .`)
+requires = ["setuptools>=69.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# ==============================================================================
+# PROJECT METADATA
+# ==============================================================================
+
+[project]
+name = "phenome"
+version = "1.1.0"
+description = "PhenoMe: dataset-agnostic phenotyping pipeline using deep learning embeddings"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "Aitor González-Marfil"}]
+
+keywords = [
+    "phenotyping", "bioimaging", "computer vision", "deep learning",
+    "embeddings", "microscopy", "cell biology", "image analysis",
+    "pytorch", "drug discovery",
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "numpy>=1.24",
+    "pandas",
+    "matplotlib>=3.7",
+    "plotly",
+    "scikit-learn",
+    "joblib",
+    "tqdm",
+    "opencv-python",
+    "tifffile",
+    "h5py",
+    "scipy",
+    "scikit-image>=0.26.0",
+    "ipywidgets",
+    "anywidget",
+    "pillow",
+]
+
+[project.optional-dependencies]
+full = ["umap-learn", "dcor", "torchdr", "pykeops"]
+notebook = [
+    "ipykernel>=6.29",
+    "jupyterlab>=4.0",
+    "jupyterlab_widgets>=3.0",
+    "nbformat>=5.9",
+]
+dev = [
+    "codespell>=2.4",
+    "interrogate>=1.7.0",
+    "mypy>=1.19.1",
+    "pandas-stubs",
+    "pre-commit>=3.7",
+    "ruff>=0.15.4",
+    "types-requests",
+    "types-setuptools",
+]
+
+[project.urls]
+Homepage      = "https://github.com/AAitorG/PhenoMe"
+Repository    = "https://github.com/AAitorG/PhenoMe"
+Documentation = "https://github.com/AAitorG/PhenoMe/tree/main/docs"
+"Bug Tracker" = "https://github.com/AAitorG/PhenoMe/issues"
+Changelog     = "https://github.com/AAitorG/PhenoMe/blob/main/CHANGELOG.md"
+
+
+# ==============================================================================
+# BUILD & PACKAGE CONFIGURATION
+# ==============================================================================
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["phenome", "phenome.*"]
+
+[tool.setuptools.package-data]
+phenome = ["py.typed"]
+
+
+# ==============================================================================
+# RUFF – Linting & Formatting (Code Quality & Import Management)
+# ==============================================================================
+
+[tool.ruff]
+target-version = "py311"
+line-length    = 100
+extend-exclude = ["**/*.ipynb", "**/.ipynb_checkpoints"]
+force-exclude  = true
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes (undefined names, unused imports)
+    "I",   # isort (import sorting & organization)
+    "N",   # pep8-naming
+    "UP",  # pyupgrade (modern Python syntax)
+    "B",   # flake8-bugbear (common bugs)
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+    "RUF", # Ruff-specific rules
+    "NPY", # NumPy API warnings
+]
+ignore = [
+    "E501",   # Line length (handled by formatter)
+    "NPY002", # Global RNG seeding is intentional in reproducibility helpers
+]
+
+[tool.ruff.lint.per-file-ignores]
+"phenome/utils/transforms.py" = ["N812"]  # torch.nn.functional as F is conventional
+"Notebooks/**/*.py" = ["E402"]  # Allow sys.path manipulation in example code
+
+[tool.ruff.lint.isort]
+known-first-party = ["phenome"]
+force-single-line = false
+
+[tool.ruff.format]
+quote-style = "double"
+
+
+# ==============================================================================
+# INTERROGATE – Docstring Coverage (Documentation Standard)
+# ==============================================================================
+
+[tool.interrogate]
+ignore-init-module = true
+ignore-init-method = true
+ignore-magic       = true
+ignore-semiprivate = false
+ignore-private     = false
+ignore-property-decorators = false
+ignore-module      = false
+ignore-nested-functions = true
+ignore-nested-classes   = true
+fail-under         = 95
+exclude            = [
+    "setup.py",
+    "docs",
+    "build",
+    "phenome.egg-info",
+    "Notebooks",
+    "data/preprocessing",
+    "PAPER_latex",
+    "other_models.py",
+    "utils_paper_figures.py",
+]
+ignore-regex       = ["^get$", "^set$", "^test_.*$"]
+verbose            = 1
+quiet              = false
+whitelist-regex    = []
+color              = true
+
+
+# ==============================================================================
+# CODESPELL – Spell Checking
+# ==============================================================================
+
+[tool.codespell]
+skip     = "*.json,*.ipynb,*.lock,*.egg-info,./docs/_build"
+count    = true
+quiet-level = 3
+ignore-words-list = "phenome,dinov2,dinov3,keops,torchdr,umap"
+
+
+# ==============================================================================
+# MYPY – Static Type Checking (Strict Type Safety)
+# ==============================================================================
+
+[tool.mypy]
+python_version           = "3.11"
+warn_return_any          = true
+warn_unused_configs      = true
+warn_redundant_casts     = true
+warn_unused_ignores      = true
+disallow_untyped_defs    = true
+no_implicit_optional     = true
+pretty                   = true
+namespace_packages       = true
+explicit_package_bases   = true
+ignore_missing_imports   = false
+# Third-party stacks (sklearn, torchvision, joblib) lack py.typed; NumPy/pandas
+# annotations are often too strict for this codebase. Keep checking syntax and
+# project-local types while avoiding noisy false positives on scientific code.
+disable_error_code = [
+    "import-untyped",
+    "import-not-found",
+    "no-any-return",
+    "arg-type",
+    "assignment",
+    "return-value",
+    "operator",
+    "type-var",
+    "call-overload",
+    "index",
+    "misc",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "cv2",
+    "cv2.*",
+    "IPython",
+    "IPython.*",
+    "matplotlib",
+    "matplotlib.*",
+    "PIL",
+    "PIL.*",
+    "plotly",
+    "plotly.*",
+    "skimage",
+    "skimage.*",
+    "tifffile",
+    "tifffile.*",
+    "h5py",
+    "h5py.*",
+    "torch",
+    "torch.*",
+    "umap",
+    "umap.*",
+    "dcor",
+    "dcor.*",
+    "torchdr",
+    "torchdr.*",
+    "pykeops",
+    "pykeops.*",
+    "anywidget",
+    "anywidget.*",
+    "ipywidgets",
+    "ipywidgets.*",
+]
+ignore_missing_imports = true
