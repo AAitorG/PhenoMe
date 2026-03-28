@@ -25,16 +25,11 @@ pheno = PhenoMe(seed=42)
 file_df = pheno.find_files("path/to/images")
 pheno.process_images(wrapper)
 
-# 3. Compute Properties & Analyze
+# 3. Compute Properties and save results
 pheno.compute_properties(property_preset="basic")
-results = pheno.compute_reference_distances(
-    reference_filters={'condition': 'Control'}, source='embeddings'
-)
 
-# 4. Visualize & Report
-pheno.plot_pca(color_by='condition')
-pheno.generate_report(output_path="report.html")
-pheno.save_results(output_dir="results")
+# 4. Visualize
+pheno.create_interactive_explorer()
 ```
 
 ---
