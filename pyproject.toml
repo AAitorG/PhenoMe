@@ -155,15 +155,10 @@ ignore-nested-functions = true
 ignore-nested-classes   = true
 fail-under         = 95
 exclude            = [
-    "setup.py",
     "docs",
     "build",
     "phenome.egg-info",
     "Notebooks",
-    "data/preprocessing",
-    "PAPER_latex",
-    "other_models.py",
-    "utils_paper_figures.py",
 ]
 ignore-regex       = ["^get$", "^set$", "^test_.*$"]
 verbose            = 1

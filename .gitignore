@@ -2,13 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-toy_dataset/
-analysis_report.html
-PAPER_latex/
-muscles/
-output/
-cellCognition/
-figures/
 
 # C extensions
 *.so

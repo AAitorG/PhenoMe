@@ -87,7 +87,6 @@ with pipeline.checkpoint_context("results.h5") as p:
 - `phenome/` – Core pipeline and utilities
 - `phenome/mixins/` – Mixins (properties, distances, analysis, visualization)
 - `phenome/plugins/` – Property and metadata registries
-- `src/data/preprocessing/` – Preprocessing scripts
 - `docs/` – Documentation
 
 ## Common Edit Tasks
