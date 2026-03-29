@@ -7,7 +7,7 @@ It uses Plotly FigureWidgets and ipywidgets for a responsive experience.
 
 Key design:
   - **Color changes** are instant (no recomputation, only visual update).
-  - **Filter/Exclude** (collapsible under Embedding) restrict data before recomputation;
+  - **Filter** and **Exclude** (separate collapsible sections under Embedding) restrict data before recomputation;
     same field + search + multi-select pattern as Highlight.
   - **Method/Source/Dim** or metadata filter changes trigger dimensionality reduction (expensive).
   - **Highlight mode** shows ALL data points but visually emphasises a matching
@@ -56,6 +56,25 @@ _CLICK_DEBOUNCE_SEC = 0.15
 _DR_RANDOM_STATE = 42
 # Extra Plotly trace for click-to-select border (2D/3D); must match overlay click skip
 _SELECTION_OVERLAY_NAME = "_phenome_sel_overlay"
+
+
+def _format_elapsed_time(seconds: float) -> str:
+    """Format elapsed seconds for status labels (adds m/h as duration grows).
+
+    Uses tenths under 10s for responsiveness; then whole seconds; then ``Xm Ys`` / ``Xh Ym Zs``.
+    """
+    if seconds < 0:
+        seconds = 0.0
+    if seconds < 10:
+        return f"{seconds:.1f}s"
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    total = int(round(seconds))
+    h, rem = divmod(total, 3600)
+    m, s = divmod(rem, 60)
+    if h > 0:
+        return f"{h}h {m}m {s}s"
+    return f"{m}m {s}s"
 
 
 def _schedule_after_plotly_event_loop(fn: Callable[[], None]) -> None:
@@ -308,11 +327,11 @@ _HIGHLIGHT_DISCRETE_INT_MAX_UNIQUES = 512
 # Fixed pixel layout for embedding plot and click-to-inspect overlay (no flex resizing).
 _EMBEDDING_FIG_WIDTH_PX = 800
 _EMBEDDING_FIG_HEIGHT_PX = 700
-_IMAGE_OVERLAY_WIDTH_PX = 420
+_IMAGE_OVERLAY_WIDTH_PX = 600
 # Min height for the image panel (compact idle/loading; PNG expands when shown).
-_IMAGE_PANEL_MIN_HEIGHT_PX = 280
+_IMAGE_PANEL_MIN_HEIGHT_PX = 380
 # Matplotlib figsize (inches) for overlay image; ~100 DPI matches panel width minus padding.
-_IMAGE_OVERLAY_FIGSIZE: tuple[float, float] = (4.0, 4.0)
+_IMAGE_OVERLAY_FIGSIZE: tuple[float, float] = (6.0, 6.0)
 
 
 def _html_embedding_placeholder_idle(w_px: int, h_px: int) -> str:
@@ -437,6 +456,9 @@ class PhenoMeInteractive:
             max_points: Maximum points to plot before subsampling.
         """
         self.pheno = pheno_me
+        # Shallow copies: when set, DR always uses these instead of UI widget state.
+        self._constructor_filters: dict | None = dict(filters) if filters else None
+        self._constructor_exclude: dict | None = dict(exclude) if exclude else None
         self.initial_filters = filters
         self.initial_exclude = exclude
         self.hover_features = hover_features
@@ -600,7 +622,11 @@ class PhenoMeInteractive:
             layout=_row_layout,
         )
         _embed_full = widgets.VBox(
-            [_embed, self._embedding_filter_accordion],
+            [
+                _embed,
+                self._embedding_filter_accordion,
+                self._embedding_exclude_accordion,
+            ],
             layout=widgets.Layout(width="100%", gap="10px"),
         )
         _appear_row_layout = widgets.Layout(
@@ -739,6 +765,8 @@ class PhenoMeInteractive:
 
         Since filters/exclude change the data subset, this triggers a full recomputation.
         """
+        self._constructor_filters = dict(filters) if filters else None
+        self._constructor_exclude = dict(exclude) if exclude else None
         self.initial_filters = filters
         self.initial_exclude = exclude
         self._on_compute_clicked(None)
@@ -908,6 +936,13 @@ class PhenoMeInteractive:
             value=(
                 '<div style="font-size:11px;color:#5D6D7E;line-height:1.45;">'
                 "<b>Filter</b> keeps only rows matching any selected value (OR). "
+                "Press <b>Compute</b> to apply.</div>"
+            ),
+            layout=widgets.Layout(width="100%"),
+        )
+        self._exclude_help = widgets.HTML(
+            value=(
+                '<div style="font-size:11px;color:#5D6D7E;line-height:1.45;">'
                 "<b>Exclude</b> removes rows matching any selected value. "
                 "Press <b>Compute</b> to apply.</div>"
             ),
@@ -978,7 +1013,7 @@ class PhenoMeInteractive:
             [
                 widgets.HTML(
                     '<div style="font-size:10px;font-weight:600;color:#334155;letter-spacing:0.02em;'
-                    'margin:10px 0 2px 0;padding-bottom:4px;border-bottom:1px solid #E2E8F0;">'
+                    'margin:0 0 2px 0;padding-bottom:4px;border-bottom:1px solid #E2E8F0;">'
                     "Exclude</div>"
                 ),
                 widgets.HBox(
@@ -989,22 +1024,22 @@ class PhenoMeInteractive:
             ],
             layout=widgets.Layout(width="100%", gap="8px"),
         )
-        self._filter_exclude_actions_sep = widgets.HTML(
-            value=_INTERACTIVE_SECTION_SEP_HTML,
-            layout=widgets.Layout(width="100%"),
-        )
         self.filter_clear_btn = widgets.Button(
-            description="Clear filters",
+            description="Clear filter",
             button_style="warning",
             icon="times",
             layout=widgets.Layout(width="130px"),
         )
-        self._filter_exclude_panel = widgets.VBox(
+        self.exclude_clear_btn = widgets.Button(
+            description="Clear exclude",
+            button_style="warning",
+            icon="times",
+            layout=widgets.Layout(width="130px"),
+        )
+        self._filter_accordion_panel = widgets.VBox(
             [
                 self._filter_help,
                 self._filter_include_block,
-                self._filter_exclude_block,
-                self._filter_exclude_actions_sep,
                 widgets.HBox(
                     [self.filter_clear_btn],
                     layout=widgets.Layout(
@@ -1015,12 +1050,32 @@ class PhenoMeInteractive:
             ],
             layout=widgets.Layout(width="100%", gap="10px", padding="10px 12px 12px 12px"),
         )
+        self._exclude_accordion_panel = widgets.VBox(
+            [
+                self._exclude_help,
+                self._filter_exclude_block,
+                widgets.HBox(
+                    [self.exclude_clear_btn],
+                    layout=widgets.Layout(
+                        width="100%",
+                        padding="4px 0 0 70px",
+                    ),
+                ),
+            ],
+            layout=widgets.Layout(width="100%", gap="10px", padding="10px 12px 12px 12px"),
+        )
         self._embedding_filter_accordion = widgets.Accordion(
-            children=[self._filter_exclude_panel],
+            children=[self._filter_accordion_panel],
             layout=widgets.Layout(width="100%"),
         )
-        self._embedding_filter_accordion.set_title(0, "▽ Filter / exclude")
+        self._embedding_filter_accordion.set_title(0, "Filter")
         self._embedding_filter_accordion.selected_index = None
+        self._embedding_exclude_accordion = widgets.Accordion(
+            children=[self._exclude_accordion_panel],
+            layout=widgets.Layout(width="100%"),
+        )
+        self._embedding_exclude_accordion.set_title(0, "Exclude")
+        self._embedding_exclude_accordion.selected_index = None
 
     def _create_highlight_widgets(self) -> None:
         """Create highlight/filter widgets."""
@@ -1137,6 +1192,7 @@ class PhenoMeInteractive:
         self.exclude_search_input.observe(self._on_exclude_search_changed, names="value")
         self.exclude_value_select.observe(self._on_exclude_value_changed, names="value")
         self.filter_clear_btn.on_click(self._on_filter_clear_clicked)
+        self.exclude_clear_btn.on_click(self._on_exclude_clear_clicked)
         self.highlight_key_dropdown.observe(self._on_highlight_key_changed, names="value")
         self.highlight_search_input.observe(self._on_highlight_search_changed, names="value")
         self.highlight_value_select.observe(self._on_highlight_value_changed, names="value")
@@ -1292,13 +1348,19 @@ class PhenoMeInteractive:
         return sorted(set(all_vals), key=str)
 
     def _sync_embed_filters_from_widgets(self) -> None:
-        """Set ``initial_filters`` / ``initial_exclude`` from current filter widgets."""
+        """Set ``initial_filters`` / ``initial_exclude`` from widgets or constructor overrides."""
         fk = self.filter_key_dropdown.value
         fv = list(self.filter_value_select.value)
-        self.initial_filters = None if fk is None or not fv else {fk: fv}
+        ui_filters = None if fk is None or not fv else {fk: fv}
         ek = self.exclude_key_dropdown.value
         ev = list(self.exclude_value_select.value)
-        self.initial_exclude = None if ek is None or not ev else {ek: ev}
+        ui_exclude = None if ek is None or not ev else {ek: ev}
+        self.initial_filters = (
+            self._constructor_filters if self._constructor_filters is not None else ui_filters
+        )
+        self.initial_exclude = (
+            self._constructor_exclude if self._constructor_exclude is not None else ui_exclude
+        )
 
     def _apply_filter_search_filter(self, *, select_default: bool = False) -> None:
         """Filter ``filter_value_select`` by ``filter_search_input``; sync pipeline dict."""
@@ -1499,6 +1561,8 @@ class PhenoMeInteractive:
         method_key = method_label.lower().replace("-", "")  # 'pca', 'tsne', 'umap'
         n_dims = self.dim_toggle.value
         source = self.source_dropdown.value
+
+        self._sync_embed_filters_from_widgets()
 
         t0 = time.time()
         df, _feature_type, dr_obj = run_dimensionality_reduction(
@@ -1840,7 +1904,7 @@ class PhenoMeInteractive:
                 legend=_legend,
             )
 
-        # Continuous colour: horizontal colorbar under the plot (shared coloraxis for 2D/3D)
+        # Continuous colour: horizontal colorbar at the bottom of the plot (shared coloraxis for 2D/3D)
         if is_continuous and color_column:
             fig.update_layout(
                 coloraxis={
@@ -2105,7 +2169,9 @@ class PhenoMeInteractive:
                                     value=png,
                                     format="png",
                                     layout=widgets.Layout(
-                                        width="100%", max_width="100%", height="auto"
+                                        width=f"{_IMAGE_OVERLAY_WIDTH_PX}px",
+                                        max_width="100%",
+                                        height="auto",
                                     ),
                                 )
                                 if details_text:
@@ -2409,7 +2475,7 @@ class PhenoMeInteractive:
         compute_done = threading.Event()
         t_start = time.time()
         self.compute_button.disabled = True
-        self.status_label.value = self._status_html("Computing… 0s", "warn")
+        self.status_label.value = self._status_html(f"Computing… {_format_elapsed_time(0.0)}", "warn")
         # Full-size computing state so the plot area is not a blank gap while DR runs.
         self._plot_slot.children = (self._embedding_placeholder_computing,)
 
@@ -2418,7 +2484,9 @@ class PhenoMeInteractive:
                 if compute_done.wait(timeout=0.5):
                     break
                 elapsed = time.time() - t_start
-                self.status_label.value = self._status_html(f"Computing… {elapsed:.0f}s", "warn")
+                self.status_label.value = self._status_html(
+                    f"Computing… {_format_elapsed_time(elapsed)}", "warn"
+                )
 
         def _run() -> None:
             ticker = threading.Thread(target=_tick, daemon=True)
@@ -2444,7 +2512,7 @@ class PhenoMeInteractive:
 
                 n = len(self._cached_df) if self._cached_df is not None else 0
                 self.status_label.value = self._status_html(
-                    f"Done — {n:,} points in {elapsed:.1f}s", "ok"
+                    f"Done — {n:,} points in {_format_elapsed_time(elapsed)}", "ok"
                 )
             except Exception as e:
                 self.status_label.value = self._status_html(f"Error: {e}", "err")
@@ -2621,14 +2689,18 @@ class PhenoMeInteractive:
         )
 
     def _on_filter_clear_clicked(self, _btn: Any) -> None:
-        """Clear filter and exclude selections (recompute still requires Compute)."""
+        """Clear filter (include) selections only (recompute still requires Compute)."""
         self.filter_search_input.value = ""
-        self.exclude_search_input.value = ""
         self.filter_value_select.value = ()
-        self.exclude_value_select.value = ()
         self._update_filter_value_options(select_default=False)
+        self.status_label.value = self._status_html("Filter cleared", "info")
+
+    def _on_exclude_clear_clicked(self, _btn: Any) -> None:
+        """Clear exclude selections only (recompute still requires Compute)."""
+        self.exclude_search_input.value = ""
+        self.exclude_value_select.value = ()
         self._update_exclude_value_options(select_default=False)
-        self.status_label.value = self._status_html("Filters cleared", "info")
+        self.status_label.value = self._status_html("Exclude cleared", "info")
 
     def _on_marker_style_changed(self, change: Any) -> None:
         """Adjust marker size / opacity without recomputation."""
