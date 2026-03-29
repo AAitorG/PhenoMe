@@ -54,6 +54,7 @@ conda activate phenome
 - Memory-efficient GPU DR: `pykeops` (KeOps backend for large t-SNE/UMAP).
 - UMAP on CPU (when not using TorchDR on GPU): `umap-learn`.
 - Distance correlation: `dcor`.
+- NIfTI image support (.nii, .nii.gz): `nibabel`.
 
 ---
 

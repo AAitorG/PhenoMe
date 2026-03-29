@@ -66,3 +66,4 @@ dependencies:
 #    - dcor==0.7
 #    - pykeops==2.3
 #    - torchdr>=0.1,<0.2
+#    - nibabel>=5.2.0

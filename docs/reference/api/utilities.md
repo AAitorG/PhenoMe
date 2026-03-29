@@ -44,9 +44,9 @@ Loads a standard DINOv2 model and wraps it into a `DinoV2ModelWrapper`.
 #### `read_image`
 
 ```python
-read_image(path: str) -> np.ndarray
+read_image(path: str | list[str]) -> np.ndarray
 ```
-Reads an image to a float32 array in `(H, W)` or `(H, W, C)` format. Supports OpenCV formats and TIFF (`tifffile`).
+Reads an image to a float32 array in `(H, W)` or `(H, W, C)` format. Supports OpenCV formats, TIFF (`tifffile`), NIfTI (`nibabel`), and NumPy arrays (`.npy`, `.npz`).
 
 ---
 

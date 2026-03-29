@@ -17,6 +17,8 @@ from .._logging import get_logger
 from ..metadata.base import MetadataBase
 from ..utils.metadata import default_metadata_from_path
 
+__all__ = ["FileDiscovery", "ensure_hwc", "read_image"]
+
 logger = get_logger(__name__)
 
 
@@ -24,7 +26,8 @@ def read_image(path: str | list[str]) -> np.ndarray:
     """
     Read an image and return as a numpy array.
 
-    Supports TIFF (via tifffile) and common formats (PNG, JPEG, BMP, etc. via OpenCV).
+    Supports TIFF (via tifffile), NIfTI (via nibabel), Numpy arrays (.npy, .npz), and
+    common formats (PNG, JPEG, BMP, etc. via OpenCV).
     When ``path`` is a list of paths (e.g. one per channel), each file is read and
     concatenated along the channel axis, yielding shape (H, W, C_total).
 
@@ -45,7 +48,23 @@ def read_image(path: str | list[str]) -> np.ndarray:
 
     ext = os.path.splitext(path)[1].lower()
 
-    if ext in {".tif", ".tiff"}:
+    if ext == ".npy":
+        img = np.load(path)
+    elif ext == ".npz":
+        with np.load(path) as data:
+            img = data[data.files[0]]
+    elif ext in {".nii", ".gz"} and (
+        path.lower().endswith(".nii") or path.lower().endswith(".nii.gz")
+    ):
+        try:
+            import nibabel as nib
+
+            img = nib.load(path).get_fdata()
+        except ImportError as e:
+            raise ImportError("nibabel is required to read NIfTI files.") from e
+        except Exception as e:
+            raise ValueError(f"Could not read NIfTI image at {path}: {e}") from e
+    elif ext in {".tif", ".tiff"}:
         try:
             import tifffile
 

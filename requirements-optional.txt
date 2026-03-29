@@ -11,3 +11,6 @@ torchdr
 
 # Memory-efficient KeOps backend for t-SNE/UMAP (linear memory vs O(n^2))
 pykeops
+
+# NIfTI image support (.nii, .nii.gz format reading)
+nibabel
