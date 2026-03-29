@@ -1768,7 +1768,7 @@ class PhenoMeInteractive:
                 "font": {"size": 11, "family": _font["family"], "color": "#334155"},
             }
 
-        source_label = self._cached_source.upper() if self._cached_source else "?"
+        source_label = self._cached_source if self._cached_source else "?"
         title_main = f"{self._cached_method} ({source_label})"
         title_html = (
             f'<span style="font-size:17px;font-weight:600;letter-spacing:-0.02em;color:#141428;">'
