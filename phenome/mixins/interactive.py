@@ -1917,7 +1917,7 @@ class PhenoMeInteractive:
                         "lenmode": "fraction",
                         "len": 0.72,
                         "thickness": 16,
-                        "title": {"side": "bottom", "font": {"size": 12, "color": "#334155"}},
+                        "title": {"text": color_column, "side": "top", "font": {"size": 12, "color": "#334155"}},
                         "tickfont": {"size": 10, "color": "#64748b"},
                         "ticklen": 5,
                         "tickcolor": "#cbd5e1",
