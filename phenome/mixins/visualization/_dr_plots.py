@@ -1,6 +1,5 @@
 """Dimensionality reduction and centroid plot methods for PhenoMeVisualization."""
 
-from collections.abc import Callable
 from typing import Any, Literal
 
 import pandas as pd
@@ -37,35 +36,6 @@ class _DRPlotsMixin:
     def _get_color_column(self, color_by: str, df: pd.DataFrame) -> tuple[str, bool]:
         """Determine the column to use for coloring and whether it's continuous."""
         return _get_color_column_fn(self, color_by, df)
-
-    def _build_trajectory_sort_keys(
-        self,
-        unique_values: list[Any],
-        trajectory_order: list[Any] | None = None,
-        sort_key_fn: Callable[[Any], float] | None = None,
-    ) -> dict[Any, float]:
-        """Build value -> sort_key mapping for trajectory ordering."""
-        if sort_key_fn is not None:
-            result: dict[Any, float] = {}
-            for v in unique_values:
-                try:
-                    result[v] = sort_key_fn(v)
-                except (TypeError, ValueError):
-                    result[v] = float("inf")
-            return result
-        if trajectory_order is not None:
-            return {v: float(i) for i, v in enumerate(trajectory_order)}
-
-        def _key(v: Any) -> tuple[float, str]:
-            if pd.isna(v):
-                return (float("inf"), "")
-            try:
-                return (float(v), str(v))
-            except (TypeError, ValueError):
-                return (float("inf"), str(v))
-
-        sorted_vals = sorted(unique_values, key=_key)
-        return {v: float(i) for i, v in enumerate(sorted_vals)}
 
     def _plot_dr_scatter(
         self,
@@ -316,13 +286,10 @@ class _DRPlotsMixin:
     def _compute_group_centroids_in_dr_space(
         self,
         group_by: str | list[str],
-        trajectory_key: str | list[str] | None,
         method: Literal["pca", "tsne", "umap"],
         n_components: int,
         filters: dict[str, Any | list[Any]] | None,
         exclude: dict[str, Any | list[Any]] | None = None,
-        trajectory_order: list[Any] | None = None,
-        sort_key_fn: Callable[[Any], float] | None = None,
         source: str = "embeddings",
         property_keys: list[str] | None = None,
         normalize: bool = True,
@@ -334,10 +301,8 @@ class _DRPlotsMixin:
         dict[str, str] | None,
         bool,
         str,
-        str,
-        bool,
     ]:
-        """Compute centroids per (group, trajectory_step) in reduced space."""
+        """Compute one centroid per group in reduced space."""
         dr_method_kwargs = {
             "pca": {},
             "tsne": {"perplexity": 30.0},
@@ -390,18 +355,11 @@ class _DRPlotsMixin:
             dr_obj = None
 
         if df is None or len(df) == 0:
-            return None, None, [], None, False, "", "", False
+            return None, None, [], None, False, ""
         df_work: pd.DataFrame = df  # Narrow type for closure
         df = df_work  # Working copy for modifications
 
         group_keys = [group_by] if isinstance(group_by, str) else list(group_by)
-        traj_keys: list[str] | None = (
-            [trajectory_key]
-            if isinstance(trajectory_key, str)
-            else list(trajectory_key)
-            if trajectory_key is not None
-            else None
-        )
 
         def _resolve_cols(keys: list[str]) -> tuple[str, list[str]]:
             cols = []
@@ -414,48 +372,19 @@ class _DRPlotsMixin:
                 return cols[0], cols
             return "_group", cols
 
-        draw_trajectories = traj_keys is not None and len(traj_keys) > 0
-
-        if draw_trajectories and traj_keys is not None:
-            traj_keys_list: list[str] = traj_keys
-            traj_lower = {str(k).lower() for k in traj_keys_list}
-            group_col_keys = [k for k in group_keys if str(k).lower() not in traj_lower]
-            step_col, step_cols = _resolve_cols(traj_keys_list)
-            if not group_col_keys:
-                group_col, group_cols = step_col, step_cols
-            else:
-                group_col, group_cols = _resolve_cols(group_col_keys)
-        else:
-            group_col, group_cols = _resolve_cols(group_keys)
-            step_col = "_step"
-            step_cols = []
+        group_col, group_cols = _resolve_cols(group_keys)
 
         if not group_col:
-            return None, None, [], None, False, "", "", False
-        if draw_trajectories and not step_col:
-            return None, None, [], None, False, "", "", False
+            return None, None, [], None, False, ""
 
-        if draw_trajectories and group_col == step_col:
-            df = df.copy()
-            df["_step"] = df[group_col]
-            step_col = "_step"
-
-        if len(group_cols) > 1 or (draw_trajectories and len(step_cols) > 1):
-            df = df.copy()
         if len(group_cols) > 1:
+            df = df.copy()
             df[group_col] = df[group_cols].astype(str).agg(" | ".join, axis=1)
-        if draw_trajectories and len(step_cols) > 1:
-            df["_step"] = df[step_cols].astype(str).agg(" | ".join, axis=1)
-            step_col = "_step"
-        elif not draw_trajectories:
-            if not (len(group_cols) > 1 or len(step_cols) > 1):
-                df = df.copy()
-            df["_step"] = 0
         comp_cols = [c for c in df.columns if c.startswith("Component ")]
         if comp_cols:
             coord_cols = sorted(comp_cols, key=lambda x: int(x.split()[1]))[:n_components]
         else:
-            exclude_cols = {"Index", "Image", group_col, step_col}
+            exclude_cols = {"Index", "Image", group_col}
             coord_cols = [c for c in df.columns if c not in exclude_cols][:n_components]
 
         axis_labels: dict[str, str] = {}
@@ -475,14 +404,8 @@ class _DRPlotsMixin:
 
         agg_dict = dict.fromkeys(coord_cols, "mean")
         agg_dict["Index"] = "count"
-        cent = df.groupby([group_col, step_col], dropna=False).agg(agg_dict).reset_index()
+        cent = df.groupby(group_col, dropna=False).agg(agg_dict).reset_index()
         cent = cent.rename(columns={"Index": "n_samples"})
-
-        unique_steps = cent[step_col].dropna().unique().tolist()
-        value_to_sort_key = self._build_trajectory_sort_keys(
-            unique_steps, trajectory_order, sort_key_fn
-        )
-        cent["_sort_key"] = cent[step_col].map(lambda v: value_to_sort_key.get(v, float("inf")))
         is_3d = n_components >= 3
         return (
             df,
@@ -491,20 +414,15 @@ class _DRPlotsMixin:
             axis_labels or {},
             is_3d,
             group_col,
-            step_col,
-            draw_trajectories,
         )
 
     def plot_centroids(
         self,
         group_by: str | list[str],
-        trajectory_key: str | list[str] | None = None,
         method: Literal["pca", "tsne", "umap"] = "pca",
         n_components: int = 2,
         filters: dict[str, Any | list[Any]] | None = None,
         exclude: dict[str, Any | list[Any]] | None = None,
-        trajectory_order: list[Any] | None = None,
-        sort_key_fn: Callable[[Any], float] | None = None,
         source: Literal["embeddings", "properties", "combined"] = "embeddings",
         property_keys: list[str] | None = None,
         show_points: bool = True,
@@ -514,7 +432,7 @@ class _DRPlotsMixin:
         normalize: bool = True,
         **dr_kwargs: Any,
     ) -> Any:
-        """Plot centroids of groups in reduced embedding space, optionally connected as trajectories."""
+        """Plot centroids of groups in reduced embedding space."""
         available_keys = get_all_metadata_keys(self.results)
         group_keys = [group_by] if isinstance(group_by, str) else list(group_by)
 
@@ -530,30 +448,13 @@ class _DRPlotsMixin:
             return resolved
 
         group_meta_keys = _resolve_keys(group_keys)
-        if trajectory_key is not None:
-            traj_keys = (
-                [trajectory_key] if isinstance(trajectory_key, str) else list(trajectory_key)
-            )
-            trajectory_meta_keys = _resolve_keys(traj_keys)
-            traj_lower = {str(k).lower() for k in trajectory_meta_keys}
-            group_lower = {str(k).lower() for k in group_meta_keys}
-            if not traj_lower.issubset(group_lower):
-                raise ValueError(
-                    f"trajectory_key {trajectory_meta_keys} must be a subset of group_by "
-                    f"{group_meta_keys}. Add trajectory dimension(s) to group_by."
-                )
-        else:
-            trajectory_meta_keys = []
 
         result = self._compute_group_centroids_in_dr_space(
             group_by=group_meta_keys,
-            trajectory_key=trajectory_meta_keys if trajectory_meta_keys else None,
             method=method,
             n_components=n_components,
             filters=filters,
             exclude=exclude,
-            trajectory_order=trajectory_order,
-            sort_key_fn=sort_key_fn,
             source=source,
             property_keys=property_keys,
             normalize=normalize,
@@ -569,9 +470,9 @@ class _DRPlotsMixin:
             axis_labels,
             is_3d,
             group_col,
-            step_col,
-            draw_trajectories,
         ) = result
+
+        is_3d = is_3d and len(coord_cols) >= 3
         x_col, y_col = coord_cols[0], coord_cols[1]
         z_col = coord_cols[2] if is_3d else None
         assert df_full is not None and df_centroids is not None  # Narrow for mypy
@@ -579,15 +480,7 @@ class _DRPlotsMixin:
         group_display = (
             " | ".join(group_meta_keys) if len(group_meta_keys) > 1 else group_meta_keys[0]
         )
-        if draw_trajectories and trajectory_meta_keys:
-            step_display = (
-                " | ".join(trajectory_meta_keys)
-                if len(trajectory_meta_keys) > 1
-                else trajectory_meta_keys[0]
-            )
-            title = f"Centroids by {group_display} across {step_display}"
-        else:
-            title = f"Centroids by {group_display}"
+        title = f"Centroids by {group_display}"
 
         unique_groups = sorted(df_centroids[group_col].dropna().unique(), key=str)
         if not unique_groups:
@@ -602,6 +495,7 @@ class _DRPlotsMixin:
                 mask = df_full[group_col] == grp
                 sub = df_full[mask]
                 c = color_hex.get(grp, "#888")
+                show_leg = not show_centroids
                 if is_3d:
                     fig.add_trace(
                         go.Scatter3d(
@@ -612,7 +506,7 @@ class _DRPlotsMixin:
                             name=str(grp),
                             marker={"size": 4, "opacity": 0.4, "color": c},
                             legendgroup=str(grp),
-                            showlegend=False,
+                            showlegend=show_leg,
                         )
                     )
                 else:
@@ -624,86 +518,52 @@ class _DRPlotsMixin:
                             name=str(grp),
                             marker={"size": 4, "opacity": 0.4, "color": c},
                             legendgroup=str(grp),
-                            showlegend=False,
+                            showlegend=show_leg,
                         )
                     )
 
         for grp in unique_groups:
-            sub = df_centroids[df_centroids[group_col] == grp].sort_values("_sort_key")
-            if len(sub) < 2:
-                if show_centroids and len(sub) == 1:
-                    c = color_hex.get(grp, "#888")
-                    step_label = str(sub[step_col].iloc[0]) if draw_trajectories else str(grp)
-                    if is_3d:
-                        fig.add_trace(
-                            go.Scatter3d(
-                                x=sub[x_col],
-                                y=sub[y_col],
-                                z=sub[z_col],
-                                mode="markers+text",
-                                name=str(grp),
-                                marker={"size": 12, "color": c, "symbol": "diamond"},
-                                text=[step_label],
-                                textposition="top center",
-                                textfont={"size": 12},
-                                legendgroup=str(grp),
-                            )
-                        )
-                    else:
-                        fig.add_trace(
-                            go.Scatter(
-                                x=sub[x_col],
-                                y=sub[y_col],
-                                mode="markers+text",
-                                name=str(grp),
-                                marker={"size": 12, "color": c, "symbol": "diamond"},
-                                text=[step_label],
-                                textposition="top center",
-                                textfont={"size": 12},
-                                legendgroup=str(grp),
-                            )
-                        )
+            sub = df_centroids[df_centroids[group_col] == grp]
+            if not show_centroids or len(sub) == 0:
                 continue
-
-            xs, ys = sub[x_col].tolist(), sub[y_col].tolist()
-            zs = sub[z_col].tolist() if is_3d else None
-            steps = sub[step_col].tolist()
+            if len(sub) > 1:
+                logger.warning(
+                    "Multiple centroid rows for group %r; expected one per group. "
+                    "Using the first row only.",
+                    grp,
+                )
+            one = sub.iloc[:1]
             c = color_hex.get(grp, "#888")
-            step_labels = [str(s) for s in steps]
-            hover_text = [f"{s} (n={n})" for s, n in zip(steps, sub["n_samples"], strict=False)]
+            label = str(grp)
             if is_3d:
                 fig.add_trace(
                     go.Scatter3d(
-                        x=xs,
-                        y=ys,
-                        z=zs,
-                        mode="lines+markers+text",
+                        x=one[x_col],
+                        y=one[y_col],
+                        z=one[z_col],
+                        mode="markers+text",
                         name=str(grp),
-                        line={"color": c, "width": 3},
-                        marker={"size": 10 if show_centroids else 6, "color": c},
-                        legendgroup=str(grp),
-                        text=step_labels,
+                        marker={"size": 12, "color": c, "symbol": "diamond"},
+                        text=[label],
                         textposition="top center",
                         textfont={"size": 12},
-                        hovertext=hover_text,
-                        hoverinfo="text",
+                        legendgroup=str(grp),
+                        showlegend=True,
                     )
                 )
             else:
                 fig.add_trace(
                     go.Scatter(
-                        x=xs,
-                        y=ys,
-                        mode="lines+markers+text",
+                        x=one[x_col],
+                        y=one[y_col],
+                        mode="markers+text",
                         name=str(grp),
-                        line={"color": c, "width": 3},
-                        marker={"size": 10 if show_centroids else 6, "color": c},
-                        legendgroup=str(grp),
-                        text=step_labels,
+                        marker={"size": 12, "color": c, "symbol": "diamond"},
+                        text=[label],
                         textposition="top center",
                         textfont={"size": 12},
-                        hovertext=hover_text,
-                        hoverinfo="text",
+                        legendgroup=str(grp),
+                        showlegend=True,
                     )
                 )
 

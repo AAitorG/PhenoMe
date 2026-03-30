@@ -308,21 +308,20 @@ pheno.plot_pca(
 )
 ```
 
-### Advanced: Trajectory Visualization
+### Advanced: Centroids in reduced space
 
-Use `plot_centroids` with `trajectory_key` to show how group centroids move across time:
+Plot one centroid per combination of metadata keys (e.g. condition and timepoint):
 
 ```python
 pheno.plot_centroids(
     group_by=['condition', 'timepoint'],
-    trajectory_key='timepoint',
     method='pca',
     show_points=True,
     show_centroids=True,
 )
 ```
 
-For custom matplotlib trajectories, use `pheno.get_embeddings()` with your preferred plotting library; see [Visualization API](../reference/api/visualization.md).
+For custom trajectories or layouts, use `pheno.get_embeddings()` with your preferred plotting library; see [Visualization API](../reference/api/visualization.md).
 
 ---
 

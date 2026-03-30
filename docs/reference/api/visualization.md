@@ -181,18 +181,16 @@ Plots a horizontal bar chart of the highest correlated properties.
 #### `plot_centroids`
 
 ```python
-plot_centroids(group_by: Union[str, List[str]], trajectory_key: Optional[Union[str, List[str]]] = None, method: Literal['pca', 'tsne', 'umap'] = 'pca', n_components: int = 2, filters: Optional[Dict] = None, trajectory_order: Optional[List[Any]] = None, sort_key_fn: Optional[Callable] = None, source: str = 'embeddings', property_keys: Optional[List[str]] = None, show_points: bool = True, show_centroids: bool = True, figsize: Tuple[int, int] = (10, 8), return_fig: bool = False, normalize: bool = True, **dr_kwargs)
+plot_centroids(group_by: Union[str, List[str]], method: Literal['pca', 'tsne', 'umap'] = 'pca', n_components: int = 2, filters: Optional[Dict] = None, exclude: Optional[Dict] = None, source: str = 'embeddings', property_keys: Optional[List[str]] = None, show_points: bool = True, show_centroids: bool = True, figsize: Tuple[int, int] = (10, 8), return_fig: bool = False, normalize: bool = True, **dr_kwargs)
 ```
-Plots group centroids in reduced embedding space (PCA/t-SNE/UMAP). Optionally connects centroids as trajectories across a sequential dimension (e.g. time, dose).
+Plots group centroids in reduced embedding space (PCA/t-SNE/UMAP).
 
 **Parameters:**
 - **group_by** (*Union[str, List[str]]*) – Metadata key(s) defining centroid groups (e.g. `'drug'`, `['drug', 'cell_line']`).
-- **trajectory_key** (*Optional[Union[str, List[str]]]*) – Metadata key(s) for the sequential dimension to connect centroids into trajectories (e.g. `'time'`, `'dose'`). Must be a subset of `group_by`. If `None`, only centroid points are shown (no connecting lines).
 - **method** (*Literal['pca', 'tsne', 'umap']*) – Dimensionality reduction method.
 - **n_components** (*int*) – Number of components (2 or 3).
 - **filters** (*Optional[Dict]*) – Metadata filters.
-- **trajectory_order** (*Optional[List[Any]]*) – Explicit order of trajectory step values when `trajectory_key` is set.
-- **sort_key_fn** (*Optional[Callable]*) – Custom ordering for trajectory steps.
+- **exclude** (*Optional[Dict]*) – Metadata values to exclude.
 - **source** (*str*) – `'embeddings'`, `'properties'`, or `'combined'`.
 - **property_keys** (*Optional[List[str]]*) – Property subset when using properties.
 - **show_points** (*bool*) – Whether to show individual data points.
@@ -204,11 +202,10 @@ Plots group centroids in reduced embedding space (PCA/t-SNE/UMAP). Optionally co
 
 **Examples:**
 ```python
-# Centroids only (no trajectories)
 pheno.plot_centroids(group_by='class', method='tsne')
 
-# Centroids connected as trajectories across time
-pheno.plot_centroids(group_by=['drug', 'time'], trajectory_key='time', method='pca')
+# One centroid per (drug, time) combination
+pheno.plot_centroids(group_by=['drug', 'time'], method='pca')
 ```
 
 ---

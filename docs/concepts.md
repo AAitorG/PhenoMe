@@ -301,9 +301,9 @@ pheno.plot_tsne(n_components=3, color_by='condition')
 # UMAP with custom parameters
 pheno.plot_umap(n_neighbors=15, min_dist=0.1, color_by='drug')
 
-# Centroids (and optional trajectories across time/dose)
+# Centroids in reduced space
 pheno.plot_centroids(group_by='condition', method='pca')
-pheno.plot_centroids(group_by=['drug', 'time'], trajectory_key='time', method='pca')
+pheno.plot_centroids(group_by=['drug', 'time'], method='pca')
 ```
 
 ### Distance Distributions
