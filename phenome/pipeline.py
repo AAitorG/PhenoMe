@@ -661,7 +661,14 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
 
         if idx < len(self.results.properties) and isinstance(self.results.properties[idx], dict):
             for k, v in self.results.properties[idx].items():
-                info[k] = float(v) if v is not None and not np.isnan(v) else None
+                if v is None:
+                    info[k] = None
+                elif isinstance(v, bool):
+                    info[k] = v
+                elif isinstance(v, (int, float, np.integer, np.floating)):
+                    info[k] = None if np.isnan(v) else float(v)
+                else:
+                    info[k] = v
 
         if distance_results and "distances" in distance_results:
             info["distance"] = distance_results["distances"][idx]

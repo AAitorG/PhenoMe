@@ -69,7 +69,7 @@ def _format_elapsed_time(seconds: float) -> str:
         return f"{seconds:.1f}s"
     if seconds < 60:
         return f"{int(seconds)}s"
-    total = int(round(seconds))
+    total = round(seconds)
     h, rem = divmod(total, 3600)
     m, s = divmod(rem, 60)
     if h > 0:
@@ -252,13 +252,11 @@ class _InteractiveExplorerProtocol(Protocol):
         idx: int,
         distance_results: dict | None = None,
         channels: Any | None = None,
-        figsize: tuple[float, float] = (5.0, 5.0),
         title_fields: list[str] | None = None,
         show_extra_info: bool = False,
         apply_transforms: bool = True,
         downsample: int | None = None,
-        dpi: int = 100,
-    ) -> tuple[bytes, str | None]:
+    ) -> tuple[bytes, str | None, str | None]:
         """PNG bytes and optional details text (same as ``plot_image_by_index`` extra block)."""
         ...
 
@@ -327,7 +325,7 @@ _HIGHLIGHT_DISCRETE_INT_MAX_UNIQUES = 512
 # Fixed pixel layout for embedding plot and click-to-inspect overlay (no flex resizing).
 _EMBEDDING_FIG_WIDTH_PX = 800
 _EMBEDDING_FIG_HEIGHT_PX = 700
-_IMAGE_OVERLAY_WIDTH_PX = 600
+_IMAGE_OVERLAY_WIDTH_PX = 500
 # Min height for the image panel (compact idle/loading; PNG expands when shown).
 _IMAGE_PANEL_MIN_HEIGHT_PX = 380
 # Matplotlib figsize (inches) for overlay image; ~100 DPI matches panel width minus padding.
@@ -1544,10 +1542,7 @@ class PhenoMeInteractive:
 
         def _do_search() -> None:
             self._apply_highlight_search_filter(select_default=False)
-            if self._highlight_active:
-                # Apply highlight styling from main thread event loop
-                _schedule_after_plotly_event_loop(self._apply_highlight)
-                _schedule_after_plotly_event_loop(self._update_highlight_status)
+            # The value change implicitly schedules the highlight update if it changed.
 
         self._debounce_timer = threading.Timer(_SEARCH_DEBOUNCE_SEC, _do_search)
         self._debounce_timer.start()
@@ -1917,7 +1912,11 @@ class PhenoMeInteractive:
                         "lenmode": "fraction",
                         "len": 0.72,
                         "thickness": 16,
-                        "title": {"text": color_column, "side": "top", "font": {"size": 12, "color": "#334155"}},
+                        "title": {
+                            "text": color_column,
+                            "side": "top",
+                            "font": {"size": 12, "color": "#334155"},
+                        },
                         "tickfont": {"size": 10, "color": "#64748b"},
                         "ticklen": 5,
                         "tickcolor": "#cbd5e1",
@@ -2132,12 +2131,12 @@ class PhenoMeInteractive:
                     else:
                         self._selected_point_index = idx
 
-                    # Update plot styling
-                    self._apply_selected_point_highlight()
+                    # Update plot styling using only the overlay to be fast
+                    self._apply_selected_point_overlay()
+                    self._update_stats()
 
                     if self._selected_point_index is None:
                         self._set_image_panel_idle()
-                        self._update_stats()
                         return
 
                     sel_idx = self._selected_point_index
@@ -2148,12 +2147,10 @@ class PhenoMeInteractive:
                         try:
                             # Track which point this thread is loading for
                             loading_idx = sel_idx
-                            png, details_text = self.pheno.image_preview_png_bytes(
+                            png, details_text, title = self.pheno.image_preview_png_bytes(
                                 loading_idx,
                                 apply_transforms=False,
-                                figsize=_IMAGE_OVERLAY_FIGSIZE,
                                 downsample=max(360, _IMAGE_OVERLAY_WIDTH_PX * 2),
-                                dpi=100,
                                 show_extra_info=self.show_extra_info_checkbox.value,
                             )
 
@@ -2169,11 +2166,24 @@ class PhenoMeInteractive:
                                     value=png,
                                     format="png",
                                     layout=widgets.Layout(
-                                        width=f"{_IMAGE_OVERLAY_WIDTH_PX}px",
-                                        max_width="100%",
-                                        height="auto",
+                                        width="100%",
+                                        max_width=f"{_IMAGE_OVERLAY_WIDTH_PX}px",
+                                        max_height="400px",
+                                        object_fit="contain",
                                     ),
                                 )
+
+                                children_list = []
+
+                                if title:
+                                    title_widget = widgets.HTML(
+                                        value=f"<div style='text-align:center; font-weight:bold; font-size:14px; margin-bottom:8px;'>{html.escape(title)}</div>",
+                                        layout=widgets.Layout(width="100%"),
+                                    )
+                                    children_list.append(title_widget)
+
+                                children_list.append(preview)
+
                                 if details_text:
                                     extra = widgets.HTML(
                                         value=(
@@ -2185,9 +2195,9 @@ class PhenoMeInteractive:
                                         ),
                                         layout=widgets.Layout(width="100%"),
                                     )
-                                    self.img_output.children = (preview, extra)
-                                else:
-                                    self.img_output.children = (preview,)
+                                    children_list.append(extra)
+
+                                self.img_output.children = tuple(children_list)
                                 self._update_stats()
 
                             _schedule_after_plotly_event_loop(_update_ui)
@@ -2394,30 +2404,28 @@ class PhenoMeInteractive:
         self._update_stats()
 
     def _apply_selected_point_highlight(self) -> None:
-        """Show selection via overlay trace only; data traces use highlight or uniform style."""
+        """Apply base styling and show selection via overlay trace."""
+        self._apply_base_styling()
+        self._apply_selected_point_overlay()
+        self._update_stats()
+
+    def _apply_base_styling(self) -> None:
+        if self._highlight_active:
+            self._apply_highlight()
+        else:
+            self._apply_uniform_data_traces()
+
+    def _apply_selected_point_overlay(self) -> None:
         if self.fig_widget is None or self._cached_df is None:
-            self._update_stats()
             return
 
         ov = self._selection_overlay_trace()
         x_col, y_col, z_col = self._coord_columns()
 
-        # Do **not** wrap the block below in batch_update while calling
-        # ``_apply_highlight`` / ``_apply_uniform_data_traces``: those paths use
-        # their own ``batch_update`` on the same FigureWidget. Nested
-        # ``batch_update`` contexts break FigureWidget sync after a figure rebuild
-        # (e.g. recompute with a new method), leaving data traces empty in the UI.
-
         if self._selected_point_index is not None:
             m = self._cached_index_to_row
             if m is None or self._selected_point_index not in m:
                 self._selected_point_index = None
-
-        # Apply base styling to all data traces (each helper uses one batch_update).
-        if self._highlight_active:
-            self._apply_highlight()
-        else:
-            self._apply_uniform_data_traces()
 
         if ov is not None:
             with self.fig_widget.batch_update():
@@ -2454,8 +2462,6 @@ class PhenoMeInteractive:
                         ov.customdata = [[self._selected_point_index]]
                         ov.visible = True
 
-        self._update_stats()
-
     # ------------------------------------------------------------------
     # Widget callbacks
     # ------------------------------------------------------------------
@@ -2475,7 +2481,9 @@ class PhenoMeInteractive:
         compute_done = threading.Event()
         t_start = time.time()
         self.compute_button.disabled = True
-        self.status_label.value = self._status_html(f"Computing… {_format_elapsed_time(0.0)}", "warn")
+        self.status_label.value = self._status_html(
+            f"Computing… {_format_elapsed_time(0.0)}", "warn"
+        )
         # Full-size computing state so the plot area is not a blank gap while DR runs.
         self._plot_slot.children = (self._embedding_placeholder_computing,)
 
@@ -2537,10 +2545,7 @@ class PhenoMeInteractive:
         def _do() -> None:
             try:
                 self._recolor_figure()
-                if self._highlight_active:
-                    self._apply_highlight()
-                elif self._selected_point_index is not None:
-                    self._apply_selected_point_highlight()
+                self._apply_selected_point_highlight()
                 self.status_label.value = self._status_html("Colour updated", "ok")
                 self._update_stats()
             except Exception as e:
@@ -2556,10 +2561,7 @@ class PhenoMeInteractive:
         def _do() -> None:
             try:
                 self._recolor_figure()
-                if self._highlight_active:
-                    self._apply_highlight()
-                elif self._selected_point_index is not None:
-                    self._apply_selected_point_highlight()
+                self._apply_selected_point_highlight()
                 self._update_stats()
             except Exception as e:
                 self.status_label.value = self._status_html(f"Colourscale error: {e}", "err")
@@ -2660,18 +2662,22 @@ class PhenoMeInteractive:
 
     def _on_filter_key_changed(self, change: Any) -> None:
         """Update available filter values when filter field changes."""
+        self._constructor_filters = None
         self._update_filter_value_options()
 
     def _on_filter_value_changed(self, change: Any) -> None:
         """Sync pipeline filter dict when filter values change."""
+        self._constructor_filters = None
         self._on_slot_value_changed("Filter", self.filter_key_dropdown, self.filter_value_select)
 
     def _on_exclude_key_changed(self, change: Any) -> None:
         """Update available exclude values when exclude field changes."""
+        self._constructor_exclude = None
         self._update_exclude_value_options()
 
     def _on_exclude_value_changed(self, change: Any) -> None:
         """Sync pipeline exclude dict when exclude values change."""
+        self._constructor_exclude = None
         self._on_slot_value_changed("Exclude", self.exclude_key_dropdown, self.exclude_value_select)
 
     def _on_filter_search_changed(self, _change: Any) -> None:
@@ -2690,6 +2696,7 @@ class PhenoMeInteractive:
 
     def _on_filter_clear_clicked(self, _btn: Any) -> None:
         """Clear filter (include) selections only (recompute still requires Compute)."""
+        self._constructor_filters = None
         self.filter_search_input.value = ""
         self.filter_value_select.value = ()
         self._update_filter_value_options(select_default=False)
@@ -2697,6 +2704,7 @@ class PhenoMeInteractive:
 
     def _on_exclude_clear_clicked(self, _btn: Any) -> None:
         """Clear exclude selections only (recompute still requires Compute)."""
+        self._constructor_exclude = None
         self.exclude_search_input.value = ""
         self.exclude_value_select.value = ()
         self._update_exclude_value_options(select_default=False)
@@ -2711,25 +2719,7 @@ class PhenoMeInteractive:
             fig = self.fig_widget
             if fig is None:
                 return
-            if self._highlight_active:
-                self._apply_highlight()
-            else:
-                if self._selected_point_index is not None:
-                    self._apply_selected_point_highlight()
-                else:
-                    new_size = self.point_size_slider.value
-                    new_opacity = self.opacity_slider.value
-                    with fig.batch_update():
-                        for trace in self._get_data_traces():
-                            trace.marker.size = new_size
-                            trace.marker.opacity = new_opacity
-            if self._selected_point_index is not None and self._highlight_active:
-                ov = self._selection_overlay_trace()
-                if ov is not None:
-                    hs = self._highlight_marker_size()
-                    with fig.batch_update():
-                        ov.marker.size = hs
-            self._update_stats()
+            self._apply_selected_point_highlight()
 
         _schedule_after_plotly_event_loop(_do)
 

@@ -111,9 +111,9 @@ def get_color_column(
     color_by_lower = color_by.lower()
 
     column_name = None
-    for col in df.columns:
-        if col.lower() == color_by_lower:
-            column_name = col
+    for cname in df.columns:
+        if str(cname).lower() == color_by_lower:
+            column_name = cname
             break
 
     if column_name is None:
@@ -139,43 +139,46 @@ def get_color_column(
             f"Please specify 'color_by' explicitly."
         )
 
-    col = df[column_name]
-    col_dtype = col.dtype
-    is_bool = pd.api.types.is_bool_dtype(col)
-    is_numeric = pd.api.types.is_numeric_dtype(col) and not is_bool
+    column_series = df[column_name]
+    col_dtype = column_series.dtype
+    is_bool = pd.api.types.is_bool_dtype(column_series)
+    is_numeric = pd.api.types.is_numeric_dtype(column_series) and not is_bool
 
     # Be careful with partial word matches, only match exact or clearly distinct parts
     is_discrete_name = (
-        color_by_lower in categorical_props or
-        color_by_lower == "cluster_id" or 
-        color_by_lower == "class" or 
-        color_by_lower == "cluster"
+        color_by_lower in categorical_props
+        or color_by_lower == "cluster_id"
+        or color_by_lower == "class"
+        or color_by_lower == "cluster"
     )
 
-    if is_bool or col_dtype == "object" or pd.api.types.is_string_dtype(col_dtype) or isinstance(col_dtype, pd.CategoricalDtype):
-        is_continuous = False
-    elif is_discrete_name:
+    if (
+        is_bool
+        or col_dtype == "object"
+        or pd.api.types.is_string_dtype(col_dtype)
+        or isinstance(col_dtype, pd.CategoricalDtype)
+        or is_discrete_name
+    ):
         is_continuous = False
     elif is_numeric:
-        n_unique_non_na = int(col.dropna().nunique())
+        n_unique_non_na = int(column_series.dropna().nunique())
         # Check if values are effectively integers (even if stored as float due to NaNs)
         is_effectively_int = False
-        if pd.api.types.is_integer_dtype(col):
+        if pd.api.types.is_integer_dtype(column_series):
             is_effectively_int = True
-        elif pd.api.types.is_float_dtype(col):
-            is_effectively_int = bool(col.dropna().apply(lambda x: float(x).is_integer()).all())
-            
-        if is_effectively_int and n_unique_non_na <= 256:
-            is_continuous = False
-        else:
-            is_continuous = True
+        elif pd.api.types.is_float_dtype(column_series):
+            is_effectively_int = bool(
+                column_series.dropna().apply(lambda x: float(x).is_integer()).all()
+            )
+
+        is_continuous = not (is_effectively_int and n_unique_non_na <= 256)
     else:
         is_continuous = True
-        
+
     if not is_continuous and is_numeric:
-        # Crucial fix for Plotly: if a numeric column is to be treated as discrete, 
+        # Crucial fix for Plotly: if a numeric column is to be treated as discrete,
         # it must be cast to string in the dataframe, otherwise Plotly will force a continuous colorbar!
         # Drop the ".0" for integers that got cast to string
-        df[column_name] = df[column_name].astype(str).str.replace(r'\.0$', '', regex=True)
+        df[column_name] = df[column_name].astype(str).str.replace(r"\.0$", "", regex=True)
 
     return column_name, is_continuous

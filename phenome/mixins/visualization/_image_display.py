@@ -7,6 +7,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from PIL import Image
 
 from ..._logging import get_logger
 from ...io import ensure_hwc, read_image
@@ -290,13 +291,11 @@ class _ImageDisplayMixin:
         idx: int,
         distance_results: dict | None = None,
         channels: int | list | None = None,
-        figsize: tuple[float, float] = (7, 7),
         title_fields: list[str] | None = None,
         show_extra_info: bool = False,
         apply_transforms: bool = True,
         downsample: int | None = 720,
-        dpi: int = 100,
-    ) -> tuple[bytes, str | None]:
+    ) -> tuple[bytes, str | None, str | None]:
         """Rasterize the same view as ``plot_image_by_index`` to PNG bytes.
 
         Used by the interactive explorer with ``ipywidgets.Image`` because matplotlib
@@ -310,10 +309,7 @@ class _ImageDisplayMixin:
             ``(png_bytes, details_text_or_none)`` — ``details_text_or_none`` is the
             formatted extra-info block when ``show_extra_info`` is True and details exist.
         """
-        from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-        from matplotlib.figure import Figure
-
-        display_img, title, was_downsampled, all_info, metadata, img_name, img_path = (
+        display_img, title, _was_downsampled, all_info, metadata, img_name, img_path = (
             self._load_image_display_data(
                 idx,
                 distance_results=distance_results,
@@ -329,23 +325,27 @@ class _ImageDisplayMixin:
             if details_text:
                 logger.info(details_text)
 
-        fig = Figure(figsize=figsize)
-        FigureCanvas(fig)
-        ax = fig.add_subplot(111)
-        ax.imshow(display_img, interpolation="nearest")
-        ax.axis("off" if was_downsampled else "on")
-        ax.set_title(title, fontsize=9)
-        fig.tight_layout()
+        # Convert numpy array to PIL Image for much faster saving than Matplotlib
+        if display_img.dtype != np.uint8:
+            if display_img.max() <= 1.0:
+                img_uint8 = (display_img * 255).astype(np.uint8)
+            else:
+                img_uint8 = display_img.astype(np.uint8)
+        else:
+            img_uint8 = display_img
+
+        pil_img = Image.fromarray(img_uint8)
         buf = BytesIO()
-        fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight", facecolor="white")
-        return buf.getvalue(), details_text
+        pil_img.save(buf, format="PNG")
+
+        return buf.getvalue(), details_text, title
 
     def plot_image_by_index(
         self,
         idx: int,
         distance_results: dict | None = None,
         channels: int | list | None = None,
-        figsize: tuple = (7, 7),
+        figsize: tuple = (6, 6),
         title_fields: list[str] | None = None,
         show_extra_info: bool = True,
         apply_transforms: bool = True,

@@ -141,7 +141,7 @@ def build_export_dataframe(
         for p in properties_list:
             if isinstance(p, dict):
                 prop_keys.update(p.keys())
-        for key in prop_keys:
+        for key in sorted(prop_keys):
             export_data[key] = [
                 p.get(key, np.nan) if isinstance(p, dict) else np.nan for p in properties_list
             ]

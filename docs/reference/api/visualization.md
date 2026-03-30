@@ -173,7 +173,7 @@ plot_property_correlations(correlation_results: Dict[str, Any], top_k: int = 20,
 Plots a horizontal bar chart of the highest correlated properties.
 
 **Parameters:**
-- **correlation_results** (*Dict*) – Output from [`compute_embedding_property_correlations()`](properties.md#compute_embedding_property_correlations).
+- **correlation_results** (*Dict*) – Output from [`compute_embedding_property_correlations()`](pipeline.md#compute_embedding_property_correlations).
 - **top_k** (*int*) – Limit bar chart to the top K properties.
 
 ---

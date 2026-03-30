@@ -9,20 +9,21 @@ Methods for extracting custom numeric features (properties) from images and mask
 #### `compute_properties`
 
 ```python
-compute_properties(property_preset: Optional[str] = None, additional_property_functions: Optional[Dict[str, Union[Callable, List[Callable]]]] = None, checkpoint_path: Optional[str] = None, save_every: int = 50, n_jobs: int = 1, lazy_checkpoint: bool = True) -> pd.DataFrame
+compute_properties(metadata_config: Optional[Any] = None, property_preset: Optional[str] = None, additional_property_functions: Optional[Dict[str, Union[Callable, List[Callable]]]] = None, checkpoint_path: Optional[str] = None, save_every: int = 50, n_jobs: int = 1, lazy_checkpoint: bool = True, force_update: bool = False) -> pd.DataFrame
 ```
 Computes properties from images and/or masks using predefined presets or custom functions. Call :meth:`find_files` first (or load results); the pipeline uses the discovered file list to resolve paths automatically.
 
 **Notes:** Computation can be resumed cleanly if interrupted by providing a `checkpoint_path`. Property values are saved automatically.
 
 **Parameters:**
-- **metadata_config** (*Optional[Any]*) – Optional `MetadataBase` instance (e.g. `DataFrameMetadata`). When configured with `mask_dir` and `mask_filename_column`, it is used to resolve mask paths in combination with the stored metadata.
+- **metadata_config** (*Optional[Any]*) – Optional `MetadataBase` instance (e.g. `DataFrameMetadata`). When configured with `mask_dir` and `mask_filename_column`, it is used to resolve mask paths in combination with the stored metadata. Use directly when explicit mask lookups are required.
 - **property_preset** (*Optional[str]*) – Built-in preset to use (`"basic"`, `"regionprops"`, `"intensity"`, `"full"`, `"full_extended"`, or `"none"`).
 - **additional_property_functions** (*Optional[Dict]*) – Custom property functions mapped by requirement type (`'image'`, `'mask'`, `'both'`, `'any'`).
 - **checkpoint_path** (*Optional[str]*) – HDF5 path for crash-safe incremental computation.
 - **save_every** (*int*) – Checkpoint commit frequency (in images).
 - **n_jobs** (*int*) – Number of parallel jobs (`-1` for all cores).
- - **lazy_checkpoint** (*bool*) – If `True` (default), keeps the checkpoint file open and uses lazy loading; if `False`, loads all data into RAM and closes the file.
+- **lazy_checkpoint** (*bool*) – If `True` (default), keeps the checkpoint file open and uses lazy loading; if `False`, loads all data into RAM and closes the file.
+- **force_update** (*bool*) – Recalculate properties even if they already exist in the checkpoint.
 
 **Returns:**
 - *pd.DataFrame* – DataFrame of computed properties for each image.
@@ -76,37 +77,3 @@ Finds the top `k` properties that most differentiate each non-reference group fr
 
 **Returns:**
 - *pd.DataFrame* – DataFrame of the top differentiating properties.
-
----
-
-#### `compute_embedding_property_correlations`
-
-```python
-compute_embedding_property_correlations(property_keys: Optional[List[str]] = None, normalize: bool = True, method: Literal['pearson', 'spearman', 'distance_correlation', 'mutual_info'] = 'pearson') -> Dict[str, Any]
-```
-Computes global correlation between embedding dimensions and extracted properties.
-
-**Parameters:**
-- **property_keys** (*Optional[List[str]]*) – Subset of properties.
-- **normalize** (*bool*) – Normalizes embeddings (L2) and properties (StandardScaler) before correlation.
-- **method** (*Literal*) – Correlation measure.
-
-**Returns:**
-- *Dict[str, Any]* – Dictionary of raw correlations per dimension. Use [`aggregate_embedding_property_correlations()`](#aggregate_embedding_property_correlations) on the output to get a summarized ranking.
-
----
-
-#### `aggregate_embedding_property_correlations`
-
-```python
-aggregate_embedding_property_correlations(correlation_results: Dict[str, Any], aggregation: str = 'mean_abs', top_k: Optional[int] = 20) -> Dict[str, Any]
-```
-Aggregates pre-computed embedding-property correlations using the specified method.
-
-**Parameters:**
-- **correlation_results** (*Dict[str, Any]*) – Output dict from `compute_embedding_property_correlations()`.
-- **aggregation** (*str*) – Aggregation method (`'mean_abs'`, `'max_abs'`, `'mean'`, `'std'`).
-- **top_k** (*Optional[int]*) – Return only top-k properties in summary (None = all).
-
-**Returns:**
-- *Dict[str, Any]* – Aggregated correlation summary.

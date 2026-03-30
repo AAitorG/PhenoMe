@@ -40,7 +40,7 @@ Stores a file DataFrame for processing. Call this when you have a pre-built Data
 #### `find_files`
 
 ```python
-find_files(image_dir: str, mask_dir: Optional[str] = None, extensions: Optional[List[str]] = None, metadata_fn: Optional[MetadataFn] = None, on_missing_metadata: str = 'drop', mask_filename_column: Optional[str] = None, mask_extensions: Optional[List[str]] = None) -> pd.DataFrame
+find_files(image_dir: str, mask_dir: Optional[str] = None, extensions: Optional[List[str]] = None, metadata_fn: Optional[Union[Callable, MetadataBase]] = None, on_missing_metadata: str = 'drop', mask_filename_column: Optional[str] = None, mask_extensions: Optional[List[str]] = None) -> pd.DataFrame
 ```
 Discovers image and mask files from directories, extracts metadata, and stores the result for use by the pipeline. Use this as the primary way to load data from disk.
 
@@ -48,7 +48,7 @@ Discovers image and mask files from directories, extracts metadata, and stores t
 - **image_dir** (*str*) – Root directory or glob pattern for image files.
 - **mask_dir** (*Optional[str]*) – Root directory for mask files (adds `mask_path` column).
 - **extensions** (*Optional[List[str]]*) – File-extension filter (e.g. `[".tif", ".png"]`).
-- **metadata_fn** (*Optional[MetadataFn]*) – Per-file metadata extractor.
+- **metadata_fn** (*Optional[Union[Callable, MetadataBase]]*) – Per-file metadata extractor function or a `MetadataBase` instance (e.g., `DataFrameMetadata`).
 - **on_missing_metadata** (*str*) – `'drop'` or `'keep'` for files with missing metadata.
 - **mask_filename_column** (*Optional[str]*) – Metadata column for custom mask filename.
 - **mask_extensions** (*Optional[List[str]]*) – Extensions to try when exact mask path fails.
@@ -411,3 +411,37 @@ Analyzes which properties are statistically enriched (Z-score) in each cluster.
 
 **Returns:**
 - *pd.DataFrame* – Enrichment scores per property and cluster.
+
+---
+
+#### `compute_embedding_property_correlations`
+
+```python
+compute_embedding_property_correlations(property_keys: Optional[List[str]] = None, normalize: bool = True, method: Literal['pearson', 'spearman', 'distance_correlation', 'mutual_info'] = 'pearson') -> Dict[str, Any]
+```
+Computes global correlation between embedding dimensions and extracted properties.
+
+**Parameters:**
+- **property_keys** (*Optional[List[str]]*) – Subset of properties.
+- **normalize** (*bool*) – Normalizes embeddings (L2) and properties (StandardScaler) before correlation.
+- **method** (*Literal*) – Correlation measure (`'pearson'`, `'spearman'`, `'distance_correlation'`, `'mutual_info'`).
+
+**Returns:**
+- *Dict[str, Any]* – Dictionary of raw correlations per dimension. Use [`aggregate_embedding_property_correlations()`](#aggregate_embedding_property_correlations) on the output to get a summarized ranking.
+
+---
+
+#### `aggregate_embedding_property_correlations`
+
+```python
+aggregate_embedding_property_correlations(correlation_results: Dict[str, Any], aggregation: str = 'mean_abs', top_k: Optional[int] = 20) -> Dict[str, Any]
+```
+Aggregates pre-computed embedding-property correlations using the specified method.
+
+**Parameters:**
+- **correlation_results** (*Dict[str, Any]*) – Output dict from `compute_embedding_property_correlations()`.
+- **aggregation** (*str*) – Aggregation method (`'mean_abs'`, `'max_abs'`, `'mean'`, `'std'`).
+- **top_k** (*Optional[int]*) – Return only top-k properties in summary (None = all).
+
+**Returns:**
+- *Dict[str, Any]* – Aggregated correlation summary.

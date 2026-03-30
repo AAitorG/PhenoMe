@@ -55,7 +55,7 @@ Or install manually:
 pip install torch torchvision numpy pandas matplotlib plotly scikit-learn joblib tqdm opencv-python tifffile h5py scipy "scikit-image>=0.26" ipywidgets pillow
 ```
 
-For optional features (UMAP on CPU, distance correlation, GPU-accelerated DR with TorchDR / KeOps):
+For optional features (UMAP on CPU, distance correlation, GPU-accelerated DR with TorchDR / KeOps, NIfTI image support):
 ```bash
 pip install -r requirements-optional.txt
 ```
@@ -76,6 +76,7 @@ pip install -r requirements-optional.txt
 | `tqdm` | Progress bars |
 | `opencv-python` | Image I/O (non-TIFF) |
 | `tifffile` | TIFF image I/O |
+| `nibabel` | NIfTI image I/O (Optional) |
 | `h5py` | HDF5 checkpoint storage |
 | `scipy` | Distance transform, properties |
 | `scikit-image` (≥0.26) | Property presets |

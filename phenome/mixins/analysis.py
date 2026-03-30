@@ -122,11 +122,17 @@ class PhenoMeAnalysis:
             )
         except ValueError as exc:
             logger.warning("Clustering aborted: %s", exc)
-            return np.full(n_total, np.nan, dtype=np.float32)
+            empty_labels = np.full(n_total, np.nan, dtype=np.float32)
+            if return_silhouette:
+                return empty_labels, None
+            return empty_labels
 
         if len(matrix) == 0:
             logger.warning("No data available for clustering.")
-            return np.full(n_total, np.nan, dtype=np.float32)
+            empty_labels = np.full(n_total, np.nan, dtype=np.float32)
+            if return_silhouette:
+                return empty_labels, None
+            return empty_labels
 
         # Step 2: Apply dimensionality reduction
         # We extract components to avoid the curse of dimensionality and ill-conditioned fits.

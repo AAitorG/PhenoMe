@@ -318,7 +318,7 @@ class CheckpointManager:
                 if "channels" in cfg:
                     del cfg["channels"]
                 if val is not None:
-                    cfg.create_dataset("channels", data=np.array(val, dtype=np.int8))
+                    cfg.create_dataset("channels", data=np.array(val, dtype=np.int32))
             else:
                 cfg.attrs[key] = "none" if val is None else val
         f.flush()
@@ -344,9 +344,23 @@ class CheckpointManager:
         for key in self._PARAM_KEYS:
             sv = stored.get(key)
             cv = current_params.get(key)
+
+            # Normalize sequence types for safe comparison
+            if isinstance(sv, (list, tuple, np.ndarray)):
+                sv = list(sv)
+            if isinstance(cv, (list, tuple, np.ndarray)):
+                cv = list(cv)
+
             if sv is None and cv is None:
                 continue
-            if sv != cv:
+
+            try:
+                is_diff = bool(sv != cv)
+            except ValueError:
+                # Fallback for ambiguous numpy array comparisons if normalization missed anything
+                is_diff = not np.array_equal(sv, cv)
+
+            if is_diff:
                 mismatches.append((key, sv, cv))
         return mismatches
 
@@ -859,10 +873,13 @@ class CheckpointManager:
         if self._file is None:
             self._open_existing()
         assert self._file is not None
+
+        # Read parameters before assigning self._ram_data to avoid bypassing I/O
+        self._processing_params_ram = self.get_processing_params()
+
         self._ram_data = self.load_committed_results()
         self._n_committed_props_ram = int(self._file.attrs.get("n_committed_props", 0))
         self._is_multichannel_ram = bool(self._file.attrs.get("is_multichannel", False))
-        self._processing_params_ram = self.get_processing_params()
         self._file.close()
         self._file = None
 
@@ -1083,7 +1100,7 @@ class CheckpointManager:
                         val = processing_params.get(key)
                         if key == "channels":
                             if val is not None:
-                                cfg.create_dataset("channels", data=np.array(val, dtype=np.int8))
+                                cfg.create_dataset("channels", data=np.array(val, dtype=np.int32))
                         else:
                             cfg.attrs[key] = "none" if val is None else val
 
