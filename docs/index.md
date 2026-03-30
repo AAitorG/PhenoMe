@@ -12,7 +12,7 @@
 
 ## Quick Links
 
-**Getting started?** Start with [Getting Started](getting-started.md) → [Beginner Tutorial](../Notebooks/tutorials/01_beginner_interactive.ipynb)
+**Getting started?** Start with [Getting Started](getting-started.md) → [Interactive Quickstart](../Notebooks/tutorials/01_interactive_quickstart.ipynb)
 
 **Looking for something specific?**
 
@@ -84,11 +84,12 @@
 
 | Resource | Type | What it covers |
 |----------|------|----------------|
-| [01_beginner_interactive.ipynb](../Notebooks/tutorials/01_beginner_interactive.ipynb) | Tutorial | Interactive widgets, no coding required |
-| [02_advanced_tutorial.ipynb](../Notebooks/tutorials/02_advanced_tutorial.ipynb) | Tutorial | Custom properties, advanced analysis |
-| [03_data_auditing_tutorial.ipynb](../Notebooks/tutorials/03_data_auditing_tutorial.ipynb) | Tutorial | Data auditing and quality checks |
-| [example_simple_phenotyping.py](../Notebooks/examples/example_simple_phenotyping.py) | Script | Minimal workflow for quick start |
-| [example_advanced_phenotyping.py](../Notebooks/examples/example_advanced_phenotyping.py) | Script | Full customization example |
+| [01_interactive_quickstart.ipynb](../Notebooks/tutorials/01_interactive_quickstart.ipynb) | Tutorial | Interactive widgets, no coding required |
+| [02_prepare_data.ipynb](../Notebooks/tutorials/02_data_prep_and_qc.ipynb) | Tutorial | Data auditing and quality checks |
+| [03_core_phenotyping_workflow.ipynb](../Notebooks/tutorials/03_core_phenotyping_workflow.ipynb) | Tutorial | Core API, distances, and Morphological Profiling |
+| [04_advanced_metadata_handling.ipynb](../Notebooks/tutorials/04_advanced_metadata_handling.ipynb) | Tutorial | CSVs, multi-channel files, and custom extractors |
+| [05_exploratory_analysis_and_explainability.ipynb](../Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb) | Tutorial | Advanced clustering and deep explainability |
+| [06_extending_phenome_plugins.ipynb](../Notebooks/tutorials/06_extending_phenome_plugins.ipynb) | Tutorial | Custom plugins and vision model wrappers |
 
 ---
 

@@ -275,12 +275,10 @@ Key parameters:
 
 ## Next Steps
 
-1. **[Beginner Tutorial](../Notebooks/tutorials/01_beginner_interactive.ipynb)** - Interactive widgets, no coding required
-2. **Example scripts**:
-   - [example_simple_phenotyping.py](../Notebooks/examples/example_simple_phenotyping.py) - Minimal workflow
-   - [example_advanced_phenotyping.py](../Notebooks/examples/example_advanced_phenotyping.py) - Full customization
-3. **[Core Concepts](concepts.md)** - Embeddings, channel modes, architecture
-4. **[Custom Metadata](guides/custom-metadata.md)** - Metadata extraction
-5. **[Custom Properties](guides/custom-properties.md)** - Domain-specific features
+1. **[Interactive Quickstart](../Notebooks/tutorials/01_interactive_quickstart.ipynb)** - Interactive widgets, no coding required
+2. **[Core Phenotyping Workflow](../Notebooks/tutorials/03_core_phenotyping_workflow.ipynb)** - Programmatic API, distances, and Morphological Profiling
+3. **[Advanced Exploratory Analysis](../Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)** - Clustering and deep explainability
+4. **[Core Concepts](concepts.md)** - Embeddings, channel modes, architecture
+5. **[Custom Metadata](guides/custom-metadata.md)** - Metadata extraction
 6. **[Common Workflows](examples/workflows.md)** - End-to-end examples
 7. **[FAQ](faq.md)** - Common questions
