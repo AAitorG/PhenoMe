@@ -150,7 +150,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         """Reset all stored data to a clean state.
 
         Closes any open HDF5 database handle before clearing results.
-        By default preserves _file_df so compute_properties and audit_data
+        By default preserves _file_df so compute_properties and inspect_data
         continue to work after process_images. Set clear_file_df=True for a
         full reset (e.g. when switching to a completely new dataset).
         """
@@ -299,7 +299,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
 
         Validates that file_df has a 'file_path' column and optionally 'mask_path'.
         Stores a normalized copy for use by process_images, compute_properties,
-        audit_data, and related methods.
+        inspect_data, and related methods.
 
         Args:
             file_df: DataFrame with 'file_path' column (str or list of str per row).
@@ -327,7 +327,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
 
         Recursively scans image_dir (and optionally mask_dir) for image files,
         extracts metadata, resolves mask paths, and stores the result as the
-        internal file_df used by process_images, compute_properties, and audit_data.
+        internal file_df used by process_images, compute_properties, and inspect_data.
 
         Args:
             image_dir: Root directory or glob pattern for image files.
@@ -614,17 +614,17 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         return n_temporal
 
     # ------------------------------------------------------------------
-    # Audit / Info
+    # Inspect / Info
     # ------------------------------------------------------------------
 
-    def audit_data(self) -> pd.DataFrame:
-        """Audit image and mask dimensions, shapes, and data ranges. Delegates to FileDiscovery.
+    def inspect_data(self) -> pd.DataFrame:
+        """Inspect image and mask dimensions, shapes, and data ranges. Delegates to FileDiscovery.
 
         Uses the internally stored file_df (set via set_file_df or find_files).
         Raises if file_df is not available.
         """
-        file_df = self._require_file_df("audit_data")
-        return self._file_discovery.audit_data(file_df)
+        file_df = self._require_file_df("inspect_data")
+        return self._file_discovery.inspect_data(file_df)
 
     # ------------------------------------------------------------------
     # Info / accessors

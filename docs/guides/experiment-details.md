@@ -1,137 +1,92 @@
-# Custom Metadata Functions
+# Handling Experiment Details (Metadata)
 
-Extract condition, drug, timepoint, and other experimental info from your file paths or a CSV. Start with path templates or CSV lookup; no advanced coding required.
+**Summary:** Telling PhenoMe the context of each image (e.g., drug, concentration, time).
 
-[← Extending the Pipeline](extending.md) · [← Documentation index](../index.md)
+Experiment details (also known as "metadata") describe the context of your images. Without them, PhenoMe only sees images; with them, it can group, filter, and compare results by drug treatment, time point, or plate location.
+
+PhenoMe can extract these details automatically from your file paths or a CSV file.
+
+[← Documentation index](../index.md)
 
 ---
 
-## Quick Reference
+## Quick Reference: How to load your details
 
 | Need | Solution |
 |------|----------|
-| Parse from path | [Path template](#path-template-metadata-get_metadata_from_path): `get_metadata_from_path(".../(drug)/(time)/(crop_name).*")` |
-| Look up from CSV | [make_dataframe_metadata_fn](#using-makedataframemetadatafn): `make_dataframe_metadata_fn(df, filename_column='filename')` |
-| Masks in separate dir | [pheno.find_files](#mask-discovery-in-find_files): `pheno.find_files(..., mask_dir="masks/", mask_filename_column="mask_file")` |
-| OOP / unique IDs | [MetadataBase](#object-oriented-metadata-metadatabase): `DataFrameMetadata`, `PathTemplateMetadata` |
+| My folders tell the story | **[Path Templates](#path-templates)**: `get_metadata_from_path(".../(drug)/(time)/(filename).*")` |
+| I have a CSV or Excel file | **[CSV Lookup](#using-csv-metadata)**: `make_dataframe_metadata_fn(df, filename_column='filename')` |
+| Masks are in a separate folder | **[Mask Discovery](#mask-discovery)**: Pass `mask_dir="masks/"` to `find_files` |
 
 ---
 
-## Table of Contents
+## Why load Experiment Details?
 
-1. [Basics](#why-custom-metadata): Why, requirements, and simple examples
-2. [Path templates](#path-template-metadata-get_metadata_from_path): `get_metadata_from_path`
-3. [CSV & DataFrames](#using-csv-metadata): `make_dataframe_metadata_fn`
-4. [Masks](#mask-discovery-in-find_files): Mask discovery in `find_files`
-5. [Advanced (OOP)](#object-oriented-metadata-metadatabase): `MetadataBase`, `DataFrameMetadata`
-6. [Best practices & troubleshooting](#best-practices)
+Metadata (details) is what makes your analysis meaningful:
+- **Filtering**: "Show me only images treated with Drug A."
+- **Grouping**: "Color the plot by drug concentration."
+- **Comparing**: "Measure how far the Drug A group is from the Control group."
 
 ---
 
-## Why Custom Metadata?
+## 1. Path Templates (The easiest way)
 
-Metadata describes the experimental context of each image:
-- What condition/treatment was applied
-- Time point of acquisition
-- Plate/well location
-- Replicate number
-- Any other experimental variables
+If your folders are organized like `/data/DrugA/24h/img01.tif`, you can use a template to tell PhenoMe what each folder represents.
 
-The pipeline uses metadata for:
-- **Filtering**: Process only specific conditions
-- **Grouping**: Color plots by condition, aggregate statistics
-- **Reference selection**: Define control groups for distance computation
-
----
-
-## Function Requirements
-
-### Signature
-
-```python
-def my_metadata_fn(path: str) -> Dict[str, Any]:
-    ...
-```
-
-### Required Output
-
-The function must return a dictionary with at least:
-- `'file_path'`: The full file path (required)
-
-### Optional Output
-
-- `'filename'`: The image identifier (basename stem or similar). This is the **default column name** for file identifiers across all metadata helpers (`default_metadata_from_path`, `get_metadata_from_path`, `make_dataframe_metadata_fn`). When present, it is used for grouping in multi-channel mode.
-- `'id'`: A unique, stable identifier for each sample. When using the built-in metadata classes (`DefaultMetadata`, `PathTemplateMetadata`, `DataFrameMetadata`), an `id` is auto-generated if not present, enabling consistent checkpoint matching across processing stages.
-
-Any additional keys become metadata columns:
-- `'condition'`, `'drug'`, `'concentration'`
-- `'time'`, `'timepoint'`
-- `'plate'`, `'well'`, `'replicate'`
-- Custom fields specific to your experiment
-
-### Key Normalization
-
-Keys are automatically normalized to lowercase internally.
-
----
-
-## Path template metadata (get_metadata_from_path)
-
-When your paths follow a fixed structure, use `get_metadata_from_path`. **Prefer this for simple layouts** (e.g., `data/Control/image_001.tif`).
-
-```python
-from phenome import get_metadata_from_path
-
-# Template: .../(condition)/(filename).*  matches data/Control/image_001.tif
-metadata_fn = get_metadata_from_path(".../(condition)/(filename).*")
-
-file_df = pheno.find_files("path/to/images", metadata_fn=metadata_fn)
-
-```
-
-**Template syntax:** `...` = match suffix; `(field_name)` = capture group; `(filename).*` = any extension. Path separators `/` and `\` are accepted. The returned dict includes `file_path` and `filename`.
-
-**More templates:**
-```python
-get_metadata_from_path(".../(drug)/(time)/(crop_name).*")  # e.g. DrugA/24h/crop_01.tif
-get_metadata_from_path(".../(plate)/(well).*")             # e.g. P1/A01.tif
-```
-
-**Fallback when template does not match** (keep files with `file_path` only):
-```python
-def metadata_fn(path: str):
-    meta = get_metadata_from_path(".../(condition)/(filename).*")(path)
-    return meta if meta else {"file_path": path}
-```
-
-For more templates (drug screening, time-course, basic analysis), see [Common Workflows](../examples/workflows.md).
-
----
-
-## Basic Examples
-
-Use path templates when they fit; use custom functions when your layout is irregular or you need computed fields.
-
-### Example 1: Simple Directory Structure
+### Example: Folders by Treatment
 
 File structure:
 ```
 data/
 ├── Control/
-│   ├── image_001.tif
-│   └── image_002.tif
+│   ├── img_01.tif
+│   └── img_02.tif
 └── Drug1/
-    ├── image_001.tif
-    └── image_002.tif
+    ├── img_01.tif
+    └── img_02.tif
 ```
 
-**Preferred:** use path template:
+**How to load:**
 ```python
 from phenome import get_metadata_from_path
 
+# Template: .../(condition)/(filename).* matches data/Control/img_01.tif
 metadata_fn = get_metadata_from_path(".../(condition)/(filename).*")
-file_df = pheno.find_files("data", metadata_fn=metadata_fn)
 
+pheno.find_files("data", metadata_fn=metadata_fn)
+```
+
+**Template rules:**
+- `...` matches the parent folders you don't care about.
+- `(field_name)` captures a piece of the path as a detail (e.g., `(drug)`, `(time)`).
+- `.*` matches any file extension.
+
+---
+
+## 2. Using a CSV or Spreadsheet
+
+If you have a CSV file with details for each image, PhenoMe can link them based on the filename.
+
+**Your CSV might look like this:**
+```csv
+filename,drug,concentration uM,time
+img_01,Control,0,24h
+img_02,DrugA,10,24h
+```
+
+**How to load:**
+```python
+from phenome import make_dataframe_metadata_fn
+import pandas as pd
+
+# 1. Load your CSV
+df = pd.read_csv("metadata.csv")
+
+# 2. Create a lookup function (PhenoMe uses "filename" by default)
+metadata_fn = make_dataframe_metadata_fn(df)
+
+# 3. Load images using the CSV details
+file_df = pheno.find_files("images/", metadata_fn=metadata_fn)
 ```
 
 **Alternative:** custom function when you need different keys (e.g., `image_id` instead of `filename`):
@@ -375,7 +330,7 @@ def metadata_from_csv(path: str) -> Dict[str, Any]:
 ### Using make_dataframe_metadata_fn
 
 <a id="using-makedataframemetadatafn"></a>
-The pipeline provides a helper for CSV-based metadata. The default column name for filenames is ``filename``. The `filename_column` may contain filenames **with or without** extension (e.g., `image_001` or `image_001.tif`); both formats are accepted. Only the last dot is treated as the extension, so names like `plate.A01.well.tif` are matched correctly.
+The framework provides a helper for CSV-based metadata. The default column name for filenames is ``filename``. The `filename_column` may contain filenames **with or without** extension (e.g., `image_001` or `image_001.tif`); both formats are accepted. Only the last dot is treated as the extension, so names like `plate.A01.well.tif` are matched correctly.
 
 **Single file per sample (default):**
 
@@ -457,7 +412,7 @@ When using `MetadataBase` (e.g., `DataFrameMetadata`) with `mask_dir` and `mask_
 
 ## Object-Oriented Metadata (MetadataBase)
 
-For advanced use (when you need unique IDs for checkpoint matching, centralize configuration, or automatic mask resolution), the pipeline provides `MetadataBase` classes: `DefaultMetadata`, `PathTemplateMetadata`, and `DataFrameMetadata`. These wrap the functional helpers above.
+For advanced use (when you need unique IDs for checkpoint matching, centralize configuration, or automatic mask resolution), the framework provides `MetadataBase` classes: `DefaultMetadata`, `PathTemplateMetadata`, and `DataFrameMetadata`. These wrap the functional helpers above.
 
 **Example:** Use `DataFrameMetadata` to configure filename columns, mask directory, and mask filename column in one place. Pass it to `find_files(metadata_fn=meta_cfg)`.
 
@@ -594,6 +549,6 @@ def clean_metadata_fn(path: str) -> Dict[str, Any]:
 | `find_files` API | [Pipeline: find_files](../reference/api/pipeline.md#find_files) |
 | Metadata classes (OOP) | [Metadata Classes](../reference/api/metadata.md) |
 | Properties and grouping | [Custom Properties](custom-properties.md) |
-| End-to-end examples | [Common Workflows](../examples/workflows.md): Basic Analysis, Drug Screening, Time-Course |
+| End-to-end examples | [Common Workflows](../workflows.md): Basic Analysis, Drug Screening, Time-Course |
 | Plugins and discovery | [Plugins](plugins.md) |
 | Reproducibility and data org | [Best Practices](best-practices.md) |

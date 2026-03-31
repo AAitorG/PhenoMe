@@ -125,6 +125,6 @@ register_report_section("custom_analysis", my_custom_section)
 | Topic | Document |
 |-------|----------|
 | Extension points overview | [Extending the Pipeline](extending.md) |
-| Metadata extractors | [Custom Metadata](custom-metadata.md) |
+| Metadata extractors | [Experiment Details](experiment-details.md) |
 | Property functions | [Custom Properties](custom-properties.md) |
 | Report API | [Report Generation](../reference/api/report.md) |

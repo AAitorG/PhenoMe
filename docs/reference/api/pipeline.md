@@ -1,8 +1,8 @@
-# PhenoMe
+# PhenoMe API Reference
 
 The main orchestrator class for processing images with deep learning models and analyzing phenotypic differences via embedding distances. It inherits from [`PhenoMeProperties`](properties.md), `PhenoMeAnalysis`, [`PhenoMeDistances`](distances.md), and [`PhenoMeVisualization`](visualization.md).
 
-**Related:** [Getting Started](../../getting-started.md) · [Core Concepts](../../concepts.md) · [Common Workflows](../../examples/workflows.md) · [Utilities](utilities.md) · [Minimal external checkpoints](../../guides/external-checkpoints.md)
+**Related:** [Getting Started](../../getting-started.md) · [Core Concepts](../../concepts.md) · [Common Workflows](../../workflows.md) · [Utilities](utilities.md) · [Minimal external checkpoints](../../guides/external-checkpoints.md)
 
 ---
 
@@ -11,7 +11,7 @@ The main orchestrator class for processing images with deep learning models and 
 ```python
 PhenoMe(device: Optional[torch.device] = None, seed: Optional[int] = None, use_gpu_for_dr: bool = False)
 ```
-Initializes the pipeline.
+Initializes the PhenoMe framework.
 
 **Parameters:**
 - **device** (*Optional[torch.device]*) – Device for computation (CPU or CUDA). Defaults to single GPU when available.
@@ -42,7 +42,7 @@ Stores a file DataFrame for processing. Call this when you have a pre-built Data
 ```python
 find_files(image_dir: str, mask_dir: Optional[str] = None, extensions: Optional[List[str]] = None, metadata_fn: Optional[Union[Callable, MetadataBase]] = None, on_missing_metadata: str = 'drop', mask_filename_column: Optional[str] = None, mask_extensions: Optional[List[str]] = None) -> pd.DataFrame
 ```
-Discovers image and mask files from directories, extracts metadata, and stores the result for use by the pipeline. Use this as the primary way to load data from disk.
+Discovers image and mask files from directories, extracts metadata, and stores the result for use by the framework. Use this as the primary way to load data from disk.
 
 **Parameters:**
 - **image_dir** (*str*) – Root directory or glob pattern for image files.
@@ -126,10 +126,10 @@ Removes all temporal images (rows with `metadata['source'] == 'NEW'`) from the c
 
 ---
 
-#### `audit_data`
+#### `inspect_data`
 
 ```python
-audit_data() -> pd.DataFrame
+inspect_data() -> pd.DataFrame
 ```
 Audits image and mask dimensions, shapes, and data ranges. Call `find_files` (or `set_file_df`) first. When `mask_path` is present, validates image-mask shape matching.
 
@@ -199,9 +199,9 @@ Use `get_embeddings()` for lazy-safe access when using checkpoints. See [Core Co
 #### `reset`
 
 ```python
-reset(verbose: bool = False)
+reset(verbose: bool = False, clear_file_df: bool = False)
 ```
-Clears all stored data (embeddings, metadata, properties).
+Clears all stored data (embeddings, metadata, properties). If `clear_file_df` is `True`, also removes the loaded file paths (from `find_files`).
 
 ---
 
@@ -231,7 +231,7 @@ Transfers specified metadata columns to properties, copying the values so they a
 ```python
 save_results(output_dir: Optional[str] = None, filename: Optional[str] = None, compression: str = "gzip")
 ```
-Saves the complete pipeline state (embeddings, metadata, properties) to an HDF5 file.
+Saves the complete framework state (embeddings, metadata, properties) to an HDF5 file.
 
 **Parameters:**
 - **output_dir** (*Optional[str]*) – Directory to save `phenome_results.h5`.
@@ -245,7 +245,7 @@ Saves the complete pipeline state (embeddings, metadata, properties) to an HDF5 
 ```python
 load_results(filename: str, lazy_checkpoint: bool = True)
 ```
-Loads pipeline state from an HDF5 file. Metadata and properties are loaded immediately. Embeddings are either loaded into RAM (`lazy_checkpoint=False`) or accessed on-demand from disk (`lazy_checkpoint=True`). Uses the file list from :meth:`find_files` or :meth:`set_file_df` to resolve paths. Call :meth:`find_files` first before loading.
+Loads framework state from an HDF5 file. Metadata and properties are loaded immediately. Embeddings are either loaded into RAM (`lazy_checkpoint=False`) or accessed on-demand from disk (`lazy_checkpoint=True`). Uses the file list from :meth:`find_files` or :meth:`set_file_df` to resolve paths. Call :meth:`find_files` first before loading.
 
 **Parameters:**
 - **filename** (*str*) – Path to the `.h5` checkpoint or result file.
@@ -445,3 +445,22 @@ Aggregates pre-computed embedding-property correlations using the specified meth
 
 **Returns:**
 - *Dict[str, Any]* – Aggregated correlation summary.
+
+---
+
+### Reporting
+
+#### `generate_report`
+
+```python
+def generate_report(self, output_path: str = "pheno_report.html", title: str = "PhenoMe Analysis Report", config: Any | None = None, **overrides: Any) -> str:
+```
+Generate comprehensive standalone HTML report from phenotyping results. Uses [`ReportConfig`](report.md) as the primary source of options.
+
+**Parameters:**
+- **output_path** (*str*) – Path to save the HTML file. Default: `"pheno_report.html"`.
+- **title** (*str*) – Report title displayed at the top. Default: `"PhenoMe Analysis Report"`.
+- **config** (*Optional[Any]*) – Optional `ReportConfig` for defaults. If None, uses `ReportConfig()`.
+- **\*\*overrides** (*Any*) – Any `ReportConfig` field to override (e.g., `include_plots=False`).
+**Returns:**
+- *str* – Path to the HTML output file.

@@ -2,7 +2,7 @@
 
 Methods for computing distances to reference groups and analyzing phenotypic differences, accessible via `PhenoMe`.
 
-**Related:** [Core Concepts: Distance Metrics](../../concepts.md#distance-metrics) · [Visualization](visualization.md) · [Workflows: Drug screening, time-course](../../examples/workflows.md)
+**Related:** [Core Concepts: Distance Metrics](../../concepts.md#distance-metrics) · [Visualization](visualization.md) · [Workflows: Drug screening, time-course](../../workflows.md)
 
 ---
 

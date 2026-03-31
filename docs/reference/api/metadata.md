@@ -1,6 +1,6 @@
 # Metadata Classes
 
-Object-oriented metadata API: `MetadataBase`, `DefaultMetadata`, `PathTemplateMetadata`, and `DataFrameMetadata`. For simpler use cases, see [Custom Metadata](../../guides/custom-metadata.md) (path templates, CSV lookup).
+Object-oriented metadata API: `MetadataBase`, `DefaultMetadata`, `PathTemplateMetadata`, and `DataFrameMetadata`. For simpler use cases, see [Experiment Details](../../guides/experiment-details.md) (path templates, CSV lookup).
 
 **Import:** `from phenome import MetadataBase, DefaultMetadata, PathTemplateMetadata, DataFrameMetadata`
 

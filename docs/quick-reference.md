@@ -65,7 +65,7 @@ pheno.generate_report(
 | `exclude` | Same as `filters` | Same format as `filters`; excludes matching rows. Applied after filters. |
 | `source` | `compute_reference_distances()` | `'embeddings'`, `'properties'`, or `'combined'` (what to compute distances on). |
 | `channel_mode` | `process_images()` | `'split'` (each channel separately) or `'combined'` (channels as RGB). |
-| `metadata_fn` | `find_files()` | Custom function to extract metadata from paths. See [Custom Metadata](guides/custom-metadata.md). |
+| `metadata_fn` | `find_files()` | Custom function to extract metadata from paths. See [Experiment Details](guides/experiment-details.md). |
 | `seed` | `PhenoMe()` | Set for reproducible results (t-SNE, clustering, sampling). |
 
 For full parameter lists, see the [API Reference](reference/index.md).
@@ -99,10 +99,10 @@ See [Property Reference](guides/property-reference.md#choosing-properties) for d
 | I want to... | Go to |
 |--------------|-------|
 | Install and run my first analysis | [Getting Started](getting-started.md) |
-| Extract metadata from paths or CSV | [Custom Metadata](guides/custom-metadata.md) |
+| Extract metadata from paths or CSV | [Experiment Details](guides/experiment-details.md) |
 | Add custom image properties | [Custom Properties](guides/custom-properties.md) |
 | Build PCA, t-SNE, or distance plots | [Visualization](reference/api/visualization.md), [Distances](reference/api/distances.md) |
 | Generate an HTML report | [Report](reference/api/report.md) · [Report Guide](guides/report-guide.md) |
 | Explore interactively in Jupyter | [Interactive Explorer](reference/api/interactive.md) |
-| Explore new images without re-running full processing | [Temporal Images](examples/workflows.md#temporal-images-explore-new-data-in-memory) |
-| See end-to-end workflows | [Common Workflows](examples/workflows.md) |
+| Explore new images without re-running full processing | [Temporal Images](workflows.md#temporal-images-explore-new-data-in-memory) |
+| See end-to-end workflows | [Common Workflows](workflows.md) |

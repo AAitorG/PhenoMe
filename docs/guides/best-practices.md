@@ -15,7 +15,7 @@ How to get reproducible results, avoid common errors, and optimize performance. 
 | DR GPU OOM | Install `pykeops` for memory-efficient t-SNE/UMAP; PCA uses batched ExactIncrementalPCA |
 | GPU OOM | Reduce `batch_size`, use smaller model, or process in chunks |
 | Portability | HDF5 stores relative paths; call `find_files` first, then `load_results`—paths are resolved automatically |
-| Data audit | Run `pheno.audit_data()` before processing (after `find_files`) |
+| Data inspection | Run `pheno.inspect_data()` before processing (after `find_files`) |
 
 ---
 
@@ -37,7 +37,7 @@ How to get reproducible results, avoid common errors, and optimize performance. 
 
 ### Set Random Seeds
 
-For reproducibility, pass a seed to the pipeline:
+For reproducibility, pass a seed to the framework:
 
 ```python
 pheno = PhenoMe(seed=42)
@@ -73,7 +73,7 @@ This ensures:
 
 So the HDF5 file is self-contained for processing parameters and data. For full reproducibility, also document parameters that are *not* stored in the checkpoint:
 
-- **seed** (set at pipeline init)
+- **seed** (set at framework init)
 - **use_gpu_for_dr** (affects which DR backend is used; TorchDR vs sklearn/umap-learn)
 - **reference_filters** (used for distance analysis)
 - **model name** (e.g. dinov2_vitb14_reg)
@@ -90,7 +90,7 @@ pheno.export_experiment_config(
 )
 ```
 
-When loading: call `find_files` first, then `pheno.load_results("results/phenome_results.h5")`. The pipeline restores configuration and resolves paths automatically.
+When loading: call `find_files` first, then `pheno.load_results("results/phenome_results.h5")`. The framework restores configuration and resolves paths automatically.
 
 ### Version Control
 
@@ -311,17 +311,17 @@ images/
 ├── experiment_final_v2_new.tif
 ```
 
-### Audit Before Processing
+### Inspect Before Processing
 
 ```python
-# Always audit your data first (returns: file_path, height, width, channels, min, max, error, shape_match, ...)
-audit_df = pheno.audit_data()
+# Always inspect your data first (returns: file_path, height, width, channels, min, max, error, shape_match, ...)
+inspect_df = pheno.inspect_data()
 
 print("Image statistics:")
-print(audit_df)
+print(inspect_df)
 
-# Check for multiple image shapes (height, width, channels are audit columns)
-if len(audit_df) > 0 and audit_df.groupby(['height', 'width', 'channels']).ngroups > 1:
+# Check for multiple image shapes (height, width, channels are inspection columns)
+if len(inspect_df) > 0 and inspect_df.groupby(['height', 'width', 'channels']).ngroups > 1:
     print("\nWarning: Multiple image shapes detected!")
 ```
 
@@ -501,7 +501,7 @@ pheno.process_images(wrapper, batch_size=64, num_workers=8)
 3. Check for non-deterministic operations
 
 ```python
-# Pass seed to pipeline for reproducibility
+# Pass seed to framework for reproducibility
 pheno = PhenoMe(seed=42)
 
 # Or call set_determinism before any processing
@@ -514,7 +514,7 @@ print(f"cudnn.deterministic: {torch.backends.cudnn.deterministic}")
 
 ### Issue: Missing Properties
 
-**Symptoms:** Some images have NaN properties (the pipeline warns automatically when NaNs are present)
+**Symptoms:** Some images have NaN properties (the framework warns automatically when NaNs are present)
 
 **Solutions:**
 1. Check if masks exist for all images
@@ -630,8 +630,8 @@ git commit -m "Add data and results"
 |-------|----------|
 | Initial setup | [Getting Started](../getting-started.md) |
 | Embeddings, channels, architecture | [Core Concepts](../concepts.md) |
-| End-to-end examples | [Common Workflows](../examples/workflows.md) |
-| Metadata extraction | [Custom Metadata](custom-metadata.md) |
+| End-to-end examples | [Common Workflows](../workflows.md) |
+| Metadata extraction | [Experiment Details](experiment-details.md) |
 | Property functions | [Custom Properties](custom-properties.md) |
 | Troubleshooting | [FAQ](../faq.md) |
 | Key terms | [Glossary](../glossary.md) |

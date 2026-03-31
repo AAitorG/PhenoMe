@@ -67,18 +67,10 @@ Strong correlations (|r| > 0.7) suggest a clear biological interpretation. Weake
 
 ## From Numbers to Hypotheses
 
-1. **Run component correlation** after computing properties and dimensionality reduction:
-   ```python
-   pheno.compute_properties(property_preset='basic')
-   corr = pheno.compute_component_correlation(method='pca', top_k=10)
-   ```
-
+1. **Run component correlation** after computing properties and dimensionality reduction.
 2. **Inspect the output** for each component (e.g., PC1, PC2). The `top_k` properties with highest |r| are the main drivers.
-
 3. **Formulate a hypothesis**: e.g., "PC1 represents cell elongation. Clusters separated along PC1 likely differ in filamentation or aspect ratio."
-
 4. **Validate**: Plot the same space colored by the top property to confirm the correlation is visible. Use `pheno.plot_pca(color_by='eccentricity')` (if eccentricity is in metadata) or overlay property values.
-
 5. **Report**: The HTML report (`generate_report`) can include correlation charts. Use `include_correlations=True` and adjust `top_k_features`.
 
 ---
@@ -94,51 +86,7 @@ Strong correlations (|r| > 0.7) suggest a clear biological interpretation. Weake
 
 For most morphological traits (area, eccentricity, intensity), **Pearson** is sufficient and is GPU-accelerated. Switch to Spearman if you have outliers or dose-response curves; use distance correlation or mutual information if linear metrics miss clear structure.
 
----
-
-## Worked Example
-
-```python
-from phenome import PhenoMe, load_dinov2_model
-
-model, wrapper = load_dinov2_model()
-pheno = PhenoMe(seed=42)
-
-# Load, process, compute properties
-
-file_df = pheno.find_files("data/", metadata_fn=my_metadata_fn)
-
-pheno.process_images(wrapper)
-pheno.compute_properties(property_preset='basic')
-
-# Component correlation: what does PCA encode?
-corr = pheno.compute_component_correlation(
-    method='pca',
-    n_components=2,
-    source='embeddings',
-    top_k=5,
-    correlation_method='pearson'
-)
-
-# Inspect top properties for PC1 (summary has columns: Component, Property, Correlation)
-if 'summary' in corr:
-    pc1_top = corr['summary'][corr['summary']['Component'] == 'Component 1'].nlargest(5, 'AbsCorrelation')
-    print("PC1 top drivers:", pc1_top[['Property', 'Correlation']].to_dict('records'))
-
-# Plot PCA colored by top property (e.g. eccentricity)
-pheno.plot_pca(color_by='condition')
-# Optionally export and color by a property from corr output
-```
-
-For embedding-property correlation:
-
-```python
-raw_corr = pheno.compute_embedding_property_correlations()
-summary = pheno.aggregate_embedding_property_correlations(
-    raw_corr, aggregation='mean_abs', top_k=10
-)
-print(summary['summary'].head(10))
-```
+➡️ **See Tutorial:** [05_exploratory_analysis_and_explainability.ipynb](../../Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
 
 ---
 
@@ -149,4 +97,4 @@ print(summary['summary'].head(10))
 | Property definitions | [Property Reference](property-reference.md) |
 | Custom properties | [Custom Properties](custom-properties.md) |
 | Report with correlations | [Report Generation](../reference/api/report.md) |
-| Correlation workflow | [Common Workflows: Property-Based](../examples/workflows.md#property-based-analysis) |
+| Correlation workflow | [Common Workflows: Property-Based](../workflows.md#property-based-analysis) |

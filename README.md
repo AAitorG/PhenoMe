@@ -4,33 +4,34 @@
   <img src="docs/Logo.svg" alt="PhenoMe logo" width="280"/>
 </p>
 
-A modular, **dataset-agnostic** and **model-agnostic** pipeline for phenotyping analysis using deep learning embeddings and extracted image properties.
-
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch 2.0+](https://img.shields.io/badge/pytorch-2.0+-orange.svg)](https://pytorch.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping analysis using deep learning embeddings (**visual fingerprints**) and extracted image properties.
 
 ---
 
 ## Quick Start
 
+Analyze your images in four simple steps:
+
 ```python
+import torch
 from phenome import PhenoMe, load_dinov2_model
 
-# 1. Setup
-model, wrapper = load_dinov2_model()
+# 1. Setup: Load a vision model (DINOv2)
+model, wrapper = load_dinov2_model(device=torch.device("cuda")) # Or "cpu" if no GPU is available
 pheno = PhenoMe(seed=42)
 
-# 2. Process Data
-file_df = pheno.find_files("path/to/images")
-pheno.process_images(wrapper)
+# 2. Load: Find your images
+pheno.find_files("path/to/images")
 
-# 3. Compute Properties and save results
+# 3. Analyze: Extract visual fingerprints and compute properties
+pheno.process_images(wrapper)
 pheno.compute_properties(property_preset="basic")
 
-# 4. Visualize
+# 4. Explore: Launch an interactive dashboard
 pheno.create_interactive_explorer()
 ```
+
+For a no-code experience, try the **[Interactive Quickstart](Notebooks/tutorials/01_interactive_quickstart.ipynb)**.
 
 ---
 
@@ -45,7 +46,7 @@ conda env create -f environment.yml
 conda activate phenome
 ```
 
-**pip** (Python 3.11+): from the repo root, `pip install -e .` or `pip install -r requirements.txt` then `pip install -e .`. Use a recent `pip` and `setuptools` so editable installs work (`pip install --upgrade pip setuptools wheel` if `pip install -e .` fails).
+**pip** (Python 3.11+): from the repo root, `pip install -e .` or `pip install -r requirements.txt` then `pip install -e .`.
 
 **Core install** includes `ipywidgets` and `anywidget` (required for interactive explorer). For local notebooks, also install Jupyter, for example `pip install jupyterlab` or `conda install jupyter`.
 
@@ -58,22 +59,21 @@ conda activate phenome
 
 ---
 
-## Documentation
+## 📖 Documentation
 
-Full documentation is in the [`docs/`](docs/) directory.
+Full documentation is available in the [`docs/`](docs/) directory.
 
-- **[Getting Started](docs/getting-started.md)**
-- **[Core Concepts](docs/concepts.md)**
-- **API Reference**:
-  - [Pipeline](docs/reference/api/pipeline.md)
-  - [Properties](docs/reference/api/properties.md)
-  - [Distances](docs/reference/api/distances.md)
-  - [Visualization](docs/reference/api/visualization.md)
-  - [Report](docs/reference/api/report.md)
-- **Guides**: [Custom Metadata](docs/guides/custom-metadata.md), [Custom Properties](docs/guides/custom-properties.md), [Best Practices](docs/guides/best-practices.md)
-- **Examples**: [Common Workflows](docs/examples/workflows.md)
+### For New Users (Start Here)
+- **[Getting Started](docs/getting-started.md)**: Easy installation and your first 4-step analysis.
+- **[Interactive Tutorials](Notebooks/tutorials/)**: Hands-on learning in Jupyter notebooks.
+- **[Core Concepts](docs/concepts.md)**: How "visual fingerprints" and the analysis flow work.
+- **[Common Workflows](docs/workflows.md)**: Real-world examples (Drug screening, time-course, etc.).
 
-Interactive Jupyter notebooks and tutorials are available in [`Notebooks/`](Notebooks/).
+### For Advanced Users & Developers
+- **[Experiment Details (Metadata)](docs/guides/experiment-details.md)**: Linking images to your experimental context.
+- **[API Reference](docs/reference/api/pipeline.md)**: Full technical documentation for all methods.
+- **[Custom Properties](docs/guides/custom-properties.md)**: How to extract your own image features.
+- **[Extending the Framework](docs/guides/extending.md)**: Creating plugins and custom model wrappers.
 
 ---
 

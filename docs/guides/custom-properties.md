@@ -623,5 +623,5 @@ def normalized_intensity(image2d, mask2d):
 | Built-in property definitions | [Property Reference](property-reference.md) |
 | Correlation with embeddings | [Interpretability Guide](interpretability.md) |
 | API reference | [compute_properties](../reference/api/properties.md) |
-| Metadata for grouping | [Custom Metadata](custom-metadata.md) |
-| End-to-end examples | [Common Workflows: Property-Based](../examples/workflows.md#property-based-analysis) |
+| Metadata for grouping | [Experiment Details](experiment-details.md) |
+| End-to-end examples | [Common Workflows: Property-Based](../workflows.md#property-based-analysis) |

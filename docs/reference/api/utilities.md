@@ -2,7 +2,7 @@
 
 Helpers for device management, reproducibility, data loading, PyTorch image transforms, and I/O primitives (checkpoint, file discovery).
 
-**Related:** [Best Practices](../../guides/best-practices.md) · [Model Wrappers](model-wrapper.md) · [Custom Metadata](../../guides/custom-metadata.md) · [HDF5 Protocol](../DATABASE_PROTOCOL.md)
+**Related:** [Best Practices](../../guides/best-practices.md) · [Model Wrappers](model-wrapper.md) · [Experiment Details](../../guides/experiment-details.md) · [HDF5 Protocol](../DATABASE_PROTOCOL.md)
 
 ---
 
@@ -66,7 +66,7 @@ default_metadata_from_path(path: str) -> Dict[str, Any]
 ```
 Minimal fallback metadata function returning `file_path` (full path) and `filename` (basename stem). The default column name for file identifiers is `filename` across all metadata helpers. To capture plate, drug, or well information, provide a custom `MetadataFn` to `find_files`.
 
-For path templates and DataFrame lookup, see [Custom Metadata](../../guides/custom-metadata.md). For OOP classes (`MetadataBase`, `DataFrameMetadata`, etc.), see [Metadata Classes](metadata.md).
+For path templates and DataFrame lookup, see [Experiment Details](../../guides/experiment-details.md). For OOP classes (`MetadataBase`, `DataFrameMetadata`, etc.), see [Metadata Classes](metadata.md).
 
 ---
 
@@ -94,7 +94,7 @@ Zeros-pads a tensor equally on all sides if it is smaller than `pad_size`.
 TransformBuilder(mean: tuple = (0.485, 0.456, 0.406), std: tuple = (0.229, 0.224, 0.225))
 ```
 
-Builds torchvision transform pipelines for image preprocessing (ImageNet normalization by default). Use for custom preprocessing when the pipeline's default transforms are insufficient.
+Builds torchvision transform pipelines for image preprocessing (ImageNet normalization by default). Use for custom preprocessing when the framework's default transforms are insufficient.
 
 **Methods:**
 - **`build(resize_size=None, pad_size=None)`** – Returns `transforms.Compose` with ToTensor, TypeMaxNorm, optional PadToSize, optional Resize, and Normalize.
@@ -111,7 +111,7 @@ Builds torchvision transform pipelines for image preprocessing (ImageNet normali
 CheckpointManager(path: str, embedding_dim: Optional[int] = None, processing_params: Optional[dict] = None, lazy: bool = True)
 ```
 
-Low-level HDF5 checkpoint manager for crash-safe, incremental persistence of embeddings, metadata, and properties. Most users rely on `process_images(..., checkpoint_path=...)` and `checkpoint_context`; direct use is for advanced scenarios (e.g., custom embedding workflows, extending the pipeline).
+Low-level HDF5 checkpoint manager for crash-safe, incremental persistence of embeddings, metadata, and properties. Most users rely on `process_images(..., checkpoint_path=...)` and `checkpoint_context`; direct use is for advanced scenarios (e.g., custom embedding workflows, extending the framework).
 
 **Key methods:** `buffer_embeddings`, `commit_embeddings`, `load_embeddings_by_indices`, `load_committed_results`, `write_results_to_hdf5`, `load_hdf5_results` (static), `validate_processing_params`.
 
@@ -123,7 +123,7 @@ See [HDF5 Database Protocol](../DATABASE_PROTOCOL.md) for the checkpoint file st
 
 #### `FileDiscovery`
 
-Use `pheno.find_files(image_dir, mask_dir=..., ...)` on the pipeline for directory-based file discovery.
+Use `pheno.find_files(image_dir, mask_dir=..., ...)` on the framework instance for directory-based file discovery.
 
 **Import:** `from phenome.io import FileDiscovery`
 
@@ -131,7 +131,7 @@ Use `pheno.find_files(image_dir, mask_dir=..., ...)` on the pipeline for directo
 
 ### Core module (advanced)
 
-For advanced use (custom scripts, extending the pipeline), the following are available from `phenome.core`:
+For advanced use (custom scripts, extending the framework), the following are available from `phenome.core`:
 
 | Function | Description |
 |----------|-------------|

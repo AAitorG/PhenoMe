@@ -27,7 +27,7 @@ Complete method signatures and parameters:
 ## Extending the Pipeline
 
 - [Extending the Pipeline](../guides/extending.md): Overview of extension points (metadata, properties, plugins)
-- [Custom Metadata](../guides/custom-metadata.md): Path templates, CSV lookup, OOP MetadataBase
+- [Experiment Details](../guides/experiment-details.md): Path templates, CSV lookup, OOP MetadataBase
 - [Custom Properties](../guides/custom-properties.md): Property presets, requirement types, property factories
 - [Plugins and Extensibility](../guides/plugins.md): Plugin registry, custom presets
 

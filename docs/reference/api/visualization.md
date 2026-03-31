@@ -2,7 +2,7 @@
 
 Interactive plotting methods powered by Plotly, available on `PhenoMe` instances.
 
-**Related:** [Core Concepts: Visualization](../../concepts.md#visualization-methods) · [Distances](distances.md) · [Interactive Explorer](interactive.md) · [Workflows](../../examples/workflows.md)
+**Related:** [Core Concepts: Visualization](../../concepts.md#visualization-methods) · [Distances](distances.md) · [Interactive Explorer](interactive.md) · [Workflows](../../workflows.md)
 
 ---
 

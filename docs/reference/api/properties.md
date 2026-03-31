@@ -2,7 +2,7 @@
 
 Methods for extracting custom numeric features (properties) from images and masks, accessible via `PhenoMe`.
 
-**Related:** [Custom Properties](../../guides/custom-properties.md) · [Property Reference](../../guides/property-reference.md) · [Workflows: Property analysis](../../examples/workflows.md#property-based-analysis)
+**Related:** [Custom Properties](../../guides/custom-properties.md) · [Property Reference](../../guides/property-reference.md) · [Workflows: Property analysis](../../workflows.md#property-based-analysis)
 
 ---
 

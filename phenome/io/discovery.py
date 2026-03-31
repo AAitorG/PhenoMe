@@ -1,5 +1,5 @@
 """
-File discovery and data auditing for the phenotyping pipeline.
+File discovery and data inspecting for the phenotyping pipeline.
 """
 
 import contextlib
@@ -375,8 +375,8 @@ class FileDiscovery:
             )
         return rows
 
-    def audit_data(self, file_df: pd.DataFrame) -> pd.DataFrame:
-        """Audit image and mask dimensions, shapes, and data ranges.
+    def inspect_data(self, file_df: pd.DataFrame) -> pd.DataFrame:
+        """Inspect image and mask dimensions, shapes, and data ranges.
 
         Reads each image (and mask when present) and reports: shape statistics,
         image-mask shape matching, and mask dtype/range. Masks are expected in
@@ -413,7 +413,7 @@ class FileDiscovery:
         mask_mins: list[float] = []
         mask_maxs: list[float] = []
 
-        logger.info("Auditing %d images%s...", len(file_df), " (with masks)" if has_masks else "")
+        logger.info("Inspecting %d images%s...", len(file_df), " (with masks)" if has_masks else "")
 
         for _, row in tqdm(file_df.iterrows(), total=len(file_df), desc="Reading data"):
             fp_raw = row["file_path"]

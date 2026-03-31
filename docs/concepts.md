@@ -10,7 +10,7 @@ This guide explains the fundamental concepts behind PhenoMe.
 
 1. [What is Phenotyping?](#what-is-phenotyping)
 2. [Deep Learning Embeddings](#deep-learning-embeddings)
-3. [Pipeline Architecture](#pipeline-architecture)
+3. [Framework Architecture](#framework-architecture)
 4. [Channel Modes](#channel-modes)
 5. [Distance Metrics](#distance-metrics)
 6. [Metadata and Properties](#metadata-and-properties)
@@ -20,20 +20,26 @@ This guide explains the fundamental concepts behind PhenoMe.
 
 ## What is Phenotyping?
 
-**Phenotyping** is characterizing observable traits of biological samples. In microscopy, this means analyzing cell morphology, fluorescence patterns, structural changes, and comparing conditions.
+**Summary:** Identifying and measuring the visible characteristics of cells or tissues.
 
-PhenoMe automates this using deep learning. It is **model-agnostic** (any vision model producing global representations) and **dataset-agnostic** (you provide your data layout and metadata).
+Phenotyping is the process of characterizing the observable traits of biological samples. In microscopy, this means analyzing cell shape (morphology), where proteins are located (fluorescence patterns), or how structures change when treated with a drug.
+
+PhenoMe automates this using deep learning. It is **model-agnostic** (it works with almost any vision model) and **dataset-agnostic** (it doesn't care how your files are organized).
 
 ---
 
-## Deep Learning Embeddings
+## Visual Fingerprints (Embeddings)
+
+**Summary:** Turning an image into a list of numbers that describes its appearance.
 
 ### What are Embeddings?
 
-An **embedding** is a fixed-size numerical vector representing an image. A pre-trained neural network transforms each image into a vector that captures its visual characteristics.
+An **embedding** is like a digital "fingerprint" of an image. It is a fixed-size list of numbers (a vector) that captures the most important visual features of an image—such as textures, shapes, and patterns—without needing a human to define them.
+
+Think of it this way: instead of describing a person by their height and hair color, an embedding is like a detailed DNA profile that captures everything about their appearance in a compact form.
 
 ```
-Image (H × W × C) → Vision Model → Embedding (D dimensions)
+Image → Vision Model (The "Brain") → Visual Fingerprint (The Numbers)
 ```
 
 ### Supported Models
@@ -59,9 +65,9 @@ See [Vision Model Wrappers](reference/api/model-wrapper.md) for custom models.
 
 ---
 
-## Pipeline Architecture
+## Framework Architecture
 
-The pipeline follows a modular design:
+The framework follows a modular design:
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
@@ -98,7 +104,7 @@ The pipeline follows a modular design:
 
 ### Temporal Images (In-Memory)
 
-Use `process_temporal_images()` to add new images **temporarily** to an existing analysis without re-running `process_images`. Temporal images are kept in memory only (not persisted to checkpoint) and are tagged with `metadata['source'] = 'NEW'`. Call `clear_temporal_data()` to remove them. See [Temporal Images](examples/workflows.md#temporal-images-explore-new-data-in-memory) in the workflows guide.
+Use `process_temporal_images()` to add new images **temporarily** to an existing analysis without re-running `process_images`. Temporal images are kept in memory only (not persisted to checkpoint) and are tagged with `metadata['source'] = 'NEW'`. Call `clear_temporal_data()` to remove them. See [Temporal Images](workflows.md#temporal-images-explore-new-data-in-memory) in the workflows guide.
 
 ### Embedding Lifecycle
 
@@ -115,7 +121,7 @@ Use `get_embeddings()` for lazy-safe access. For full HDF5 storage details, see 
 
 ## Portability and Data Management
 
-A key feature is sharing and moving analysis results across environments. The pipeline converts absolute paths to relative paths in HDF5 checkpoints for portability.
+A key feature is sharing and moving analysis results across environments. The framework converts absolute paths to relative paths in HDF5 checkpoints for portability.
 
 **Moving a Dataset:**
 1. Copy the HDF5 checkpoint and image files to the new location
@@ -128,48 +134,23 @@ A key feature is sharing and moving analysis results across environments. The pi
 
 ### Results Container: `PhenoMeResults`
 
-The pipeline uses a typed **`PhenoMeResults`** class (`pheno.results`) for embeddings, metadata, and properties. When you move the dataset, call `find_files` at the new location and the pipeline resolves paths automatically. For structure, properties, and full reference, see [Pipeline API: Results container](reference/api/pipeline.md#results-container-phenomeresults).
+The framework uses a typed **`PhenoMeResults`** class (`pheno.results`) for embeddings, metadata, and properties. When you move the dataset, call `find_files` at the new location and the framework resolves paths automatically. For structure, properties, and full reference, see [API Reference: Results container](reference/api/pipeline.md#results-container-phenomeresults).
 
 ---
 
 ## Channel Modes
 
-Microscopy images often have multiple channels (e.g., different fluorophores). The pipeline supports two modes:
+**Summary:** How images with multiple "colors" (fluorophores) are processed.
 
-### Split Mode (Default)
+Microscopy images often have multiple channels (e.g., DAPI for the nucleus, GFP for a specific protein). PhenoMe offers two ways to handle this:
 
-Each channel is processed **independently** through the model, and embeddings are **concatenated**:
+### Split Mode (Recommended for Fluorescence)
 
-```
-Image (H x W x 3 channels)
-    ├── Channel 0 → Model → Embedding (D)
-    ├── Channel 1 → Model → Embedding (D)
-    └── Channel 2 → Model → Embedding (D)
-                          ↓
-              Concatenate → Final Embedding (3×D)
-```
+Each channel is processed **separately** and then the results are combined. This ensures that the model captures the unique information in each channel (e.g., if only one protein changes localization).
 
-**When to use:**
-- Fluorescence microscopy with distinct channels (DAPI, GFP, etc.)
-- When channel-specific information is important
-- Multi-modal imaging
+### Combined Mode (Recommended for Brightfield/RGB)
 
-### Combined Mode
-
-All channels are treated as an **RGB image** and processed together:
-
-```
-Image (H x W x 3 channels)
-    ↓
-Vision Model (expects RGB input)
-    ↓
-Single Embedding (D)
-```
-
-**When to use:**
-- Brightfield or phase contrast images
-- Natural color images
-- When channels represent color, not separate signals
+All channels are treated as a single color image and processed together.
 
 ### Choosing a Mode
 
@@ -185,95 +166,45 @@ pheno.process_images(wrapper, channel_mode='combined')
 
 ## Distance Metrics
 
-Distances quantify how different images are from a reference group (e.g., untreated controls).
+**Summary:** Quantifying how different images are from a reference group (e.g., untreated controls).
 
-### Distance Types
+Once images are converted to embeddings, we can measure the mathematical distance between them to understand phenotypic changes.
 
-| Type | Formula | Use Case |
-|------|---------|----------|
-| **Euclidean** | √(Σ(a-b)²) | General purpose, magnitude-sensitive |
-| **Cosine** | 1 - (a·b)/(‖a‖‖b‖) | Direction-focused, scale-invariant |
+- **Low distance** = Conceptually similar to the reference (e.g., no treatment effect).
+- **High distance** = Conceptually different from the reference (e.g., strong phenotypic change).
 
-### Distance Modes
+### Common Distance Methods
 
-**Centroid Mode:**
-- Compute mean embedding of reference group
-- Measure distance of each image to this centroid
-- Fast and stable for large reference groups
+- **Euclidean vs. Cosine**: Euclidean measures absolute straight-line distance, while Cosine measures the angle between vectors (often better for high-dimensional embeddings because it ignores magnitude).
+- **Centroid vs. All-to-All**: You can either compare an image to the *average* (centroid) of the reference group (fast and stable), or compare it to *every individual* reference image (more sensitive but slower).
 
-```python
-dist_results = pheno.compute_reference_distances(
-    reference_filters={'condition': 'Control'},
-    mode='centroid'
-)
-```
-
-**All-to-All Mode:**
-- Compute distance to every reference image
-- Report minimum distance
-- More sensitive to outliers
-
-```python
-dist_results = pheno.compute_reference_distances(
-    reference_filters={'condition': 'Control'},
-    mode='all_to_all'
-)
-```
-
-### Interpreting Distances
-
-- **Low distance** = Similar to reference (e.g., no effect)
-- **High distance** = Different from reference (e.g., strong phenotypic change)
+For a complete guide on computing and analyzing these metrics, see the **[Common Workflows](workflows.md)**.
 
 ---
 
 ## Metadata and Properties
 
+**Summary:** The facts about your experiment and the hard numbers from your images.
+
 ### Metadata
 
-**Metadata** describes where an image comes from and its experimental context. See [Custom Metadata](guides/custom-metadata.md) for path templates and CSV lookup:
+**Metadata** links an image to its experimental context. It answers questions like:
+- Which drug was applied?
+- At what concentration?
+- Which plate well is this from?
+- What timepoint was this taken at?
 
-- File path
-- Experimental condition (drug, concentration)
-- Time point
-- Plate/well information
-- Replicate number
+By organizing images with this metadata, PhenoMe allows you to automatically color plots by drug concentration, calculate distances relative to controls, and compare results across plates. Let PhenoMe automatically extract this information for you.
 
-Example metadata extractor from file paths:
-
-```python
-def my_metadata_fn(path):
-    # /data/Plate1/Drug_10uM/image_001.tif
-    parts = path.split('/')
-    return {
-        'file_path': path,
-        'plate': parts[-3],
-        'condition': parts[-2],
-        'image_id': parts[-1].replace('.tif', '')
-    }
-```
+See the **[Experiment Details Pipeline](guides/experiment-details.md)** to learn how to inject this metadata.
 
 ### Properties
 
-**Properties** are numerical features computed from the image content. See [Custom Properties](guides/custom-properties.md) and [Property Reference](guides/property-reference.md):
+While *embeddings* are abstract numbers generated by Deep Learning, **Properties** are classical, explainable image measurements (e.g., cell count, average intensity, nuclear area).
 
-- Average intensity
-- Cell area, perimeter
-- Texture measurements
-- Custom domain-specific features
+PhenoMe computes and stores these properties alongside the embeddings. This allows you to find out if standard properties (like nucleus size) can fully explain the grouping seen by the deep learning embeddings.
 
-Properties require user-defined functions:
-
-```python
-def avg_intensity(image2d, mask2d):
-    return {'mean_intensity': float(np.mean(image2d))}
-
-pheno.find_files("images/", mask_dir="masks/")
-df = pheno.compute_properties(
-    property_preset="none",
-    additional_property_functions={"image": avg_intensity}
-)
-```
+See the **[Custom Properties](guides/custom-properties.md)** guide to learn how to add your own metrics, or check the built-in properties in the **[Property Reference](guides/property-reference.md)**.
 
 ---
 
@@ -352,7 +283,7 @@ Results are saved/loaded as **HDF5** via `save_results()` and `load_results()`. 
 
 - [API Reference](reference/api/pipeline.md): Complete method documentation
 - [Getting Started](getting-started.md): Installation and quick start
-- [Custom Metadata](guides/custom-metadata.md): Create dataset-specific extractors
+- [Experiment Details](guides/experiment-details.md): Create dataset-specific extractors
 - [Custom Properties](guides/custom-properties.md): Define domain-specific features
-- [Workflows](examples/workflows.md): End-to-end analysis examples
+- [Workflows](workflows.md): End-to-end analysis examples
 - [HDF5 Protocol](reference/DATABASE_PROTOCOL.md): Embedding lifecycle and checkpoint structure

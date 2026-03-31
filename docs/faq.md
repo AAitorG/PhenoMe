@@ -39,7 +39,7 @@ The pipeline is flexible. Minimal options:
 - **Flat**: All images in one folder. Use `pheno.find_files("path/to/images")`.
 - **By condition**: `data/Control/img1.tif`, `data/Drug1/img1.tif`. Use a **path template** (`get_metadata_from_path`) or custom `metadata_fn` to extract the condition from the parent folder.
 
-See [Getting Started: Expected Structure](getting-started.md#expected-folder-structure) for examples and [Custom Metadata](guides/custom-metadata.md) for path templates and CSV lookup.
+See [Getting Started: Expected Structure](getting-started.md#3-expected-folder-structure) for examples and [Experiment Details](guides/experiment-details.md) for path templates and CSV lookup.
 
 ### My filter returns no images. Why?
 

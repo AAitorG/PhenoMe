@@ -98,4 +98,4 @@ PhenoMeInteractive(
 ## See also
 
 - Static DR plots: [Visualization API](visualization.md)
-- End-to-end example with `hover_features`: [Workflows — Temporal images](../../examples/workflows.md#temporal-images-explore-new-data-in-memory)
+- End-to-end example with `hover_features`: [Workflows — Temporal images](../../workflows.md#temporal-images-explore-new-data-in-memory)

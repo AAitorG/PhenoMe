@@ -142,4 +142,4 @@ Gray Level Co-occurrence Matrix (Haralick) features. Require both image and mask
 | Extension points | [Extending the Pipeline](extending.md) |
 | API reference | [compute_properties](../reference/api/properties.md) |
 | Concepts overview | [Metadata and Properties](../concepts.md#metadata-and-properties) |
-| Workflow examples | [Common Workflows: Property-Based](../examples/workflows.md#property-based-analysis) |
+| Workflow examples | [Common Workflows: Property-Based](../workflows.md#property-based-analysis) |
