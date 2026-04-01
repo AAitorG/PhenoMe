@@ -102,9 +102,9 @@ class DinoV2ModelWrapper(ModelWrapper):
 def load_dinov2_model(
     model_name: str = "dinov2_vitb14_reg",
     device: torch.device | None = None,
-) -> tuple:
+) -> DinoV2ModelWrapper:
     """
-    Load a DINOv2 model and return it with a DinoV2ModelWrapper ready for processing.
+    Load a DINOv2 model and return a DinoV2ModelWrapper ready for processing.
 
     Convenience helper for DINOv2 users. Uses get_default_device() when
     device is not specified. Returns the heritage DinoV2ModelWrapper, which
@@ -116,17 +116,17 @@ def load_dinov2_model(
         device: Optional torch.device. If None, uses get_default_device().
 
     Returns:
-        Tuple of (model, DinoV2ModelWrapper). Use the wrapper with process_images().
+        DinoV2ModelWrapper. Use with process_images(). The underlying
+        ``torch.nn.Module`` is ``wrapper.model``.
 
     Example:
-        >>> model, wrapper = load_dinov2_model()
+        >>> wrapper = load_dinov2_model()
         >>> pheno.find_files("path/to/images")
         >>> pheno.process_images(wrapper)
     """
     dev = device if device is not None else get_default_device()
     model = torch.hub.load("facebookresearch/dinov2", model_name)
-    wrapper = DinoV2ModelWrapper(model, dev)
-    return model, wrapper
+    return DinoV2ModelWrapper(model, dev)
 
 
 def _validate_embedding_out(tensor: torch.Tensor) -> torch.Tensor:

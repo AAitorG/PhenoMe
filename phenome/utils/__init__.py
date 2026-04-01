@@ -4,7 +4,7 @@ Provides model wrappers, metadata helpers, property factories, and device utilit
 See the top-level :mod:`phenome` module for usage.
 
 Public API:
-    - load_dinov2_model: Load DINOv2 model and wrapper.
+    - load_dinov2_model: Load DINOv2 as a DinoV2ModelWrapper.
     - ModelWrapper, DinoV2ModelWrapper: Base and DINOv2-specific wrappers.
     - default_metadata_from_path, get_metadata_from_path, make_dataframe_metadata_fn
     - create_regionprops_function, create_intensity_function, create_texture_function, ...

@@ -44,7 +44,7 @@ Wrapper for DINOv2 models. Handles dictionary extraction using `embedding_output
 ```python
 from phenome import load_dinov2_model
 
-model, wrapper = load_dinov2_model('dinov2_vitb14_reg')
+wrapper = load_dinov2_model('dinov2_vitb14_reg')
 ```
 
 ---

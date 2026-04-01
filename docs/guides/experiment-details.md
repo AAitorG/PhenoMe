@@ -67,6 +67,13 @@ pheno.find_files("data", metadata_fn=metadata_fn)
 
 If you have a CSV file with details for each image, PhenoMe can link them based on the filename.
 
+**New to CSV metadata?** `find_files` scans your image folder first, then looks up each file in your CSV. **Only the overlap is used:**
+- Files must appear in **both** your folder scan and your CSV to be processed.
+- Rows in your CSV without a matching image file are ignored.
+- Image files in your folder without a matching CSV row are skipped by default (`on_missing_metadata='drop'`).
+
+This ensures you don't accidentally process images with missing labels. To keep images that fail lookup (with empty labels), pass `on_missing_metadata='keep'` to `find_files`.
+
 **Your CSV might look like this:**
 ```csv
 filename,drug,concentration uM,time

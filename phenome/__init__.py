@@ -3,33 +3,6 @@
 A modular, **dataset-agnostic** and **model-agnostic** pipeline for phenotyping
 analysis using deep learning embeddings.
 
-Basic usage:
-
-    from phenome import PhenoMe, load_dinov2_model
-
-    model, wrapper = load_dinov2_model()
-    pheno = PhenoMe()  # pass seed=42 for reproducibility
-    file_df = pheno.find_files("path/to/images")
-    pheno.process_images(wrapper)
-
-    # Property presets: "none", "basic", "regionprops", "intensity", "full", "full_extended"
-    df = pheno.compute_properties(property_preset="basic")  # or additional_property_functions={...}
-
-    # Distances can be computed on embeddings, phenotypic properties, or a
-    # combined normalized feature space (embeddings + properties)
-    results = pheno.compute_reference_distances(
-        reference_filters={'condition': 'Control'},
-        mode='centroid',
-        source='embeddings'  # or 'properties' or 'combined'
-    )
-    pheno.save_results(output_dir="results")  # Directory created automatically
-
-    # Generate interactive report
-    pheno.generate_report(output_path="report.html")
-
-    # Interactive visualization in Jupyter (no need to pass pheno):
-    # explorer = pheno.create_interactive_explorer(filters={...}, hover_features=[...])
-
 Top-level imports: PhenoMe, load_dinov2_model, default_metadata_from_path,
   get_metadata_from_path, make_dataframe_metadata_fn, create_regionprops_function,
   create_intensity_function, create_masked_intensity_function,

@@ -2762,7 +2762,7 @@ def create_interactive_explorer(
 
     Example:
         >>> from phenome import PhenoMe, load_dinov2_model
-        >>> model, wrapper = load_dinov2_model()
+        >>> wrapper = load_dinov2_model()
         >>> pheno = PhenoMe(seed=42)
         >>> pheno.find_files("data/")
         >>> pheno.process_images(wrapper)

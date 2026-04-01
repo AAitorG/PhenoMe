@@ -13,12 +13,12 @@ A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping
 Analyze your images in four simple steps:
 
 ```python
-import torch
 from phenome import PhenoMe, load_dinov2_model
 
 # 1. Setup: Load a vision model (DINOv2)
-model, wrapper = load_dinov2_model(device=torch.device("cuda")) # Or "cpu" if no GPU is available
-pheno = PhenoMe(seed=42)
+# device=torch.device("cuda") set device to GPU if available for faster processing
+wrapper = load_dinov2_model()  # pass device as needed
+pheno = PhenoMe() # pass device as needed
 
 # 2. Load: Find your images
 pheno.find_files("path/to/images")

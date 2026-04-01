@@ -61,7 +61,7 @@ file_df = pheno.find_files(data_dir, metadata_fn=meta_cfg)
 
 ## DataFrameMetadata
 
-Look up metadata from a DataFrame (single or multi-channel).
+Look up metadata from a DataFrame (single or multi-channel). `find_files` calls lookup **per discovered file**; it does not enumerate every CSV row, so unused spreadsheet rows never enter the pipeline.
 
 ### Single file per sample
 

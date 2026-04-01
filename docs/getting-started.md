@@ -47,8 +47,9 @@ import torch
 from phenome import PhenoMe, load_dinov2_model
 
 # Load model and initialize PhenoMe
-model, wrapper = load_dinov2_model(model_name="dinov2_vitb14_reg", device=torch.device("cuda"))
-pheno = PhenoMe(seed=42)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+wrapper = load_dinov2_model(model_name="dinov2_vitb14_reg", device=device)
+pheno = PhenoMe(device=device, seed=42)
 ```
 
 ### Step 2: Find and Inspect Images

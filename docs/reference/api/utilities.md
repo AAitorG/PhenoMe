@@ -33,11 +33,12 @@ Locks random seeds (`torch`, `numpy`, `random`) and disables cuDNN benchmarking 
 #### `load_dinov2_model`
 
 ```python
-load_dinov2_model(model_name: str = "dinov2_vitb14_reg", device: Optional[torch.device] = None) -> Tuple[torch.nn.Module, DinoV2ModelWrapper]
+load_dinov2_model(model_name: str = "dinov2_vitb14_reg", device: Optional[torch.device] = None) -> DinoV2ModelWrapper
 ```
-Loads a standard DINOv2 model and wraps it into a `DinoV2ModelWrapper`.
+Loads a standard DINOv2 model and returns a `DinoV2ModelWrapper`.
 **Parameters:**
 - **model_name** (*str*) – DINOv2 architecture (e.g., `'dinov2_vitb14_reg'`).
+- **device** (*Optional[torch.device]*) – Execution device; defaults to `get_default_device()` when omitted.
 
 ---
 

@@ -41,6 +41,10 @@ The pipeline is flexible. Minimal options:
 
 See [Getting Started: Expected Structure](getting-started.md#3-expected-folder-structure) for examples and [Experiment Details](guides/experiment-details.md) for path templates and CSV lookup.
 
+### I use a CSV for metadata—why don’t my CSV row count and `file_df` row count match?
+
+`find_files` first scans your images folder, then matches those images to your CSV. **Only the overlap is used:** image files must exist in **both** the folder and the CSV to be processed. Extra rows in your CSV are ignored, and images without a CSV row are skipped by default. This ensures you only analyze images that have valid labels. See [Experiment Details: Using a CSV or Spreadsheet](guides/experiment-details.md#2-using-a-csv-or-spreadsheet).
+
 ### My filter returns no images. Why?
 
 Check that:

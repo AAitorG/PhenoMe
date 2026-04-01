@@ -22,8 +22,8 @@ Brief workflow overview and common options. For full signatures, see [API Refere
 from phenome import PhenoMe, load_dinov2_model
 
 # 1. Setup
-model, wrapper = load_dinov2_model()
-pheno = PhenoMe()  # pass seed=42 for reproducibility
+wrapper = load_dinov2_model()
+pheno = PhenoMe()  # pass device=torch.device("cuda") and seed=42 as needed
 
 # 2. Find files
 
