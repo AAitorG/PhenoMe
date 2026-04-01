@@ -1,7 +1,7 @@
 # PhenoMe Documentation
 
 <p align="center">
-  <img src="Logo.svg" alt="PhenoMe logo" width="240"/>
+  <img src="Logo.png" alt="PhenoMe logo" width="240"/>
 </p>
 
 **PhenoMe** (package: `phenome`) is a modular framework for phenotyping analysis using deep learning embeddings. It is [model-agnostic and dataset-agnostic](concepts.md#what-is-phenotyping)—you provide your data and vision model of choice.
