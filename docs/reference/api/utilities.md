@@ -13,7 +13,18 @@ Helpers for device management, reproducibility, data loading, PyTorch image tran
 ```python
 get_default_device() -> torch.device
 ```
-Returns a CUDA device if available, otherwise CPU.
+Returns the device set via `set_default_device`, or a CUDA device if available, otherwise CPU.
+
+---
+
+#### `set_default_device`
+
+```python
+set_default_device(device: torch.device | str | None)
+```
+Globally sets the default device used by the pipeline and correlation functions.
+**Parameters:**
+- **device** (*torch.device | str | None*) – Target device (e.g., `'cuda'`, `'cpu'`) or `None` to reset to auto-detection.
 
 ---
 
@@ -141,5 +152,6 @@ For advanced use (custom scripts, extending the framework), the following are av
 | `build_export_dataframe` | Build export DataFrame from pipeline results. |
 | `run_dimensionality_reduction` | PCA, t-SNE, UMAP on embeddings or properties. |
 | `compute_pearson_correlation`, `compute_spearman_correlation`, `compute_distance_correlation` | Correlation metrics between variables. |
+| `compute_entropy`, `compute_mutual_info` | Information-theoretic metrics. |
 
-**Import:** `from phenome.core import filter_indices, build_export_dataframe, run_dimensionality_reduction, compute_pearson_correlation, compute_spearman_correlation`
+**Import:** `from phenome.core import filter_indices, build_export_dataframe, run_dimensionality_reduction, compute_pearson_correlation, compute_spearman_correlation, compute_entropy, compute_mutual_info`

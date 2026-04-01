@@ -2,12 +2,21 @@
 Correlation algorithms.
 
 Pure functions for Pearson, Spearman, distance correlation, and mutual information.
-Uses torch for Pearson (CPU/GPU); scipy for Spearman; dcor for distance correlation;
-sklearn mutual_info_regression for mutual information (KNN-based).
+Pearson and histogram entropy use PyTorch on CPU; scipy for Spearman; dcor for
+distance correlation; sklearn mutual_info_regression for mutual information (KNN-based).
 """
+
+import contextlib
 
 import numpy as np
 import torch
+from scipy.stats import spearmanr
+from sklearn.feature_selection import mutual_info_regression
+
+from .._logging import get_logger
+from ..utils.device import get_default_device
+
+logger = get_logger(__name__)
 
 try:
     import dcor
@@ -15,11 +24,6 @@ try:
     _DCOR_AVAILABLE = True
 except ImportError:
     _DCOR_AVAILABLE = False
-
-import contextlib
-
-from scipy.stats import spearmanr
-from sklearn.feature_selection import mutual_info_regression
 
 
 def clean_correlation_inputs(
@@ -44,6 +48,10 @@ def clean_correlation_inputs(
     y_ok = np.isfinite(y)
     if x.ndim == 1:
         ok = np.isfinite(x) & y_ok
+        n_dropped = y.shape[0] - ok.sum()
+        if n_dropped > 0:
+            logger.warning(f"Dropped {n_dropped} sample(s) due to NaN/inf values in inputs.")
+
         if ok.sum() < min_samples:
             return None, None, ok
         return x[ok], y[ok], ok
@@ -51,6 +59,13 @@ def clean_correlation_inputs(
         # For 2D x: drop entire row if any feature is non-finite
         x_ok = np.isfinite(x).all(axis=1)
         ok = x_ok & y_ok
+        n_dropped = y.shape[0] - ok.sum()
+        if n_dropped > 0:
+            logger.warning(
+                f"Dropped {n_dropped} sample(s) due to NaN/inf values (listwise deletion). "
+                f"Consider handling missing values beforehand to preserve statistical power."
+            )
+
         if ok.sum() < min_samples:
             return None, None, ok
         return x[ok, :], y[ok], ok
@@ -59,16 +74,14 @@ def clean_correlation_inputs(
 def compute_pearson_correlation(
     x: np.ndarray,
     y: np.ndarray,
-    device: str | torch.device | None = None,
+    device: torch.device | str | None = None,
 ) -> np.ndarray:
-    """Compute Pearson correlation between x and y using torch.corrcoef.
-
-    Uses the pipeline's device when available for consistency (e.g. cuda:0).
+    """Compute Pearson correlation between x and y using torch.corrcoef on GPU/CPU.
 
     Args:
         x: First array (n_samples,) or (n_samples, n_features).
         y: Second array (n_samples,).
-        device: Optional torch.device for tensor placement.
+        device: Torch device to run computation on. Defaults to utils.device.get_default_device().
 
     Returns:
         np.ndarray: Correlation coefficient(s), dtype float64. If x is 1D, scalar (as length-1 array).
@@ -86,7 +99,11 @@ def compute_pearson_correlation(
     return np.array(result) if x.ndim == 1 else result
 
 
-def compute_spearman_correlation(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+def compute_spearman_correlation(
+    x: np.ndarray,
+    y: np.ndarray,
+    device: torch.device | str | None = None,
+) -> np.ndarray:
     """Compute Spearman rank correlation between x and y using scipy.
 
     Spearman is Pearson correlation applied to ranks. Robust to outliers and
@@ -95,6 +112,7 @@ def compute_spearman_correlation(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     Args:
         x: First array (n_samples,) or (n_samples, n_features).
         y: Second array (n_samples,).
+        device: Torch device (included for API consistency; Spearman uses CPU).
 
     Returns:
         np.ndarray: Correlation coefficient(s), dtype float64. If x is 1D, scalar (as length-1 array).
@@ -127,12 +145,17 @@ def compute_spearman_correlation(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     return results
 
 
-def compute_distance_correlation(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+def compute_distance_correlation(
+    x: np.ndarray,
+    y: np.ndarray,
+    device: torch.device | str | None = None,
+) -> np.ndarray:
     """Compute distance correlation between x and y.
 
     Args:
         x: First array (n_samples,) or (n_samples, n_features).
         y: Second array (n_samples,).
+        device: Torch device (included for API consistency; dcor uses CPU).
 
     Returns:
         np.ndarray: Distance correlation coefficient(s), dtype float64. If x is 1D, scalar (as array).
@@ -172,14 +195,14 @@ def compute_distance_correlation(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 def compute_entropy(
     data: np.ndarray,
     bins: int = 10,
-    device: str | torch.device | None = None,
+    device: torch.device | str | None = None,
 ) -> float | np.ndarray:
-    """Compute entropy of data using histogram.
+    """Compute entropy of data using histogram (PyTorch on GPU/CPU).
 
     Args:
         data: np.ndarray, shape (n_samples,) or (n_samples, n_features). If 2D, entropy per column.
         bins: Number of histogram bins.
-        device: Optional torch.device for tensor placement.
+        device: Torch device to run computation on. Defaults to utils.device.get_default_device().
 
     Returns:
         float or np.ndarray: Shannon entropy in nats. Float for 1D; shape (n_features,) for 2D, dtype float64.
@@ -188,10 +211,10 @@ def compute_entropy(
         return 0.0 if data.ndim == 1 else np.array([], dtype=np.float64)
 
     if data.ndim == 1:
-        return _entropy_1d(data, bins)
+        return _entropy_1d(data, bins, device=device)
 
     # 2D case: Vectorized entropy per column using torch
-    dev = device if device is not None else torch.device("cpu")
+    dev = device if device is not None else get_default_device()
     data_t = torch.from_numpy(data.astype(np.float64)).to(dev)
 
     n_samples, n_features = data_t.shape
@@ -230,27 +253,27 @@ def compute_mutual_info(
     x: np.ndarray,
     y: np.ndarray,
     seed: int | None = None,
+    device: torch.device | str | None = None,
 ) -> np.ndarray:
     """Compute normalized mutual information between x and y.
 
-    Uses sklearn mutual_info_regression (KNN-based estimator).
+    Uses sklearn mutual_info_regression (KNN-based estimator) mapped to an R^2-like
+    [0,1] value using the transformation sqrt(1 - exp(-2 * MI)).
 
     Args:
         x: First array (n_samples,) or (n_samples, n_features).
         y: Second array (n_samples,).
         seed: Random seed for mutual_info_regression.
+        device: Torch device (included for API consistency; sklearn uses CPU).
 
     Returns:
         np.ndarray: Normalized mutual information in [0, 1], dtype float64. If x is 1D, scalar (as array).
             If x is 2D, shape (n_features,). NaN where insufficient valid samples.
     """
-    x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=3)
+    # sklearn default n_neighbors=3 requires at least 4 valid samples
+    x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=4)
     if x_clean is None:
         return np.nan if x.ndim == 1 else np.full(x.shape[1], np.nan)
-
-    # KNN estimator: n_neighbors must be in [3, n_samples-1]; sklearn default is 5
-    n_samples = len(x_clean)
-    n_neighbors = max(3, min(10, n_samples - 1))
 
     if x.ndim == 1:
         try:
@@ -258,13 +281,8 @@ def compute_mutual_info(
                 x_clean.reshape(-1, 1),
                 y_clean,
                 random_state=seed,
-                n_neighbors=n_neighbors,
             )[0]
-            h_x = _entropy_1d(x_clean, bins=10)
-            h_y = _entropy_1d(y_clean, bins=10)
-            # I(X;Y) <= min(H(X), H(Y)), so normalized MI in [0, 1]
-            max_mi = min(h_x, h_y)
-            mi_normalized = mi / max_mi if max_mi > 1e-12 else 0.0
+            mi_normalized = np.sqrt(1.0 - np.exp(-2.0 * mi))
             return np.array(float(np.clip(mi_normalized, 0.0, 1.0)))
         except Exception:
             return np.array(np.nan)
@@ -275,7 +293,6 @@ def compute_mutual_info(
             x_clean,
             y_clean,
             random_state=seed,
-            n_neighbors=n_neighbors,
         )
     except Exception:
         mi_values = np.full(n_features, np.nan)
@@ -285,14 +302,10 @@ def compute_mutual_info(
                     x_clean[:, i].reshape(-1, 1),
                     y_clean,
                     random_state=seed,
-                    n_neighbors=n_neighbors,
                 )[0]
 
-    h_x_all = compute_entropy(x_clean)
-    h_y = _entropy_1d(y_clean, bins=10)
-    max_mi = np.minimum(h_x_all, h_y)
     with np.errstate(divide="ignore", invalid="ignore"):
-        mi_normalized = np.where(max_mi > 1e-12, mi_values / max_mi, 0.0)
+        mi_normalized = np.sqrt(1.0 - np.exp(-2.0 * mi_values))
     return np.clip(np.where(np.isfinite(mi_normalized), mi_normalized, np.nan), 0.0, 1.0)
 
 
@@ -315,21 +328,20 @@ def _is_constant(arr: np.ndarray) -> bool:
 def _pearson_torch(
     x: np.ndarray,
     y: np.ndarray,
-    device: str | torch.device | None = None,
+    device: torch.device | str | None = None,
 ) -> float | np.ndarray:
-    """Compute Pearson correlation using torch.corrcoef.
+    """Compute Pearson correlation using torch on GPU/CPU.
 
     Args:
         x: First array (n_samples,) or (n_samples, n_features).
         y: Second array (n_samples,).
-        device: Optional torch.device for tensor placement. Uses pipeline.device
-            when called from pipeline for consistency.
+        device: Torch device to run computation on. Defaults to utils.device.get_default_device().
 
     Returns:
         Correlation coefficient (float for 1D x) or array of shape (n_features,)
         for 2D x.
     """
-    dev = device if device is not None else torch.device("cpu")
+    dev = device if device is not None else get_default_device()
     x_t = torch.from_numpy(x.astype(np.float64)).to(dev)
     y_t = torch.from_numpy(y.astype(np.float64)).to(dev)
 
@@ -337,21 +349,35 @@ def _pearson_torch(
         # Stack for corrcoef: rows = variables, cols = samples
         if x.ndim == 1:
             stacked = torch.stack([x_t, y_t], dim=0)  # (2, n_samples)
+            corr_mat = torch.corrcoef(stacked)
+            r = corr_mat[0, 1].item()
+            return np.nan if not np.isfinite(r) else r
         else:
-            stacked = torch.cat([x_t.T, y_t.unsqueeze(0)], dim=0)  # (n_features+1, n_samples)
-        corr_mat = torch.corrcoef(stacked)
+            # O(MN) dot-product Pearson computation instead of O(M^2) full covariance
+            y_c = y_t - y_t.mean()
+            x_c = x_t - x_t.mean(dim=0)
 
-    # Extract correlation of each x column with y (last column of corr_mat)
-    if x.ndim == 1:
-        r = corr_mat[0, 1].item()
-        return np.nan if not np.isfinite(r) else r
-    else:
-        r = corr_mat[:-1, -1].cpu().numpy()
-        r[~np.isfinite(r)] = np.nan
-        return r
+            y_norm = torch.norm(y_c)
+            x_norm = torch.norm(x_c, dim=0)
+
+            # Avoid division by zero
+            x_norm = torch.where(
+                x_norm == 0, torch.tensor(float("inf"), device=dev, dtype=torch.float64), x_norm
+            )
+            if y_norm == 0:
+                y_norm = torch.tensor(float("inf"), device=dev, dtype=torch.float64)
+
+            cov = torch.mv(x_c.t(), y_c)
+            r = (cov / (x_norm * y_norm)).cpu().numpy()
+            r[~np.isfinite(r)] = np.nan
+            return r
 
 
-def _entropy_1d(data: np.ndarray, bins: int) -> float:
+def _entropy_1d(
+    data: np.ndarray,
+    bins: int,
+    device: torch.device | str | None = None,
+) -> float:
     """Compute Shannon entropy H(X) = -sum(p*log(p)) in nats (natural log).
 
     Uses torch.histogram for consistency and speed.
@@ -359,6 +385,7 @@ def _entropy_1d(data: np.ndarray, bins: int) -> float:
     Args:
         data: np.ndarray, shape (n_samples,).
         bins: Number of histogram bins.
+        device: Torch device to run computation on. Defaults to utils.device.get_default_device().
 
     Returns:
         float: Entropy in nats.
@@ -368,8 +395,9 @@ def _entropy_1d(data: np.ndarray, bins: int) -> float:
         return 0.0
     n_bins = max(1, min(bins, n))
 
+    dev = device if device is not None else get_default_device()
     # Use torch for histogram calculation
-    data_t = torch.from_numpy(data.astype(np.float64))
+    data_t = torch.from_numpy(data.astype(np.float64)).to(dev)
     # torch.histogram returns a namedtuple (hist, bin_edges)
     hist = torch.histogram(data_t, bins=n_bins).hist
 

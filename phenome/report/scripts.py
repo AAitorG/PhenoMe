@@ -130,4 +130,32 @@ document.querySelectorAll('[data-tooltip]').forEach(el => {
         }
     });
 });
+
+// Scrollspy for navigation
+const sections = document.querySelectorAll('.section');
+const navLinks = document.querySelectorAll('.nav-link');
+
+if (sections.length > 0 && navLinks.length > 0) {
+    const observerOptions = {
+        root: null,
+        rootMargin: '0px 0px -60% 0px',
+        threshold: 0
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const targetId = entry.target.id;
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${targetId}`) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+        });
+    }, observerOptions);
+
+    sections.forEach(section => observer.observe(section));
+}
 """

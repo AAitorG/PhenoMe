@@ -67,6 +67,7 @@ pheno.generate_report(
 | `channel_mode` | `process_images()` | `'split'` (each channel separately) or `'combined'` (channels as RGB). |
 | `metadata_fn` | `find_files()` | Custom function to extract metadata from paths. See [Experiment Details](guides/experiment-details.md). |
 | `seed` | `PhenoMe()` | Set for reproducible results (t-SNE, clustering, sampling). |
+| `device` | `PhenoMe()` | GPU/CPU for embedding extraction and analysis. |
 
 For full parameter lists, see the [API Reference](reference/index.md).
 

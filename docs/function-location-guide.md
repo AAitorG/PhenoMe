@@ -90,7 +90,8 @@ Common methods on `PhenoMe` instances:
 | `default_metadata_from_path`, `get_metadata_from_path`, `make_dataframe_metadata_fn` | Metadata helpers (same as top-level)     | ✅ | [Metadata](reference/api/metadata.md)                     |
 | `create_regionprops_function`, `create_intensity_function`, etc.                     | Property factories (same as top-level)   | ✅ | [Custom Properties](guides/custom-properties.md)          |
 | `ModelWrapper`, `DinoV2ModelWrapper`                                                 | For custom vision models                 | 🔧 | [Model Wrappers](reference/api/model-wrapper.md)          |
-| `get_default_device`                                                                 | Return CUDA device if available          | 🔧 | [Utilities](reference/api/utilities.md#get_default_device) |
+| `get_default_device`                                                                 | Return global default device             | 🔧 | [Utilities](reference/api/utilities.md#get_default_device) |
+| `set_default_device`                                                                 | Set global default device                | 🔧 | [Utilities](reference/api/utilities.md#set_default_device) |
 | `set_determinism`                                                                    | Set random seeds for reproducibility     | 🔧 | [Utilities](reference/api/utilities.md#set_determinism)   |
 | `TransformBuilder`, `PadToSize`, `TypeMaxNorm`                                       | For custom model preprocessing           | 🔧 | [Utilities](reference/api/utilities.md#transformers)      |
 | `normalize_by_dtype_max`, `scale_minmax`                                             | Normalization helpers used in transforms | 🔒 | [Utilities](reference/api/utilities.md#transformers)      |

@@ -375,6 +375,8 @@ Computes correlation between DR components and scalar properties.
 **Returns:**
 - *Dict[str, Any]* – Correlation matrix and summary.
 
+**Device:** Methods that use PyTorch for correlation (`pearson`, and related tensor paths) use `self.device` (see `PhenoMe(device=...)`). Other correlation measures may use CPU libraries; the pipeline still passes `self.device` through for a consistent API.
+
 ---
 
 #### `find_prototypes`
@@ -428,6 +430,8 @@ Computes global correlation between embedding dimensions and extracted propertie
 
 **Returns:**
 - *Dict[str, Any]* – Dictionary of raw correlations per dimension. Use [`aggregate_embedding_property_correlations()`](#aggregate_embedding_property_correlations) on the output to get a summarized ranking.
+
+**Device:** Same as [`compute_component_correlation`](#compute_component_correlation). PyTorch-backed correlation uses `self.device`.
 
 ---
 

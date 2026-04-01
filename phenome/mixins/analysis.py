@@ -1137,15 +1137,15 @@ class PhenoMeAnalysis:
 
     def _compute_spearman_correlation(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Compute Spearman rank correlation between x and y (delegates to core)."""
-        return compute_spearman_correlation(x, y)
+        return compute_spearman_correlation(x, y, device=self.device)
 
     def _compute_distance_correlation(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Compute distance correlation between x and y (delegates to core)."""
-        return compute_distance_correlation(x, y)
+        return compute_distance_correlation(x, y, device=self.device)
 
     def _compute_mutual_info(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Compute normalized mutual information (delegates to core)."""
-        return compute_mutual_info(x, y, seed=getattr(self, "seed", None))
+        return compute_mutual_info(x, y, seed=getattr(self, "seed", None), device=self.device)
 
     def _compute_correlation(self, method: str, x: np.ndarray, y: np.ndarray) -> np.ndarray:
         """Dispatch to the correlation function for the given method."""

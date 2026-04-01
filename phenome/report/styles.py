@@ -96,9 +96,19 @@ p {
 
 /* Layout */
 .container {
-    max-width: 1400px;
+    max-width: 1600px;
     margin: 0 auto;
     padding: 2rem;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 2.5rem;
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .container {
+        grid-template-columns: 1fr;
+    }
 }
 
 .header {
@@ -106,6 +116,7 @@ p {
     padding: 3rem 0;
     margin-bottom: 2rem;
     position: relative;
+    grid-column: 1 / -1;
 }
 
 .header::after {
@@ -126,48 +137,59 @@ p {
     margin-top: 0.5rem;
 }
 
-/* Navigation */
+/* Navigation - Sidebar */
 .nav-container {
     background: var(--bg-card);
     border-radius: 12px;
-    padding: 1rem;
+    padding: 1.5rem;
     margin-bottom: 2rem;
     position: sticky;
-    top: 1rem;
+    top: 2rem;
     z-index: 100;
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--border);
+    grid-column: 1;
 }
 
 .nav-title {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--text-muted);
-    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
 }
 
 .nav-links {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 .nav-link {
     color: var(--text-secondary);
     text-decoration: none;
-    padding: 0.5rem 1rem;
+    padding: 0.6rem 1rem;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     transition: all 0.2s ease;
     background: transparent;
     border: 1px solid transparent;
+    display: block;
 }
 
-.nav-link:hover {
+.nav-link:hover, .nav-link.active {
     background: var(--bg-card-hover);
     color: var(--primary);
-    border-color: var(--primary);
+    border-color: var(--border);
+}
+
+/* Main Content Wrapper */
+.content-wrapper {
+    grid-column: 2;
+    min-width: 0; /* Prevents overflow in CSS grid */
 }
 
 /* Stats Cards */
@@ -230,10 +252,12 @@ p {
 .section {
     background: var(--bg-card);
     border-radius: 16px;
-    padding: 2rem;
+    padding: 2.5rem;
     margin-bottom: 2rem;
     border: 1px solid var(--border);
     box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: visible; /* Allows Plotly tooltips to display properly */
 }
 
 .section-header {
@@ -517,8 +541,9 @@ tr:last-child td {
 
 /* Footer */
 .footer {
+    grid-column: 1 / -1;
     text-align: center;
-    padding: 2rem;
+    padding: 3rem 0;
     color: var(--text-muted);
     font-size: 0.85rem;
     border-top: 1px solid var(--border);
@@ -549,17 +574,20 @@ tr:last-child td {
     to { opacity: 1; transform: translateY(0); }
 }
 
-.section {
+.section, .stats-grid {
     animation: fadeIn 0.5s ease forwards;
+    opacity: 0;
 }
 
-/* Sections are 4th+ children of container (after header, nav, stats) */
-.section:nth-child(4) { animation-delay: 0.1s; }
-.section:nth-child(5) { animation-delay: 0.2s; }
-.section:nth-child(6) { animation-delay: 0.3s; }
-.section:nth-child(7) { animation-delay: 0.4s; }
-.section:nth-child(8) { animation-delay: 0.5s; }
-.section:nth-child(9) { animation-delay: 0.6s; }
-.section:nth-child(10) { animation-delay: 0.7s; }
-.section:nth-child(11) { animation-delay: 0.8s; }
+/* Children in content-wrapper */
+.stats-grid { animation-delay: 0.05s; }
+.section:nth-child(2) { animation-delay: 0.1s; }
+.section:nth-child(3) { animation-delay: 0.2s; }
+.section:nth-child(4) { animation-delay: 0.3s; }
+.section:nth-child(5) { animation-delay: 0.4s; }
+.section:nth-child(6) { animation-delay: 0.5s; }
+.section:nth-child(7) { animation-delay: 0.6s; }
+.section:nth-child(8) { animation-delay: 0.7s; }
+.section:nth-child(9) { animation-delay: 0.8s; }
+.section:nth-child(10) { animation-delay: 0.9s; }
 """

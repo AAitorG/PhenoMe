@@ -52,7 +52,7 @@ from .mixins import (
 from .mixins.dataset import PhenoMeDataset, collate_fn
 from .mixins.embedding_extractor import EmbeddingExtractor
 from .utils import TransformBuilder
-from .utils.device import get_default_device, set_determinism
+from .utils.device import get_default_device, set_default_device, set_determinism
 from .utils.model_wrapper import ModelWrapper
 from .utils.path_utils import path_repr as _path_repr
 
@@ -92,11 +92,13 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
 
     def __init__(
         self,
-        device: torch.device | None = None,
+        device: torch.device | str | None = None,
         seed: int | None = None,
         use_gpu_for_dr: bool = False,
     ):
-        self.device = device if device is not None else get_default_device()
+        if device is not None:
+            set_default_device(device)
+        self.device = get_default_device()
 
         # Normalisation parameters (ImageNet)
         self.mean = (0.485, 0.456, 0.406)
