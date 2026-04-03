@@ -262,46 +262,23 @@ class _InteractiveExplorerProtocol(Protocol):
 
 
 # ---------------------------------------------------------------------------
-# Color palettes
+# Continuous color scales
 # ---------------------------------------------------------------------------
-_QUALITATIVE_PALETTE = [
-    "#1f77b4",
-    "#ff7f0e",
-    "#2ca02c",
-    "#d62728",
-    "#9467bd",
-    "#8c564b",
-    "#e377c2",
-    "#7f7f7f",
-    "#bcbd22",
-    "#17becf",
-    "#aec7e8",
-    "#ffbb78",
-    "#98df8a",
-    "#ff9896",
-    "#c5b0d5",
-    "#c49c94",
-    "#f7b6d2",
-    "#c7c7c7",
-    "#dbdb8d",
-    "#9edae5",
-    "#393b79",
-    "#637939",
-    "#8c6d31",
-    "#843c39",
-]
-
 _CONTINUOUS_SCALES = [
     "Viridis",
     "Plasma",
     "Inferno",
     "Magma",
     "Cividis",
-    "Turbo",
-    "Hot",
-    "Jet",
+    "RdYlBu",
+    "Coolwarm",
+    "Spectral",
+    "RdBu",
+    "BrBG",
     "Blues",
+    "Greens",
     "Reds",
+    "Purples",
     "YlOrRd",
 ]
 
@@ -1769,7 +1746,6 @@ class PhenoMeInteractive:
                 kwargs["category_orders"] = {
                     color_column: sorted(df[color_column].dropna().unique(), key=str)
                 }
-                kwargs["color_discrete_sequence"] = _QUALITATIVE_PALETTE
 
         fig = px.scatter_3d(**kwargs) if z_col else px.scatter(**kwargs)
 
@@ -1783,14 +1759,14 @@ class PhenoMeInteractive:
         opacity = self.opacity_slider.value
         fig.update_traces(marker={"size": marker_size, "opacity": opacity, "line": {"width": 0}})
         if not color_column:
-            fig.update_traces(marker_color=_QUALITATIVE_PALETTE[0])
+            fig.update_traces(marker_color="#636EFA")
 
         _apply_hoverlabels_matching_markers(
             fig,
             color_column=color_column,
             is_continuous=is_continuous,
             colorscale_name=self.colorscale_dropdown.value,
-            fallback_uniform=_QUALITATIVE_PALETTE[0],
+            fallback_uniform="#636EFA",
         )
 
         _font = {"family": "Inter, Helvetica Neue, Arial, sans-serif", "size": 12}
@@ -2012,8 +1988,8 @@ class PhenoMeInteractive:
                 color_column = None
 
         if color_column is None:
-            # Single colour fallback
-            u = _QUALITATIVE_PALETTE[0]
+            # Single colour fallback (Plotly default first discrete color)
+            u = "#636EFA"
             with self.fig_widget.batch_update():
                 for trace in self._get_data_traces():
                     trace.marker.color = u
