@@ -1472,10 +1472,12 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                     filtered_data,
                     already_meta_keys=already_meta_keys,
                 )
+                n_skipped = n_before - len(filtered_data)
                 logger.info(
-                    "Checkpoint: %d embeddings already in file, %d skipped, %d to process.",
-                    len(already_meta_keys),
-                    n_before - len(filtered_data),
+                    "Checkpoint: %d embedding rows in file, %d input rows skipped "
+                    "(already committed), %d to process.",
+                    ckpt.n_committed,
+                    n_skipped,
                     len(filtered_data),
                 )
         else:
@@ -1497,10 +1499,12 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                     already_paths=already_paths,
                     path_repr_fn=_path_repr,
                 )
+                n_skipped = n_before - len(filtered_data)
                 logger.info(
-                    "Checkpoint: %d embeddings already in file, %d skipped, %d to process.",
-                    len(already_paths),
-                    n_before - len(filtered_data),
+                    "Checkpoint: %d embedding rows in file, %d input rows skipped "
+                    "(already committed), %d to process.",
+                    ckpt.n_committed,
+                    n_skipped,
                     len(filtered_data),
                 )
 
