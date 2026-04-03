@@ -12,16 +12,10 @@ from ._helpers import (
     build_hover_columns as _build_hover_columns,
 )
 from ._helpers import (
-    get_category_colors as _get_category_colors,
-)
-from ._helpers import (
     get_color_column as _get_color_column_fn,
 )
 from ._helpers import (
     get_marker_styling as _get_marker_styling,
-)
-from ._helpers import (
-    mpl_to_hex as _mpl_to_hex,
 )
 
 logger = get_logger(__name__)
@@ -261,9 +255,7 @@ class _DRPlotsMixin:
             kwargs["z"] = z_col
         if color_column:
             kwargs["color"] = color_column
-            if is_continuous:
-                kwargs["color_continuous_scale"] = "Viridis"
-            else:
+            if not is_continuous:
                 kwargs["category_orders"] = {
                     color_column: sorted(df[color_column].dropna().unique())
                 }
@@ -272,7 +264,8 @@ class _DRPlotsMixin:
         marker_size, opacity = _get_marker_styling(n_points, z_col is not None)
         fig.update_traces(marker={"size": marker_size, "opacity": opacity})
         if not color_column:
-            fig.update_traces(marker_color="blue")
+            # Plotly default first discrete color (matches plotly.express defaults)
+            fig.update_traces(marker_color="#636EFA")
         if axis_labels:
             titles = {f"{k}axis_title": v for k, v in axis_labels.items()}
             if z_col:
@@ -486,15 +479,17 @@ class _DRPlotsMixin:
         if not unique_groups:
             logger.warning("No groups found for centroid plot.")
             return None
-        colors = _get_category_colors(unique_groups)
-        color_hex = {g: _mpl_to_hex(colors[g]) for g in unique_groups}
+        _plotly_default = px.colors.qualitative.Plotly
+        color_hex = {
+            g: _plotly_default[i % len(_plotly_default)] for i, g in enumerate(unique_groups)
+        }
 
         fig = go.Figure()
         if show_points and df_full is not None and len(df_full) > 0:
             for grp in unique_groups:
                 mask = df_full[group_col] == grp
                 sub = df_full[mask]
-                c = color_hex.get(grp, "#888")
+                c = color_hex.get(grp, _plotly_default[0])
                 show_leg = not show_centroids
                 if is_3d:
                     fig.add_trace(
@@ -533,7 +528,7 @@ class _DRPlotsMixin:
                     grp,
                 )
             one = sub.iloc[:1]
-            c = color_hex.get(grp, "#888")
+            c = color_hex.get(grp, _plotly_default[0])
             label = str(grp)
             if is_3d:
                 fig.add_trace(
