@@ -379,6 +379,40 @@ Computes correlation between DR components and scalar properties.
 
 ---
 
+#### `compute_multivariate_interpretability`
+
+```python
+compute_multivariate_interpretability(
+    method: Literal['pca', 'tsne', 'umap'] = 'tsne',
+    component: int = 1,
+    model_type: Literal['lasso', 'random_forest'] = 'lasso',
+    property_keys: Optional[List[str]] = None,
+    filters: Optional[Dict] = None,
+    exclude: Optional[Dict] = None,
+    normalize: bool = True,
+    cv: int = 5,
+    rf_n_estimators: int = 100,
+    seed: Optional[int] = None
+) -> Dict[str, Any]
+```
+Explains a dimensionality reduction axis using a combination of phenotypic properties.
+
+**Parameters:**
+- **method** (*Literal*) – DR method to explain (`'pca'`, `'tsne'`, `'umap'`).
+- **component** (*int*) – Component index (1, 2, ...).
+- **model_type** (*Literal*) – `'lasso'` (linear, sparse) or `'random_forest'` (non-linear).
+- **property_keys** (*Optional[List[str]]*) – Subset of properties to use as features.
+- **filters** / **exclude** (*Optional[Dict]*) – Data subsetting.
+- **normalize** (*bool*) – Normalize properties before fitting.
+- **cv** (*int*) – Folds for LASSO cross-validation.
+- **rf_n_estimators** (*int*) – Trees for Random Forest.
+- **seed** (*Optional[int]*) – Random seed for reproducibility (DR and fitted models). If omitted, uses the pipeline’s `PhenoMe(seed=...)` when set.
+
+**Returns:**
+- *Dict[str, Any]* – `r2` (Explainability Score), `drivers` (ranked features and weights), and metadata (`method`, `model_type`, `target_component`, etc.). Required input for [`plot_multivariate_interpretability()`](../visualization.md#plot_multivariate_interpretability), which only visualizes this output.
+
+---
+
 #### `find_prototypes`
 
 ```python

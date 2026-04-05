@@ -243,7 +243,8 @@ def run_dimensionality_reduction(
         device: Optional torch.device. Pass pipeline.device for consistency.
         use_gpu: If True (default), use TorchDR + GPU when device is CUDA and torchdr
             is available. If False, always use sklearn/umap-learn on CPU.
-        **kwargs: Passed to the DR method.
+        **kwargs: Passed to the DR method. May include ``seed``; if omitted, uses
+            ``pipeline.seed`` when present.
 
     Returns:
         Tuple of (dataframe, data_type_str, dr_object) or (None, None, None) if no data:
@@ -295,7 +296,10 @@ def run_dimensionality_reduction(
         return None, None, None
 
     # Step 3: Run reduction and build DataFrame with coordinates + metadata + properties
-    seed = getattr(pipeline, "seed", None)
+    # Pop seed from kwargs so we never pass it twice to run_dimensionality_reduction_matrix.
+    seed = kwargs.pop("seed", None)
+    if seed is None:
+        seed = getattr(pipeline, "seed", None)
     dev = device if device is not None else getattr(pipeline, "device", None)
     transformed, dr_obj, component_names = run_dimensionality_reduction_matrix(
         matrix, method, n_components, seed=seed, device=dev, use_gpu=use_gpu, **kwargs

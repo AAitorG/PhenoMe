@@ -14,16 +14,20 @@ from ...core.pipeline_results import PhenoMeResults
 from ._distance_plots import _DistancePlotsMixin
 from ._dr_plots import _DRPlotsMixin
 from ._image_display import _ImageDisplayMixin
+from ._interpretability_plots import _InterpretabilityPlotsMixin
 
 logger = get_logger(__name__)
 
 
-class PhenoMeVisualization(_DRPlotsMixin, _DistancePlotsMixin, _ImageDisplayMixin):
+class PhenoMeVisualization(
+    _DRPlotsMixin, _DistancePlotsMixin, _ImageDisplayMixin, _InterpretabilityPlotsMixin
+):
     """
     Pipeline class providing visualization methods for PhenoMe.
 
     Composed from _DRPlotsMixin (PCA, t-SNE, UMAP, centroids), _DistancePlotsMixin
-    (distance distribution, correlation plots), and _ImageDisplayMixin (image display).
+    (distance distribution, correlation plots), _ImageDisplayMixin (image display),
+    and _InterpretabilityPlotsMixin (multivariate interpretability).
     """
 
     # Type hints for pipeline attributes (provided by parent class)

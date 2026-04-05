@@ -26,6 +26,12 @@ from .dimensionality_reduction import (
     run_dimensionality_reduction,
     run_dimensionality_reduction_matrix,
 )
+
+# Load interpretability before correlation (correlation imports utils, which can nest into core).
+from .interpretability import (
+    compute_lasso_interpretability,
+    compute_rf_interpretability,
+)
 from .pipeline_results import PhenoMeResults
 from .property_utils import metadata_to_stable_key, optimize_property_types
 from .protocols import PhenoMeProtocol
@@ -48,8 +54,10 @@ __all__ = [
     "clean_correlation_inputs",
     "compute_distance_correlation",
     "compute_entropy",
+    "compute_lasso_interpretability",
     "compute_mutual_info",
     "compute_pearson_correlation",
+    "compute_rf_interpretability",
     "compute_spearman_correlation",
     "filter_indices",
     "get_all_metadata_keys",

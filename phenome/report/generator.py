@@ -23,6 +23,7 @@ from .sections.correlation import generate_correlation_section
 from .sections.distance import generate_distance_section
 from .sections.export import generate_export_section
 from .sections.gallery import generate_image_gallery_section
+from .sections.interpretability import generate_interpretability_section
 from .sections.outlier import generate_outlier_section
 from .sections.overview import generate_overview_section
 from .sections.property_stats import generate_property_stats_section
@@ -85,6 +86,8 @@ class ReportConfig:
     include_property_stats: bool = True
     include_clustering: bool = True
     include_image_gallery: bool = True
+    include_interpretability: bool = True
+    interpretability_model_type: Literal["lasso", "random_forest"] = "lasso"
     reference_filters: dict[str, Any] | None = None
     top_k_features: int = 15
     overview_metadata_keys: list[str] | None = None
@@ -133,6 +136,8 @@ def _build_sections(ctx: ReportContext) -> tuple[list[tuple[str, str, str]], lis
     include_property_stats = opts["include_property_stats"]
     include_clustering = opts["include_clustering"]
     include_image_gallery = opts["include_image_gallery"]
+    include_interpretability = opts.get("include_interpretability", True)
+    interpretability_model = opts.get("interpretability_model_type", "lasso")
     reference_filters = opts["reference_filters"]
     top_k_features = opts["top_k_features"]
     color_by = opts["color_by"]
@@ -169,6 +174,16 @@ def _build_sections(ctx: ReportContext) -> tuple[list[tuple[str, str, str]], lis
     )
     nav_items.append(("overview", "Overview"))
     sections.append(("overview", "Dataset Overview", dataset_summary))
+
+    # Multivariate Interpretability
+    if include_interpretability and ctx.has_embeddings and ctx.has_properties:
+        nav_items.append(("interpretability", "Interpretability"))
+        interpretability_html = generate_interpretability_section(
+            ctx, method="tsne", component=1, model_type=interpretability_model
+        )
+        sections.append(
+            ("interpretability", "Multivariate Interpretability", interpretability_html)
+        )
 
     # Visualization
     if include_plots and ctx.has_embeddings:

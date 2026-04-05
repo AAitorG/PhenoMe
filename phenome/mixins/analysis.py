@@ -26,6 +26,10 @@ from ..core import (
     run_dimensionality_reduction,
     run_dimensionality_reduction_matrix,
 )
+from ..core.interpretability import (
+    compute_lasso_interpretability,
+    compute_rf_interpretability,
+)
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
 
@@ -264,6 +268,142 @@ class PhenoMeAnalysis:
         if return_silhouette:
             return (full_labels, silhouette_score_val)
         return full_labels
+
+    # ------------------------------------------------------------------
+    # Multivariate Interpretability
+    # ------------------------------------------------------------------
+
+    def compute_multivariate_interpretability(
+        self,
+        method: Literal["pca", "tsne", "umap"] = "tsne",
+        component: int = 1,
+        model_type: Literal["lasso", "random_forest"] = "lasso",
+        property_keys: list[str] | None = None,
+        filters: dict[str, Any] | None = None,
+        exclude: dict[str, Any] | None = None,
+        normalize: bool = True,
+        cv: int = 5,
+        rf_n_estimators: int = 100,
+        seed: int | None = None,
+    ) -> dict[str, Any]:
+        """Explain a dimensionality reduction component using LASSO or Random Forest.
+
+        Calculates which phenotypic properties (features) best explain the variability
+        seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
+
+        Args:
+            method: Dimensionality reduction method ('pca', 'tsne', or 'umap').
+            component: Which component to explain (1, 2, ...).
+            model_type: The regression model to use ('lasso' or 'random_forest').
+                'lasso' uses L1 regularization for linear, sparse explanations.
+                'random_forest' captures non-linear relationships.
+            property_keys: Subset of properties to use as features.
+            filters: Optional metadata filters.
+            exclude: Optional metadata exclusions.
+            normalize: Whether to normalize features before regression (default: True).
+                Uses StandardScaler for properties to ensure comparable coefficients.
+            cv: Number of cross-validation folds (only for 'lasso').
+            rf_n_estimators: Number of trees (only for 'random_forest').
+            seed: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
+
+        Returns:
+            Dict with:
+                - r2: Explainability Score (R^2).
+                - drivers: Ranked list of properties with weights/importances.
+                - method: The DR method used.
+                - model_type: The regression model type used.
+                - target_component: The component name explained.
+                - n_samples: Number of samples used.
+                - n_features: Number of properties considered.
+        """
+        effective_seed = seed if seed is not None else getattr(self, "seed", None)
+
+        # Step 1: Run dimensionality reduction to get the target (y)
+        # We reuse the existing run_dimensionality_reduction logic
+        dr_results, _, _ = run_dimensionality_reduction(
+            self,
+            method=method,
+            n_components=max(2, component),
+            source="embeddings",
+            filters=filters,
+            exclude=exclude,
+            normalize=normalize,
+            device=self.device,
+            use_gpu=getattr(self, "use_gpu_for_dr", True),
+            seed=effective_seed,
+        )
+
+        if dr_results is None or dr_results.empty:
+            logger.warning("No data available for multivariate interpretability.")
+            return {}
+
+        comp_col = f"Component {component}"
+        if comp_col not in dr_results.columns:
+            logger.warning("Target component '%s' not found in DR results.", comp_col)
+            return {}
+
+        y = dr_results[comp_col].values
+        valid_indices = dr_results["Index"].values.tolist()
+
+        # Step 2: Fetch the property matrix (x) for the same valid samples
+        # We use the provided normalize argument (default True) to ensure comparable features
+        matrix, prop_valid_indices, keys = self._get_property_matrix(  # type: ignore[attr-defined]
+            indices=valid_indices,
+            property_keys=property_keys,
+            normalize=normalize,
+            handle_nans="filter",
+        )
+
+        if len(matrix) == 0:
+            logger.warning("No valid samples with properties for interpretability.")
+            return {}
+
+        # Align y with X if NaN-filtering in _get_property_matrix changed samples
+        if len(matrix) < len(y):
+            # Find the positions in the original valid_indices that were kept
+            idx_to_pos = {idx: i for i, idx in enumerate(valid_indices)}
+            # Find which positions in y correspond to the rows in matrix
+            y_aligned_indices = [idx_to_pos[idx] for idx in prop_valid_indices]
+            y = y[y_aligned_indices]
+
+        # Step 3: Run regression model
+        if model_type == "lasso":
+            results = compute_lasso_interpretability(
+                x=matrix,
+                y=y,
+                feature_names=keys,
+                cv=cv,
+                seed=effective_seed,
+            )
+        elif model_type == "random_forest":
+            results = compute_rf_interpretability(
+                x=matrix,
+                y=y,
+                feature_names=keys,
+                n_estimators=rf_n_estimators,
+                seed=effective_seed,
+            )
+        else:
+            raise ValueError(f"Unknown model_type: {model_type}")
+
+        results.update(
+            {
+                "method": method,
+                "model_type": model_type,
+                "target_component": comp_col,
+            }
+        )
+
+        logger.info(
+            "Multivariate Interpretability (%s, %s, %s): R^2=%.2f, %d drivers found.",
+            method.upper(),
+            comp_col,
+            model_type,
+            results["r2"],
+            len(results["drivers"]),
+        )
+
+        return results
 
     # ------------------------------------------------------------------
     # Outlier detection

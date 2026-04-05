@@ -54,6 +54,7 @@ Generates a standalone, interactive HTML document containing data summaries, plo
 | `include_property_stats` | `True` | Aggregated properties tables |
 | `include_clustering` | `True` | [Clusters](pipeline.md#compute_clustering) and prototypes |
 | `include_image_gallery` | `True` | Base64 thumbnails gallery |
+| `include_interpretability` | `True` | Multivariate explanation section |
 
 **Analysis options**
 
@@ -64,6 +65,7 @@ Generates a standalone, interactive HTML document containing data summaries, plo
 | `overview_metadata_keys` | `None` | Metadata keys in overview |
 | `metadata_keys` | `None` | Metadata keys in detail tables |
 | `top_k_features` | `15` | Top properties for correlation charts |
+| `interpretability_model_type` | `"lasso"` | Model for multivariate explanation (`"lasso"` or `"random_forest"`) |
 | `outlier_threshold` | `3.0` | Z-score threshold for outliers |
 | `outlier_group_by` | `None` | Group key for outlier detection |
 | `n_clusters` | `5` | Cluster count |

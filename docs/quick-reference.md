@@ -103,6 +103,7 @@ See [Property Reference](guides/property-reference.md#choosing-properties) for d
 | Extract metadata from paths or CSV | [Experiment Details](guides/experiment-details.md) |
 | Add custom image properties | [Custom Properties](guides/custom-properties.md) |
 | Build PCA, t-SNE, or distance plots | [Visualization](reference/api/visualization.md), [Distances](reference/api/distances.md) |
+| Explain embedding axes with properties | [Interpretability Guide](guides/interpretability.md) |
 | Generate an HTML report | [Report](reference/api/report.md) · [Report Guide](guides/report-guide.md) |
 | Explore interactively in Jupyter | [Interactive Explorer](reference/api/interactive.md) |
 | Explore new images without re-running full processing | [Temporal Images](workflows.md#temporal-images-explore-new-data-in-memory) |

@@ -178,6 +178,33 @@ Plots a horizontal bar chart of the highest correlated properties.
 
 ---
 
+#### `plot_multivariate_interpretability`
+
+```python
+plot_multivariate_interpretability(
+    results: Dict[str, Any],
+    *,
+    top_k: int = 20,
+    figsize: Tuple[int, int] = (10, 8),
+    return_fig: bool = False
+)
+```
+Plots a horizontal bar chart of the LASSO coefficients or Random Forest importances explaining an embedding axis.
+
+**Parameters:**
+- **results** (*Dict*) – **Required.** Output from [`compute_multivariate_interpretability()`](pipeline.md#compute_multivariate_interpretability). The plot does not run the model; it only visualizes this dict (same pattern as [`plot_property_correlations()`](visualization.md#plot_property_correlations)).
+- **top_k** (*int*) – Number of top drivers to show.
+- **figsize** (*Tuple*) – Figure size in pixels / 100.
+- **return_fig** (*bool*) – Return Plotly figure object.
+
+**Example:**
+```python
+mv = pheno.compute_multivariate_interpretability(method="tsne", component=1, model_type="lasso")
+pheno.plot_multivariate_interpretability(mv, top_k=15)
+```
+
+---
+
 #### `plot_centroids`
 
 ```python

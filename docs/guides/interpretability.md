@@ -17,10 +17,11 @@ This guide explains how to read the output and use it for hypothesis generation.
 ## Table of Contents
 
 1. [Two Correlation Modes](#two-correlation-modes)
-2. [Reading Correlation Coefficients](#reading-correlation-coefficients)
-3. [From Numbers to Hypotheses](#from-numbers-to-hypotheses)
-4. [Choosing a Correlation Method](#choosing-a-correlation-method)
-5. [Worked Example](#worked-example)
+2. [Multivariate Interpretability](#multivariate-interpretability)
+3. [Reading Correlation Coefficients](#reading-correlation-coefficients)
+4. [From Numbers to Hypotheses](#from-numbers-to-hypotheses)
+5. [Choosing a Correlation Method](#choosing-a-correlation-method)
+6. [Worked Example](#worked-example)
 
 ---
 
@@ -43,6 +44,33 @@ Correlates **raw embedding dimensions** with properties.
 - **API**: `pheno.compute_embedding_property_correlations()` + `pheno.aggregate_embedding_property_correlations()`
 
 For most users, **component correlation** is the most intuitive starting point.
+
+---
+
+## Multivariate Interpretability
+
+While univariate correlation (Pearson/Spearman) looks at one property at a time, **multivariate interpretability** explains an embedding axis using a *combination* of properties. This is mathematically superior for "deep" phenotypes that aren't captured by a single classical measurement.
+
+PhenoMe provides two models for multivariate explanation:
+
+### 1. LASSO Regression (Sparse Linear)
+
+**LASSO** (L1-regularized regression) identifies a small subset of properties that linearly combine to explain the axis. It "shrinks" irrelevant properties to exactly zero weight.
+
+- **Best for**: Identifying the primary drivers of an axis in a human-readable formula.
+- **Output**: An **Explainability Score (R²)** and a list of **weights**.
+- **Example**: "t-SNE Axis 1 is explained (R²=0.85) by: [+0.65] Area, [-0.42] Circularity, [+0.15] Texture Entropy."
+- **API**: `pheno.compute_multivariate_interpretability(model_type='lasso')` then `pheno.plot_multivariate_interpretability(results)` with the returned dict (plotting always uses the compute output; same idea as `plot_property_correlations` with precomputed correlation output).
+
+Use **`seed`** for reproducibility (dimensionality reduction and the fitted model). If you omit it, PhenoMe uses the pipeline’s `PhenoMe(seed=...)` when set.
+
+### 2. Random Forest (Non-linear)
+
+**Random Forest** captures non-linear relationships and interactions between properties that linear models might miss.
+
+- **Best for**: When LASSO gives a low R² score, but you suspect classical properties still hold the answer.
+- **Output**: An **Explainability Score (R²)** and **feature importances** (always positive).
+- **API**: `pheno.compute_multivariate_interpretability(model_type='random_forest')` and pass the result to `pheno.plot_multivariate_interpretability(results)` for the bar chart.
 
 ---
 
