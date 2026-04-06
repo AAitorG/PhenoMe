@@ -49,7 +49,24 @@ For most users, **component correlation** is the most intuitive starting point.
 
 ## Multivariate Interpretability
 
-While univariate correlation (Pearson/Spearman) looks at one property at a time, **multivariate interpretability** explains an embedding axis using a *combination* of properties. This is mathematically superior for "deep" phenotypes that aren't captured by a single classical measurement.
+While univariate correlation (Pearson/Spearman) looks at one classical property at a time, deep learning models often make decisions based on highly entangled, complex combinations of features. **Multivariate interpretability** addresses this by training a secondary model (like a regression model) to predict what the Foundation Model is doing using *all* classical features simultaneously.
+
+### Why is this important? (The Motivation)
+When analyzing embedding spaces (like a t-SNE or PCA plot), observing that two experimental conditions form distinct clusters is only half the battle. The critical question remains: *"What geometric or morphological rules is the black-box model using to separate these cells?"*
+Using Multivariate Interpretability (Forward Probing) allows you to explicitly translate an abstract deep learning axis (e.g., t-SNE Axis 1) into a concrete, readable formula of classical biology.
+
+### How to Interpret the Output
+
+When you run multivariate interpretability, you receive two critical pieces of information:
+
+1. **The Explainability Score ($R^2$):**
+   This answers: *"Did the neural network find something entirely novel, or is it just looking at known classical features?"*
+   *   **High $R^2$ (e.g., 0.85):** Excellent. This means 85% of what the deep learning model sees along this axis can be perfectly explained by standard classical features (like size and shape). You have successfully "opened the black box" and proved its logic is grounded in known biology.
+   *   **Low $R^2$ (e.g., 0.15):** Fascinating. This means classical features like Area or Circularity *cannot* explain how the model is sorting the cells. The foundation model has likely discovered a complex sub-resolution texture, novel phenotype, or hidden interaction that standard pipelines are blind to.
+
+2. **The Drivers (Weights / Importances):**
+   Unlike univariate metrics, this shows you the *combination* of features acting together.
+   *   *Example:* If t-SNE Axis 1 separates healthy cells from diseased cells, the model might tell you this axis is driven by `[+0.45] Eccentricity + [-0.30] Intensity Entropy`. This explicitly proves the model is simultaneously evaluating both cell elongation *and* nuclear texture to make its distinction, rather than relying on a single metric.
 
 PhenoMe provides two models for multivariate explanation:
 
