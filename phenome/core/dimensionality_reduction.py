@@ -78,15 +78,52 @@ def run_dimensionality_reduction_matrix(
 
     Raises:
         ValueError: If method is unknown.
-        ImportError: If umap-learn is required but not installed.
+        ImportError: If UMAP is requested but neither TorchDR GPU UMAP nor umap-learn works.
     """
-    # Resolve device and backend: torchdr+GPU when available, else sklearn/umap-learn on CPU
-    dev_str = str(device) if device is not None else "cpu"
     use_torchdr = _use_torchdr(device, use_gpu=use_gpu)
+    try:
+        return _run_dimensionality_reduction_matrix_impl(
+            matrix,
+            method,
+            n_components,
+            seed=seed,
+            device=device,
+            use_torchdr=use_torchdr,
+            **kwargs,
+        )
+    except Exception as e:
+        if use_torchdr:
+            logger.warning(
+                "TorchDR GPU path failed (%s). Falling back to CPU (sklearn / umap-learn).",
+                e,
+            )
+            return _run_dimensionality_reduction_matrix_impl(
+                matrix,
+                method,
+                n_components,
+                seed=seed,
+                device=device,
+                use_torchdr=False,
+                **kwargs,
+            )
+        raise
+
+
+def _run_dimensionality_reduction_matrix_impl(
+    matrix: np.ndarray,
+    method: Literal["pca", "tsne", "umap"],
+    n_components: int,
+    seed: int | None = None,
+    device: str | torch.device | None = None,
+    *,
+    use_torchdr: bool,
+    **kwargs: Any,
+) -> tuple[np.ndarray, Any, list[str]]:
+    """Core DR implementation; ``use_torchdr`` is explicit for CPU retry after GPU failure."""
+    dev_str = str(device) if device is not None else "cpu"
 
     # t-SNE: sklearn's Barnes-Hut approximation supports only n_components < 4.
     # When n_components >= 4, use method='exact' so the user can choose any n_components.
-    # PCA and UMAP support arbitrary n_components with no restrictions.
     tsne_method: str | None = None
     if method == "tsne" and n_components >= 4 and not use_torchdr:
         tsne_method = "exact"
@@ -190,7 +227,8 @@ def run_dimensionality_reduction_matrix(
         else:
             if umap is None:
                 raise ImportError(
-                    "umap-learn is required for UMAP. Install with: pip install umap-learn"
+                    "UMAP is not available: install umap-learn (pip install umap-learn) "
+                    "or fix the TorchDR GPU UMAP path."
                 )
             # n_jobs=1 when seed set for reproducibility; -1 otherwise for parallel speed
             n_jobs = 1 if seed is not None else -1

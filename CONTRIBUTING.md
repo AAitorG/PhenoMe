@@ -13,15 +13,14 @@ Thank you for your interest in contributing to PhenoMe. This document explains h
 2. **Create environment**
    Manual setup with conda:
    ```bash
-   conda env create -f environment.yml
-   conda activate phenome
-   ```
-   Or with pip:
-   ```bash
-   conda create -n phenome python=3.13
-   conda activate phenome
-   conda install pytorch torchvision -c pytorch
+   conda env create -f envs/environment-cpu.yml
+   conda activate phenome-cpu
    pip install -e ".[dev]"
+   ```
+   Or with pip (CPU or GPU lockfiles; add dev extras):
+   ```bash
+   pip install -r envs/requirements-cpu.txt -e ".[dev]"
+   # NVIDIA CUDA: pip install -r envs/requirements-gpu.txt -e ".[dev]"
    ```
 
 3. **Install pre-commit hooks**
@@ -97,7 +96,8 @@ Quick reference for maintainers: which file to edit for each type of change.
 |------------|------------------|
 | Bump version | `pyproject.toml` → `[project].version` (canonical; `phenome.__version__` reads it after install) |
 | Add/change dependencies | `pyproject.toml` → `[project].dependencies` or `[project.optional-dependencies]` |
-| Update conda environment | `environment.yml` – adjust version pins under `dependencies:` |
+| Update conda environment | `envs/environment-cpu.yml` / `envs/environment-gpu.yml` – adjust pins under `dependencies:` / `pip:` |
+| Update pip pins | `envs/requirements-base.txt` (shared); `torch` / index in `envs/requirements-cpu.txt` / `envs/requirements-gpu.txt` |
 | Document a new API | `docs/reference/api/` – add or update the relevant `.md` file |
 | Add a guide or tutorial | `docs/guides/` or `docs/examples/` |
 | Record a release | `CHANGELOG.md` – move [Unreleased] items under `[X.Y.Z] – YYYY-MM-DD` |

@@ -100,7 +100,7 @@ Track your analysis code:
 - Save environment specification
 
 ```bash
-pip freeze > requirements.txt
+pip freeze > requirements-frozen.txt
 ```
 
 ### Save Intermediate Results
@@ -588,7 +588,7 @@ pheno.find_files("/path/to/experiment_2026_01/images")
 pheno.load_results("experiment_2026_01/phenome_results.h5")
 ```
 
-**Directory structure:** See [Recommended Directory Structure](#recommended-directory-structure) in Data Organization. For collaboration, add `configs/` (template configs) and `environment.yml` (Conda env) at the project root.
+**Directory structure:** See [Recommended Directory Structure](#recommended-directory-structure) in Data Organization. For collaboration, add `configs/` (template configs) and environment specs under `envs/` (Conda YAML and pip requirements); the repo root keeps a short [`requirements.txt`](../../requirements.txt) that defaults to CPU.
 
 ### Optional: DVC for Data Versioning
 

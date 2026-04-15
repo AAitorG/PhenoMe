@@ -22,9 +22,8 @@ Open your terminal and run the following commands:
 git clone https://github.com/AAitorG/PhenoMe.git
 cd PhenoMe
 
-# 2. Install the core package and dependencies
-# (We recommend installing PyTorch first from pytorch.org)
-pip install -r requirements.txt
+# 2. Install dependencies (torch/torchvision from PyPI; no extra index URL)
+pip install -r requirements.txt -e .
 ```
 
 To verify the installation:

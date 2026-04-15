@@ -60,7 +60,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-full = ["umap-learn", "dcor", "torchdr", "pykeops", "nibabel"]
+full = [
+    "umap-learn==0.5.11",
+    "dcor==0.7",
+    "pykeops==2.3",
+    "torchdr>=0.1,<0.2",
+    "nibabel>=5.2.0,<6",
+]
 notebook = [
     "ipykernel>=6.29",
     "jupyterlab>=4.0",

@@ -40,22 +40,29 @@ For a no-code experience, try the **[Interactive Quickstart](Notebooks/tutorials
 ```bash
 git clone https://github.com/AAitorG/PhenoMe.git
 cd PhenoMe
-
-# Conda (Recommended)
-conda env create -f environment.yml
-conda activate phenome
 ```
 
-**pip** (Python 3.11+): from the repo root, `pip install -e .` or `pip install -r requirements.txt` then `pip install -e .`.
+**conda** — pick **CPU** or **GPU**:
 
-**Core install** includes `ipywidgets` and `anywidget` (required for interactive explorer). For local notebooks, also install Jupyter, for example `pip install jupyterlab` or `conda install jupyter`.
+```bash
+# CPU-oriented env (default Conda setup)
+conda env create -f envs/environment-cpu.yml
+conda activate phenome-cpu
 
-**Optional dependencies** (see `requirements-optional.txt`):
-- GPU-accelerated DR: `torchdr` for fast PCA/t-SNE/UMAP on CUDA.
-- Memory-efficient GPU DR: `pykeops` (KeOps backend for large t-SNE/UMAP).
-- UMAP on CPU (when not using TorchDR on GPU): `umap-learn`.
-- Distance correlation: `dcor`.
-- NIfTI image support (.nii, .nii.gz): `nibabel`.
+# GPU-oriented env
+conda env create -f envs/environment-gpu.yml
+conda activate phenome-gpu
+```
+
+**pip** — pick **CPU** or **GPU**:
+
+```bash
+# CPU-oriented env
+pip install -r requirements.txt -e .
+
+# GPU-oriented env
+pip install -r envs/requirements-gpu.txt -e .
+```
 
 ---
 

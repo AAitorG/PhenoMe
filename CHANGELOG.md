@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - `export_experiment_config()` – Export experiment configuration (seed, reference_filters, model name, etc.) to JSON for reproducibility
-- `environment.yml` – Conda environment with pinned dependencies for reproducible installs
+- `envs/` – Conda (`environment-cpu.yml`, `environment-gpu.yml`) and pip requirements (CPU/GPU + shared `requirements-base.txt`)
 - `CONTRIBUTING.md` – Contribution guidelines
 - `CHANGELOG.md` – Version history
 

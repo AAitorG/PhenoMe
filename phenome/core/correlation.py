@@ -162,7 +162,7 @@ def compute_distance_correlation(
             If x is 2D, shape (n_features,). NaN where insufficient valid samples.
 
     Raises:
-        ImportError: If dcor library is not installed.
+        ImportError: If the ``dcor`` library is not installed.
     """
     if not _DCOR_AVAILABLE:
         raise ImportError(
@@ -182,14 +182,13 @@ def compute_distance_correlation(
             return np.array(dcor.distance_correlation(x_clean, y_clean))
         except Exception:
             return np.array(np.nan)
-    else:
-        results = np.full(x.shape[1], np.nan)
-        for i in range(x.shape[1]):
-            try:
-                results[i] = dcor.distance_correlation(x_clean[:, i], y_clean)
-            except Exception:
-                results[i] = np.nan
-        return results
+    results = np.full(x.shape[1], np.nan)
+    for i in range(x.shape[1]):
+        try:
+            results[i] = dcor.distance_correlation(x_clean[:, i], y_clean)
+        except Exception:
+            results[i] = np.nan
+    return results
 
 
 def compute_entropy(

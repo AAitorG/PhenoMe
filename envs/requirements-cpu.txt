@@ -1,0 +1,2 @@
+# From repo root: pip install -r envs/requirements-cpu.txt -e .
+-r requirements-base.txt
