@@ -35,7 +35,10 @@ _VALID_KEYS = frozenset({"img_path", "metadata", "properties", "embeddings"})
 
 
 class PhenoMeResults:
-    """Typed container for per-image phenotyping data.
+    """@section Results container
+    @order 5
+
+    Typed container for per-image phenotyping data.
 
     Parameters
     ----------

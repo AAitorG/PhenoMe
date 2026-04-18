@@ -24,6 +24,9 @@ logger = get_logger(__name__)
 
 def read_image(path: str | list[str]) -> np.ndarray:
     """
+    @section Image I/O and checkpoints
+    @order 40
+
     Read an image and return as a numpy array.
 
     Supports TIFF (via tifffile), NIfTI (via nibabel), Numpy arrays (.npy, .npz), and
@@ -84,7 +87,10 @@ def read_image(path: str | list[str]) -> np.ndarray:
 
 
 def ensure_hwc(img: np.ndarray) -> np.ndarray:
-    """Ensure image is in (H, W, C) format.
+    """@section Image I/O and checkpoints
+    @order 50
+
+    Ensure image is in (H, W, C) format.
 
     Args:
         img: np.ndarray. Supported shapes: (H, W), (C, H, W), (H, W, C).
@@ -105,7 +111,10 @@ def ensure_hwc(img: np.ndarray) -> np.ndarray:
 
 
 class FileDiscovery:
-    """Finds image files and extracts metadata from directories."""
+    """@section File discovery
+    @order 80
+
+    Finds image files and extracts metadata from directories."""
 
     def _find_files_from_dir(
         self,

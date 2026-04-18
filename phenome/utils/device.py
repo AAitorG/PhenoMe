@@ -13,6 +13,9 @@ _DEFAULT_DEVICE: torch.device | None = None
 
 def set_default_device(device: torch.device | str | None) -> None:
     """
+    @section Device and reproducibility
+    @order 10
+
     Set the default device for phenotyping operations.
 
     Args:
@@ -24,6 +27,9 @@ def set_default_device(device: torch.device | str | None) -> None:
 
 def get_default_device() -> torch.device:
     """
+    @section Device and reproducibility
+    @order 20
+
     Return a default device for phenotyping operations.
 
     If set_default_device() was called, returns that device.
@@ -40,6 +46,9 @@ def get_default_device() -> torch.device:
 
 def set_determinism(seed: int) -> None:
     """
+    @section Device and reproducibility
+    @order 30
+
     Set random seeds for reproducibility across all frameworks.
 
     Args:

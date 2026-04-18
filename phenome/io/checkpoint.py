@@ -156,7 +156,10 @@ class ConcurrentCheckpointAccessError(BlockingIOError):
 
 
 class CheckpointManager:
-    """Crash-safe incremental checkpoint backed by a single HDF5 file.
+    """@section Image I/O and checkpoints
+    @order 70
+
+    Crash-safe incremental checkpoint backed by a single HDF5 file.
 
     Parameters
     ----------

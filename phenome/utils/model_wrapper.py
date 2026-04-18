@@ -12,6 +12,9 @@ from .device import get_default_device
 
 class ModelWrapper(ABC):
     """
+    @section Model wrappers
+    @order 15
+
     Base wrapper for vision model embedding extraction.
 
     Provides only basics: model.eval(), model.to(device), torch.no_grad(), and
@@ -31,7 +34,10 @@ class ModelWrapper(ABC):
         self.model.eval()
 
     def extract_embeddings(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Extract per-image embeddings.
+        """@section Model wrappers
+        @order 20
+
+        Extract per-image embeddings.
 
         Delegates to _get_embeddings (heritage class) and validates output shape (B, D).
 
@@ -63,6 +69,9 @@ class ModelWrapper(ABC):
 
 class DinoV2ModelWrapper(ModelWrapper):
     """
+    @section Model wrappers
+    @order 25
+
     Heritage wrapper for DINOv2 models from Meta AI.
 
     Handles dict output with 'x_norm_clstoken' (default key) and squeeze (B,1,D) -> (B,D).
@@ -104,6 +113,9 @@ def load_dinov2_model(
     device: torch.device | None = None,
 ) -> DinoV2ModelWrapper:
     """
+    @section Model wrappers
+    @order 5
+
     Load a DINOv2 model and return a DinoV2ModelWrapper ready for processing.
 
     Convenience helper for DINOv2 users. Uses get_default_device() when

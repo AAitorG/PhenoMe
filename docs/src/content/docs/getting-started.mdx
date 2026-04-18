@@ -1,0 +1,156 @@
+---
+title: "Getting Started"
+description: Install PhenoMe and run your first analysis.
+---
+
+import { Tabs, TabItem, Steps, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+This guide will help you install PhenoMe and run your first analysis.
+
+---
+
+## 1. Requirements
+
+- **Python**: 3.12 or newer.
+- **Hardware**: An NVIDIA GPU is strongly recommended for faster processing, but it will also work on your CPU.
+
+---
+
+## 2. Installation
+
+We highly recommend using a **Conda environment** to easily manage dependencies like `torch` and computer vision libraries. Alternatively, you can use Pip.
+
+<Tabs>
+  <TabItem label="Conda (Recommended)" icon="seti:julia">
+    <Steps>
+    1. **Clone the repository**
+        ```bash
+        git clone https://github.com/AAitorG/PhenoMe.git
+        cd PhenoMe
+        ```
+
+    2. **Install dependencies**
+
+        Choose the stack that matches your hardware:
+        <Tabs>
+          <TabItem label="GPU (CUDA)">
+            ```bash
+            conda env create -f envs/environment-gpu.yml
+            conda activate phenome-gpu
+            ```
+          </TabItem>
+          <TabItem label="CPU">
+            ```bash
+            conda env create -f envs/environment-cpu.yml
+            conda activate phenome-cpu
+            ```
+          </TabItem>
+        </Tabs>
+    </Steps>
+  </TabItem>
+
+  <TabItem label="Pip (Editable)" icon="seti:python">
+    <Steps>
+    1. **Clone the repository**
+        ```bash
+        git clone https://github.com/AAitorG/PhenoMe.git
+        cd PhenoMe
+        ```
+
+    2. **Select the stack you need**
+        <Tabs>
+          <TabItem label="GPU (CUDA)">
+            ```bash
+            pip install -r envs/requirements-gpu.txt -e .
+            ```
+          </TabItem>
+          <TabItem label="CPU">
+            ```bash
+            pip install -r requirements.txt -e .
+            ```
+          </TabItem>
+        </Tabs>
+    </Steps>
+  </TabItem>
+</Tabs>
+
+### Verify Installation
+
+```python
+from phenome import PhenoMe
+print(f"PhenoMe ({PhenoMe.__version__}) is ready!")
+```
+
+:::note[Device Selection: GPU vs CPU]
+When coding, you should explicitly set the device.
+```python
+import torch
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+```
+Pass `device=device` to both `load_dinov2_model(...)` and `PhenoMe(...)` initialized instances.
+:::
+
+#### Installation troubleshooting
+
+| Symptom | Suggestion |
+|---------|------------|
+| `torch` not found / wrong CUDA | Reinstall torch from PyTorch instructions; match driver and wheel. |
+| `opencv` / `h5py` build errors | Use conda-forge for those libs or a full conda env file. |
+| `pykeops` fails (common on Windows) | Omit from optional deps; pipeline uses slower fallbacks. |
+| Import works but GPU not used | `import torch; print(torch.cuda.is_available())`; ensure to pass `device` into PhenoMe. |
+
+---
+
+## 3. Quick start: your first analysis
+
+<Steps>
+1. **Setup & Initialization**
+
+    Load a vision model (DINOv2 by default) and initialize the framework.
+    ```python
+    import torch
+    from phenome import PhenoMe, load_dinov2_model
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    wrapper = load_dinov2_model(model_name="dinov2_vitb14_reg", device=device)
+    pheno = PhenoMe(device=device, seed=42)
+    ```
+
+2. **Find and inspect images**
+
+    You can start with a **single folder** of images. For grouped experiments (conditions, drugs, time points), add metadata via path templates or CSV.
+    ```python
+    pheno.find_files("path/to/your/images")
+    inspect_df = pheno.inspect_data()
+    ```
+
+3. **Extract visual fingerprints**
+
+    ```python
+    pheno.process_images(wrapper)
+    pheno.compute_properties(property_preset="basic")
+    ```
+    :::tip
+    Use `property_preset="intensity"` if you do not have masks. See the [Property reference](../guides/property-reference.md) for more details.
+    :::
+
+4. **Visualize results**
+
+    ```python
+    pheno.plot_pca(color_by="condition")
+    ```
+    *(Replace `condition` with a metadata column present on your `file_df`)*
+</Steps>
+
+---
+
+## What's Next?
+
+Ready to dig deeper? Check out these follow-up resources:
+
+<CardGrid>
+  <LinkCard title="Interactive Quickstart" description="Run via Jupyter Notebooks with widgets and minimal code." href="https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb" />
+  <LinkCard title="Data Setup Guide" description="Learn data structures, path templates, and metadata setups." href="../guides/data-setup/" />
+  <LinkCard title="Core Concepts" description="Understand embeddings, channel modes, and checkpoints." href="../concepts/" />
+  <LinkCard title="Quick Start Card" description="A highly condensed one-page cheat sheet." href="../quick-start-card/" />
+</CardGrid>

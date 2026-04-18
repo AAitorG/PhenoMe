@@ -1,7 +1,7 @@
 # PhenoMe
 
 <p align="center">
-  <img src="docs/Logo.png" alt="PhenoMe logo" width="560"/>
+  <img src="docs/src/assets/Logo.png" alt="PhenoMe logo" width="560"/>
 </p>
 
 A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping analysis using deep learning embeddings (**visual fingerprints**) and extracted image properties.
@@ -68,19 +68,24 @@ pip install -r envs/requirements-gpu.txt -e .
 
 ## 📖 Documentation
 
-Full documentation is available in the [`docs/`](docs/) directory.
+**Live site:** [https://AAitorG.github.io/PhenoMe/](https://AAitorG.github.io/PhenoMe/). **Source:** Markdown under [`docs/src/content/docs/`](docs/src/content/docs/).
 
-### For New Users (Start Here)
-- **[Getting Started](docs/getting-started.md)**: Easy installation and your first 4-step analysis.
-- **[Interactive Tutorials](Notebooks/tutorials/)**: Hands-on learning in Jupyter notebooks.
-- **[Core Concepts](docs/concepts.md)**: How "visual fingerprints" and the analysis flow work.
-- **[Common Workflows](docs/workflows.md)**: Real-world examples (Drug screening, time-course, etc.).
+### New users (install → data → notebooks)
 
-### For Advanced Users & Developers
-- **[Experiment Details (Metadata)](docs/guides/experiment-details.md)**: Linking images to your experimental context.
-- **[API Reference](docs/reference/api/pipeline.md)**: Full technical documentation for all methods.
-- **[Custom Properties](docs/guides/custom-properties.md)**: How to extract your own image features.
-- **[Extending the Framework](docs/guides/extending.md)**: Creating plugins and custom model wrappers.
+| Step | Link |
+|------|------|
+| 1. Install | [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) · [Quick start card](https://AAitorG.github.io/PhenoMe/quick-start-card/) |
+| 2. Set up your data | [Data setup](https://AAitorG.github.io/PhenoMe/guides/data-setup/) · [Experiment details](https://AAitorG.github.io/PhenoMe/guides/experiment-details/) |
+| 3. Tutorials | [Notebooks/tutorials/](Notebooks/tutorials/) (start with **01**, then **02**–**03**) · [Learning paths](https://AAitorG.github.io/PhenoMe/user-paths/) |
+
+**Concepts and examples:** [Core concepts](https://AAitorG.github.io/PhenoMe/concepts/) · [Workflows](https://AAitorG.github.io/PhenoMe/workflows/) · [Examples](https://AAitorG.github.io/PhenoMe/examples/) · [FAQ](https://AAitorG.github.io/PhenoMe/faq/) · [Glossary](https://AAitorG.github.io/PhenoMe/glossary/)
+
+### Developers
+
+- **[Architecture](https://AAitorG.github.io/PhenoMe/guides/architecture/)** — packages and extension points.
+- **[API index](https://AAitorG.github.io/PhenoMe/reference/)** — narrative API pages.
+- **[API from code](https://AAitorG.github.io/PhenoMe/reference/api/pipeline/)** — regenerated from docstrings on each docs build (see [Developer guide](https://AAitorG.github.io/PhenoMe/guides/developer-guide/)).
+- **[Custom properties](https://AAitorG.github.io/PhenoMe/guides/custom-properties/)** · **[Extending](https://AAitorG.github.io/PhenoMe/guides/extending/)** · **[Testing](https://AAitorG.github.io/PhenoMe/guides/testing/)**
 
 ---
 

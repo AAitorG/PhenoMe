@@ -1,0 +1,284 @@
+/* -----------------------------------------------------------------------------
+   PhenoMe docs — readability + API reference cards (Starlight-compatible)
+   ----------------------------------------------------------------------------- */
+:root {
+  --sl-content-width: 52rem;
+
+  /* API reference tokens (fall back if Starlight vars missing) */
+  --api-radius: 0.625rem;
+  --api-card-bg: var(--sl-color-bg-nav, var(--sl-color-gray-6, #f6f7f9));
+  --api-card-border: var(--sl-color-hairline, var(--sl-color-gray-5, #e2e4e8));
+  --api-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --api-accent-line: var(--sl-color-accent, #4f46e5);
+  --api-badge-method-bg: color-mix(in srgb, var(--sl-color-accent-low, #eef2ff) 85%, transparent);
+  --api-badge-method-fg: var(--sl-color-accent-high, var(--sl-color-accent));
+  --api-badge-property-bg: color-mix(in srgb, #7c3aed 12%, var(--sl-color-bg));
+  --api-badge-property-fg: #6d28d9;
+  --api-badge-static-bg: color-mix(in srgb, #ea580c 14%, var(--sl-color-bg));
+  --api-badge-static-fg: #c2410c;
+  --api-badge-class-bg: color-mix(in srgb, #0d9488 14%, var(--sl-color-bg));
+  --api-badge-class-fg: #0f766e;
+  --api-code-bg: var(--sl-color-bg-inline-code, var(--sl-color-gray-6, #f1f5f9));
+  --api-param-marker: var(--sl-color-accent);
+}
+
+/* Dark theme: Starlight sets html[data-theme="dark"] */
+html[data-theme="dark"] {
+  --api-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --api-badge-property-fg: #a78bfa;
+  --api-badge-static-fg: #fb923c;
+  --api-badge-class-fg: #2dd4bf;
+}
+
+/* -----------------------------------------------------------------------------
+   API method cards
+   ----------------------------------------------------------------------------- */
+.api-method {
+  position: relative;
+  border: 1px solid var(--api-card-border);
+  border-radius: var(--api-radius);
+  padding: 1.25rem 1.35rem;
+  margin-top: 1.75rem;
+  margin-bottom: 1.75rem;
+  background: var(--api-card-bg);
+  box-shadow: var(--api-card-shadow);
+  border-left: 3px solid var(--api-accent-line);
+  scroll-margin-top: 5rem;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.api-method:hover {
+  border-color: color-mix(in srgb, var(--api-accent-line) 35%, var(--api-card-border));
+  box-shadow:
+    var(--api-card-shadow),
+    0 0 0 1px color-mix(in srgb, var(--api-accent-line) 12%, transparent);
+}
+
+.api-method:focus-within {
+  outline: 2px solid var(--sl-color-accent);
+  outline-offset: 2px;
+}
+
+.api-method-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 0 0.75rem 0;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--api-card-border);
+}
+
+.api-method-title {
+  margin: 0 !important;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.api-method-title code {
+  font-size: 0.95em;
+  font-weight: 600;
+  background: transparent;
+  padding: 0;
+  color: var(--sl-color-text-accent, var(--sl-color-accent));
+}
+
+/* Type badges */
+.api-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+.api-badge--method {
+  background: var(--api-badge-method-bg);
+  color: var(--api-badge-method-fg);
+  border-color: color-mix(in srgb, var(--api-badge-method-fg) 22%, transparent);
+}
+
+.api-badge--property {
+  background: var(--api-badge-property-bg);
+  color: var(--api-badge-property-fg);
+  border-color: color-mix(in srgb, var(--api-badge-property-fg) 25%, transparent);
+}
+
+.api-badge--staticmethod {
+  background: var(--api-badge-static-bg);
+  color: var(--api-badge-static-fg);
+  border-color: color-mix(in srgb, var(--api-badge-static-fg) 25%, transparent);
+}
+
+.api-badge--classmethod {
+  background: var(--api-badge-class-bg);
+  color: var(--api-badge-class-fg);
+  border-color: color-mix(in srgb, var(--api-badge-class-fg) 25%, transparent);
+}
+
+/* Property line (legacy / supplementary) */
+.api-method > p em {
+  font-size: 0.9rem;
+  color: var(--sl-color-gray-3, var(--sl-color-gray-2));
+}
+
+/* -----------------------------------------------------------------------------
+   Signature + code
+   ----------------------------------------------------------------------------- */
+.api-signature {
+  margin: 0 0 1rem 0;
+}
+
+.api-signature pre {
+  margin: 0 !important;
+  padding: 0.85rem 1rem !important;
+  border-radius: calc(var(--api-radius) - 0.125rem);
+  border: 1px solid var(--api-card-border);
+  background: var(--api-code-bg) !important;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  tab-size: 2;
+}
+
+.api-signature pre code {
+  font-size: inherit !important;
+  line-height: inherit;
+  white-space: pre;
+  word-break: normal;
+}
+
+/* -----------------------------------------------------------------------------
+   Body: parameters, returns, lists
+   ----------------------------------------------------------------------------- */
+.api-body,
+.api-method-body {
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--sl-color-text);
+}
+
+.api-body > *:first-child,
+.api-method-body > *:first-child {
+  margin-top: 0 !important;
+}
+
+.api-body > *:last-child,
+.api-method-body > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.api-body p,
+.api-method-body p {
+  margin-top: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.api-body strong,
+.api-method-body strong {
+  color: var(--sl-color-text-accent);
+  font-weight: 650;
+}
+
+/* Section labels: **Args:**, **Returns:**, **Raises:**, NumPy-style "Parameters" */
+.api-body p strong:only-child,
+.api-method-body p strong:only-child {
+  display: block;
+  margin-top: 1rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-3);
+}
+
+.api-body ul,
+.api-method-body ul {
+  padding-left: 1.35rem;
+  margin-top: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.api-body li,
+.api-method-body li {
+  margin-bottom: 0.45rem;
+  padding-left: 0.15rem;
+}
+
+.api-body li::marker,
+.api-method-body li::marker {
+  color: var(--api-param-marker);
+}
+
+/* Parameter names in backticks inside list items */
+.api-body li code,
+.api-method-body li code {
+  font-size: 0.88em;
+  font-weight: 600;
+}
+
+/* Starlight asides inside API body (:::note etc.) */
+.api-body .sl-markdown-content aside,
+.api-method-body .sl-markdown-content aside {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* -----------------------------------------------------------------------------
+   Responsive
+   ----------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .api-method {
+    padding: 1rem 1rem;
+    margin-top: 1.35rem;
+    margin-bottom: 1.35rem;
+  }
+
+  .api-method-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .api-signature pre {
+    font-size: 0.72rem;
+    padding: 0.65rem 0.75rem !important;
+  }
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  .api-method {
+    transition: none;
+  }
+
+  .api-method:hover {
+    box-shadow: var(--api-card-shadow);
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   Typography and Layout Fixes
+   ----------------------------------------------------------------------------- */
+.sl-markdown-content {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.sl-markdown-content pre {
+  max-width: 100%;
+  overflow-x: auto;
+}

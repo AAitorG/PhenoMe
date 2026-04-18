@@ -63,7 +63,10 @@ REGIONPROPS_EXTENDED = (
 def create_regionprops_function(
     property_names: list[str], derived_properties: dict[str, Callable] | None = None
 ) -> Callable:
-    """Create property function that extracts skimage regionprops from a mask.
+    """@section Property factory functions
+    @order 10
+
+    Create property function that extracts skimage regionprops from a mask.
 
     Args:
         property_names: Names to extract (e.g. 'area', 'perimeter', 'eccentricity',

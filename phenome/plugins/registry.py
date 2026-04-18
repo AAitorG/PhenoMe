@@ -19,7 +19,10 @@ _PROPERTY_FUNCTIONS: dict[str, PropertyFunction] = {}
 
 
 def register_property(name: str, fn: PropertyFunction) -> None:
-    """Register a custom property function.
+    """@section Plugin registry
+    @order 10
+
+    Register a custom property function.
 
     The function should have signature (image2d, mask2d) -> Dict[str, float].
     Use with compute_properties via get_property(name) or pass the function directly.

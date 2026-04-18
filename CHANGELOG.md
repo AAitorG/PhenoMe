@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- **Python 3.12+** required (`requires-python`, Trove classifiers); Ruff `target-version` and Mypy `python_version` set to 3.12 for consistency with CI and modern dependencies (e.g. `tifffile` typing syntax)
 - Unified logging: `results_validation` and `dimensionality_reduction` now use the package logger (notebook-safe)
 - Pre-commit: Removed Black; use Ruff for linting and formatting only
 - `.editorconfig`: Indent style changed from tabs to spaces for PEP 8 compliance

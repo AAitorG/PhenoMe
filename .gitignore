@@ -68,8 +68,16 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-# Sphinx documentation
+# Sphinx (legacy) / Astro docs build
 docs/_build/
+docs/dist/
+docs/.astro/
+docs/node_modules/
+
+# NOTE: docs/src/content/docs/reference/api/*.md ARE tracked in git
+# These are auto-generated from Python docstrings by generate_api_docs.py
+# Do NOT manually edit these files; regenerated on each build
+# To update: edit docstrings in phenome/ and commit changes
 
 # PyBuilder
 .pybuilder/

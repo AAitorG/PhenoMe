@@ -28,7 +28,10 @@ from ..metadata import DataFrameMetadata, DefaultMetadata, PathTemplateMetadata
 
 
 def default_metadata_from_path(path: str) -> dict[str, Any]:
-    """Simple, dataset-agnostic metadata extractor used by default.
+    """@section Metadata helpers
+    @order 35
+
+    Simple, dataset-agnostic metadata extractor used by default.
 
     Returns 'file_path' (full file path) and 'filename' (basename stem, no extension).
     For richer metadata (e.g., 'drug', 'time', 'plate', 'well'), define a
@@ -54,7 +57,10 @@ def default_metadata_from_path(path: str) -> dict[str, Any]:
 
 
 def get_metadata_from_path(template: str) -> Callable[[str], dict[str, Any]]:
-    """Create metadata extractor function from a path template.
+    """@section Metadata helpers
+    @order 36
+
+    Create metadata extractor function from a path template.
 
     Features:
     - Use '...' at the start to indicate the template matches a suffix of the path.
@@ -97,7 +103,10 @@ def make_dataframe_metadata_fn(
     metadata_df: pd.DataFrame,
     filename_column: str | list[str] = "filename",
 ) -> Callable[[str], dict[str, Any]]:
-    """Build metadata function using a dataframe for metadata lookup.
+    """@section Metadata helpers
+    @order 37
+
+    Build metadata function using a dataframe for metadata lookup.
 
     Supports two modes:
 

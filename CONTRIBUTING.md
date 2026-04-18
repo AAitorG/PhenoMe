@@ -32,6 +32,8 @@ Thank you for your interest in contributing to PhenoMe. This document explains h
 
 GitHub Actions runs Gitleaks, Ruff (lint + format check), mypy, and a smoke import on pushes and pull requests to `main` / `master` (see `.github/workflows/ci.yml`).
 
+A separate **Documentation** workflow (`.github/workflows/docs-build.yml`) installs Node 20 + Python 3.12, runs `npm run build` under `docs/` (Astro Starlight + generated API pages), and deploys to **GitHub Pages** on pushes to `main` / `master`. See [`docs/README.md`](docs/README.md) and [`docs/PAGES.md`](docs/PAGES.md).
+
 ### Linting and Formatting
 
 We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting:
@@ -86,7 +88,7 @@ with pipeline.checkpoint_context("results.h5") as p:
 - `phenome/` – Core pipeline and utilities
 - `phenome/mixins/` – Mixins (properties, distances, analysis, visualization)
 - `phenome/plugins/` – Property and metadata registries
-- `docs/` – Documentation
+- `docs/` – Astro Starlight site (content in `docs/src/content/docs/`)
 
 ## Common Edit Tasks
 
@@ -98,11 +100,40 @@ Quick reference for maintainers: which file to edit for each type of change.
 | Add/change dependencies | `pyproject.toml` → `[project].dependencies` or `[project.optional-dependencies]` |
 | Update conda environment | `envs/environment-cpu.yml` / `envs/environment-gpu.yml` – adjust pins under `dependencies:` / `pip:` |
 | Update pip pins | `envs/requirements-base.txt` (shared); `torch` / index in `envs/requirements-cpu.txt` / `envs/requirements-gpu.txt` |
-| Document a new API | `docs/reference/api/` – add or update the relevant `.md` file |
-| Add a guide or tutorial | `docs/guides/` or `docs/examples/` |
+| Document a new API | Docstrings in `phenome/` (generated pages) and/or narrative `docs/src/content/docs/reference/api/` |
+| Add a guide or tutorial | `docs/src/content/docs/guides/` or `docs/src/content/docs/examples/` |
 | Record a release | `CHANGELOG.md` – move [Unreleased] items under `[X.Y.Z] – YYYY-MM-DD` |
 | Change lint/format rules | `pyproject.toml` → `[tool.ruff]`, `[tool.mypy]` |
 
 ## Questions
 
 Open an issue on GitHub for questions or discussions.
+
+## Updating API Documentation
+
+The API reference pages (in `docs/src/content/docs/reference/api/`) are **auto-generated** from Python docstrings. To update them:
+
+1. **Edit docstrings** in `phenome/` source files (e.g., `phenome/pipeline.py`, `phenome/mixins/visualization.py`)
+2. **Test locally** (optional, to preview changes):
+   ```bash
+   cd docs
+   npm install
+   npm run dev
+   # Open: http://localhost:4321/PhenoMe/
+   ```
+3. **Push to main** – The GitHub Actions **Documentation** workflow automatically:
+   - Generates API docs from updated docstrings
+   - Builds the Astro site
+   - Deploys to GitHub Pages (~2-3 minutes)
+
+**Important**: Do NOT manually edit files in `docs/src/content/docs/reference/api/` – they are regenerated on each build. Edit the Python docstrings instead.
+
+You can add optional metadata to docstrings to control section organization:
+```python
+@section Section title
+@order 42
+
+Rest of the docstring…
+```
+
+See `docs/scripts/generate_api_docs.py` for details.

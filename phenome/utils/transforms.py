@@ -130,7 +130,10 @@ class PadToSize:
 
 
 class TransformBuilder:
-    """Builds torchvision transform pipelines for image preprocessing.
+    """@section Transforms
+    @order 60
+
+    Builds torchvision transform pipelines for image preprocessing.
 
     Uses ImageNet normalization by default.
 

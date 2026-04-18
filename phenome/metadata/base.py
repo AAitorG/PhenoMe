@@ -60,7 +60,10 @@ def _paths_to_id_multi(paths: str | list[str], data_dir: str | None) -> str:
 
 
 class MetadataBase(ABC):
-    """Base class for metadata extraction with configurable columns and ID handling.
+    """@section Metadata classes
+    @order 10
+
+    Base class for metadata extraction with configurable columns and ID handling.
 
     Subclasses implement :meth:`_extract` to produce raw metadata; the base
     class ensures a unique ``id`` is always present and provides stable key

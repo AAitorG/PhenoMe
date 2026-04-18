@@ -1,0 +1,24 @@
+{
+  "name": "phenome-docs",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.6.5"
+  },
+  "scripts": {
+    "sync-assets": "mkdir -p src/assets public",
+    "fix-links": "python3 scripts/fix_markdown_links.py",
+    "predev": "npm run sync-assets && python3 scripts/generate_api_docs.py && npm run fix-links",
+    "dev": "astro dev",
+    "prebuild": "npm run sync-assets && python3 scripts/generate_api_docs.py && npm run fix-links",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.31.1",
+    "astro": "^5.18.1",
+    "sharp": "^0.33.5"
+  }
+}

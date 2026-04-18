@@ -43,7 +43,10 @@ except ImportError:
 
 @dataclass
 class ReportConfig:
-    """Configuration for report generation. Pass to generate_report via config=.
+    """@section Report configuration and generation
+    @order 10
+
+    Configuration for report generation. Pass to generate_report via config=.
 
     Use ReportConfig for full control, or pass individual overrides to
     generate_report(..., **overrides).
@@ -374,7 +377,10 @@ def generate_report(
     config: ReportConfig | None = None,
     **overrides: Any,
 ) -> str:
-    """Generate comprehensive standalone HTML report from phenotyping results.
+    """@section Report configuration and generation
+    @order 20
+
+    Generate comprehensive standalone HTML report from phenotyping results.
 
     Uses :class:`ReportConfig` as the primary source of options. Pass ``config=``
     for full control, or use ``**overrides`` to tweak individual settings.

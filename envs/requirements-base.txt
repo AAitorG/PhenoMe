@@ -1,6 +1,6 @@
-# Shared pins (no PyTorch, no GPU-only libs).
+# Shared pins (GPU-only extras: envs/requirements-gpu.txt and envs/environment-gpu.yml).
 # Included by envs/requirements-cpu.txt / envs/requirements-gpu.txt.
-# Python 3.11+
+# Python 3.12+ (matches pyproject.toml requires-python and CI).
 
 # Numerical computing
 numpy==2.4.2

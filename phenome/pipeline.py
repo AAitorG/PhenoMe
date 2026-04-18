@@ -72,7 +72,10 @@ def _effective_num_workers(num_workers: int) -> int:
 
 
 class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisualization):
-    """Main class for phenotyping analysis using deep learning embeddings.
+    """@section Overview
+    @order 0
+
+    Main class for phenotyping analysis using deep learning embeddings.
 
     Provides: compute_properties, filter_properties_by_group; compute_clustering,
     detect_outliers, find_prototypes; compute_reference_distances; plot_pca,

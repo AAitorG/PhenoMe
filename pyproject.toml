@@ -12,7 +12,7 @@ name = "phenome"
 version = "1.1.0"
 description = "PhenoMe: dataset-agnostic phenotyping pipeline using deep learning embeddings"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [{name = "Aitor González-Marfil"}]
 
@@ -30,7 +30,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -63,7 +62,7 @@ dependencies = [
 full = [
     "umap-learn==0.5.11",
     "dcor==0.7",
-    "pykeops==2.3",
+    "pykeops==2.3; sys_platform != 'win32'",
     "torchdr>=0.1,<0.2",
     "nibabel>=5.2.0,<6",
 ]
@@ -83,11 +82,10 @@ dev = [
     "types-requests",
     "types-setuptools",
 ]
-
 [project.urls]
 Homepage      = "https://github.com/AAitorG/PhenoMe"
 Repository    = "https://github.com/AAitorG/PhenoMe"
-Documentation = "https://github.com/AAitorG/PhenoMe/tree/main/docs"
+Documentation = "https://AAitorG.github.io/PhenoMe/"
 "Bug Tracker" = "https://github.com/AAitorG/PhenoMe/issues"
 Changelog     = "https://github.com/AAitorG/PhenoMe/blob/main/CHANGELOG.md"
 
@@ -109,7 +107,7 @@ phenome = ["py.typed"]
 # ==============================================================================
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length    = 100
 extend-exclude = ["**/*.ipynb", "**/.ipynb_checkpoints"]
 force-exclude  = true
@@ -178,7 +176,7 @@ color              = true
 # ==============================================================================
 
 [tool.codespell]
-skip     = "*.json,*.ipynb,*.lock,*.egg-info,./docs/_build"
+skip     = "*.json,*.ipynb,*.lock,*.egg-info,./docs/_build,./docs/dist,./docs/node_modules,./docs/.astro"
 count    = true
 quiet-level = 3
 ignore-words-list = "phenome,dinov2,dinov3,keops,torchdr,umap"
@@ -189,7 +187,8 @@ ignore-words-list = "phenome,dinov2,dinov3,keops,torchdr,umap"
 # ==============================================================================
 
 [tool.mypy]
-python_version           = "3.11"
+# Align with requires-python / CI; avoids parse errors on deps using PEP 695 (e.g. tifffile).
+python_version           = "3.12"
 warn_return_any          = true
 warn_unused_configs      = true
 warn_redundant_casts     = true
