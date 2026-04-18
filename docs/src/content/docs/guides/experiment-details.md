@@ -8,7 +8,7 @@ Experiment details (also known as "metadata") describe the context of your image
 
 PhenoMe can extract these details automatically from your file paths or a CSV file.
 
-**Prefer a shorter overview first?** See [Data setup](data-setup.md), then return here for full patterns and edge cases.
+**Prefer a shorter overview first?** See [Data setup](/PhenoMe/guides/data-setup/), then return here for full patterns and edge cases.
 
 ---
 
@@ -412,7 +412,7 @@ For advanced use (when you need unique IDs for checkpoint matching, centralize c
 
 **Example:** Use `DataFrameMetadata` to configure filename columns, mask directory, and mask filename column in one place. Pass it to `find_files(metadata_fn=meta_cfg)`.
 
-For full class documentation, parameters, and examples, see [Metadata Classes](../reference/api/metadata.md).
+For full class documentation, parameters, and examples, see [Metadata Classes](/PhenoMe/advanced/api/metadata/).
 
 ---
 
@@ -538,10 +538,10 @@ def clean_metadata_fn(path: str) -> Dict[str, Any]:
 
 | Topic | Document |
 |-------|----------|
-| Extension points overview | [Extending the Pipeline](extending.md) |
-| `find_files` API | [Pipeline: find_files](../reference/api/pipeline.md#find_files) |
-| Metadata classes (OOP) | [Metadata Classes](../reference/api/metadata.md) |
-| Properties and grouping | [Custom Properties](custom-properties.md) |
-| End-to-end examples | [Common Workflows](../workflows.md): Basic Analysis, Drug Screening, Time-Course |
-| Plugins and discovery | [Plugins](plugins.md) |
-| Reproducibility and data org | [Best Practices](best-practices.md) |
+| Extension points overview | [Extending the Pipeline](/PhenoMe/guides/extending/) |
+| `find_files` API | [Pipeline: find_files](/PhenoMe/advanced/api/pipeline/#find_files) |
+| Metadata classes (OOP) | [Metadata Classes](/PhenoMe/advanced/api/metadata/) |
+| Properties and grouping | [Custom Properties](/PhenoMe/guides/custom-properties/) |
+| End-to-end examples | [Common Workflows](/PhenoMe/workflows/): Basic Analysis, Drug Screening, Time-Course |
+| Plugins and discovery | [Plugins](/PhenoMe/guides/plugins/) |
+| Reproducibility and data org | [Best Practices](/PhenoMe/guides/best-practices/) |

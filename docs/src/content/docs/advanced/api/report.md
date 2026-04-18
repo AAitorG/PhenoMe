@@ -5,7 +5,7 @@ description: ReportConfig and generate_report standalone API.
 
 Auto-generated from `phenome.report.generator`. Rebuild with `npm run prebuild` in `docs/`.
 
-**See also:** [Pipeline generate_report](pipeline.md)
+**See also:** [Pipeline generate_report](/PhenoMe/advanced/api/pipeline/)
 
 Main report generator module.
 
@@ -100,7 +100,7 @@ generate_report(
 
 Generate comprehensive standalone HTML report from phenotyping results.
 
-Uses :class:`ReportConfig` as the primary source of options. Pass ``config=``
+Uses [ReportConfig](/PhenoMe/advanced/api/report/#api-reportconfig) as the primary source of options. Pass ``config=``
 for full control, or use ``**overrides`` to tweak individual settings.
 
 **Args:**
@@ -111,11 +111,12 @@ for full control, or use ``**overrides`` to tweak individual settings.
 - **`config`**: Optional ReportConfig for defaults. If None, uses ReportConfig().
   **overrides: Any ReportConfig field to override. Examples:
   include_plots=False, outlier_threshold=2.5, n_clusters=10,
-- **`reference_filters=&#123;'condition'`**: 'Control'}, lite_mode=True.
+  reference_filters={'condition': 'Control'}, lite_mode=True.
 
 **Returns:**
 
 - **`str`**: Path to the generated HTML file (output_path). File is written to disk.
+- **``**:
 
 **Example:**
 

@@ -592,11 +592,11 @@ git commit -m "Add data and results"
 
 | Topic | Document |
 |-------|----------|
-| Initial setup | [Getting Started](../getting-started.mdx) |
-| Embeddings, channels, architecture | [Core Concepts](../concepts.md) |
-| End-to-end examples | [Common Workflows](../workflows.md) |
-| Metadata extraction | [Experiment Details](experiment-details.md) |
-| Property functions | [Custom Properties](custom-properties.md) |
-| Troubleshooting | [FAQ](../faq.md) |
-| Key terms | [Glossary](../glossary.md) |
-| Checkpoint structure | [HDF5 Protocol](../reference/DATABASE_PROTOCOL.md) |
+| Initial setup | [Getting Started](/PhenoMe/getting-started/) |
+| Embeddings, channels, architecture | [Core Concepts](/PhenoMe/concepts/) |
+| End-to-end examples | [Common Workflows](/PhenoMe/workflows/) |
+| Metadata extraction | [Experiment Details](/PhenoMe/guides/experiment-details/) |
+| Property functions | [Custom Properties](/PhenoMe/guides/custom-properties/) |
+| Troubleshooting | [FAQ](/PhenoMe/faq/) |
+| Key terms | [Glossary](/PhenoMe/glossary/) |
+| Checkpoint structure | [HDF5 Protocol](/PhenoMe/advanced/database_protocol/) |

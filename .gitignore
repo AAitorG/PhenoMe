@@ -68,8 +68,7 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-# Sphinx (legacy) / Astro docs build
-docs/_build/
+# Astro docs build
 docs/dist/
 docs/.astro/
 docs/node_modules/

@@ -5,13 +5,13 @@ description: MetadataBase, DefaultMetadata, PathTemplateMetadata, DataFrameMetad
 
 Auto-generated from `phenome.metadata`. Rebuild with `npm run prebuild` in `docs/`.
 
-**See also:** [Experiment details](../guides/experiment-details.md) · [Pipeline](pipeline.md)
+**See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/)
 
 Metadata handling for the phenotyping pipeline.
 
 Provides an object-oriented API for metadata extraction with configurable
 column mappings, auto-generated unique IDs, and mask path resolution. See
-:mod:`phenome.utils.metadata` for functional helpers.
+`phenome.utils.metadata` for functional helpers.
 
 Public API:
     - MetadataBase: Abstract base for metadata extractors.
@@ -47,19 +47,19 @@ DataFrameMetadata.ensure_id(
 
 Inject or return unique ID in meta. Auto-generate if not present.
 
-Parameters
-----------
-meta : dict
-    Metadata dict (modified in place).
-paths : str or list of str
-    File path(s) for this sample.
-data_dir : str, optional
-    Base directory for ID generation. Uses instance data_dir if None.
+**Parameters:**
 
-Returns
--------
-str
-    The unique ID (existing or newly generated).
+- **`meta`** (`dict`):
+  Metadata dict (modified in place).
+- **`paths`** (`str or list of str`):
+  File path(s) for this sample.
+- **`data_dir`** (`str, optional`):
+  Base directory for ID generation. Uses instance data_dir if None.
+
+**Returns:**
+
+- **`str`**:
+  The unique ID (existing or newly generated).
 
 </div>
 
@@ -87,8 +87,8 @@ DataFrameMetadata.get_id(
 
 Return the unique ID from metadata.
 
-Raises
-------
+**Raises:**
+
 KeyError
     If the unique ID column is missing from meta.
 
@@ -118,8 +118,8 @@ DataFrameMetadata.get_mask_path(
 
 Resolve mask path from metadata when mask_filename_column and mask_dir are set.
 
-Returns
--------
+**Returns:**
+
 str or None
     Full path to mask file, or None if not resolvable.
 
@@ -201,17 +201,17 @@ DataFrameMetadata.metadata_fn(
 
 Extract metadata for a path. Guarantees 'id' is present.
 
-Parameters
-----------
-path : str
-    File path.
-data_dir : str, optional
-    Base directory for ID generation.
+**Parameters:**
 
-Returns
--------
-dict
-    Metadata with file_path, metadata keys, and guaranteed id.
+- **`path`** (`str`):
+  File path.
+- **`data_dir`** (`str, optional`):
+  Base directory for ID generation.
+
+**Returns:**
+
+- **`dict`**:
+  Metadata with file_path, metadata keys, and guaranteed id.
 
 </div>
 
@@ -277,19 +277,19 @@ DefaultMetadata.ensure_id(
 
 Inject or return unique ID in meta. Auto-generate if not present.
 
-Parameters
-----------
-meta : dict
-    Metadata dict (modified in place).
-paths : str or list of str
-    File path(s) for this sample.
-data_dir : str, optional
-    Base directory for ID generation. Uses instance data_dir if None.
+**Parameters:**
 
-Returns
--------
-str
-    The unique ID (existing or newly generated).
+- **`meta`** (`dict`):
+  Metadata dict (modified in place).
+- **`paths`** (`str or list of str`):
+  File path(s) for this sample.
+- **`data_dir`** (`str, optional`):
+  Base directory for ID generation. Uses instance data_dir if None.
+
+**Returns:**
+
+- **`str`**:
+  The unique ID (existing or newly generated).
 
 </div>
 
@@ -317,8 +317,8 @@ DefaultMetadata.get_id(
 
 Return the unique ID from metadata.
 
-Raises
-------
+**Raises:**
+
 KeyError
     If the unique ID column is missing from meta.
 
@@ -348,8 +348,8 @@ DefaultMetadata.get_mask_path(
 
 Resolve mask path from metadata when mask_filename_column and mask_dir are set.
 
-Returns
--------
+**Returns:**
+
 str or None
     Full path to mask file, or None if not resolvable.
 
@@ -431,17 +431,17 @@ DefaultMetadata.metadata_fn(
 
 Extract metadata for a path. Guarantees 'id' is present.
 
-Parameters
-----------
-path : str
-    File path.
-data_dir : str, optional
-    Base directory for ID generation.
+**Parameters:**
 
-Returns
--------
-dict
-    Metadata with file_path, metadata keys, and guaranteed id.
+- **`path`** (`str`):
+  File path.
+- **`data_dir`** (`str, optional`):
+  Base directory for ID generation.
+
+**Returns:**
+
+- **`dict`**:
+  Metadata with file_path, metadata keys, and guaranteed id.
 
 </div>
 
@@ -481,22 +481,22 @@ to metadata_to_stable_key for backward compatibility.
 
 Base class for metadata extraction with configurable columns and ID handling.
 
-Subclasses implement :meth:`_extract` to produce raw metadata; the base
+Subclasses implement `_extract` to produce raw metadata; the base
 class ensures a unique ``id`` is always present and provides stable key
 generation for checkpoint matching.
 
-Parameters
-----------
-filename_columns : str or list of str
-    Column(s) for image filenames. List for multi-channel.
-unique_id_column : str
-    Column name for unique sample ID (default ``"id"``).
-mask_filename_column : str, optional
-    Column name for mask filename when metadata has explicit mask.
-mask_dir : str, optional
-    Root directory for mask resolution.
-data_dir : str, optional
-    Base directory for relative path ID generation.
+**Parameters:**
+
+- **`filename_columns`** (`str or list of str`):
+  Column(s) for image filenames. List for multi-channel.
+- **`unique_id_column`** (`str`):
+  Column name for unique sample ID (default ``"id"``).
+- **`mask_filename_column`** (`str, optional`):
+  Column name for mask filename when metadata has explicit mask.
+- **`mask_dir`** (`str, optional`):
+  Root directory for mask resolution.
+- **`data_dir`** (`str, optional`):
+  Base directory for relative path ID generation.
 
 <div class="api-method" role="region" aria-labelledby="api-metadatabase-ensure_id">
 
@@ -522,19 +522,19 @@ MetadataBase.ensure_id(
 
 Inject or return unique ID in meta. Auto-generate if not present.
 
-Parameters
-----------
-meta : dict
-    Metadata dict (modified in place).
-paths : str or list of str
-    File path(s) for this sample.
-data_dir : str, optional
-    Base directory for ID generation. Uses instance data_dir if None.
+**Parameters:**
 
-Returns
--------
-str
-    The unique ID (existing or newly generated).
+- **`meta`** (`dict`):
+  Metadata dict (modified in place).
+- **`paths`** (`str or list of str`):
+  File path(s) for this sample.
+- **`data_dir`** (`str, optional`):
+  Base directory for ID generation. Uses instance data_dir if None.
+
+**Returns:**
+
+- **`str`**:
+  The unique ID (existing or newly generated).
 
 </div>
 
@@ -562,8 +562,8 @@ MetadataBase.get_id(
 
 Return the unique ID from metadata.
 
-Raises
-------
+**Raises:**
+
 KeyError
     If the unique ID column is missing from meta.
 
@@ -593,8 +593,8 @@ MetadataBase.get_mask_path(
 
 Resolve mask path from metadata when mask_filename_column and mask_dir are set.
 
-Returns
--------
+**Returns:**
+
 str or None
     Full path to mask file, or None if not resolvable.
 
@@ -676,17 +676,17 @@ MetadataBase.metadata_fn(
 
 Extract metadata for a path. Guarantees 'id' is present.
 
-Parameters
-----------
-path : str
-    File path.
-data_dir : str, optional
-    Base directory for ID generation.
+**Parameters:**
 
-Returns
--------
-dict
-    Metadata with file_path, metadata keys, and guaranteed id.
+- **`path`** (`str`):
+  File path.
+- **`data_dir`** (`str, optional`):
+  Base directory for ID generation.
+
+**Returns:**
+
+- **`dict`**:
+  Metadata with file_path, metadata keys, and guaranteed id.
 
 </div>
 
@@ -753,19 +753,19 @@ PathTemplateMetadata.ensure_id(
 
 Inject or return unique ID in meta. Auto-generate if not present.
 
-Parameters
-----------
-meta : dict
-    Metadata dict (modified in place).
-paths : str or list of str
-    File path(s) for this sample.
-data_dir : str, optional
-    Base directory for ID generation. Uses instance data_dir if None.
+**Parameters:**
 
-Returns
--------
-str
-    The unique ID (existing or newly generated).
+- **`meta`** (`dict`):
+  Metadata dict (modified in place).
+- **`paths`** (`str or list of str`):
+  File path(s) for this sample.
+- **`data_dir`** (`str, optional`):
+  Base directory for ID generation. Uses instance data_dir if None.
+
+**Returns:**
+
+- **`str`**:
+  The unique ID (existing or newly generated).
 
 </div>
 
@@ -793,8 +793,8 @@ PathTemplateMetadata.get_id(
 
 Return the unique ID from metadata.
 
-Raises
-------
+**Raises:**
+
 KeyError
     If the unique ID column is missing from meta.
 
@@ -824,8 +824,8 @@ PathTemplateMetadata.get_mask_path(
 
 Resolve mask path from metadata when mask_filename_column and mask_dir are set.
 
-Returns
--------
+**Returns:**
+
 str or None
     Full path to mask file, or None if not resolvable.
 
@@ -907,17 +907,17 @@ PathTemplateMetadata.metadata_fn(
 
 Extract metadata for a path. Guarantees 'id' is present.
 
-Parameters
-----------
-path : str
-    File path.
-data_dir : str, optional
-    Base directory for ID generation.
+**Parameters:**
 
-Returns
--------
-dict
-    Metadata with file_path, metadata keys, and guaranteed id.
+- **`path`** (`str`):
+  File path.
+- **`data_dir`** (`str, optional`):
+  Base directory for ID generation.
+
+**Returns:**
+
+- **`dict`**:
+  Metadata with file_path, metadata keys, and guaranteed id.
 
 </div>
 

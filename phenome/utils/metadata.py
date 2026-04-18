@@ -2,19 +2,19 @@
 Metadata extraction for the phenotyping pipeline.
 
 Provides path-template and dataframe-based helpers to build metadata functions
-compatible with :class:`phenome.core.MetadataFn`. The default column
+compatible with `phenome.core.MetadataFn`. The default column
 name for file identifiers is ``filename`` across all helpers.
 
-- :func:`default_metadata_from_path`: Minimal extractor returning ``file_path`` and ``filename``.
-- :func:`get_metadata_from_path`: Build extractor from a path template. Adds ``filename`` key.
-- :func:`make_dataframe_metadata_fn`: Look up metadata from a DataFrame. Supports
+- [default_metadata_from_path](utilities.md#api-default_metadata_from_path): Minimal extractor returning ``file_path`` and ``filename``.
+- [get_metadata_from_path](utilities.md#api-get_metadata_from_path): Build extractor from a path template. Adds ``filename`` key.
+- [make_dataframe_metadata_fn](utilities.md#api-make_dataframe_metadata_fn): Look up metadata from a DataFrame. Supports
   a single filename column (default ``"filename"``) or a list of columns for
   multi-channel data. Accepts filenames with or without extension; only the last
   dot is treated as the extension.
 
-These functions are thin wrappers over :class:`phenome.metadata` classes.
+These functions are thin wrappers over `phenome.metadata` classes.
 For OOP usage with configurable columns and auto-generated IDs, use
-:class:`DefaultMetadata`, :class:`PathTemplateMetadata`, or :class:`DataFrameMetadata`.
+[DefaultMetadata](metadata.md#api-defaultmetadata), [PathTemplateMetadata](metadata.md#api-pathtemplatemetadata), or [DataFrameMetadata](metadata.md#api-dataframemetadata).
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ def get_metadata_from_path(template: str) -> Callable[[str], dict[str, Any]]:
             Returns {} if no match. Keys from template placeholders plus ``filename`` (the
             default column name for file identifiers). The returned function has a
             ``group_by`` attribute (last capture group, or ``"filename"``) for
-            :meth:`find_files` multi-channel grouping.
+            [find_files](pipeline.md#api-phenome-find_files) multi-channel grouping.
 
     Example:
         >>> extractor = get_metadata_from_path(".../(drug)/(time)/(crop_name).tif")
@@ -120,7 +120,7 @@ def make_dataframe_metadata_fn(
        the filename (with or without extension) for that channel. Each row is
        one sample; the same row is matched when any of its channel filenames
        is seen. The returned metadata includes ``channel_index`` (0, 1, …).
-       :meth:`find_files` groups paths by the first filename column (e.g.
+       [find_files](pipeline.md#api-phenome-find_files) groups paths by the first filename column (e.g.
        ``ch0``) into one row per sample with ``file_path`` as a list of paths
        in channel order.
 
@@ -143,7 +143,7 @@ def make_dataframe_metadata_fn(
         ``file_path`` and, in multi-channel mode, ``channel_index``. All
         dataframe columns are included (filename column identifies the image).
         The returned function has a ``group_by`` attribute (first filename column)
-        for :meth:`find_files` multi-channel grouping.
+        for [find_files](pipeline.md#api-phenome-find_files) multi-channel grouping.
 
     Raises:
         ValueError: If filename_column (or any of its elements) is not in

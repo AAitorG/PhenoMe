@@ -121,7 +121,7 @@ register_report_section("custom_analysis", my_custom_section)
 
 | Topic | Document |
 |-------|----------|
-| Extension points overview | [Extending the Pipeline](extending.md) |
-| Metadata extractors | [Experiment Details](experiment-details.md) |
-| Property functions | [Custom Properties](custom-properties.md) |
-| Report API | [Report Generation](../reference/api/report.md) |
+| Extension points overview | [Extending the Pipeline](/PhenoMe/guides/extending/) |
+| Metadata extractors | [Experiment Details](/PhenoMe/guides/experiment-details/) |
+| Property functions | [Custom Properties](/PhenoMe/guides/custom-properties/) |
+| Report API | [Report Generation](/PhenoMe/advanced/api/report/) |

@@ -19,7 +19,7 @@ Thank you for your interest in contributing to PhenoMe. This document explains h
    ```
    Or with pip (CPU or GPU lockfiles; add dev extras):
    ```bash
-   pip install -r envs/requirements-cpu.txt -e ".[dev]"
+   pip install -r requirements.txt -e ".[dev]"
    # NVIDIA CUDA: pip install -r envs/requirements-gpu.txt -e ".[dev]"
    ```
 
@@ -32,7 +32,7 @@ Thank you for your interest in contributing to PhenoMe. This document explains h
 
 GitHub Actions runs Gitleaks, Ruff (lint + format check), mypy, and a smoke import on pushes and pull requests to `main` / `master` (see `.github/workflows/ci.yml`).
 
-A separate **Documentation** workflow (`.github/workflows/docs-build.yml`) installs Node 20 + Python 3.12, runs `npm run build` under `docs/` (Astro Starlight + generated API pages), and deploys to **GitHub Pages** on pushes to `main` / `master`. See [`docs/README.md`](docs/README.md) and [`docs/PAGES.md`](docs/PAGES.md).
+A separate **Documentation** workflow (`.github/workflows/docs-build.yml`) installs Node 20 + Python 3.12, runs `npm run build` under `docs/` (Astro Starlight + generated API pages), and deploys to **GitHub Pages** on pushes to `main` / `master`. See [`docs/README.md`](docs/README.md).
 
 ### Linting and Formatting
 

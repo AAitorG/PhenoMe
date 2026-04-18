@@ -1,55 +1,5 @@
 """
-Phenotyping Checkpoint Manager — HDF5 schema
-=============================================
-
-Provides crash-safe, incremental persistence for embeddings, metadata,
-and properties using HDF5.  The core safety invariant is a **committed count**
-attribute that is updated *after* all data for a batch has been flushed to
-disk.  On reload, only the first ``n_committed`` rows are trusted; any
-trailing rows left behind by an interrupted write are silently discarded.
-
-All compression is **lossless** (gzip).  Float32 embedding data is stored
-bit-for-bit exactly; gzip only removes redundancy without altering values.
-
-Paths are always stored as POSIX relative (forward slashes) regardless of OS.
-
-Version configuration (Constants section):
-  CHECKPOINT_FORMAT_VERSION: version written to new checkpoints
-  CHECKPOINT_SUPPORTED_VERSIONS: set of versions that can be loaded
-
-HDF5 schema
------------
-/embeddings              (N, D)  float32, chunked, lossless gzip
-/img_path                (N,)    vlen UTF-8  — primary/only path per image
-/img_path_channels       (N, C)  vlen UTF-8  — present only for multi-channel images;
-                                              each row lists the C channel paths
-/metadata/
-    {key}                (N,)    vlen UTF-8 or float32 — one dataset per metadata key
-/properties/
-    {name}               (N,)    float32     — one dataset per property name
-/config/                                    — processing parameters (typed attributes)
-    channel_mode         str  attribute
-    resize_size          str  attribute  ("none" when absent)
-    pad_size             str  attribute  ("none" when absent)
-    force_rgb            bool attribute
-    channels             (C,) int8 dataset — absent when all channels used
-
-Root attributes
-    version              str   — CHECKPOINT_FORMAT_VERSION
-    n_committed          int   — rows committed for paths + embeddings + metadata
-    n_committed_props    int   — rows committed for properties (may lag n_committed)
-    embedding_dim        int   — 0 when no embeddings
-    is_multichannel      bool  — True when /img_path_channels is present
-
-External access (no custom code required)
------------------------------------------
-    import h5py, numpy as np
-    with h5py.File("results.h5", "r") as f:
-        paths      = f["img_path"][:]
-        drug       = f["metadata/drug"][:]          # vlen UTF-8 array
-        intensity  = f["properties/intensity_mean_ch0"][:]  # float32 array
-        embeddings = f["embeddings"][:]             # (N, D) float32
-        channel_mode = f["config"].attrs["channel_mode"]
+HDF5 schema module for phenotyping checkpoint managing.
 """
 
 from __future__ import annotations
@@ -160,6 +110,55 @@ class CheckpointManager:
     @order 70
 
     Crash-safe incremental checkpoint backed by a single HDF5 file.
+
+    Provides crash-safe, incremental persistence for embeddings, metadata,
+    and properties using HDF5.  The core safety invariant is a **committed count**
+    attribute that is updated *after* all data for a batch has been flushed to
+    disk.  On reload, only the first ``n_committed`` rows are trusted; any
+    trailing rows left behind by an interrupted write are silently discarded.
+
+    All compression is **lossless** (gzip).  Float32 embedding data is stored
+    bit-for-bit exactly; gzip only removes redundancy without altering values.
+
+    Paths are always stored as POSIX relative (forward slashes) regardless of OS.
+
+    Version configuration (Constants section):
+      CHECKPOINT_FORMAT_VERSION: version written to new checkpoints
+      CHECKPOINT_SUPPORTED_VERSIONS: set of versions that can be loaded
+
+    HDF5 schema
+    -----------
+    /embeddings              (N, D)  float32, chunked, lossless gzip
+    /img_path                (N,)    vlen UTF-8  — primary/only path per image
+    /img_path_channels       (N, C)  vlen UTF-8  — present only for multi-channel images;
+                                                  each row lists the C channel paths
+    /metadata/
+        {key}                (N,)    vlen UTF-8 or float32 — one dataset per metadata key
+    /properties/
+        {name}               (N,)    float32     — one dataset per property name
+    /config/                                    — processing parameters (typed attributes)
+        channel_mode         str  attribute
+        resize_size          str  attribute  ("none" when absent)
+        pad_size             str  attribute  ("none" when absent)
+        force_rgb            bool attribute
+        channels             (C,) int8 dataset — absent when all channels used
+
+    Root attributes
+        version              str   — CHECKPOINT_FORMAT_VERSION
+        n_committed          int   — rows committed for paths + embeddings + metadata
+        n_committed_props    int   — rows committed for properties (may lag n_committed)
+        embedding_dim        int   — 0 when no embeddings
+        is_multichannel      bool  — True when /img_path_channels is present
+
+    External access (no custom code required)
+    -----------------------------------------
+        import h5py, numpy as np
+        with h5py.File("results.h5", "r") as f:
+            paths      = f["img_path"][:]
+            drug       = f["metadata/drug"][:]          # vlen UTF-8 array
+            intensity  = f["properties/intensity_mean_ch0"][:]  # float32 array
+            embeddings = f["embeddings"][:]             # (N, D) float32
+            channel_mode = f["config"].attrs["channel_mode"]
 
     Parameters
     ----------
@@ -825,7 +824,7 @@ class CheckpointManager:
     # ------------------------------------------------------------------
 
     def load_committed_results(self) -> PhenoMeResults:
-        """Read all committed data and return a :class:`PhenoMeResults`.
+        """Read all committed data and return a [PhenoMeResults](pipeline.md#api-phenomeresults).
 
         Paths are resolved to absolute when _storage_root is available.
 

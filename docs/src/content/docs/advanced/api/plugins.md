@@ -5,12 +5,12 @@ description: register_property, metadata extractors, report sections.
 
 Auto-generated from `phenome.plugins`. Rebuild with `npm run prebuild` in `docs/`.
 
-**See also:** [Plugins guide](../../guides/plugins.md) · [Properties](properties.md)
+**See also:** [Plugins guide](/PhenoMe/guides/plugins/) · [Properties](/PhenoMe/advanced/api/properties/)
 
 Plugin registry for extensibility.
 
 Provides registries for metadata extractors, report sections, and property functions.
-See the top-level :mod:`phenome` module for usage.
+See the top-level `phenome` module for usage.
 
 Public API:
     - register_property, get_property, list_properties
@@ -139,13 +139,14 @@ hence area = 2*pi*sigma² (not pi*sigma²).
 
 **Returns:**
 
-Dictionary with keys:
-- 'blob_count': Number of detected blobs
-- 'blob_area_mean': Mean blob area (in pixels²)
-- 'blob_area_std': Standard deviation of blob areas
-- 'blob_intensity_mean': Mean intensity at blob centers (subpixel interpolated)
-- 'blob_intensity_std': Standard deviation of blob intensities
-All values are np.nan if image is None or invalid.
+  Dictionary with keys:
+  - 'blob_count': Number of detected blobs
+  - 'blob_area_mean': Mean blob area (in pixels²)
+  - 'blob_area_std': Standard deviation of blob areas
+  - 'blob_intensity_mean': Mean intensity at blob centers (subpixel interpolated)
+  - 'blob_intensity_std': Standard deviation of blob intensities
+- **``**:
+  All values are np.nan if image is None or invalid.
 
 ### `my_custom_max_intensity`
 
@@ -167,4 +168,4 @@ Use as a template for creating custom property functions.
 
 **Returns:**
 
-Dictionary with 'my_max_intensity' key.
+  Dictionary with 'my_max_intensity' key.

@@ -19,7 +19,7 @@ High-level layout of the `phenome` package, data flow, and where to extend the p
 | Plugins | `phenome.plugins` | Registries for properties, metadata extractors, report sections |
 | Report | `phenome.report` | HTML report generation |
 
-Imports for users are mostly from **`phenome`** (re-exports). See the [function location guide](../function-location-guide.md) for a full symbol index.
+Imports for users are mostly from **`phenome`** (re-exports). See the [function location guide](/PhenoMe/function-location-guide/) for a full symbol index.
 
 ---
 
@@ -38,10 +38,10 @@ Imports for users are mostly from **`phenome`** (re-exports). See the [function 
 
 | Goal | Where to start |
 |------|----------------|
-| Custom metadata from paths or tables | [Experiment details](experiment-details.md), `MetadataBase`, `get_metadata_from_path`, `make_dataframe_metadata_fn` |
-| Custom image features | [Custom properties](custom-properties.md), `phenome.plugins.register_property` |
-| Custom vision backbone | [Model wrapper API](../reference/api/model-wrapper.md), subclass `ModelWrapper` |
-| Report sections | [Extending](extending.md), `register_report_section` |
+| Custom metadata from paths or tables | [Experiment details](/PhenoMe/guides/experiment-details/), `MetadataBase`, `get_metadata_from_path`, `make_dataframe_metadata_fn` |
+| Custom image features | [Custom properties](/PhenoMe/guides/custom-properties/), `phenome.plugins.register_property` |
+| Custom vision backbone | [Model wrapper API](/PhenoMe/advanced/api/model-wrapper/), subclass `ModelWrapper` |
+| Report sections | [Extending](/PhenoMe/guides/extending/), `register_report_section` |
 
 **Rule of thumb:** prefer hooks (`metadata_fn`, property factories, plugins) before forking `PhenoMe` internals.
 
@@ -60,5 +60,5 @@ Imports for users are mostly from **`phenome`** (re-exports). See the [function 
 
 ## Further reading
 
-- [HDF5 protocol](../reference/DATABASE_PROTOCOL.md)
-- [Hand-written API index](../reference/)
+- [HDF5 protocol](/PhenoMe/advanced/database_protocol/)
+- [Hand-written API index](/PhenoMe/advanced/)

@@ -10,11 +10,11 @@ Curated routes through PhenoMe documentation and notebooks. Pick **one** path an
 
 Goal: run something today and understand the big picture.
 
-1. [Getting started](getting-started.mdx) — install, verify `import phenome`, CPU/GPU note.
-2. [Quick start card](quick-start-card.md) — copy-paste minimal script.
+1. [Getting started](/PhenoMe/getting-started/) — install, verify `import phenome`, CPU/GPU note.
+2. [Quick start card](/PhenoMe/quick-start-card/) — copy-paste minimal script.
 3. [Notebook 01 — Interactive quickstart](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb) — widgets, toy or your data.
-4. [Core concepts](concepts.md) — what embeddings and metadata are (skim OK).
-5. [FAQ — Getting started](faq.md#installation-and-setup) — common blockers.
+4. [Core concepts](/PhenoMe/concepts/) — what embeddings and metadata are (skim OK).
+5. [FAQ — Getting started](/PhenoMe/faq/#installation-and-setup) — common blockers.
 
 ---
 
@@ -22,12 +22,12 @@ Goal: run something today and understand the big picture.
 
 Goal: reproducible workflow on real images with sensible metadata.
 
-1. [Getting started](getting-started.mdx) — environment locked in.
-2. [Data setup](guides/data-setup.md) — decide if you need metadata; path templates vs CSV.
+1. [Getting started](/PhenoMe/getting-started/) — environment locked in.
+2. [Data setup](/PhenoMe/guides/data-setup/) — decide if you need metadata; path templates vs CSV.
 3. [Notebook 02 — Inspect images](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb) — QC.
 4. [Notebook 03 — Core workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb) — embeddings, properties, plots.
-5. [Property reference](guides/property-reference.md) — choose a `property_preset`.
-6. [Workflows](workflows.md) or [Examples gallery](examples/index.md) — pattern match your study design.
+5. [Property reference](/PhenoMe/guides/property-reference/) — choose a `property_preset`.
+6. [Workflows](/PhenoMe/workflows/) or [Examples gallery](/PhenoMe/examples/) — pattern match your study design.
 7. Optional: [Notebook 04 — Metadata](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb).
 
 ---
@@ -37,9 +37,9 @@ Goal: reproducible workflow on real images with sensible metadata.
 Goal: explain results to collaborators.
 
 1. Complete **Path B** through notebook 03 (or load saved results).
-2. [Report guide](guides/report-guide.md) — what sections mean.
-3. `PhenoMe.generate_report` — see [Report API](reference/api/report.md).
-4. [FAQ — Results](faq.md#results-and-interpretation).
+2. [Report guide](/PhenoMe/guides/report-guide/) — what sections mean.
+3. `PhenoMe.generate_report` — see [Report API](/PhenoMe/advanced/api/report/).
+4. [FAQ — Results](/PhenoMe/faq/#results-and-interpretation).
 
 ---
 
@@ -47,11 +47,11 @@ Goal: explain results to collaborators.
 
 Goal: safe changes in the codebase and up-to-date API docs.
 
-1. [Architecture](guides/architecture.md) — packages, data flow, extension points.
-2. [Hand-written API index](reference/) — narrative reference.
-3. [Developer guide](guides/developer-guide.md) — docstrings, Astro build, CI.
-4. [Testing](guides/testing.md) — ruff, mypy, interrogate.
-5. [Extending PhenoMe](guides/extending.md) · [Plugins](guides/plugins.md) · [Custom properties](guides/custom-properties.md).
+1. [Architecture](/PhenoMe/guides/architecture/) — packages, data flow, extension points.
+2. [Hand-written API index](/PhenoMe/advanced/) — narrative reference.
+3. [Developer guide](/PhenoMe/guides/developer-guide/) — docstrings, Astro build, CI.
+4. [Testing](/PhenoMe/guides/testing/) — ruff, mypy, interrogate.
+5. [Extending PhenoMe](/PhenoMe/guides/extending/) · [Plugins](/PhenoMe/guides/plugins/) · [Custom properties](/PhenoMe/guides/custom-properties/).
 6. [Notebook 06 — Plugins](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_extending_phenome_plugins.ipynb).
 
 ---
@@ -61,8 +61,8 @@ Goal: safe changes in the codebase and up-to-date API docs.
 Goal: DR plots, correlations, explainability.
 
 1. [Notebook 05 — Exploratory analysis](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb).
-2. [Interpretability guide](guides/interpretability.md).
-3. [Glossary](glossary.md) — embedding, correlation engine, channel mode.
+2. [Interpretability guide](/PhenoMe/guides/interpretability/).
+3. [Glossary](/PhenoMe/glossary/) — embedding, correlation engine, channel mode.
 
 ---
 
@@ -70,7 +70,7 @@ Goal: DR plots, correlations, explainability.
 
 | Topic | Read first | Practice in |
 |-------|------------|-------------|
-| Install | [Getting started](getting-started.mdx) | Notebook 01 (Colab cell if needed) |
-| Metadata | [Data setup](guides/data-setup.md) | Notebook 04 |
-| Full pipeline | [Getting started §3](getting-started.mdx#3-quick-start-your-first-analysis) | Notebook 03 |
-| Plugins | [Extending](guides/extending.md) | Notebook 06 |
+| Install | [Getting started](/PhenoMe/getting-started/) | Notebook 01 (Colab cell if needed) |
+| Metadata | [Data setup](/PhenoMe/guides/data-setup/) | Notebook 04 |
+| Full pipeline | [Getting started §3](/PhenoMe/getting-started/#3-quick-start-your-first-analysis) | Notebook 03 |
+| Plugins | [Extending](/PhenoMe/guides/extending/) | Notebook 06 |

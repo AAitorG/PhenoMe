@@ -5,7 +5,7 @@ description: PCA, t-SNE, UMAP, plots, distance distributions, correlations.
 
 Auto-generated from docstrings in `phenome.mixins.visualization._core` (`PhenoMeVisualization`). Rebuild with `npm run prebuild` in `docs/`.
 
-**See also:** [Pipeline](pipeline.md) · [Distances](distances.md) · [Concepts](../../concepts.md)
+**See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/) · [Distances](/PhenoMe/advanced/api/distances/) · [Concepts](/PhenoMe/concepts/)
 
 Pipeline class providing visualization methods for PhenoMe.
 
@@ -280,8 +280,8 @@ When ``show_extra_info`` is True, also emits the same details as
 
 **Returns:**
 
-``(png_bytes, details_text_or_none)`` — ``details_text_or_none`` is the
-formatted extra-info block when ``show_extra_info`` is True and details exist.
+  ``(png_bytes, details_text_or_none)`` — ``details_text_or_none`` is the
+  formatted extra-info block when ``show_extra_info`` is True and details exist.
 
 </div>
 
@@ -429,7 +429,7 @@ the target embedding dimension.
 
 **Args:**
 
-- **`results`**: Output dict from :meth:`compute_multivariate_interpretability`
+- **`results`**: Output dict from [compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenome-compute_multivariate_interpretability)
   (must include ``drivers``, ``r2``, ``method``, ``target_component``,
   ``model_type``).
 - **`top_k`**: Number of top driving features to show in the plot.
@@ -438,7 +438,7 @@ the target embedding dimension.
 
 **Returns:**
 
-The plotly figure object if return_fig is True, else None.
+  The plotly figure object if return_fig is True, else None.
 
 </div>
 

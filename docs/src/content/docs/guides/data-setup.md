@@ -46,7 +46,7 @@ data/
     b.tif
 ```
 
-Use a **path template** (see [Experiment details — Path templates](experiment-details.md#1-path-templates-the-easiest-way)):
+Use a **path template** (see [Experiment details — Path templates](/PhenoMe/guides/experiment-details/#1-path-templates-the-easiest-way)):
 
 ```python
 from phenome import get_metadata_from_path
@@ -65,7 +65,7 @@ Use when labels live in a table (Excel export → CSV).
 2. Each file is matched to a CSV row (usually by **filename**).
 3. **Only the overlap** is kept: files without a row are skipped by default; extra CSV rows are ignored.
 
-Details and `on_missing_metadata`: [Experiment details — CSV](experiment-details.md#2-using-a-csv-or-spreadsheet).
+Details and `on_missing_metadata`: [Experiment details — CSV](/PhenoMe/guides/experiment-details/#2-using-a-csv-or-spreadsheet).
 
 ```python
 import pandas as pd
@@ -80,7 +80,7 @@ pheno.find_files("images/", metadata_fn=metadata_fn)
 
 ## 4. Masks alongside images
 
-If properties need masks, configure **mask discovery** when calling `find_files` (see [Experiment details — Mask discovery](experiment-details.md#mask-discovery-in-find_files)).
+If properties need masks, configure **mask discovery** when calling `find_files` (see [Experiment details — Mask discovery](/PhenoMe/guides/experiment-details/#mask-discovery-in-find_files)).
 
 Typical pattern: parallel tree or predictable mask filenames next to images.
 
@@ -90,9 +90,9 @@ Typical pattern: parallel tree or predictable mask filenames next to images.
 
 | Design | Suggested metadata approach | See also |
 |--------|------------------------------|----------|
-| Drug screening (plate + compound + dose) | CSV with `filename`, `compound`, `concentration_uM`, `plate`, `well` | [Examples gallery](../examples/index.md) |
-| Time course (same field over time) | Path template `(timepoint)/(filename).*` or CSV | [Workflows](../workflows.md) |
-| Multi-replicate | Include `replicate` in CSV or path | [Best practices](best-practices.md) |
+| Drug screening (plate + compound + dose) | CSV with `filename`, `compound`, `concentration_uM`, `plate`, `well` | [Examples gallery](/PhenoMe/examples/) |
+| Time course (same field over time) | Path template `(timepoint)/(filename).*` or CSV | [Workflows](/PhenoMe/workflows/) |
+| Multi-replicate | Include `replicate` in CSV or path | [Best practices](/PhenoMe/guides/best-practices/) |
 
 ---
 
@@ -101,14 +101,14 @@ Typical pattern: parallel tree or predictable mask filenames next to images.
 | Problem | What to check |
 |---------|----------------|
 | `plot_pca(color_by='condition')` fails | Column exists on `file_df`: `pheno.get_available_metadata_keys()` |
-| CSV row count ≠ image count | Overlap behavior — [FAQ](../faq.md#data-and-metadata) |
-| Filter returns no images | Exact string match and keys — [Best practices](best-practices.md) |
-| Masks not found | `mask_dir` and naming pattern — [Experiment details](experiment-details.md) |
+| CSV row count ≠ image count | Overlap behavior — [FAQ](/PhenoMe/faq/#data-and-metadata) |
+| Filter returns no images | Exact string match and keys — [Best practices](/PhenoMe/guides/best-practices/) |
+| Masks not found | `mask_dir` and naming pattern — [Experiment details](/PhenoMe/guides/experiment-details/) |
 
 ---
 
 ## 7. Go deeper
 
-- **Full API and patterns:** [Experiment details (metadata)](experiment-details.md)
-- **Metadata classes:** [Metadata API](../reference/api/metadata.md)
+- **Full API and patterns:** [Experiment details (metadata)](/PhenoMe/guides/experiment-details/)
+- **Metadata classes:** [Metadata API](/PhenoMe/advanced/api/metadata/)
 - **Notebook:** [04 Advanced metadata handling](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)

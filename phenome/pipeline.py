@@ -1,18 +1,4 @@
-"""PhenoMe — main phenotyping analysis pipeline.
-
-Author: Aitor González-Marfil (@AAitorG)
-
-Main orchestrator class for processing images with deep learning models
-and analyzing phenotypic differences via embedding distances.
-
-Embedding lifecycle
-------------------
-- **Eager**: When no checkpoint is used, embeddings live in results.embeddings (np.ndarray).
-- **Lazy**: When a checkpoint is active (self._db), results.embeddings is None; embeddings
-  are read on demand via get_embeddings() from the HDF5 file.
-- **Temporal**: Rows from process_temporal_images() are in-memory only (self._temporal_embeddings)
-  when _db is open; merged with checkpoint data in get_embeddings().
-"""
+"""Main phenotyping analysis pipeline."""
 
 import json
 import os
@@ -80,6 +66,14 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
     Provides: compute_properties, filter_properties_by_group; compute_clustering,
     detect_outliers, find_prototypes; compute_reference_distances; plot_pca,
     plot_tsne, plot_umap, and related methods.
+
+    Embedding lifecycle
+    ------------------
+    - **Eager**: When no checkpoint is used, embeddings live in results.embeddings (np.ndarray).
+    - **Lazy**: When a checkpoint is active (self._db), results.embeddings is None; embeddings
+      are read on demand via get_embeddings() from the HDF5 file.
+    - **Temporal**: Rows from process_temporal_images() are in-memory only (self._temporal_embeddings)
+      when _db is open; merged with checkpoint data in get_embeddings().
 
     Args:
         device: Optional torch.device for GPU-accelerated analysis operations.
@@ -705,7 +699,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         writes ``self.results`` to a new HDF5 file using a temporary-file +
         atomic rename for crash safety.
 
-        For full reproducibility, also call :meth:`export_experiment_config`
+        For full reproducibility, also call [export_experiment_config](pipeline.md#api-phenome-export_experiment_config)
         to save seed, use_gpu_for_dr, reference_filters, and model name
         (not stored in the checkpoint).
 
@@ -921,8 +915,8 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         loaded into RAM (lazy_checkpoint=False) or accessed on-demand from
         disk (lazy_checkpoint=True).
 
-        Uses the internally stored file_df (from :meth:`find_files` or
-        :meth:`set_file_df`) to resolve paths so the checkpoint works on this
+        Uses the internally stored file_df (from [find_files](pipeline.md#api-phenome-find_files) or
+        [set_file_df](pipeline.md#api-phenome-set_file_df)) to resolve paths so the checkpoint works on this
         machine. Call find_files or set_file_df first.
 
         Args:

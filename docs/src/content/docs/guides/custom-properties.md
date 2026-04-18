@@ -23,7 +23,7 @@ Add numerical features (cell size, intensity, texture) from your images and mask
 
 ## Overview
 
-Property functions extract numerical features from images and/or masks. For a reference of what each built-in property measures, see [Property Reference](property-reference.md).
+Property functions extract numerical features from images and/or masks. For a reference of what each built-in property measures, see [Property Reference](/PhenoMe/guides/property-reference/).
 
 These features can:
 - Quantify biological phenotypes (cell size, intensity, shape)
@@ -370,14 +370,14 @@ from phenome.plugins import get_blob_properties
 
 | Helper | Description |
 |--------|-------------|
-| **create_regionprops_function** | Shape from mask: area, perimeter, eccentricity, solidity, orientation, extent, equivalent_diameter_area, euler_number, circularity, roundness, aspect_ratio. Uses skimage 0.26+ names (axis_major_length, axis_minor_length, etc.). See [Property Reference](property-reference.md#shape-properties-from-mask). |
+| **create_regionprops_function** | Shape from mask: area, perimeter, eccentricity, solidity, orientation, extent, equivalent_diameter_area, euler_number, circularity, roundness, aspect_ratio. Uses skimage 0.26+ names (axis_major_length, axis_minor_length, etc.). See [Property Reference](/PhenoMe/guides/property-reference/#shape-properties-from-mask). |
 | **create_masked_intensity_function** | Intensity stats (mean, std, min, max) inside the object only. Use for fluorescence or staining within segmented regions. |
 | **create_intensity_function** | Intensity stats over the whole image (no mask). Use for field-level brightness/contrast. |
-| **create_texture_function** | GLCM texture (contrast, dissimilarity, homogeneity, energy, correlation) within the masked region. See [Property Reference](property-reference.md#texture-properties-glcm). |
+| **create_texture_function** | GLCM texture (contrast, dissimilarity, homogeneity, energy, correlation) within the masked region. See [Property Reference](/PhenoMe/guides/property-reference/#texture-properties-glcm). |
 | **create_blur_effect_function** | Blur strength (0=sharp, 1=blurry) for QC and filtering out-of-focus images. |
 | **create_entropy_function** | Shannon entropy of intensity distribution. Higher = more diverse gray levels. |
 | **get_blob_properties** | Blob/cell-level properties from a labeled mask (e.g. per-cell intensity and shape). |
-| **create_concentric_ring_function** | Radial intensity profiles: divides object into rings by distance from boundary. Ring 1=outermost. See [Property Reference](property-reference.md#concentric-ring-properties). |
+| **create_concentric_ring_function** | Radial intensity profiles: divides object into rings by distance from boundary. Ring 1=outermost. See [Property Reference](/PhenoMe/guides/property-reference/#concentric-ring-properties). |
 
 Use these with `compute_properties` by passing the returned callable(s) in `additional_property_functions` (e.g. `"mask": create_regionprops_function(...)`). See the examples below and in the API.
 
@@ -600,9 +600,9 @@ def normalized_intensity(image2d, mask2d):
 
 | Topic | Document |
 |-------|----------|
-| Extension points | [Extending the Pipeline](extending.md) |
-| Built-in property definitions | [Property Reference](property-reference.md) |
-| Correlation with embeddings | [Interpretability Guide](interpretability.md) |
-| API reference | [compute_properties](../reference/api/pipeline.md#compute_properties) |
-| Metadata for grouping | [Experiment Details](experiment-details.md) |
-| End-to-end examples | [Common Workflows: Property-Based](../workflows.md#property-based-analysis) |
+| Extension points | [Extending the Pipeline](/PhenoMe/guides/extending/) |
+| Built-in property definitions | [Property Reference](/PhenoMe/guides/property-reference/) |
+| Correlation with embeddings | [Interpretability Guide](/PhenoMe/guides/interpretability/) |
+| API reference | [compute_properties](/PhenoMe/advanced/api/pipeline/#compute_properties) |
+| Metadata for grouping | [Experiment Details](/PhenoMe/guides/experiment-details/) |
+| End-to-end examples | [Common Workflows: Property-Based](/PhenoMe/workflows/#property-based-analysis) |

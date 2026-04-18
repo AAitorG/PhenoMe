@@ -5,7 +5,7 @@ description: ModelWrapper, DinoV2ModelWrapper, load_dinov2_model.
 
 Auto-generated from `phenome.utils.model_wrapper`. Rebuild with `npm run prebuild` in `docs/`.
 
-**See also:** [Pipeline](pipeline.md) · [External checkpoints](../../guides/external-checkpoints.md)
+**See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/)
 
 Model wrappers for vision model embedding extraction.
 
@@ -29,13 +29,14 @@ subclasses ModelWrapper and is fully compatible with the pipeline.
 **Args:**
 
 - **`model_name`**: DINOv2 model identifier for torch.hub.
-- **`Common`**: 'dinov2_vitb14_reg', 'dinov2_vitl14_reg', 'dinov2_vitg14_reg'
+  Common: 'dinov2_vitb14_reg', 'dinov2_vitl14_reg', 'dinov2_vitg14_reg'
 - **`device`**: Optional torch.device. If None, uses get_default_device().
 
 **Returns:**
 
-DinoV2ModelWrapper. Use with process_images(). The underlying
-``torch.nn.Module`` is ``wrapper.model``.
+  DinoV2ModelWrapper. Use with process_images(). The underlying
+  ``torch.nn.Module`` is ``wrapper.model``.
+- **``**:
 
 **Example:**
 
@@ -89,7 +90,7 @@ Delegates to _get_embeddings (heritage class) and validates output shape (B, D).
 
 **Returns:**
 
-Embedding tensor (B, D).
+  Embedding tensor (B, D).
 
 </div>
 
@@ -138,7 +139,7 @@ Delegates to _get_embeddings (heritage class) and validates output shape (B, D).
 
 **Returns:**
 
-Embedding tensor (B, D).
+  Embedding tensor (B, D).
 
 </div>
 

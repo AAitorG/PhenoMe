@@ -1,21 +1,5 @@
 """
 Interactive Visualization Module for PhenoMe.
-
-This module provides the PhenoMeInteractive class for high-performance,
-interactive exploration of large phenotypic datasets within Jupyter Notebooks.
-It uses Plotly FigureWidgets and ipywidgets for a responsive experience.
-
-Key design:
-  - **Color changes** are instant (no recomputation, only visual update).
-  - **Filter** and **Exclude** (separate collapsible sections under Embedding) restrict data before recomputation;
-    same field + search + multi-select pattern as Highlight.
-  - **Method/Source/Dim** or metadata filter changes trigger dimensionality reduction (expensive).
-  - **Highlight mode** shows ALL data points but visually emphasises a matching
-    subset (larger, brighter markers with a contrasting border) instead of hiding
-    the rest.  This lets the user "find" a group in context.
-  - **Multi-value highlight**: categorical fields use filter + multi-select (OR).
-  - **Live stats bar** (total / highlighted / selected).
-  - **Selected point**: clicking a point highlights it (larger, border) for inspection.
 """
 
 import asyncio
@@ -407,6 +391,18 @@ class PhenoMeInteractive:
       - Highlight mode (shows all points, emphasises a subset).
       - Multi-select categorical highlight and live stats bar.
       - Click-to-inspect image viewer.
+
+        Key design:
+          - **Color changes** are instant (no recomputation, only visual update).
+          - **Filter** and **Exclude** (separate collapsible sections under Embedding) restrict data before recomputation;
+            same field + search + multi-select pattern as Highlight.
+          - **Method/Source/Dim** or metadata filter changes trigger dimensionality reduction (expensive).
+          - **Highlight mode** shows ALL data points but visually emphasises a matching
+            subset (larger, brighter markers with a contrasting border) instead of hiding
+            the rest.  This lets the user "find" a group in context.
+          - **Multi-value highlight**: categorical fields use filter + multi-select (OR).
+          - **Live stats bar** (total / highlighted / selected).
+          - **Selected point**: clicking a point highlights it (larger, border) for inspection.
     """
 
     # ------------------------------------------------------------------
@@ -442,8 +438,6 @@ class PhenoMeInteractive:
         # Cached computation results (set after first compute)
         self._cached_df: pd.DataFrame | None = None
         self._cached_method: str | None = None
-        self._cached_source: str | None = None
-        self._cached_ndims: int | None = None
         self._cached_filters: dict | None = None
         self._cached_exclude: dict | None = None
         self._cached_dr_obj: Any = None
@@ -1304,8 +1298,8 @@ class PhenoMeInteractive:
         """Sorted unique string values for a metadata key across ``pheno.results``.
 
         ``PhenoMeResults`` stores ``metadata`` as a list of per-image dicts; we walk
-        that list once and use :func:`get_metadata_value_from_dict` per row (avoids
-        re-fetching the metadata list on every index as :func:`get_metadata_value` does).
+        that list once and use `get_metadata_value_from_dict` per row (avoids
+        re-fetching the metadata list on every index as `get_metadata_value` does).
         """
         if key is None or not hasattr(self.pheno, "results") or not self.pheno.results:
             return []
@@ -1939,7 +1933,7 @@ class PhenoMeInteractive:
 
         Plotly express uses one data trace + ``layout.coloraxis`` for continuous
         colour. Categorical plots use one trace per category; those must still
-        go through :meth:`_build_figure`.
+        go through `_build_figure`.
 
         Returns:
             True if the figure was updated without a full rebuild.
@@ -2258,7 +2252,7 @@ class PhenoMeInteractive:
     ) -> None:
         """Apply marker size, opacity, and line width per data trace (scalar or per-point list).
 
-        Does not modify the selection overlay trace; use :meth:`_selection_overlay_trace` for that.
+        Does not modify the selection overlay trace; use `_selection_overlay_trace` for that.
         """
         if self.fig_widget is None:
             return
@@ -2557,7 +2551,7 @@ class PhenoMeInteractive:
         _schedule_after_plotly_event_loop(_do)
 
     def _sync_highlight_button_appearance(self) -> None:
-        """Sync highlight button label/style with :attr:`_highlight_active`."""
+        """Sync highlight button label/style with `_highlight_active`."""
         btn = self.highlight_toggle
         btn.button_style = ""
         if self._highlight_active:
@@ -2614,7 +2608,7 @@ class PhenoMeInteractive:
         self.img_output.children = (self._img_idle_placeholder,)
 
     def _debounce_search(self, timer_attr: str, apply_fn: Callable[[], None]) -> None:
-        """Cancel any pending timer and schedule ``apply_fn`` after :data:`_SEARCH_DEBOUNCE_SEC`."""
+        """Cancel any pending timer and schedule ``apply_fn`` after `_SEARCH_DEBOUNCE_SEC`."""
         timer: threading.Timer | None = getattr(self, timer_attr)
         if timer is not None:
             timer.cancel()

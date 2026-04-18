@@ -21,7 +21,7 @@ The standard end-to-end workflow—from loading images and extracting visual fin
 Analyzing the phenotypic effects of different drug treatments or mapping changes over time requires robust metadata extraction. Whether your data is organized hierarchically (`{drug}/{concentration}/{image}.tif`) or encoded in file names (`Treated_24h`), you can handle it smoothly using our experiment details pipeline.
 
 ➡️ **See Tutorial:** [04_advanced_metadata_handling.ipynb](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)
-➡️ **See Guide:** [Experiment Details (Metadata)](guides/experiment-details.md)
+➡️ **See Guide:** [Experiment Details (Metadata)](/PhenoMe/guides/experiment-details/)
 
 ---
 
@@ -30,7 +30,7 @@ Analyzing the phenotypic effects of different drug treatments or mapping changes
 To connect abstract AI patterns to real biology, you can compute classic physical properties (e.g., area, eccentricity) and analyze how they correlate with your embeddings.
 
 ➡️ **See Tutorial:** [05_exploratory_analysis_and_explainability.ipynb](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
-➡️ **See Guide:** [Property Reference](guides/property-reference.md)
+➡️ **See Guide:** [Property Reference](/PhenoMe/guides/property-reference/)
 
 ---
 
@@ -79,9 +79,9 @@ pheno.process_images(
 
 | Topic | Document |
 |-------|----------|
-| Installation and quick start | [Getting Started](getting-started.mdx) |
-| Folder structure and metadata | [Expected Folder Structure](getting-started.mdx#3-expected-folder-structure), [Experiment Details](guides/experiment-details.md) |
-| Embeddings, channels, results | [Core Concepts](concepts.md) |
-| Full API reference | [API Reference Index](reference/) · [Pipeline](reference/api/pipeline.md) |
-| Property presets and custom functions | [Custom Properties](guides/custom-properties.md) · [Property Reference](guides/property-reference.md) |
-| Reproducibility and optimization | [Best Practices](guides/best-practices.md) |
+| Installation and quick start | [Getting Started](/PhenoMe/getting-started/) |
+| Folder structure and metadata | [Expected Folder Structure](/PhenoMe/getting-started/#3-expected-folder-structure), [Experiment Details](/PhenoMe/guides/experiment-details/) |
+| Embeddings, channels, results | [Core Concepts](/PhenoMe/concepts/) |
+| Full API reference | [API Reference Index](/PhenoMe/advanced/) · [Pipeline](/PhenoMe/advanced/api/pipeline/) |
+| Property presets and custom functions | [Custom Properties](/PhenoMe/guides/custom-properties/) · [Property Reference](/PhenoMe/guides/property-reference/) |
+| Reproducibility and optimization | [Best Practices](/PhenoMe/guides/best-practices/) |

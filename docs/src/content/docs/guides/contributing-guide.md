@@ -10,10 +10,10 @@ How to propose documentation changes and keep them consistent with the code.
 
 | Audience | Entry |
 |----------|--------|
-| All users | [Documentation home](..), [Getting started](../getting-started.mdx), [Learning paths](../user-paths.md) |
-| Data / metadata | [Data setup](data-setup.md), [Experiment details](experiment-details.md) |
-| Developers | [Architecture](architecture.md), [Developer guide](developer-guide.md), [Testing](testing.md) |
-| Auto API | [generate_api_docs.py](https://github.com/AAitorG/PhenoMe/blob/main/docs/scripts/generate_api_docs.py) (writes `reference/api/` on each build) |
+| All users | [Documentation home](..), [Getting started](/PhenoMe/getting-started/), [Learning paths](/PhenoMe/user-paths/) |
+| Data / metadata | [Data setup](/PhenoMe/guides/data-setup/), [Experiment details](/PhenoMe/guides/experiment-details/) |
+| Developers | [Architecture](/PhenoMe/guides/architecture/), [Developer guide](/PhenoMe/guides/developer-guide/), [Testing](/PhenoMe/guides/testing/) |
+| Auto API | [generate_api_docs.py](https://github.com/AAitorG/PhenoMe/blob/main/docs/scripts/generate_api_docs.py) (writes `advanced/api/` on each build) |
 
 ---
 
@@ -39,7 +39,7 @@ Use GitHub **Issues** with label `documentation` when possible. Include:
 
 - [ ] `npm run build` succeeds under `docs/`
 - [ ] New public API has docstrings (interrogate)
-- [ ] Spot-check generated pages under [Reference / API](../reference/api/pipeline.md)
+- [ ] Spot-check generated pages under [Reference / API](/PhenoMe/advanced/api/pipeline/)
 
 ---
 
@@ -47,4 +47,4 @@ Use GitHub **Issues** with label `documentation` when possible. Include:
 
 - Prefer **clear headings** and short paragraphs.
 - Use **code fences** with language tags for Python and shell.
-- Avoid duplicating long signatures; link to [generated API](../reference/api/pipeline.md) or [reference overview](../reference/) instead.
+- Avoid duplicating long signatures; link to [generated API](/PhenoMe/advanced/api/pipeline/) or [reference overview](/PhenoMe/advanced/) instead.

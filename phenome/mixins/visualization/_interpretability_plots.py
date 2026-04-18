@@ -27,7 +27,7 @@ class _InterpretabilityPlotsMixin:
         the target embedding dimension.
 
         Args:
-            results: Output dict from :meth:`compute_multivariate_interpretability`
+            results: Output dict from [compute_multivariate_interpretability](pipeline.md#api-phenome-compute_multivariate_interpretability)
                 (must include ``drivers``, ``r2``, ``method``, ``target_component``,
                 ``model_type``).
             top_k: Number of top driving features to show in the plot.

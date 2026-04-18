@@ -65,7 +65,7 @@ class MetadataBase(ABC):
 
     Base class for metadata extraction with configurable columns and ID handling.
 
-    Subclasses implement :meth:`_extract` to produce raw metadata; the base
+    Subclasses implement `_extract` to produce raw metadata; the base
     class ensures a unique ``id`` is always present and provides stable key
     generation for checkpoint matching.
 

@@ -139,7 +139,7 @@ For most morphological traits (area, eccentricity, intensity), **Pearson** is su
 
 | Topic | Document |
 |-------|----------|
-| Property definitions | [Property Reference](property-reference.md) |
-| Custom properties | [Custom Properties](custom-properties.md) |
-| Report with correlations | [Report Generation](../reference/api/report.md) |
-| Correlation workflow | [Common Workflows: Property-Based](../workflows.md#property-based-analysis) |
+| Property definitions | [Property Reference](/PhenoMe/guides/property-reference/) |
+| Custom properties | [Custom Properties](/PhenoMe/guides/custom-properties/) |
+| Report with correlations | [Report Generation](/PhenoMe/advanced/api/report/) |
+| Correlation workflow | [Common Workflows: Property-Based](/PhenoMe/workflows/#property-based-analysis) |

@@ -382,7 +382,7 @@ def generate_report(
 
     Generate comprehensive standalone HTML report from phenotyping results.
 
-    Uses :class:`ReportConfig` as the primary source of options. Pass ``config=``
+    Uses [ReportConfig](report.md#api-reportconfig) as the primary source of options. Pass ``config=``
     for full control, or use ``**overrides`` to tweak individual settings.
 
     Args:

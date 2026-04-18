@@ -5,13 +5,21 @@ description: Main orchestrator — data, properties, analysis, reporting.
 
 Auto-generated from `phenome.pipeline`, mixins, and `phenome.core.pipeline_results`. Rebuild with `npm run prebuild` in `docs/`.
 
-**See also:** [Getting started](../../getting-started.mdx) · [Concepts](../../concepts.md) · [Visualization](visualization.md) · [Distances](distances.md) · [Model wrappers](model-wrapper.md)
+**See also:** [Getting started](/PhenoMe/getting-started/) · [Concepts](/PhenoMe/concepts/) · [Visualization](/PhenoMe/advanced/api/visualization/) · [Distances](/PhenoMe/advanced/api/distances/) · [Model wrappers](/PhenoMe/advanced/api/model-wrapper/)
 
 Main class for phenotyping analysis using deep learning embeddings.
 
 Provides: compute_properties, filter_properties_by_group; compute_clustering,
 detect_outliers, find_prototypes; compute_reference_distances; plot_pca,
 plot_tsne, plot_umap, and related methods.
+
+Embedding lifecycle
+------------------
+- **Eager**: When no checkpoint is used, embeddings live in results.embeddings (np.ndarray).
+- **Lazy**: When a checkpoint is active (self._db), results.embeddings is None; embeddings
+  are read on demand via get_embeddings() from the HDF5 file.
+- **Temporal**: Rows from process_temporal_images() are in-memory only (self._temporal_embeddings)
+  when _db is open; merged with checkpoint data in get_embeddings().
 
 **Args:**
 
@@ -82,7 +90,7 @@ internal file_df used by process_images, compute_properties, and inspect_data.
 
 **Returns:**
 
-DataFrame with file_path, mask_path (when mask_dir set), and metadata.
+  DataFrame with file_path, mask_path (when mask_dir set), and metadata.
 
 </div>
 
@@ -121,7 +129,7 @@ inspect_data, and related methods.
 
 **Returns:**
 
-The normalized DataFrame that was stored.
+  The normalized DataFrame that was stored.
 
 </div>
 
@@ -312,8 +320,8 @@ they are merged with checkpoint data. When no database is active, slices
 
 **Returns:**
 
-np.ndarray shape ``(len(indices), D)`` float32, or None if no
-embeddings are available.
+  np.ndarray shape ``(len(indices), D)`` float32, or None if no
+  embeddings are available.
 
 </div>
 
@@ -350,7 +358,7 @@ Return metadata, properties, and optional distance for image idx.
 **Returns:**
 
 - **`dict`**: Keys idx, img_name, img_path, metadata keys, property keys,
-distance (if distance_results provided), is_reference (if applicable).
+  distance (if distance_results provided), is_reference (if applicable).
 
 </div>
 
@@ -565,7 +573,7 @@ buffers and logs the existing path.  When no database is active,
 writes ``self.results`` to a new HDF5 file using a temporary-file +
 atomic rename for crash safety.
 
-For full reproducibility, also call :meth:`export_experiment_config`
+For full reproducibility, also call [export_experiment_config](/PhenoMe/advanced/api/pipeline/#api-phenome-export_experiment_config)
 to save seed, use_gpu_for_dr, reference_filters, and model name
 (not stored in the checkpoint).
 
@@ -606,8 +614,8 @@ Metadata and properties are loaded immediately. Embeddings are either
 loaded into RAM (lazy_checkpoint=False) or accessed on-demand from
 disk (lazy_checkpoint=True).
 
-Uses the internally stored file_df (from :meth:`find_files` or
-:meth:`set_file_df`) to resolve paths so the checkpoint works on this
+Uses the internally stored file_df (from [find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files) or
+[set_file_df](/PhenoMe/advanced/api/pipeline/#api-phenome-set_file_df)) to resolve paths so the checkpoint works on this
 machine. Call find_files or set_file_df first.
 
 **Args:**
@@ -748,8 +756,8 @@ Export the dataset as a table (CSV, Parquet, or Excel).
 
 **Returns:**
 
-DataFrame with image_index, image_path, metadata, properties, distances,
-and embeddings (if requested).
+  DataFrame with image_index, image_path, metadata, properties, distances,
+  and embeddings (if requested).
 
 </div>
 
@@ -796,20 +804,20 @@ Use ``property_preset`` for built-in property sets and
 (optional).
 
 This method now relies solely on ``file_df`` (typically produced by
-:meth:`PhenoMe.find_files`) for resolving image and mask
+[PhenoMe.find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files)) for resolving image and mask
 paths. Legacy ``image_dir`` / ``mask_dir`` parameters are no longer
 supported.
 
 **Args:**
 
 - **`metadata_config`**: Optional MetadataBase instance (e.g. from
-  :mod:`phenome.metadata`). When it has ``mask_dir`` and
+  `phenome.metadata`). When it has ``mask_dir`` and
   ``mask_filename_column``, uses explicit mask lookup.
 - **`property_preset`**: Preset name. Use ``"none"`` or ``None`` for no
-- **`preset. Valid`**: ``"none"``, ``"basic"``, ``"regionprops"``,
+  preset. Valid: ``"none"``, ``"basic"``, ``"regionprops"``,
   ``"intensity"``, ``"full"``, ``"full_extended"``.
 - **`additional_property_functions`**: Extra property functions to add on
-- **`top of preset. Dict of &#123;requirement`**: fn_or_list} where
+  top of preset. Dict of {requirement: fn_or_list} where
   requirement is ``"image"``, ``"mask"``, ``"both"``, or
   ``"any"``. Merged with preset when both are used; used alone
   when ``property_preset`` is ``"none"`` or ``None``.
@@ -831,8 +839,9 @@ supported.
 
 **Returns:**
 
-DataFrame with all properties and metadata columns. Also populates
-``results.properties`` as ``List[dict]`` (one dict per image).
+  DataFrame with all properties and metadata columns. Also populates
+  ``results.properties`` as ``List[dict]`` (one dict per image).
+- **``**:
 
 **Raises:**
 
@@ -868,9 +877,9 @@ PhenoMeProperties.filter_properties_by_group(
 
 Group property DataFrame and compute per-group statistics.
 
-Uses :meth:`_build_properties_dataframe` from computed
+Uses `_build_properties_dataframe` from computed
 ``results.properties`` and metadata (same source as
-:meth:`compute_properties`).
+[compute_properties](/PhenoMe/advanced/api/pipeline/#api-phenome-compute_properties)).
 
 **Args:**
 
@@ -879,7 +888,8 @@ Uses :meth:`_build_properties_dataframe` from computed
 
 **Returns:**
 
-Aggregated DataFrame with mean/std/min/max per property per group.
+  Aggregated DataFrame with mean/std/min/max per property per group.
+- **``**:
 
 **Raises:**
 
@@ -971,8 +981,8 @@ Requires sample std (ddof=1) from filter_properties_by_group.
 
 **Returns:**
 
-DataFrame with columns: grouping cols, property, effect_size, mean_diff, ref_mean,
-group_mean, rank. One row per (group, property) for top-k only.
+  DataFrame with columns: grouping cols, property, effect_size, mean_diff, ref_mean,
+  group_mean, rank. One row per (group, property) for top-k only.
 
 </div>
 
@@ -1042,9 +1052,9 @@ Perform clustering and store labels as property ``'cluster'``.
 
 **Returns:**
 
-If return_silhouette=False: np.ndarray of shape (n_total,) with cluster labels.
-If return_silhouette=True: Tuple of (labels, silhouette_score). Score is None
-if it could not be computed. Labels: 0..K-1; NaN for excluded/DBSCAN noise.
+  If return_silhouette=False: np.ndarray of shape (n_total,) with cluster labels.
+  If return_silhouette=True: Tuple of (labels, silhouette_score). Score is None
+  if it could not be computed. Labels: 0..K-1; NaN for excluded/DBSCAN noise.
 
 </div>
 
@@ -1098,13 +1108,13 @@ Detect outliers based on distance to centroid.
 
 **Returns:**
 
-Dict with keys:
-- outlier_indices: List[int]. Global image indices of detected outliers.
-- distances: np.ndarray dtype float32. When drop_outliers=False: shape (n_total,),
-distance to centroid per image; NaN for filtered-out. When drop_outliers=True:
-shape (n_kept,) with distances for the remaining (non-outlier) images only.
-- thresholds: Dict[Any, float]. Per-group threshold values (when group_by set).
-- summary: pd.DataFrame. Columns: group (if group_by), n_outliers, threshold, etc.
+  Dict with keys:
+  - outlier_indices: List[int]. Global image indices of detected outliers.
+  - distances: np.ndarray dtype float32. When drop_outliers=False: shape (n_total,),
+  distance to centroid per image; NaN for filtered-out. When drop_outliers=True:
+  shape (n_kept,) with distances for the remaining (non-outlier) images only.
+  - thresholds: Dict[Any, float]. Per-group threshold values (when group_by set).
+  - summary: pd.DataFrame. Columns: group (if group_by), n_outliers, threshold, etc.
 
 </div>
 
@@ -1153,7 +1163,7 @@ Find images closest to each group centroid.
 
 **Returns:**
 
-Dict[str, List[int]]: Group name (or "All") -> list of global image indices (prototypes).
+  Dict[str, List[int]]: Group name (or "All") -> list of global image indices (prototypes).
 
 </div>
 
@@ -1197,7 +1207,7 @@ population statistics when computing z-scores.
 **Returns:**
 
 - **`pd.DataFrame`**: Columns: Cluster, Property, Score, Mean_Cluster, Mean_Pop, AbsScore.
-Z-score enrichment per cluster-property pair.
+  Z-score enrichment per cluster-property pair.
 
 </div>
 
@@ -1256,10 +1266,10 @@ Correlate dim-reduction components with phenotypic properties.
 
 **Returns:**
 
-Dict with keys:
-- correlation_df: pd.DataFrame. Rows=properties, cols=components. Correlation values.
-- summary: pd.DataFrame. Columns: Component, Property, Correlation, AbsCorrelation.
-- component_names: List[str]. Column names (Component 1, Component 2, ...) for all methods.
+  Dict with keys:
+  - correlation_df: pd.DataFrame. Rows=properties, cols=components. Correlation values.
+  - summary: pd.DataFrame. Columns: Component, Property, Correlation, AbsCorrelation.
+  - component_names: List[str]. Column names (Component 1, Component 2, ...) for all methods.
 
 </div>
 
@@ -1308,11 +1318,11 @@ This is the time-consuming step that computes raw correlations for each property
 
 **Returns:**
 
-Dict with:
-- ``correlations``: Dict mapping property names to correlation arrays (n_dims,)
-- ``embedding_shape``: Shape of embeddings (n_samples, n_dims)
-- ``n_properties``: Number of properties processed
-- ``correlation_method``: Method used for correlation computation
+  Dict with:
+  - ``correlations``: Dict mapping property names to correlation arrays (n_dims,)
+  - ``embedding_shape``: Shape of embeddings (n_samples, n_dims)
+  - ``n_properties``: Number of properties processed
+  - ``correlation_method``: Method used for correlation computation
 
 </div>
 
@@ -1361,15 +1371,15 @@ and applies aggregation to produce summary statistics.
 
 **Returns:**
 
-Dict with:
-- ``correlations``: Original correlations dict
-- ``aggregated``: Dict mapping property names to aggregated values
-- ``summary``: DataFrame with properties sorted by aggregated correlation
-- ``top_properties``: List of top-k property names
-- ``embedding_shape``: Shape of embeddings
-- ``n_properties``: Number of properties
-- ``aggregation_method``: Aggregation method used
-- ``correlation_method``: Correlation method used
+  Dict with:
+  - ``correlations``: Original correlations dict
+  - ``aggregated``: Dict mapping property names to aggregated values
+  - ``summary``: DataFrame with properties sorted by aggregated correlation
+  - ``top_properties``: List of top-k property names
+  - ``embedding_shape``: Shape of embeddings
+  - ``n_properties``: Number of properties
+  - ``aggregation_method``: Aggregation method used
+  - ``correlation_method``: Correlation method used
 
 </div>
 
@@ -1427,14 +1437,14 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 
 **Returns:**
 
-Dict with:
-- r2: Explainability Score (R^2).
-- drivers: Ranked list of properties with weights/importances.
-- method: The DR method used.
-- model_type: The regression model type used.
-- target_component: The component name explained.
-- n_samples: Number of samples used.
-- n_features: Number of properties considered.
+  Dict with:
+  - r2: Explainability Score (R^2).
+  - drivers: Ranked list of properties with weights/importances.
+  - method: The DR method used.
+  - model_type: The regression model type used.
+  - target_component: The component name explained.
+  - n_samples: Number of samples used.
+  - n_features: Number of properties considered.
 
 </div>
 
@@ -1481,7 +1491,7 @@ or use **overrides to tweak individual settings (e.g. include_plots=False).
 
 **Returns:**
 
-Path to the generated HTML file.
+  Path to the generated HTML file.
 
 </div>
 
@@ -1527,8 +1537,8 @@ When ``show_extra_info`` is True, also emits the same details as
 
 **Returns:**
 
-``(png_bytes, details_text_or_none)`` — ``details_text_or_none`` is the
-formatted extra-info block when ``show_extra_info`` is True and details exist.
+  ``(png_bytes, details_text_or_none)`` — ``details_text_or_none`` is the
+  formatted extra-info block when ``show_extra_info`` is True and details exist.
 
 </div>
 
@@ -1690,7 +1700,7 @@ the target embedding dimension.
 
 **Args:**
 
-- **`results`**: Output dict from :meth:`compute_multivariate_interpretability`
+- **`results`**: Output dict from [compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenome-compute_multivariate_interpretability)
   (must include ``drivers``, ``r2``, ``method``, ``target_component``,
   ``model_type``).
 - **`top_k`**: Number of top driving features to show in the plot.
@@ -1699,7 +1709,7 @@ the target embedding dimension.
 
 **Returns:**
 
-The plotly figure object if return_fig is True, else None.
+  The plotly figure object if return_fig is True, else None.
 
 </div>
 
@@ -1897,19 +1907,39 @@ Print distance summary statistics without plotting. Safe to use when enable_plot
 
 Typed container for per-image phenotyping data.
 
-Parameters
-----------
-img_path : list of str or list of list[str]
-    Per-image file path(s).  Single-channel images use a plain ``str``;
-    multi-channel images use a ``List[str]`` with one path per channel.
-metadata : list of dict
-    Per-image metadata dicts (e.g. ``{"drug": "DMSO", "time": "24h"}``).
-properties : list of dict
-    Per-image computed scalar properties
-    (e.g. ``{"intensity_mean": 0.42, "area": 1024}``).
-embeddings : np.ndarray or None
-    Shape ``(N, D)`` float32 array, or ``None`` when not available /
-    when embeddings are stored lazily in an HDF5 file.
+Replaces the plain ``Dict[str, Any]`` that was previously used as
+``PhenoMe.results``.  It exposes a fully dict-compatible
+interface (``__getitem__``, ``__setitem__``, ``get``, ``__contains__``,
+``__iter__``) so that all existing mixin code keeps working without any
+changes.  On top of that it provides typed attributes and convenience
+properties for cleaner client code.
+
+Embeddings lifecycle
+--------------------
+``embeddings`` is **always** ``None`` inside ``PhenoMeResults``.
+
+* **Not yet computed** — ``embeddings is None``, ``pipeline._db is None``
+* **Lazy-backed (HDF5)** — ``embeddings is None``, ``pipeline._db is not None``
+* **Eagerly computed** — ``embeddings`` is an ``np.ndarray`` of shape ``(N, D)``
+
+The former ``[]``-sentinel that mixed "uninitialised" with "lazy" with
+"being filled during extraction" has been removed.  In-progress embeddings
+during extraction live in ``pipeline._emb_buffer`` (a plain ``List[np.ndarray]``)
+and never touch this container until they are finalised.
+
+**Parameters:**
+
+- **`img_path`** (`list of str or list of list[str]`):
+  Per-image file path(s).  Single-channel images use a plain ``str``;
+  multi-channel images use a ``List[str]`` with one path per channel.
+- **`metadata`** (`list of dict`):
+  Per-image metadata dicts (e.g. ``{"drug": "DMSO", "time": "24h"}``).
+- **`properties`** (`list of dict`):
+  Per-image computed scalar properties
+  (e.g. ``{"intensity_mean": 0.42, "area": 1024}``).
+- **`embeddings`** (`np.ndarray or None`):
+  Shape ``(N, D)`` float32 array, or ``None`` when not available /
+  when embeddings are stored lazily in an HDF5 file.
 
 ### Results container
 
@@ -2274,16 +2304,16 @@ Update all image paths by replacing *old_data_dir* with *data_dir*.
 This is useful when moving a checkpoint and its dataset to a different
 machine or directory.
 
-Parameters
-----------
-data_dir : str
-    The new base directory where the images are located.
-old_data_dir : str, optional
-    The old base directory to be replaced. If not provided, it is
-    automatically detected by finding the common prefix of all
-    stored paths.  Special value "relative" indicates that stored
-    paths are already relative and just need to be joined with
-    *data_dir*.
+**Parameters:**
+
+- **`data_dir`** (`str`):
+  The new base directory where the images are located.
+- **`old_data_dir`** (`str, optional`):
+  The old base directory to be replaced. If not provided, it is
+  automatically detected by finding the common prefix of all
+  stored paths.  Special value "relative" indicates that stored
+  paths are already relative and just need to be joined with
+  *data_dir*.
 
 </div>
 

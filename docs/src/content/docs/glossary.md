@@ -68,7 +68,7 @@ Definitions of key terms used in the PhenoMe documentation, in plain language.
 : Characterizing observable traits (phenotypes) of biological samples, e.g., cell morphology, fluorescence patterns, response to treatments.
 
 **Property preset**
-: A predefined set of classical properties: `basic`, `regionprops`, `intensity`, `full`, `full_extended`, or `none`. See [Property Reference](guides/property-reference.md).
+: A predefined set of classical properties: `basic`, `regionprops`, `intensity`, `full`, `full_extended`, or `none`. See [Property Reference](/PhenoMe/guides/property-reference/).
 
 **Reference group**
 : The set of images used as baseline (e.g., untreated controls). Defined by `reference_filters` when computing phenotypic distances.
@@ -96,7 +96,7 @@ Definitions of key terms used in the PhenoMe documentation, in plain language.
 
 ## See also (guides)
 
-- **Embeddings and metadata** — [Core concepts](concepts.md), [Data setup](guides/data-setup.md)
-- **Channel / split mode** — [Concepts: channel modes](concepts.md#channel-modes)
-- **Checkpoints and HDF5** — [HDF5 protocol](reference/DATABASE_PROTOCOL.md), [Best practices](guides/best-practices.md)
-- **Correlations and explainability** — [Interpretability](guides/interpretability.md)
+- **Embeddings and metadata** — [Core concepts](/PhenoMe/concepts/), [Data setup](/PhenoMe/guides/data-setup/)
+- **Channel / split mode** — [Concepts: channel modes](/PhenoMe/concepts/#channel-modes)
+- **Checkpoints and HDF5** — [HDF5 protocol](/PhenoMe/advanced/database_protocol/), [Best practices](/PhenoMe/guides/best-practices/)
+- **Correlations and explainability** — [Interpretability](/PhenoMe/guides/interpretability/)

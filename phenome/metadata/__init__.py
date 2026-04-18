@@ -2,7 +2,7 @@
 
 Provides an object-oriented API for metadata extraction with configurable
 column mappings, auto-generated unique IDs, and mask path resolution. See
-:mod:`phenome.utils.metadata` for functional helpers.
+`phenome.utils.metadata` for functional helpers.
 
 Public API:
     - MetadataBase: Abstract base for metadata extractors.

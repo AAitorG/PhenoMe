@@ -4,6 +4,21 @@
   <img src="docs/src/assets/Logo.png" alt="PhenoMe logo" width="560"/>
 </p>
 
+<p align="center">
+  <a href="https://github.com/AAitorG/PhenoMe/actions/workflows/ci.yml">
+    <img src="https://github.com/AAitorG/PhenoMe/actions/workflows/ci.yml/badge.svg" alt="CI Status"/>
+  </a>
+  <a href="https://github.com/AAitorG/PhenoMe/actions/workflows/docs-build.yml">
+    <img src="https://github.com/AAitorG/PhenoMe/actions/workflows/docs-build.yml/badge.svg" alt="Documentation Status"/>
+  </a>
+  <a href="https://www.python.org/downloads/release/python-3120/">
+    <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+"/>
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/>
+  </a>
+</p>
+
 A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping analysis using deep learning embeddings (**visual fingerprints**) and extracted image properties.
 
 ---
@@ -64,11 +79,16 @@ pip install -r requirements.txt -e .
 pip install -r envs/requirements-gpu.txt -e .
 ```
 
+> **Note:**
+> From the repository root, `requirements.txt` acts as a convenient alias to `envs/requirements-cpu.txt` for CPU-oriented environments. On **Windows**, `pykeops` is gracefully omitted.
+
 ---
 
 ## 📖 Documentation
 
-**Live site:** [https://AAitorG.github.io/PhenoMe/](https://AAitorG.github.io/PhenoMe/). **Source:** Markdown under [`docs/src/content/docs/`](docs/src/content/docs/).
+**Live site:** [Documentation website](https://AAitorG.github.io/PhenoMe/).
+
+**Source:** Markdown under [`docs/src/content/docs/`](docs/src/content/docs/).
 
 ### New users (install → data → notebooks)
 

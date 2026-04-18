@@ -2,7 +2,7 @@
 
 Provides dataset, embedding extraction, properties, distances, analysis,
 visualization, and interactive capabilities. See the top-level
-:mod:`phenome` module for usage.
+`phenome` module for usage.
 
 Public API:
     - PhenoMeProperties: compute_properties, filter_properties_by_group, etc.

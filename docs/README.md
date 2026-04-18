@@ -35,6 +35,27 @@ If the site 404s, confirm **Actions** permissions allow **Read and write** for w
 
 ## Content layout
 
+```text
+docs/
+├── src/
+│   ├── assets/
+│   │   └── Logo.png         # Site logo (single file: nav, splash, GitHub README)
+│   ├── content/docs/        # Markdown content
+│   │   ├── index.mdx        # Home page (splash)
+│   │   ├── guides/          # How-to guides
+│   │   ├── examples/        # Usage examples
+│   │   ├── reference/       # API & database protocol
+│   │   │   └── api/         # Auto-generated API docs
+│   │   └── *.md             # Other pages (FAQ, glossary, etc.)
+│   └── styles/              # Custom CSS
+├── scripts/
+│   ├── generate_api_docs.py  # API doc generator
+│   └── fix_markdown_links.py # Link normalizer
+├── public/                  # Static assets (favicon, etc.)
+├── astro.config.mjs         # Astro configuration
+└── package.json             # npm scripts and dependencies
+```
+
 | Path | Role |
 |------|------|
 | `src/content/docs/` | Markdown pages (guides, reference, home) |
@@ -60,5 +81,16 @@ All commands below are run from the `docs/` directory.
 
 ## Editing
 
-- Narrative docs: edit Markdown under `src/content/docs/`.
-- API synced with code: improve **docstrings** in `phenome/`; rebuild regenerates `reference/api/` (optional `@section` / `@order` lines at the start of a docstring control grouping on the site).
+- **Narrative docs**: edit Markdown files under `src/content/docs/`. Changes appear in the dev server automatically.
+- **API Reference**: improve **docstrings** in `phenome/`. Rebuild regenerates `reference/api/`. Changes appear on the next `npm run dev` or `npm run build`.
+  - **Optional**: Control section grouping with metadata in docstrings:
+    ```python
+    def my_function():
+        """
+        @section Advanced Analysis
+        @order 10
+
+        Function description here...
+        """
+    ```
+- **Site Configuration**: Edit `astro.config.mjs` (title, logo, GitHub Pages base path, sidebar). Restart the dev server for changes to take effect.

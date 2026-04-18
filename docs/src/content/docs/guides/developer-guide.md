@@ -23,7 +23,7 @@ interrogate phenome
 
 ## Build the docs site
 
-The public site uses **Astro Starlight**. Narrative guides live under [`docs/src/content/docs/`](https://github.com/AAitorG/PhenoMe/tree/main/docs/src/content/docs). **API reference** pages under [`reference/api/`](https://github.com/AAitorG/PhenoMe/tree/main/docs/src/content/docs/reference/api) are produced from live imports by `docs/scripts/generate_api_docs.py` before each build (same style as the former hand-written topic pages, but sourced from docstrings).
+The public site uses **Astro Starlight**. Narrative guides live under [`docs/src/content/docs/`](https://github.com/AAitorG/PhenoMe/tree/main/docs/src/content/docs). **API reference** pages under [`advanced/api/`](https://github.com/AAitorG/PhenoMe/tree/main/docs/src/content/docs/advanced/api) are produced from live imports by `docs/scripts/generate_api_docs.py` before each build (same style as the former hand-written topic pages, but sourced from docstrings).
 
 ### Prerequisites
 
@@ -48,7 +48,7 @@ npm run preview
 
 ### What gets auto-generated?
 
-The script [`docs/scripts/generate_api_docs.py`](https://github.com/AAitorG/PhenoMe/blob/main/docs/scripts/generate_api_docs.py) writes one Markdown file per **topic** under `docs/src/content/docs/reference/api/` (e.g. `pipeline.md`, `visualization.md`). When you add a major new public surface, extend that script so the new API appears on the right page.
+The script [`docs/scripts/generate_api_docs.py`](https://github.com/AAitorG/PhenoMe/blob/main/docs/scripts/generate_api_docs.py) writes one Markdown file per **topic** under `docs/src/content/docs/advanced/api/` (e.g. `pipeline.md`, `visualization.md`). When you add a major new public surface, extend that script so the new API appears on the right page.
 
 | Topic page | Main Python sources |
 |------------|---------------------|
@@ -63,7 +63,7 @@ The script [`docs/scripts/generate_api_docs.py`](https://github.com/AAitorG/Phen
 | `report.md` | `ReportConfig`, `generate_report` in `phenome.report.generator` |
 | `interactive.md` | `create_interactive_explorer`, `PhenoMeInteractive` |
 
-Docstrings may start with optional `@section` / `@order` lines to override the built-in grouping for that page. Legacy `api-reference/` output is no longer produced.
+Docstrings may start with optional `@section` / `@order` lines to override the built-in grouping for that page. Legacy `api-advanced/` output is no longer produced.
 
 ---
 
@@ -82,6 +82,6 @@ Pull requests run the **Documentation** workflow: Node + Python install, `npm ru
 
 ## Related
 
-- [Contributing to docs](contributing-guide.md)
-- [Testing and quality](testing.md)
+- [Contributing to docs](/PhenoMe/guides/contributing-guide/)
+- [Testing and quality](/PhenoMe/guides/testing/)
 - [Contributing (repository)](https://github.com/AAitorG/PhenoMe/blob/main/CONTRIBUTING.md)

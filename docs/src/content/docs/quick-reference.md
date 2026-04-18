@@ -2,7 +2,7 @@
 title: "Quick Reference"
 ---
 
-Brief workflow overview and common options. For full signatures, see [API Reference](reference/). For function lookup, see [Function Location Guide](function-location-guide.md).
+Brief workflow overview and common options. For full signatures, see [API Reference](/PhenoMe/advanced/). For function lookup, see [Function Location Guide](/PhenoMe/function-location-guide/).
 
 ---
 
@@ -51,17 +51,17 @@ pheno.generate_report(
 
 | Option | Where | What it does |
 |--------|-------|--------------|
-| `property_preset` | `compute_properties()` | Choose built-in feature set: `'none'`, `'basic'`, `'regionprops'`, `'intensity'`, `'full'`, `'full_extended'`. See [Property Reference](guides/property-reference.md). |
+| `property_preset` | `compute_properties()` | Choose built-in feature set: `'none'`, `'basic'`, `'regionprops'`, `'intensity'`, `'full'`, `'full_extended'`. See [Property Reference](/PhenoMe/guides/property-reference/). |
 | `reference_filters` | `compute_reference_distances()`, `generate_report()` | Dict defining your control/reference group, e.g. `{'condition': 'Control'}`. |
 | `filters` | Many methods | Dict to include only matching rows. Single value or list, e.g. `{'condition': ['Control', 'Treatment']}`. |
 | `exclude` | Same as `filters` | Same format as `filters`; excludes matching rows. Applied after filters. |
 | `source` | `compute_reference_distances()` | `'embeddings'`, `'properties'`, or `'combined'` (what to compute distances on). |
 | `channel_mode` | `process_images()` | `'split'` (each channel separately) or `'combined'` (channels as RGB). |
-| `metadata_fn` | `find_files()` | Custom function to extract metadata from paths. See [Experiment Details](guides/experiment-details.md). |
+| `metadata_fn` | `find_files()` | Custom function to extract metadata from paths. See [Experiment Details](/PhenoMe/guides/experiment-details/). |
 | `seed` | `PhenoMe()` | Set for reproducible results (t-SNE, clustering, sampling). |
 | `device` | `PhenoMe()` | GPU/CPU for embedding extraction and analysis. |
 
-For full parameter lists, see the [API Reference](reference/).
+For full parameter lists, see the [API Reference](/PhenoMe/advanced/).
 
 ---
 
@@ -83,7 +83,7 @@ For full parameter lists, see the [API Reference](reference/).
 | Yes            | Shape only             | `regionprops`  |
 | Yes            | Full analysis          | `full` or `full_extended` |
 
-See [Property Reference](guides/property-reference.md#choosing-properties) for details.
+See [Property Reference](/PhenoMe/guides/property-reference/#choosing-properties) for details.
 
 ---
 
@@ -91,12 +91,12 @@ See [Property Reference](guides/property-reference.md#choosing-properties) for d
 
 | I want to... | Go to |
 |--------------|-------|
-| Install and run my first analysis | [Getting Started](getting-started.mdx) |
-| Extract metadata from paths or CSV | [Experiment Details](guides/experiment-details.md) |
-| Add custom image properties | [Custom Properties](guides/custom-properties.md) |
-| Build PCA, t-SNE, or distance plots | [Visualization](reference/api/visualization.md), [Distances](reference/api/distances.md) |
-| Explain embedding axes with properties | [Interpretability Guide](guides/interpretability.md) |
-| Generate an HTML report | [Report](reference/api/report.md) · [Report Guide](guides/report-guide.md) |
-| Explore interactively in Jupyter | [Interactive Explorer](reference/api/interactive.md) |
-| Explore new images without re-running full processing | [Temporal Images](workflows.md#temporal-images-explore-new-data-in-memory) |
-| See end-to-end workflows | [Common Workflows](workflows.md) |
+| Install and run my first analysis | [Getting Started](/PhenoMe/getting-started/) |
+| Extract metadata from paths or CSV | [Experiment Details](/PhenoMe/guides/experiment-details/) |
+| Add custom image properties | [Custom Properties](/PhenoMe/guides/custom-properties/) |
+| Build PCA, t-SNE, or distance plots | [Visualization](/PhenoMe/advanced/api/visualization/), [Distances](/PhenoMe/advanced/api/distances/) |
+| Explain embedding axes with properties | [Interpretability Guide](/PhenoMe/guides/interpretability/) |
+| Generate an HTML report | [Report](/PhenoMe/advanced/api/report/) · [Report Guide](/PhenoMe/guides/report-guide/) |
+| Explore interactively in Jupyter | [Interactive Explorer](/PhenoMe/advanced/api/interactive/) |
+| Explore new images without re-running full processing | [Temporal Images](/PhenoMe/workflows/#temporal-images-explore-new-data-in-memory) |
+| See end-to-end workflows | [Common Workflows](/PhenoMe/workflows/) |

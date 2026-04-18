@@ -1,7 +1,7 @@
 """Core utilities for the phenotyping pipeline.
 
 Provides results metadata, validation, export, dimensionality reduction, and
-correlation algorithms. See the top-level :mod:`phenome` module for
+correlation algorithms. See the top-level `phenome` module for
 usage and quick start.
 
 Public API:

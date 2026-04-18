@@ -1,7 +1,7 @@
 """I/O modules for the phenotyping pipeline.
 
 Provides image reading, checkpoint management, and file discovery. See the
-top-level :mod:`phenome` module for usage.
+top-level `phenome` module for usage.
 
 Public API:
     - read_image: Load image(s) from path(s) as numpy array.

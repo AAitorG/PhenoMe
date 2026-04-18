@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Generate narrative API Markdown under ``reference/api/`` from Python docstrings.
+"""Generate narrative API Markdown under ``advanced/api/`` from Python docstrings.
 
 Run from repo root or ``docs/``. The repo root is prepended to ``sys.path`` so
 ``import phenome`` works without ``pip install -e .`` (CI may still use an
-editable install). Writes to ``docs/src/content/docs/reference/api/`` and
-removes legacy ``api-reference/``.
+editable install). Writes to ``docs/src/content/docs/advanced/api/``.
 
 Style: topic pages (pipeline, visualization, …) with sections, signatures in
 Python code fences, and body text from docstrings. Optional leading lines in
@@ -34,8 +33,7 @@ from typing import Any
 
 _SCRIPT = Path(__file__).resolve()
 _DOCS = _SCRIPT.parents[1]
-_OUT = _DOCS / "src" / "content" / "docs" / "reference" / "api"
-_LEGACY_API_REF = _DOCS / "src" / "content" / "docs" / "api-reference"
+_OUT = _DOCS / "src" / "content" / "docs" / "advanced" / "api"
 
 
 def _ensure_repo_root_on_sys_path() -> Path | None:
@@ -97,6 +95,16 @@ def _format_docstring(text: str) -> str:
     """Format Google style docstrings into Markdown lists and sections."""
     if not text:
         return ""
+
+    # Pre-process NumPy style headings to avoid them becoming Markdown H2 elements
+    # e.g., "Parameters\n----------" -> "Parameters:"
+    text = re.sub(
+        r"^(Parameters|Returns|Raises|Yields|Notes?|Warnings?|Examples?|See Also)\n[\-=]+\s*$",
+        r"\1:",
+        text,
+        flags=re.MULTILINE,
+    )
+
     lines = text.splitlines()
     out = []
 
@@ -106,7 +114,7 @@ def _format_docstring(text: str) -> str:
         line_stripped = line.strip()
 
         m_section = re.match(
-            r"^(Args|Arguments|Returns|Yields|Raises|Note|Notes|Warning|Example|Examples|See Also):\s*$",
+            r"^(Args|Arguments|Parameters|Returns|Yields|Raises|Note|Notes|Warning|Example|Examples|See Also):\s*$",
             line_stripped,
         )
         # Check standard no-indent or very light indent
@@ -127,33 +135,84 @@ def _format_docstring(text: str) -> str:
             continue
 
         if in_section:
+            is_param_line = False
             if line and not line.startswith(" ") and line_stripped != "":
-                if in_section in ("Note", "Notes", "Warning"):
-                    out.append("\n:::\n")
-                elif in_section in ("Example", "Examples"):
-                    out.append("\n```\n")
-                in_section = None
-                out.append(line)
-                continue
+                if in_section in ("Args", "Arguments", "Parameters", "Raises"):
+                    indent = len(line) - len(line.lstrip())
+                    if indent <= 4 and re.match(
+                        r"^\s{0,8}(\*\*\w+\*\*|[\w\_]+(?:\s*\([^)]+\))?)\s*:\s*(.*)$", line
+                    ):
+                        is_param_line = True
+                elif in_section in ("Returns", "Yields"):
+                    indent = len(line) - len(line.lstrip())
+                    if indent <= 4 and (
+                        re.match(r"^\s{0,8}(\w+.*?)\s*:\s*(.*)$", line)
+                        or (" " not in line_stripped and len(line_stripped) < 30)
+                    ):
+                        is_param_line = True
 
-            if in_section in ("Args", "Arguments", "Raises"):
-                m_param = re.match(r"^\s{2,8}(\*\*\w+\*\*|\w+.*?):\s*(.*)$", line)
-                if m_param:
-                    param_name = m_param.group(1)
+                if not is_param_line:
+                    if in_section in ("Note", "Notes", "Warning"):
+                        out.append("\n:::\n")
+                    elif in_section in ("Example", "Examples"):
+                        out.append("\n```\n")
+                    in_section = None
+                    out.append(line)
+                    continue
+
+            if in_section in ("Args", "Arguments", "Parameters", "Raises"):
+                indent = len(line) - len(line.lstrip())
+                m_param = re.match(
+                    r"^\s{0,8}(\*\*\w+\*\*|[\w\_]+(?:\s*\([^)]+\))?)\s*:\s*(.*)$", line
+                )
+                if indent <= 4 and m_param:
+                    param_name = m_param.group(1).strip()
                     if param_name.startswith("**"):
                         param_name = param_name[2:-2]
-                    desc = m_param.group(2)
-                    out.append(f"- **`{param_name}`**: {desc}")
+                    desc_or_type = m_param.group(2).strip()
+
+                    # If 0 indent, it's likely NumPy style: `param : type`
+                    if indent == 0 and in_section in ("Parameters", "Returns", "Yields", "Raises"):
+                        out.append(f"- **`{param_name}`** (`{desc_or_type}`):")
+                    else:
+                        m_google_type = re.match(r"^([^\(]+)\s*\((.+?)\)$", param_name)
+                        if m_google_type:
+                            p_name = m_google_type.group(1).strip()
+                            t_str = m_google_type.group(2).strip()
+                            if desc_or_type:
+                                out.append(f"- **`{p_name}`** (`{t_str}`): {desc_or_type}")
+                            else:
+                                out.append(f"- **`{p_name}`** (`{t_str}`):")
+                        else:
+                            if desc_or_type:
+                                out.append(f"- **`{param_name}`**: {desc_or_type}")
+                            else:
+                                out.append(f"- **`{param_name}`**:")
                 else:
                     if line_stripped != "":
                         out.append(f"  {line_stripped}")
             elif in_section in ("Returns", "Yields"):
-                m_param = re.match(r"^\s{2,8}(\w+.*?):\s*(.*)$", line)
-                if m_param and " " not in m_param.group(1):
-                    out.append(f"- **`{m_param.group(1)}`**: {m_param.group(2)}")
+                indent = len(line) - len(line.lstrip())
+                m_param = re.match(r"^\s{0,8}(\w+.*?)\s*:\s*(.*)$", line)
+                if indent <= 4:
+                    if indent == 0 and not m_param and not line_stripped.startswith(" "):
+                        # Might just be a type line in NumPy style Returns
+                        out.append(f"- **`{line_stripped}`**:")
+                    elif m_param and " " not in m_param.group(1):
+                        p_name = m_param.group(1).strip()
+                        desc = m_param.group(2).strip()
+                        if indent == 0:
+                            out.append(f"- **`{p_name}`** (`{desc}`):")
+                        elif desc:
+                            out.append(f"- **`{p_name}`**: {desc}")
+                        else:
+                            out.append(f"- **`{p_name}`**:")
+                    else:
+                        if line_stripped != "":
+                            out.append(f"  {line_stripped}")
                 else:
                     if line_stripped != "":
-                        out.append(f"{line_stripped}")
+                        out.append(f"  {line_stripped}")
             elif in_section == "See Also":
                 if line_stripped.startswith("`") or line_stripped.startswith("["):
                     out.append("- " + line_stripped)
@@ -778,7 +837,7 @@ def _render_metadata_page() -> str:
         "",
         "Auto-generated from `phenome.metadata`. Rebuild with `npm run prebuild` in `docs/`.",
         "",
-        "**See also:** [Experiment details](../guides/experiment-details) · [Pipeline](pipeline)",
+        "**See also:** [Pipeline](pipeline)",
         "",
     ]
     doc = inspect.getdoc(md)
@@ -814,7 +873,7 @@ def _render_utilities_page() -> str:
         "Auto-generated from `phenome.utils.device`, `phenome.utils.metadata`, "
         "`phenome.io`, and `phenome.utils.transforms`.",
         "",
-        "**See also:** [Model wrappers](model-wrapper) · [HDF5 protocol](../DATABASE_PROTOCOL) · [Best practices](../guides/best-practices)",
+        "**See also:** [Model wrappers](model-wrapper) · [HDF5 protocol](../DATABASE_PROTOCOL) · [Best practices](../../guides/best-practices)",
         "",
     ]
 
@@ -1026,16 +1085,6 @@ def _write_stub(reason: str) -> None:
     print(f"Wrote stub API docs to {_OUT}")
 
 
-def _remove_legacy_api_reference() -> None:
-    if not _LEGACY_API_REF.exists():
-        return
-    for p in _LEGACY_API_REF.glob("*.md"):
-        with contextlib.suppress(OSError):
-            p.unlink()
-    with contextlib.suppress(OSError):
-        _LEGACY_API_REF.rmdir()
-
-
 def main() -> None:
     _ensure_repo_root_on_sys_path()
     _OUT.mkdir(parents=True, exist_ok=True)
@@ -1094,10 +1143,7 @@ def main() -> None:
             title="Vision model wrappers",
             description="ModelWrapper, DinoV2ModelWrapper, load_dinov2_model.",
             module_name="phenome.utils.model_wrapper",
-            related=(
-                ("Pipeline", "pipeline"),
-                ("External checkpoints", "../../guides/external-checkpoints"),
-            ),
+            related=(("Pipeline", "pipeline"),),
         ),
         encoding="utf-8",
     )
@@ -1174,7 +1220,6 @@ def main() -> None:
     )
     (_OUT / "interactive.md").write_text("\n".join(int_parts).rstrip() + "\n", encoding="utf-8")
 
-    _remove_legacy_api_reference()
     print(f"Wrote narrative API docs to {_OUT}")
 
 

@@ -5,10 +5,7 @@ description: Custom property extraction — factory helpers and presets.
 
 Auto-generated from `phenome.utils.property_factories`. Rebuild with `npm run prebuild` in `docs/`.
 
-**See also:** [Pipeline compute_properties](pipeline.md) · [Custom properties guide](../../guides/custom-properties.md)
-
-@section Property factory functions
-@order 0
+**See also:** [Pipeline compute_properties](/PhenoMe/advanced/api/pipeline/) · [Custom properties guide](/PhenoMe/guides/custom-properties/)
 
 Factory functions for property computation in phenotyping analysis.
 
@@ -50,7 +47,7 @@ Create property function that extracts skimage regionprops from a mask.
 
 **Returns:**
 
-Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
+  Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
 
 ### `create_masked_intensity_function`
 
@@ -70,8 +67,8 @@ Create intensity property function over masked pixels only (mask > 0.5).
 
 **Returns:**
 
-Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
-Output key: intensity_&#123;stat_name&#125;_masked.
+  Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
+  Output key: intensity_&#123;stat_name&#125;_masked.
 
 ### `create_intensity_function`
 
@@ -91,8 +88,8 @@ Create intensity property function over entire image (no mask).
 
 **Returns:**
 
-Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
-Output key: intensity_&#123;stat_name&#125;.
+  Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
+  Output key: intensity_&#123;stat_name&#125;.
 
 ### `create_blur_effect_function`
 
@@ -104,8 +101,8 @@ Create property function that computes blur strength (Laplacian variance).
 
 **Returns:**
 
-Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
-Output key: blur_effect.
+  Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
+  Output key: blur_effect.
 
 ### `create_entropy_function`
 
@@ -117,8 +114,8 @@ Create property function that computes Shannon entropy of intensity distribution
 
 **Returns:**
 
-Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
-Output key: intensity_entropy.
+  Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
+  Output key: intensity_entropy.
 
 ### `compute_concentric_ring_mask`
 
@@ -141,7 +138,7 @@ Background is 0.
 
 **Returns:**
 
-np.ndarray, shape (H, W), dtype int. Pixel values 0 (background) to num_rings (innermost).
+  np.ndarray, shape (H, W), dtype int. Pixel values 0 (background) to num_rings (innermost).
 
 ### `create_concentric_ring_function`
 
@@ -161,8 +158,8 @@ Create property function that computes stats per concentric ring (edge to core).
 
 **Returns:**
 
-Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
-Output keys: ring_&#123;1..N&#125;_&#123;stat&#125;.
+  Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
+  Output keys: ring_&#123;1..N&#125;_&#123;stat&#125;.
 
 ### `create_texture_function`
 
@@ -177,13 +174,13 @@ Create property function that computes GLCM texture features within the mask.
 **Args:**
 
 - **`properties`**: GLCM properties. Default: contrast, dissimilarity, homogeneity,
-- **`energy, correlation. Valid`**: 'contrast', 'dissimilarity', 'homogeneity',
+  energy, correlation. Valid: 'contrast', 'dissimilarity', 'homogeneity',
   'energy', 'correlation', 'ASM'.
 
 **Returns:**
 
-Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
-Output keys: texture_&#123;prop&#125;.
+  Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
+  Output keys: texture_&#123;prop&#125;.
 
 ### `get_preset_property_functions`
 
@@ -201,4 +198,4 @@ Return a preset dict of property functions for use with compute_properties.
 
 **Returns:**
 
-Dict with keys 'image', 'mask', 'both' mapping to lists of property functions.
+  Dict with keys 'image', 'mask', 'both' mapping to lists of property functions.

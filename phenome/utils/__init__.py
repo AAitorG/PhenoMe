@@ -1,7 +1,7 @@
 """Utility modules for the phenotyping pipeline.
 
 Provides model wrappers, metadata helpers, property factories, and device utilities.
-See the top-level :mod:`phenome` module for usage.
+See the top-level `phenome` module for usage.
 
 Public API:
     - load_dinov2_model: Load DINOv2 as a DinoV2ModelWrapper.

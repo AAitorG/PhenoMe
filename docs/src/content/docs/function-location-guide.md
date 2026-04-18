@@ -61,16 +61,16 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 
 | Import                                                                                                                 | Description                                                        | Tier | Extended docs                                             |
 | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---- | --------------------------------------------------------- |
-| `PhenoMe`                                                                                                  | Main orchestrator for the workflow                                 | ✅ | [Pipeline](reference/api/pipeline.md)                     |
-| `load_dinov2_model`                                                                                                    | Load DINOv2 wrapped for PhenoMe                                    | ✅ | [Model Wrappers](reference/api/model-wrapper.md)          |
-| `default_metadata_from_path`                                                                                           | Minimal metadata from path (file_path, filename)                   | ✅ | [Utilities](reference/api/utilities.md#default_metadata_from_path) · [Experiment Details](guides/experiment-details.md) |
-| `get_metadata_from_path`                                                                                               | Parse metadata from path template string                           | ✅ | [Experiment Details](guides/experiment-details.md)              |
-| `make_dataframe_metadata_fn`                                                                                           | Build metadata function from DataFrame lookup                      | ✅ | [Experiment Details](guides/experiment-details.md)              |
-| `MetadataBase`, `DefaultMetadata`, `PathTemplateMetadata`, `DataFrameMetadata`                                         | OOP metadata extractors (pass to `find_files`)                     | ✅ | [Metadata Classes](reference/api/metadata.md)             |
-| `create_regionprops_function`, `create_intensity_function`, `create_masked_intensity_function`                         | Property factories for masks/images (pass to `compute_properties`) | ✅ | [Custom Properties](guides/custom-properties.md) · [Property Reference](guides/property-reference.md) |
-| `create_concentric_ring_function`, `create_texture_function`, `create_blur_effect_function`, `create_entropy_function` | Additional property factories                                      | ✅ | [Custom Properties](guides/custom-properties.md)          |
-| `get_preset_property_functions`                                                                                        | Get built-in property presets                                      | ✅ | [Property Reference](guides/property-reference.md)        |
-| `PhenoMeResults`                                                                                                      | Container returned by `load_results`                               | ✅ | [Pipeline](reference/api/pipeline.md#class-phenomeresults) |
+| `PhenoMe`                                                                                                  | Main orchestrator for the workflow                                 | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/)                     |
+| `load_dinov2_model`                                                                                                    | Load DINOv2 wrapped for PhenoMe                                    | ✅ | [Model Wrappers](/PhenoMe/advanced/api/model-wrapper/)          |
+| `default_metadata_from_path`                                                                                           | Minimal metadata from path (file_path, filename)                   | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#default_metadata_from_path) · [Experiment Details](/PhenoMe/guides/experiment-details/) |
+| `get_metadata_from_path`                                                                                               | Parse metadata from path template string                           | ✅ | [Experiment Details](/PhenoMe/guides/experiment-details/)              |
+| `make_dataframe_metadata_fn`                                                                                           | Build metadata function from DataFrame lookup                      | ✅ | [Experiment Details](/PhenoMe/guides/experiment-details/)              |
+| `MetadataBase`, `DefaultMetadata`, `PathTemplateMetadata`, `DataFrameMetadata`                                         | OOP metadata extractors (pass to `find_files`)                     | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/)             |
+| `create_regionprops_function`, `create_intensity_function`, `create_masked_intensity_function`                         | Property factories for masks/images (pass to `compute_properties`) | ✅ | [Custom Properties](/PhenoMe/guides/custom-properties/) · [Property Reference](/PhenoMe/guides/property-reference/) |
+| `create_concentric_ring_function`, `create_texture_function`, `create_blur_effect_function`, `create_entropy_function` | Additional property factories                                      | ✅ | [Custom Properties](/PhenoMe/guides/custom-properties/)          |
+| `get_preset_property_functions`                                                                                        | Get built-in property presets                                      | ✅ | [Property Reference](/PhenoMe/guides/property-reference/)        |
+| `PhenoMeResults`                                                                                                      | Container returned by `load_results`                               | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#class-phenomeresults) |
 
 ---
 
@@ -82,15 +82,15 @@ Common methods on `PhenoMe` instances:
 
 | Method                               | Description                          | Tier | Extended docs                                                       |
 | ------------------------------------ | ------------------------------------ | ---- | ------------------------------------------------------------------- |
-| `find_files`                         | Discover images and extract metadata | ✅ | [Pipeline](reference/api/pipeline.md#find_files)                    |
-| `process_images`                     | Extract embeddings from images       | ✅ | [Pipeline](reference/api/pipeline.md#process_images)                |
-| `compute_properties`                 | Compute image/mask features          | ✅ | [Pipeline](reference/api/pipeline.md#compute_properties)        |
-| `compute_reference_distances`        | Distances to reference group         | ✅ | [Distances](reference/api/distances.md#compute_reference_distances) |
-| `plot_pca`, `plot_tsne`, `plot_umap` | Dimensionality reduction plots       | ✅ | [Visualization](reference/api/visualization.md)                     |
-| `plot_distance_distribution`         | Distance distribution plots          | ✅ | [Visualization](reference/api/visualization.md)                     |
-| `generate_report`                    | Generate HTML report                 | ✅ | [Report](reference/api/report.md)                                   |
-| `save_results`, `load_results`       | Save/load HDF5 results               | ✅ | [Pipeline](reference/api/pipeline.md)                               |
-| `create_interactive_explorer`        | Interactive Jupyter dashboard        | ✅ | [Interactive Explorer](reference/api/interactive.md)                |
+| `find_files`                         | Discover images and extract metadata | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#find_files)                    |
+| `process_images`                     | Extract embeddings from images       | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#process_images)                |
+| `compute_properties`                 | Compute image/mask features          | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#compute_properties)        |
+| `compute_reference_distances`        | Distances to reference group         | ✅ | [Distances](/PhenoMe/advanced/api/distances/#compute_reference_distances) |
+| `plot_pca`, `plot_tsne`, `plot_umap` | Dimensionality reduction plots       | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/)                     |
+| `plot_distance_distribution`         | Distance distribution plots          | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/)                     |
+| `generate_report`                    | Generate HTML report                 | ✅ | [Report](/PhenoMe/advanced/api/report/)                                   |
+| `save_results`, `load_results`       | Save/load HDF5 results               | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/)                               |
+| `create_interactive_explorer`        | Interactive Jupyter dashboard        | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/)                |
 
 ---
 
@@ -98,10 +98,10 @@ Common methods on `PhenoMe` instances:
 
 | Import                 | Description                                  | Tier | Extended docs                                 |
 | ---------------------- | -------------------------------------------- | ---- | --------------------------------------------- |
-| `MetadataBase`         | Abstract base for metadata extractors        | ✅ | [Metadata Classes](reference/api/metadata.md) |
-| `DefaultMetadata`      | Minimal extractor (file_path, filename, id)  | ✅ | [Metadata Classes](reference/api/metadata.md) |
-| `PathTemplateMetadata` | Parse from path template with capture groups | ✅ | [Metadata Classes](reference/api/metadata.md) |
-| `DataFrameMetadata`    | Look up metadata from a DataFrame            | ✅ | [Metadata Classes](reference/api/metadata.md) |
+| `MetadataBase`         | Abstract base for metadata extractors        | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/) |
+| `DefaultMetadata`      | Minimal extractor (file_path, filename, id)  | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/) |
+| `PathTemplateMetadata` | Parse from path template with capture groups | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/) |
+| `DataFrameMetadata`    | Look up metadata from a DataFrame            | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/) |
 
 ---
 
@@ -109,15 +109,15 @@ Common methods on `PhenoMe` instances:
 
 | Import                                                                               | Description                              | Tier | Extended docs                                             |
 | ------------------------------------------------------------------------------------ | ---------------------------------------- | ---- | --------------------------------------------------------- |
-| `load_dinov2_model`                                                                  | Load DINOv2 wrapped for PhenoMe          | ✅ | [Model Wrappers](reference/api/model-wrapper.md)          |
-| `default_metadata_from_path`, `get_metadata_from_path`, `make_dataframe_metadata_fn` | Metadata helpers (same as top-level)     | ✅ | [Experiment Details](guides/experiment-details.md) · [Metadata](reference/api/metadata.md) |
-| `create_regionprops_function`, `create_intensity_function`, etc.                     | Property factories (same as top-level)   | ✅ | [Custom Properties](guides/custom-properties.md)          |
-| `ModelWrapper`, `DinoV2ModelWrapper`                                                 | For custom vision models                 | 🔧 | [Model Wrappers](reference/api/model-wrapper.md)          |
-| `get_default_device`                                                                 | Return global default device             | 🔧 | [Utilities](reference/api/utilities.md#get_default_device) |
-| `set_default_device`                                                                 | Set global default device                | 🔧 | [Utilities](reference/api/utilities.md#set_default_device) |
-| `set_determinism`                                                                    | Set random seeds for reproducibility     | 🔧 | [Utilities](reference/api/utilities.md#set_determinism)   |
-| `TransformBuilder`, `PadToSize`, `TypeMaxNorm`                                       | For custom model preprocessing           | 🔧 | [Utilities](reference/api/utilities.md#transformers)      |
-| `normalize_by_dtype_max`, `scale_minmax`                                             | Normalization helpers used in transforms | 🔒 | [Utilities](reference/api/utilities.md#transformers)      |
+| `load_dinov2_model`                                                                  | Load DINOv2 wrapped for PhenoMe          | ✅ | [Model Wrappers](/PhenoMe/advanced/api/model-wrapper/)          |
+| `default_metadata_from_path`, `get_metadata_from_path`, `make_dataframe_metadata_fn` | Metadata helpers (same as top-level)     | ✅ | [Experiment Details](/PhenoMe/guides/experiment-details/) · [Metadata](/PhenoMe/advanced/api/metadata/) |
+| `create_regionprops_function`, `create_intensity_function`, etc.                     | Property factories (same as top-level)   | ✅ | [Custom Properties](/PhenoMe/guides/custom-properties/)          |
+| `ModelWrapper`, `DinoV2ModelWrapper`                                                 | For custom vision models                 | 🔧 | [Model Wrappers](/PhenoMe/advanced/api/model-wrapper/)          |
+| `get_default_device`                                                                 | Return global default device             | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#get_default_device) |
+| `set_default_device`                                                                 | Set global default device                | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#set_default_device) |
+| `set_determinism`                                                                    | Set random seeds for reproducibility     | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#set_determinism)   |
+| `TransformBuilder`, `PadToSize`, `TypeMaxNorm`                                       | For custom model preprocessing           | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#transformers)      |
+| `normalize_by_dtype_max`, `scale_minmax`                                             | Normalization helpers used in transforms | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/#transformers)      |
 
 ---
 
@@ -125,10 +125,10 @@ Common methods on `PhenoMe` instances:
 
 | Import              | Description                                                                     | Tier | Extended docs                                             |
 | ------------------- | ------------------------------------------------------------------------------- | ---- | --------------------------------------------------------- |
-| `read_image`        | Load image(s) from path(s) as numpy array                                       | 🔧 | [Utilities](reference/api/utilities.md#read_image)        |
-| `FileDiscovery`     | Find image files and extract metadata (pipeline uses internally)                | 🔧 | [Utilities](reference/api/utilities.md#filediscovery)     |
-| `CheckpointManager` | Low-level HDF5 checkpoint; most users use `checkpoint_path` on `process_images` | 🔧 | [Utilities](reference/api/utilities.md#checkpointmanager) · [HDF5 Protocol](reference/DATABASE_PROTOCOL.md) |
-| `ensure_hwc`        | Ensure image array is (H, W, C) format                                          | 🔒 | [Utilities](reference/api/utilities.md#ensure_hwc)        |
+| `read_image`        | Load image(s) from path(s) as numpy array                                       | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#read_image)        |
+| `FileDiscovery`     | Find image files and extract metadata (pipeline uses internally)                | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#filediscovery)     |
+| `CheckpointManager` | Low-level HDF5 checkpoint; most users use `checkpoint_path` on `process_images` | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#checkpointmanager) · [HDF5 Protocol](/PhenoMe/advanced/database_protocol/) |
+| `ensure_hwc`        | Ensure image array is (H, W, C) format                                          | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/#ensure_hwc)        |
 
 ---
 
@@ -138,10 +138,10 @@ Common methods on `PhenoMe` instances:
 
 | Import                                                  | Description                           | Tier | Extended docs                      |
 | ------------------------------------------------------- | ------------------------------------- | ---- | ---------------------------------- |
-| `register_property`, `get_property`, `list_properties`  | Property registry                     | 🔧 | [Extending](guides/extending.md) · [Plugins](guides/plugins.md) |
-| `register_metadata_extractor`, `get_metadata_extractor` | Metadata extractor registry           | 🔧 | [Extending](guides/extending.md)   |
-| `register_report_section`, `get_report_sections`        | Report section registry               | 🔧 | [Extending](guides/extending.md)   |
-| `get_blob_properties`                                   | Built-in blob-based property function | 🔧 | [Custom Properties](guides/custom-properties.md) |
+| `register_property`, `get_property`, `list_properties`  | Property registry                     | 🔧 | [Extending](/PhenoMe/guides/extending/) · [Plugins](/PhenoMe/guides/plugins/) |
+| `register_metadata_extractor`, `get_metadata_extractor` | Metadata extractor registry           | 🔧 | [Extending](/PhenoMe/guides/extending/)   |
+| `register_report_section`, `get_report_sections`        | Report section registry               | 🔧 | [Extending](/PhenoMe/guides/extending/)   |
+| `get_blob_properties`                                   | Built-in blob-based property function | 🔧 | [Custom Properties](/PhenoMe/guides/custom-properties/) |
 
 ---
 
@@ -151,12 +151,12 @@ Common methods on `PhenoMe` instances:
 
 | Import                                                                                        | Description                            | Tier | Extended docs                                                |
 | --------------------------------------------------------------------------------------------- | -------------------------------------- | ---- | ------------------------------------------------------------ |
-| `filter_indices`                                                                              | Filter image indices by metadata       | 🔧 | [Utilities](reference/api/utilities.md#core-module-advanced) |
-| `build_metadata_columns`                                                                      | Build metadata columns for a DataFrame | 🔧 | [Utilities](reference/api/utilities.md#core-module-advanced) |
-| `build_export_dataframe`, `prepare_embedding_dataframe`                                       | Build export DataFrame from results    | 🔧 | [Utilities](reference/api/utilities.md#core-module-advanced) |
-| `run_dimensionality_reduction`, `run_dimensionality_reduction_matrix`                         | PCA, t-SNE, UMAP                       | 🔧 | [Utilities](reference/api/utilities.md#core-module-advanced) |
-| `compute_pearson_correlation`, `compute_spearman_correlation`, `compute_distance_correlation` | Correlation metrics                    | 🔧 | [Utilities](reference/api/utilities.md#core-module-advanced) |
-| `compute_entropy`, `compute_mutual_info`                                                      | Information-theoretic metrics          | 🔧 | [Utilities](reference/api/utilities.md#core-module-advanced) |
+| `filter_indices`                                                                              | Filter image indices by metadata       | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
+| `build_metadata_columns`                                                                      | Build metadata columns for a DataFrame | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
+| `build_export_dataframe`, `prepare_embedding_dataframe`                                       | Build export DataFrame from results    | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
+| `run_dimensionality_reduction`, `run_dimensionality_reduction_matrix`                         | PCA, t-SNE, UMAP                       | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
+| `compute_pearson_correlation`, `compute_spearman_correlation`, `compute_distance_correlation` | Correlation metrics                    | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
+| `compute_entropy`, `compute_mutual_info`                                                      | Information-theoretic metrics          | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
 | `build_combined_features`                                                                     | Concatenate embeddings + properties    | 🔒 | —                                                            |
 | `validate_results`                                                                            | Validate pipeline results              | 🔒 | —                                                            |
 | `metadata_to_stable_key`, `optimize_property_types`                                           | Property utilities                     | 🔒 | —                                                            |
@@ -169,7 +169,7 @@ Common methods on `PhenoMe` instances:
 
 | Import                                                                                 | Description                                                                 | Tier | Extended docs                                  |
 | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---- | ---------------------------------------------- |
-| `PhenoMeInteractive`, `create_interactive_explorer`                                          | Interactive Jupyter explorer (also via `pheno.create_interactive_explorer`) | ✅ | [Interactive Explorer](reference/api/interactive.md) |
-| `PhenoMeDataset`, `collate_fn`                                                     | Dataset for embedding extraction (used by `process_images`)                 | 🔒 | [Pipeline](reference/api/pipeline.md)          |
+| `PhenoMeInteractive`, `create_interactive_explorer`                                          | Interactive Jupyter explorer (also via `pheno.create_interactive_explorer`) | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/) |
+| `PhenoMeDataset`, `collate_fn`                                                     | Dataset for embedding extraction (used by `process_images`)                 | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/)          |
 | `EmbeddingExtractor`                                                                   | Extracts embeddings from model                                              | 🔒 | —                                            |
-| `PhenoMeProperties`, `PhenoMeDistances`, `PhenoMeAnalysis`, `PhenoMeVisualization` | Implement pipeline methods; use via `pheno.`*                               | 🔒 | [Properties](reference/api/properties.md) · [Distances](reference/api/distances.md) · [Visualization](reference/api/visualization.md) |
+| `PhenoMeProperties`, `PhenoMeDistances`, `PhenoMeAnalysis`, `PhenoMeVisualization` | Implement pipeline methods; use via `pheno.`*                               | 🔒 | [Properties](/PhenoMe/advanced/api/properties/) · [Distances](/PhenoMe/advanced/api/distances/) · [Visualization](/PhenoMe/advanced/api/visualization/) |

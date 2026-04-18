@@ -11,7 +11,7 @@ PLOTLY_DISPLAY_CONFIG: dict[str, Any] = {"displaylogo": False}
 
 
 def register_plotly_display_defaults() -> None:
-    """Merge :data:`PLOTLY_DISPLAY_CONFIG` into every plotly.io renderer that holds a dict config."""
+    """Merge `PLOTLY_DISPLAY_CONFIG` into every plotly.io renderer that holds a dict config."""
     for _name, renderer in pio.renderers.items():
         cfg = getattr(renderer, "config", None)
         if isinstance(cfg, dict):

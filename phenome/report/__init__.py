@@ -2,7 +2,7 @@
 
 Generates comprehensive, interactive standalone HTML reports from phenotyping results.
 Provides modular report generation with customizable sections. See the top-level
-:mod:`phenome` module for the main pipeline.
+`phenome` module for the main pipeline.
 
 Public API:
     - generate_report: Generate HTML report from processed pipeline.

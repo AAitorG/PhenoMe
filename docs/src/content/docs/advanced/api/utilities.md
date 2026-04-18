@@ -5,7 +5,7 @@ description: Device helpers, transforms, image I/O, checkpoints, file discovery.
 
 Auto-generated from `phenome.utils.device`, `phenome.utils.metadata`, `phenome.io`, and `phenome.utils.transforms`.
 
-**See also:** [Model wrappers](model-wrapper.md) · [HDF5 protocol](../DATABASE_PROTOCOL.md) · [Best practices](../guides/best-practices.md)
+**See also:** [Model wrappers](/PhenoMe/advanced/api/model-wrapper/) · [HDF5 protocol](/PhenoMe/advanced/database_protocol/) · [Best practices](/PhenoMe/guides/best-practices/)
 
 ## Device and reproducibility — `set_default_device`
 
@@ -53,7 +53,7 @@ Set random seeds for reproducibility across all frameworks.
 
 ## Metadata helpers
 
-Functional wrappers over `phenome.metadata` classes. For OOP extractors, see [Metadata classes](metadata.md).
+Functional wrappers over `phenome.metadata` classes. For OOP extractors, see [Metadata classes](/PhenoMe/advanced/api/metadata/).
 
 ### `default_metadata_from_path`
 
@@ -80,7 +80,8 @@ identifiers is ``"filename"`` across all metadata helpers.
 
 **Returns:**
 
-Dictionary with 'file_path', 'filename', and 'id' keys.
+  Dictionary with 'file_path', 'filename', and 'id' keys.
+- **``**:
 
 **Example:**
 
@@ -113,11 +114,12 @@ Features:
 
 **Returns:**
 
-Callable[[str], Dict[str, Any]]: Function (path) -> dict of captured group names to values.
-Returns &#123;&#125; if no match. Keys from template placeholders plus ``filename`` (the
-default column name for file identifiers). The returned function has a
-``group_by`` attribute (last capture group, or ``"filename"``) for
-:meth:`find_files` multi-channel grouping.
+  Callable[[str], Dict[str, Any]]: Function (path) -> dict of captured group names to values.
+  Returns &#123;&#125; if no match. Keys from template placeholders plus ``filename`` (the
+  default column name for file identifiers). The returned function has a
+  ``group_by`` attribute (last capture group, or ``"filename"``) for
+  [find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files) multi-channel grouping.
+- **``**:
 
 **Example:**
 
@@ -157,7 +159,7 @@ Supports two modes:
    the filename (with or without extension) for that channel. Each row is
    one sample; the same row is matched when any of its channel filenames
    is seen. The returned metadata includes ``channel_index`` (0, 1, …).
-   :meth:`find_files` groups paths by the first filename column (e.g.
+   [find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files) groups paths by the first filename column (e.g.
    ``ch0``) into one row per sample with ``file_path`` as a list of paths
    in channel order.
 
@@ -178,45 +180,44 @@ filename column already identifies the image.
 
 **Returns:**
 
-Callable[[str], Dict[str, Any]]: Function (path) -> dict. Adds
-``file_path`` and, in multi-channel mode, ``channel_index``. All
-dataframe columns are included (filename column identifies the image).
-The returned function has a ``group_by`` attribute (first filename column)
-for :meth:`find_files` multi-channel grouping.
+  Callable[[str], Dict[str, Any]]: Function (path) -> dict. Adds
+  ``file_path`` and, in multi-channel mode, ``channel_index``. All
+  dataframe columns are included (filename column identifies the image).
+  The returned function has a ``group_by`` attribute (first filename column)
+  for [find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files) multi-channel grouping.
+- **``**:
 
 **Raises:**
 
 - **`ValueError`**: If filename_column (or any of its elements) is not in
   metadata_df.
-Example (single file):
-    >>> df = pd.DataFrame(&#123;
-    ...     'filename': ['img1', 'img2'],
-    ...     'condition': ['Control', 'Treatment'],
-    ...     'time': ['24h', '48h']
-    ... &#125;)
-    >>> metadata_fn = make_dataframe_metadata_fn(df, filename_column='filename')
-    >>> meta = metadata_fn('/data/img1.tif')
-    >>> sorted(meta.items())  # doctest: +NORMALIZE_WHITESPACE
-    [('condition', 'Control'), ('file_path', '/data/img1.tif'), ('filename', 'img1'),
-     ('id', 'img1'), ('time', '24h')]
-
-Example (single file, df with extension - both formats accepted):
-    >>> df_ext = pd.DataFrame(&#123;'filename': ['img1.tif', 'img2.tif'], 'cond': ['A', 'B']&#125;)
-    >>> fn_ext = make_dataframe_metadata_fn(df_ext, filename_column='filename')
-    >>> fn_ext('/data/img1.tif')['cond']
-    'A'
-
-Example (multi-channel, one column per channel):
-    >>> df = pd.DataFrame(&#123;
-    ...     'ch0': ['sample1_c0', 'sample2_c0'],
-    ...     'ch1': ['sample1_c1', 'sample2_c1'],
-    ...     'ch2': ['sample1_c2', 'sample2_c2'],
-    ...     'condition': ['Control', 'Treatment'],
-    ... &#125;)
-    >>> metadata_fn = make_dataframe_metadata_fn(df, filename_column=['ch0', 'ch1', 'ch2'])
-    >>> meta = metadata_fn('/data/sample1_c1.tif')
-    >>> meta['condition'], meta['channel_index'], meta['ch0']
-    ('Control', 1, 'sample1_c0')
+- **`Example (single file)`** (``):
+  >>> df = pd.DataFrame({
+  ...     'filename': ['img1', 'img2'],
+  ...     'condition': ['Control', 'Treatment'],
+  ...     'time': ['24h', '48h']
+  ... })
+  >>> metadata_fn = make_dataframe_metadata_fn(df, filename_column='filename')
+  >>> meta = metadata_fn('/data/img1.tif')
+  >>> sorted(meta.items())  # doctest: +NORMALIZE_WHITESPACE
+  [('condition', 'Control'), ('file_path', '/data/img1.tif'), ('filename', 'img1'),
+  ('id', 'img1'), ('time', '24h')]
+- **`Example (single file, df with extension - both formats accepted)`** (``):
+  >>> df_ext = pd.DataFrame({'filename': ['img1.tif', 'img2.tif'], 'cond': ['A', 'B']})
+  >>> fn_ext = make_dataframe_metadata_fn(df_ext, filename_column='filename')
+  >>> fn_ext('/data/img1.tif')['cond']
+  'A'
+- **`Example (multi-channel, one column per channel)`** (``):
+  >>> df = pd.DataFrame(&#123;
+  ...     'ch0': ['sample1_c0', 'sample2_c0'],
+  ...     'ch1': ['sample1_c1', 'sample2_c1'],
+  ...     'ch2': ['sample1_c2', 'sample2_c2'],
+  ...     'condition': ['Control', 'Treatment'],
+  ... &#125;)
+  >>> metadata_fn = make_dataframe_metadata_fn(df, filename_column=['ch0', 'ch1', 'ch2'])
+  >>> meta = metadata_fn('/data/sample1_c1.tif')
+  >>> meta['condition'], meta['channel_index'], meta['ch0']
+  ('Control', 1, 'sample1_c0')
 
 ## Image I/O — `read_image`
 
@@ -265,19 +266,68 @@ Ensure image is in (H, W, C) format.
 
 Crash-safe incremental checkpoint backed by a single HDF5 file.
 
-Parameters
-----------
-path : str
-    Filesystem path for the checkpoint file.  If it already exists it is
-    opened in append mode and validated; otherwise a new file is created.
-embedding_dim : int or None
-    Dimensionality of the embedding vectors.  Required when *creating* a
-    new file.  Ignored when opening an existing one.
-processing_params : dict or None
-    Pipeline parameters used to produce embeddings
-    (``channel_mode``, ``channels``, ``resize_size``, ``pad_size``,
-    ``force_rgb``).  Stored in ``/config`` so that a resumed run can
-    verify the same settings are being used.
+Provides crash-safe, incremental persistence for embeddings, metadata,
+and properties using HDF5.  The core safety invariant is a **committed count**
+attribute that is updated *after* all data for a batch has been flushed to
+disk.  On reload, only the first ``n_committed`` rows are trusted; any
+trailing rows left behind by an interrupted write are silently discarded.
+
+All compression is **lossless** (gzip).  Float32 embedding data is stored
+bit-for-bit exactly; gzip only removes redundancy without altering values.
+
+Paths are always stored as POSIX relative (forward slashes) regardless of OS.
+
+Version configuration (Constants section):
+  CHECKPOINT_FORMAT_VERSION: version written to new checkpoints
+  CHECKPOINT_SUPPORTED_VERSIONS: set of versions that can be loaded
+
+HDF5 schema
+-----------
+/embeddings              (N, D)  float32, chunked, lossless gzip
+/img_path                (N,)    vlen UTF-8  — primary/only path per image
+/img_path_channels       (N, C)  vlen UTF-8  — present only for multi-channel images;
+                                              each row lists the C channel paths
+/metadata/
+    {key}                (N,)    vlen UTF-8 or float32 — one dataset per metadata key
+/properties/
+    {name}               (N,)    float32     — one dataset per property name
+/config/                                    — processing parameters (typed attributes)
+    channel_mode         str  attribute
+    resize_size          str  attribute  ("none" when absent)
+    pad_size             str  attribute  ("none" when absent)
+    force_rgb            bool attribute
+    channels             (C,) int8 dataset — absent when all channels used
+
+Root attributes
+    version              str   — CHECKPOINT_FORMAT_VERSION
+    n_committed          int   — rows committed for paths + embeddings + metadata
+    n_committed_props    int   — rows committed for properties (may lag n_committed)
+    embedding_dim        int   — 0 when no embeddings
+    is_multichannel      bool  — True when /img_path_channels is present
+
+External access (no custom code required)
+-----------------------------------------
+    import h5py, numpy as np
+    with h5py.File("results.h5", "r") as f:
+        paths      = f["img_path"][:]
+        drug       = f["metadata/drug"][:]          # vlen UTF-8 array
+        intensity  = f["properties/intensity_mean_ch0"][:]  # float32 array
+        embeddings = f["embeddings"][:]             # (N, D) float32
+        channel_mode = f["config"].attrs["channel_mode"]
+
+**Parameters:**
+
+- **`path`** (`str`):
+  Filesystem path for the checkpoint file.  If it already exists it is
+  opened in append mode and validated; otherwise a new file is created.
+- **`embedding_dim`** (`int or None`):
+  Dimensionality of the embedding vectors.  Required when *creating* a
+  new file.  Ignored when opening an existing one.
+- **`processing_params`** (`dict or None`):
+  Pipeline parameters used to produce embeddings
+  (``channel_mode``, ``channels``, ``resize_size``, ``pad_size``,
+  ``force_rgb``).  Stored in ``/config`` so that a resumed run can
+  verify the same settings are being used.
 
 <div class="api-method" role="region" aria-labelledby="api-checkpointmanager-buffer_embeddings">
 
@@ -303,15 +353,15 @@ CheckpointManager.buffer_embeddings(
 
 Add a batch of embeddings to the in-memory buffer.
 
-Parameters
-----------
-embeddings : np.ndarray
-    Shape ``(B, D)`` float32.
-img_paths : list
-    Length B.  Each element is a ``str`` (single-channel) or a
-    ``List[str]`` (multi-channel).
-metadata_dicts : list of dict
-    Length B.
+**Parameters:**
+
+- **`embeddings`** (`np.ndarray`):
+  Shape ``(B, D)`` float32.
+- **`img_paths`** (`list`):
+  Length B.  Each element is a ``str`` (single-channel) or a
+  ``List[str]`` (multi-channel).
+- **`metadata_dicts`** (`list of dict`):
+  Length B.
 
 </div>
 
@@ -441,10 +491,10 @@ CheckpointManager.commit_embeddings(
 
 Flush embedding + path + metadata buffer to HDF5 atomically.
 
-Returns
--------
-int
-    Total n_committed after this commit.
+**Returns:**
+
+- **`int`**:
+  Total n_committed after this commit.
 
 </div>
 
@@ -471,10 +521,10 @@ CheckpointManager.commit_properties(
 
 Flush property buffer to HDF5 atomically.
 
-Returns
--------
-int
-    Total n_committed_props after this commit.
+**Returns:**
+
+- **`int`**:
+  Total n_committed_props after this commit.
 
 </div>
 
@@ -704,15 +754,15 @@ CheckpointManager.load_committed_results(
 
 <div class="api-body">
 
-Read all committed data and return a :class:`PhenoMeResults`.
+Read all committed data and return a [PhenoMeResults](/PhenoMe/advanced/api/pipeline/#api-phenomeresults).
 
 Paths are resolved to absolute when _storage_root is available.
 
-Returns
--------
-PhenoMeResults
-    Embeddings are loaded eagerly into the ``embeddings`` field.
-    Returns an empty ``PhenoMeResults`` when no data is committed.
+**Returns:**
+
+- **`PhenoMeResults`**:
+  Embeddings are loaded eagerly into the ``embeddings`` field.
+  Returns an empty ``PhenoMeResults`` when no data is committed.
 
 </div>
 
@@ -743,15 +793,15 @@ Load only the specified rows of the embedding dataset.
 Sorts indices before reading for chunk efficiency, then restores
 original order.
 
-Parameters
-----------
-indices : np.ndarray
-    1-D integer array of row indices (0-based, within committed range).
+**Parameters:**
 
-Returns
--------
-np.ndarray
-    Shape ``(len(indices), D)`` float32.
+- **`indices`** (`np.ndarray`):
+  1-D integer array of row indices (0-based, within committed range).
+
+**Returns:**
+
+- **`np.ndarray`**:
+  Shape ``(len(indices), D)`` float32.
 
 </div>
 
@@ -780,17 +830,18 @@ Load and validate an HDF5 results/checkpoint file.
 
 Paths are resolved to absolute when _storage_root is stored in the file.
 
-Parameters
-----------
-path : str
-    Path to the HDF5 file.
+**Parameters:**
 
-Returns
--------
-PhenoMeResults
+- **`path`** (`str`):
+  Path to the HDF5 file.
 
-Raises
-------
+**Returns:**
+
+- **`PhenoMeResults`**:
+- **``**:
+
+**Raises:**
+
 ValueError
     If the file format is invalid or corrupted.
 
@@ -821,8 +872,8 @@ Load all committed paths and metadata dicts.
 
 Paths are resolved to absolute when _storage_root is available (from file or inference).
 
-Returns
--------
+**Returns:**
+
 (paths, metadata_dicts)
     ``paths`` is a list of ``str`` (single-channel) or ``List[str]``
     (multi-channel).  ``metadata_dicts`` is a list of dicts.
@@ -852,8 +903,8 @@ CheckpointManager.load_properties_all(
 
 Load all committed property dicts.
 
-Returns
--------
+**Returns:**
+
 list of dict
     Length n_committed_props.  Empty list when no properties stored.
 
@@ -993,13 +1044,13 @@ Atomically write a full results object to an HDF5 file.
 
 Uses a temporary file + ``os.replace`` for crash safety.
 
-Parameters
-----------
-results : PhenoMeResults or dict
-    Source data.  Accepted dict keys: ``'embeddings'``, ``'img_path'``,
-    ``'metadata'``, ``'properties'``.
-path : str
-    Output file path.
+**Parameters:**
+
+- **`results`** (`PhenoMeResults or dict`):
+  Source data.  Accepted dict keys: ``'embeddings'``, ``'img_path'``,
+  ``'metadata'``, ``'properties'``.
+- **`path`** (`str`):
+  Output file path.
 compression, compression_level
     Passed to h5py for the embeddings dataset.
 processing_params : dict or None
@@ -1046,9 +1097,9 @@ the ``mask_path`` column of file_df when present.
 
 **Returns:**
 
-pd.DataFrame with columns: file_path, height, width, channels, min, max,
-error, shape_match (True/False/None), mask_height, mask_width, mask_dtype,
-mask_min, mask_max, mask_error.
+  pd.DataFrame with columns: file_path, height, width, channels, min, max,
+  error, shape_match (True/False/None), mask_height, mask_width, mask_dtype,
+  mask_min, mask_max, mask_error.
 
 </div>
 

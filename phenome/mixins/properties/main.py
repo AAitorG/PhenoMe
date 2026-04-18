@@ -134,9 +134,9 @@ class PhenoMeProperties:
     ) -> pd.DataFrame:
         """Group property DataFrame and compute per-group statistics.
 
-        Uses :meth:`_build_properties_dataframe` from computed
+        Uses `_build_properties_dataframe` from computed
         ``results.properties`` and metadata (same source as
-        :meth:`compute_properties`).
+        [compute_properties](pipeline.md#api-phenome-compute_properties)).
 
         Args:
             group_by: Metadata columns to group by. If None, auto-selects first 2.
@@ -253,13 +253,13 @@ class PhenoMeProperties:
         (optional).
 
         This method now relies solely on ``file_df`` (typically produced by
-        :meth:`PhenoMe.find_files`) for resolving image and mask
+        [PhenoMe.find_files](pipeline.md#api-phenome-find_files)) for resolving image and mask
         paths. Legacy ``image_dir`` / ``mask_dir`` parameters are no longer
         supported.
 
         Args:
             metadata_config: Optional MetadataBase instance (e.g. from
-                :mod:`phenome.metadata`). When it has ``mask_dir`` and
+                `phenome.metadata`). When it has ``mask_dir`` and
                 ``mask_filename_column``, uses explicit mask lookup.
             property_preset: Preset name. Use ``\"none\"`` or ``None`` for no
                 preset. Valid: ``\"none\"``, ``\"basic\"``, ``\"regionprops\"``,
@@ -486,7 +486,7 @@ class PhenoMeProperties:
     ) -> tuple[list[str | list[str]], list[str | None]]:
         """Resolve image and mask paths for property computation.
 
-        Uses the provided ``file_df`` (typically from :meth:`find_files`) as the
+        Uses the provided ``file_df`` (typically from [find_files](pipeline.md#api-phenome-find_files)) as the
         single source of truth for both image and mask paths. The DataFrame is
         aligned to ``self.results.img_path`` via a lookup on the canonical path
         representation.

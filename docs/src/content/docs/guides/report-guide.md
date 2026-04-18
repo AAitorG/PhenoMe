@@ -63,7 +63,7 @@ The HTML report is a self-contained file you can open in any browser and share w
 - High |r| means that property drives the separation along that axis.
 - Example: "PC1 ↔ eccentricity (r = 0.88)" suggests the main mode of variation is cell elongation.
 
-**How to act:** Use these as biological hypotheses. See [Interpretability Guide](interpretability.md) for details.
+**How to act:** Use these as biological hypotheses. See [Interpretability Guide](/PhenoMe/guides/interpretability/) for details.
 
 ---
 
@@ -106,7 +106,7 @@ pheno.generate_report(
 )
 ```
 
-See [Report Generation API](../reference/api/report.md) for all options (e.g., `top_k_features`, `n_clusters`, `outlier_threshold`).
+See [Report Generation API](/PhenoMe/advanced/api/report/) for all options (e.g., `top_k_features`, `n_clusters`, `outlier_threshold`).
 
 ---
 
@@ -114,6 +114,6 @@ See [Report Generation API](../reference/api/report.md) for all options (e.g., `
 
 | Topic | Document |
 |-------|----------|
-| API reference | [Report Generation](../reference/api/report.md) |
-| Correlation output | [Interpretability Guide](interpretability.md) |
-| Sharing experiments | [Best Practices: Collaboration](best-practices.md#collaboration) |
+| API reference | [Report Generation](/PhenoMe/advanced/api/report/) |
+| Correlation output | [Interpretability Guide](/PhenoMe/guides/interpretability/) |
+| Sharing experiments | [Best Practices: Collaboration](/PhenoMe/guides/best-practices/#collaboration) |

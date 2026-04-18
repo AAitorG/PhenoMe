@@ -1,25 +1,5 @@
 """
-PhenoMeResults — typed container for phenotyping pipeline results.
-
-Replaces the plain ``Dict[str, Any]`` that was previously used as
-``PhenoMe.results``.  It exposes a fully dict-compatible
-interface (``__getitem__``, ``__setitem__``, ``get``, ``__contains__``,
-``__iter__``) so that all existing mixin code keeps working without any
-changes.  On top of that it provides typed attributes and convenience
-properties for cleaner client code.
-
-Embeddings lifecycle
---------------------
-``embeddings`` is **always** ``None`` inside ``PhenoMeResults``.
-
-* **Not yet computed** — ``embeddings is None``, ``pipeline._db is None``
-* **Lazy-backed (HDF5)** — ``embeddings is None``, ``pipeline._db is not None``
-* **Eagerly computed** — ``embeddings`` is an ``np.ndarray`` of shape ``(N, D)``
-
-The former ``[]``-sentinel that mixed "uninitialised" with "lazy" with
-"being filled during extraction" has been removed.  In-progress embeddings
-during extraction live in ``pipeline._emb_buffer`` (a plain ``List[np.ndarray]``)
-and never touch this container until they are finalised.
+Results container module.
 """
 
 from __future__ import annotations
@@ -39,6 +19,26 @@ class PhenoMeResults:
     @order 5
 
     Typed container for per-image phenotyping data.
+
+    Replaces the plain ``Dict[str, Any]`` that was previously used as
+    ``PhenoMe.results``.  It exposes a fully dict-compatible
+    interface (``__getitem__``, ``__setitem__``, ``get``, ``__contains__``,
+    ``__iter__``) so that all existing mixin code keeps working without any
+    changes.  On top of that it provides typed attributes and convenience
+    properties for cleaner client code.
+
+    Embeddings lifecycle
+    --------------------
+    ``embeddings`` is **always** ``None`` inside ``PhenoMeResults``.
+
+    * **Not yet computed** — ``embeddings is None``, ``pipeline._db is None``
+    * **Lazy-backed (HDF5)** — ``embeddings is None``, ``pipeline._db is not None``
+    * **Eagerly computed** — ``embeddings`` is an ``np.ndarray`` of shape ``(N, D)``
+
+    The former ``[]``-sentinel that mixed "uninitialised" with "lazy" with
+    "being filled during extraction" has been removed.  In-progress embeddings
+    during extraction live in ``pipeline._emb_buffer`` (a plain ``List[np.ndarray]``)
+    and never touch this container until they are finalised.
 
     Parameters
     ----------

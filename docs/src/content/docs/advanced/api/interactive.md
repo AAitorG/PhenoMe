@@ -7,7 +7,7 @@ description: Jupyter widget explorer for embeddings.
 
 Auto-generated from `phenome.mixins.interactive`.
 
-**See also:** [Visualization](visualization.md) · [Pipeline](pipeline.md)
+**See also:** [Visualization](/PhenoMe/advanced/api/visualization/) · [Pipeline](/PhenoMe/advanced/api/pipeline/)
 
 ## Factory
 
@@ -34,7 +34,7 @@ highlight mode, and click-to-inspect image viewing.
   and optional properties. Must have run process_images() first.
 - **`filters`**: Optional metadata filters to restrict which images are shown.
   Dict mapping metadata keys to allowed values or lists of values.
-- **`Example`**: &#123;'condition': 'Control', 'time': ['24h', '48h']&#125;.
+  Example: &#123;'condition': 'Control', 'time': ['24h', '48h']&#125;.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).
 - **`hover_features`**: Optional list of metadata or property keys to show in
   hover tooltips. If None, uses metadata keys from the pipeline.
@@ -42,6 +42,7 @@ highlight mode, and click-to-inspect image viewing.
 **Returns:**
 
 - **`PhenoMeInteractive`**: The explorer instance. Call .show() again to re-display.
+- **``**:
 
 **Example:**
 
@@ -68,6 +69,18 @@ Provides a unified interface for 2D/3D exploration with:
   - Highlight mode (shows all points, emphasises a subset).
   - Multi-select categorical highlight and live stats bar.
   - Click-to-inspect image viewer.
+
+    Key design:
+      - **Color changes** are instant (no recomputation, only visual update).
+      - **Filter** and **Exclude** (separate collapsible sections under Embedding) restrict data before recomputation;
+        same field + search + multi-select pattern as Highlight.
+      - **Method/Source/Dim** or metadata filter changes trigger dimensionality reduction (expensive).
+      - **Highlight mode** shows ALL data points but visually emphasises a matching
+        subset (larger, brighter markers with a contrasting border) instead of hiding
+        the rest.  This lets the user "find" a group in context.
+      - **Multi-value highlight**: categorical fields use filter + multi-select (OR).
+      - **Live stats bar** (total / highlighted / selected).
+      - **Selected point**: clicking a point highlights it (larger, border) for inspection.
 
 ### Interactive exploration
 

@@ -2,7 +2,7 @@
 title: "Frequently Asked Questions"
 ---
 
-Common questions grouped by topic. For learning order, see [Learning paths](user-paths.md).
+Common questions grouped by topic. For learning order, see [Learning paths](/PhenoMe/user-paths/).
 
 ---
 
@@ -14,13 +14,13 @@ No. PhenoMe is **zero-shot**: it uses pre-trained models like DINOv2 out-of-the-
 
 ### Do I need a GPU?
 
-A GPU is **strongly recommended** for reasonable speed. The pipeline works on CPU, but processing thousands of images will be slow. For small datasets (hundreds of images), CPU is feasible. See [Best Practices: GPU Optimization](guides/best-practices.md#gpu-optimization).
+A GPU is **strongly recommended** for reasonable speed. The pipeline works on CPU, but processing thousands of images will be slow. For small datasets (hundreds of images), CPU is feasible. See [Best Practices: GPU Optimization](/PhenoMe/guides/best-practices/#gpu-optimization).
 
 ### `conda` / `pip` failed or PyTorch is wrong — what should I try?
 
-1. Use the pinned env files under `envs/` (see [Getting started — Installation options](getting-started.mdx#installation-options)).
+1. Use the pinned env files under `envs/` (see [Getting started — Installation options](/PhenoMe/getting-started/#installation-options)).
 2. For GPU, ensure your driver matches the CUDA wheel you install; see [PyTorch get started](https://pytorch.org/get-started/locally/).
-3. If `pykeops` fails on your OS, omit it and use slower backends (see [Best practices](guides/best-practices.md)).
+3. If `pykeops` fails on your OS, omit it and use slower backends (see [Best practices](/PhenoMe/guides/best-practices/)).
 
 ### How do I verify the install?
 
@@ -29,12 +29,12 @@ from phenome import PhenoMe
 print("PhenoMe is ready!", PhenoMe)
 ```
 
-See [Getting started](getting-started.mdx).
+See [Getting started](/PhenoMe/getting-started/).
 
 ### Do I need masks?
 
 - **For embeddings**: No. Embeddings are extracted directly from images.
-- **For classical properties**: Depends on the preset. The `intensity` preset works on images only (no masks). Presets like `basic`, `regionprops`, and `full` require masks for shape-based features. See [Property Reference](guides/property-reference.md).
+- **For classical properties**: Depends on the preset. The `intensity` preset works on images only (no masks). Presets like `basic`, `regionprops`, and `full` require masks for shape-based features. See [Property Reference](/PhenoMe/guides/property-reference/).
 
 ### How long does processing take?
 
@@ -55,11 +55,11 @@ The pipeline is flexible:
 - **Flat**: All images in one folder. Use `pheno.find_files("path/to/images")`.
 - **By condition**: `data/Control/img1.tif`, `data/Drug1/img1.tif`. Use a **path template** (`get_metadata_from_path`) or custom `metadata_fn`.
 
-See [Data setup](guides/data-setup.md) and [Experiment details](guides/experiment-details.md).
+See [Data setup](/PhenoMe/guides/data-setup/) and [Experiment details](/PhenoMe/guides/experiment-details/).
 
 ### I use a CSV for metadata—why don’t my CSV row count and `file_df` row count match?
 
-`find_files` first scans your images folder, then matches those images to your CSV. **Only the overlap is used:** image files must exist in **both** the folder and the CSV to be processed. Extra rows in your CSV are ignored, and images without a CSV row are skipped by default. See [Experiment details: CSV](guides/experiment-details.md#2-using-a-csv-or-spreadsheet).
+`find_files` first scans your images folder, then matches those images to your CSV. **Only the overlap is used:** image files must exist in **both** the folder and the CSV to be processed. Extra rows in your CSV are ignored, and images without a CSV row are skipped by default. See [Experiment details: CSV](/PhenoMe/guides/experiment-details/#2-using-a-csv-or-spreadsheet).
 
 ### My filter returns no images. Why?
 
@@ -69,7 +69,7 @@ Check that:
 2. The filter values match your data exactly (case-sensitive).
 3. The column values are as expected (`df['condition'].unique()`).
 
-See [Best Practices: Filter Returns Empty Results](guides/best-practices.md#issue-filter-returns-empty-results).
+See [Best Practices: Filter Returns Empty Results](/PhenoMe/guides/best-practices/#issue-filter-returns-empty-results).
 
 ---
 
@@ -81,7 +81,7 @@ See [Best Practices: Filter Returns Empty Results](guides/best-practices.md#issu
 2. Use a smaller model (e.g., ViT-S instead of ViT-g).
 3. Clear GPU memory between runs: `gc.collect(); torch.cuda.empty_cache()`.
 
-See [Best Practices: GPU Out of Memory](guides/best-practices.md#issue-gpu-out-of-memory).
+See [Best Practices: GPU Out of Memory](/PhenoMe/guides/best-practices/#issue-gpu-out-of-memory).
 
 ### Processing is very slow. How can I speed it up?
 
@@ -92,7 +92,7 @@ See [Best Practices: GPU Out of Memory](guides/best-practices.md#issue-gpu-out-o
 
 ### Results differ between runs. Why?
 
-t-SNE and UMAP are stochastic. For reproducibility, set `seed=42` when creating the pipeline: `PhenoMe(seed=42)`. Also use `use_gpu_for_dr=False` if you need exact match with CPU sklearn/umap-learn. For large datasets on GPU, install `pykeops` to avoid OOM. See [Best Practices: Reproducibility](guides/best-practices.md#reproducibility) and [Dimensionality Reduction Backends](guides/best-practices.md#dimensionality-reduction-backends).
+t-SNE and UMAP are stochastic. For reproducibility, set `seed=42` when creating the pipeline: `PhenoMe(seed=42)`. Also use `use_gpu_for_dr=False` if you need exact match with CPU sklearn/umap-learn. For large datasets on GPU, install `pykeops` to avoid OOM. See [Best Practices: Reproducibility](/PhenoMe/guides/best-practices/#reproducibility) and [Dimensionality Reduction Backends](/PhenoMe/guides/best-practices/#dimensionality-reduction-backends).
 
 ---
 
@@ -100,14 +100,14 @@ t-SNE and UMAP are stochastic. For reproducibility, set `seed=42` when creating 
 
 ### What is the "correlation engine" and how do I use it?
 
-The correlation engine links embedding dimensions (or PCA/UMAP components) to classical properties. It answers: "What morphological feature does this axis encode?" For example, PC1 might correlate with eccentricity (r=0.88), suggesting elongation drives the separation. See [Interpretability Guide](guides/interpretability.md).
+The correlation engine links embedding dimensions (or PCA/UMAP components) to classical properties. It answers: "What morphological feature does this axis encode?" For example, PC1 might correlate with eccentricity (r=0.88), suggesting elongation drives the separation. See [Interpretability Guide](/PhenoMe/guides/interpretability/).
 
 ### How do I choose channel mode (split vs combined)?
 
 - **Split**: Fluorescence images with distinct channels (DAPI, GFP, etc.). Each channel is processed separately.
 - **Combined**: Brightfield, phase contrast, or RGB images. Channels are treated as a single color image.
 
-See [Core Concepts: Channel Modes](concepts.md#channel-modes).
+See [Core Concepts: Channel Modes](/PhenoMe/concepts/#channel-modes).
 
 ### Which property preset should I use?
 
@@ -118,7 +118,7 @@ See [Core Concepts: Channel Modes](concepts.md#channel-modes).
 | Masks, shape only       | `regionprops`     |
 | Masks, full analysis    | `full` or `full_extended` |
 
-See [Property Reference: Choosing Properties](guides/property-reference.md#choosing-properties).
+See [Property Reference: Choosing Properties](/PhenoMe/guides/property-reference/#choosing-properties).
 
 ---
 
@@ -130,4 +130,4 @@ See [Property Reference: Choosing Properties](guides/property-reference.md#choos
 
 ### Where do I add custom models, properties, or plugins?
 
-See [Extending the framework](guides/extending.md), [Custom properties](guides/custom-properties.md), [Plugins](guides/plugins.md), and notebook [06 — Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_extending_phenome_plugins.ipynb).
+See [Extending the framework](/PhenoMe/guides/extending/), [Custom properties](/PhenoMe/guides/custom-properties/), [Plugins](/PhenoMe/guides/plugins/), and notebook [06 — Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_extending_phenome_plugins.ipynb).

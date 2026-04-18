@@ -1,7 +1,7 @@
 """Plugin registry for extensibility.
 
 Provides registries for metadata extractors, report sections, and property functions.
-See the top-level :mod:`phenome` module for usage.
+See the top-level `phenome` module for usage.
 
 Public API:
     - register_property, get_property, list_properties
