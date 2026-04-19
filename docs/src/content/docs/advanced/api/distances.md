@@ -68,7 +68,6 @@ Compute distances from all images to reference group.
   - mode: str ('centroid' or 'all_to_all')
   - source: str ('embeddings', 'properties', or 'combined')
   - distance_type: str ('euclidean' or 'cosine')
-- **``**:
 
 **Example:**
 
@@ -80,7 +79,6 @@ Compute distances from all images to reference group.
 ...     distance_type='euclidean'
 ... )
 >>> distances = dist_results['distances']
-
 ```
 
 </div>

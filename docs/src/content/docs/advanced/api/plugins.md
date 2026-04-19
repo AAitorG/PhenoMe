@@ -52,7 +52,7 @@ Get a registered property function by name.
 ### `list_properties`
 
 ```python
-list_properties()
+list_properties() -> list
 ```
 
 Return names of all registered property functions.
@@ -108,7 +108,7 @@ accept (pipeline, ...) and return HTML string for the section.
 ### `get_report_sections`
 
 ```python
-get_report_sections()
+get_report_sections() -> dict
 ```
 
 Return all registered report section generators.
@@ -145,7 +145,6 @@ hence area = 2*pi*sigma² (not pi*sigma²).
   - 'blob_area_std': Standard deviation of blob areas
   - 'blob_intensity_mean': Mean intensity at blob centers (subpixel interpolated)
   - 'blob_intensity_std': Standard deviation of blob intensities
-- **``**:
   All values are np.nan if image is None or invalid.
 
 ### `my_custom_max_intensity`

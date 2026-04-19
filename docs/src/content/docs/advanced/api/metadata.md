@@ -11,471 +11,14 @@ Metadata handling for the phenotyping pipeline.
 
 Provides an object-oriented API for metadata extraction with configurable
 column mappings, auto-generated unique IDs, and mask path resolution. See
-`phenome.utils.metadata` for functional helpers.
+``phenome.utils.metadata`` for functional helpers.
 
 Public API:
-    - MetadataBase: Abstract base for metadata extractors.
-    - DefaultMetadata: Minimal extractor (file_path, filename, id).
-    - PathTemplateMetadata: Extract from path templates with capture groups.
-    - DataFrameMetadata: Look up metadata from a DataFrame.
 
-## `DataFrameMetadata`
-
-Metadata lookup from DataFrame. Supports single and multi-channel modes.
-
-<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-ensure_id">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-dataframemetadata-ensure_id"><code>ensure_id</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DataFrameMetadata.ensure_id(
-    self,
-    meta: 'dict[str, Any]',
-    paths: 'str | list[str]',
-    data_dir: 'str | None' = None
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Inject or return unique ID in meta. Auto-generate if not present.
-
-**Parameters:**
-
-- **`meta`** (`dict`):
-  Metadata dict (modified in place).
-- **`paths`** (`str or list of str`):
-  File path(s) for this sample.
-- **`data_dir`** (`str, optional`):
-  Base directory for ID generation. Uses instance data_dir if None.
-
-**Returns:**
-
-- **`str`**:
-  The unique ID (existing or newly generated).
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-get_id">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-dataframemetadata-get_id"><code>get_id</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DataFrameMetadata.get_id(
-    self,
-    meta: 'dict[str, Any]'
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Return the unique ID from metadata.
-
-**Raises:**
-
-KeyError
-    If the unique ID column is missing from meta.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-get_mask_path">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-dataframemetadata-get_mask_path"><code>get_mask_path</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DataFrameMetadata.get_mask_path(
-    self,
-    meta: 'dict[str, Any]'
-) -> str | None
-```
-
-</div>
-
-<div class="api-body">
-
-Resolve mask path from metadata when mask_filename_column and mask_dir are set.
-
-**Returns:**
-
-str or None
-    Full path to mask file, or None if not resolvable.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-group_by">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-dataframemetadata-group_by"><code>group_by</code></h4>
-</div>
-
-<p><em>Property on <code>DataFrameMetadata</code></em></p>
-
-<div class="api-body">
-
-Column used for multi-channel grouping in find_files.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-mask_dir">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-dataframemetadata-mask_dir"><code>mask_dir</code></h4>
-</div>
-
-<p><em>Property on <code>DataFrameMetadata</code></em></p>
-
-<div class="api-body">
-
-Root directory for mask files.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-mask_filename_column">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-dataframemetadata-mask_filename_column"><code>mask_filename_column</code></h4>
-</div>
-
-<p><em>Property on <code>DataFrameMetadata</code></em></p>
-
-<div class="api-body">
-
-Column containing mask filename when using explicit mask lookup.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-metadata_fn">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-dataframemetadata-metadata_fn"><code>metadata_fn</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DataFrameMetadata.metadata_fn(
-    self,
-    path: 'str',
-    data_dir: 'str | None' = None
-) -> dict[str, Any]
-```
-
-</div>
-
-<div class="api-body">
-
-Extract metadata for a path. Guarantees 'id' is present.
-
-**Parameters:**
-
-- **`path`** (`str`):
-  File path.
-- **`data_dir`** (`str, optional`):
-  Base directory for ID generation.
-
-**Returns:**
-
-- **`dict`**:
-  Metadata with file_path, metadata keys, and guaranteed id.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-to_stable_key">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-dataframemetadata-to_stable_key"><code>to_stable_key</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DataFrameMetadata.to_stable_key(
-    self,
-    meta: 'dict[str, Any]'
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Build stable key for checkpoint matching.
-
-Uses the unique ID when present and non-path-like; otherwise delegates
-to metadata_to_stable_key for backward compatibility.
-
-</div>
-
-</div>
-
-
-## `DefaultMetadata`
-
-Minimal metadata extractor: file_path and filename from path.
-
-Single filename column. Auto-generates ID from path when not provided.
-
-<div class="api-method" role="region" aria-labelledby="api-defaultmetadata-ensure_id">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-defaultmetadata-ensure_id"><code>ensure_id</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DefaultMetadata.ensure_id(
-    self,
-    meta: 'dict[str, Any]',
-    paths: 'str | list[str]',
-    data_dir: 'str | None' = None
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Inject or return unique ID in meta. Auto-generate if not present.
-
-**Parameters:**
-
-- **`meta`** (`dict`):
-  Metadata dict (modified in place).
-- **`paths`** (`str or list of str`):
-  File path(s) for this sample.
-- **`data_dir`** (`str, optional`):
-  Base directory for ID generation. Uses instance data_dir if None.
-
-**Returns:**
-
-- **`str`**:
-  The unique ID (existing or newly generated).
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-defaultmetadata-get_id">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-defaultmetadata-get_id"><code>get_id</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DefaultMetadata.get_id(
-    self,
-    meta: 'dict[str, Any]'
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Return the unique ID from metadata.
-
-**Raises:**
-
-KeyError
-    If the unique ID column is missing from meta.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-defaultmetadata-get_mask_path">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-defaultmetadata-get_mask_path"><code>get_mask_path</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DefaultMetadata.get_mask_path(
-    self,
-    meta: 'dict[str, Any]'
-) -> str | None
-```
-
-</div>
-
-<div class="api-body">
-
-Resolve mask path from metadata when mask_filename_column and mask_dir are set.
-
-**Returns:**
-
-str or None
-    Full path to mask file, or None if not resolvable.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-defaultmetadata-group_by">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-defaultmetadata-group_by"><code>group_by</code></h4>
-</div>
-
-<p><em>Property on <code>DefaultMetadata</code></em></p>
-
-<div class="api-body">
-
-Column used for multi-channel grouping in find_files.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-defaultmetadata-mask_dir">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-defaultmetadata-mask_dir"><code>mask_dir</code></h4>
-</div>
-
-<p><em>Property on <code>DefaultMetadata</code></em></p>
-
-<div class="api-body">
-
-Root directory for mask files.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-defaultmetadata-mask_filename_column">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-defaultmetadata-mask_filename_column"><code>mask_filename_column</code></h4>
-</div>
-
-<p><em>Property on <code>DefaultMetadata</code></em></p>
-
-<div class="api-body">
-
-Column containing mask filename when using explicit mask lookup.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-defaultmetadata-metadata_fn">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-defaultmetadata-metadata_fn"><code>metadata_fn</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DefaultMetadata.metadata_fn(
-    self,
-    path: 'str',
-    data_dir: 'str | None' = None
-) -> dict[str, Any]
-```
-
-</div>
-
-<div class="api-body">
-
-Extract metadata for a path. Guarantees 'id' is present.
-
-**Parameters:**
-
-- **`path`** (`str`):
-  File path.
-- **`data_dir`** (`str, optional`):
-  Base directory for ID generation.
-
-**Returns:**
-
-- **`dict`**:
-  Metadata with file_path, metadata keys, and guaranteed id.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-defaultmetadata-to_stable_key">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-defaultmetadata-to_stable_key"><code>to_stable_key</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-DefaultMetadata.to_stable_key(
-    self,
-    meta: 'dict[str, Any]'
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Build stable key for checkpoint matching.
-
-Uses the unique ID when present and non-path-like; otherwise delegates
-to metadata_to_stable_key for backward compatibility.
-
-</div>
-
-</div>
-
+- ``MetadataBase``: Abstract base for metadata extractors.
+- ``DefaultMetadata``: Minimal extractor (``file_path``, ``filename``, ``id``).
+- ``PathTemplateMetadata``: Extract from path templates with capture groups.
+- ``DataFrameMetadata``: Look up metadata from a DataFrame.
 
 ## `MetadataBase`
 
@@ -497,6 +40,64 @@ generation for checkpoint matching.
   Root directory for mask resolution.
 - **`data_dir`** (`str, optional`):
   Base directory for relative path ID generation.
+
+### Construction
+
+<div class="api-method" role="region" aria-labelledby="api-metadatabase-__init__">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-metadatabase-__init__"><code>__init__</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+MetadataBase(
+    filename_columns: 'str | list[str]' = 'filename',
+    unique_id_column: 'str' = 'id',
+    mask_filename_column: 'str | None' = None,
+    mask_dir: 'str | None' = None,
+    data_dir: 'str | None' = None
+)
+```
+
+</div>
+
+</div>
+
+### Identifiers
+
+<div class="api-method" role="region" aria-labelledby="api-metadatabase-get_id">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-metadatabase-get_id"><code>get_id</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+MetadataBase.get_id(
+    self,
+    meta: 'dict[str, Any]'
+) -> str
+```
+
+</div>
+
+<div class="api-body">
+
+Return the unique ID from metadata.
+
+**Raises:**
+
+- **`KeyError`**:
+  If the unique ID column is missing from meta.
+
+</div>
+
+</div>
 
 <div class="api-method" role="region" aria-labelledby="api-metadatabase-ensure_id">
 
@@ -540,17 +141,17 @@ Inject or return unique ID in meta. Auto-generate if not present.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-metadatabase-get_id">
+<div class="api-method" role="region" aria-labelledby="api-metadatabase-to_stable_key">
 
 <div class="api-method-header">
 <span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-metadatabase-get_id"><code>get_id</code></h4>
+<h4 class="api-method-title" id="api-metadatabase-to_stable_key"><code>to_stable_key</code></h4>
 </div>
 
 <div class="api-signature">
 
 ```python
-MetadataBase.get_id(
+MetadataBase.to_stable_key(
     self,
     meta: 'dict[str, Any]'
 ) -> str
@@ -560,98 +161,16 @@ MetadataBase.get_id(
 
 <div class="api-body">
 
-Return the unique ID from metadata.
+Build stable key for checkpoint matching.
 
-**Raises:**
-
-KeyError
-    If the unique ID column is missing from meta.
+Uses the unique ID when present and non-path-like; otherwise delegates
+to metadata_to_stable_key for backward compatibility.
 
 </div>
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-metadatabase-get_mask_path">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-metadatabase-get_mask_path"><code>get_mask_path</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-MetadataBase.get_mask_path(
-    self,
-    meta: 'dict[str, Any]'
-) -> str | None
-```
-
-</div>
-
-<div class="api-body">
-
-Resolve mask path from metadata when mask_filename_column and mask_dir are set.
-
-**Returns:**
-
-str or None
-    Full path to mask file, or None if not resolvable.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-metadatabase-group_by">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-metadatabase-group_by"><code>group_by</code></h4>
-</div>
-
-<p><em>Property on <code>MetadataBase</code></em></p>
-
-<div class="api-body">
-
-Column used for multi-channel grouping in find_files.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-metadatabase-mask_dir">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-metadatabase-mask_dir"><code>mask_dir</code></h4>
-</div>
-
-<p><em>Property on <code>MetadataBase</code></em></p>
-
-<div class="api-body">
-
-Root directory for mask files.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-metadatabase-mask_filename_column">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-metadatabase-mask_filename_column"><code>mask_filename_column</code></h4>
-</div>
-
-<p><em>Property on <code>MetadataBase</code></em></p>
-
-<div class="api-body">
-
-Column containing mask filename when using explicit mask lookup.
-
-</div>
-
-</div>
+### Extraction
 
 <div class="api-method" role="region" aria-labelledby="api-metadatabase-metadata_fn">
 
@@ -692,127 +211,19 @@ Extract metadata for a path. Guarantees 'id' is present.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-metadatabase-to_stable_key">
+### Mask resolution
+
+<div class="api-method" role="region" aria-labelledby="api-metadatabase-get_mask_path">
 
 <div class="api-method-header">
 <span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-metadatabase-to_stable_key"><code>to_stable_key</code></h4>
+<h4 class="api-method-title" id="api-metadatabase-get_mask_path"><code>get_mask_path</code></h4>
 </div>
 
 <div class="api-signature">
 
 ```python
-MetadataBase.to_stable_key(
-    self,
-    meta: 'dict[str, Any]'
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Build stable key for checkpoint matching.
-
-Uses the unique ID when present and non-path-like; otherwise delegates
-to metadata_to_stable_key for backward compatibility.
-
-</div>
-
-</div>
-
-
-## `PathTemplateMetadata`
-
-Metadata extractor from path template with capture groups.
-
-Uses parentheses for capture groups, e.g. ``.../(drug)/(time)/(crop_name).*``.
-group_by is the last capture group.
-
-<div class="api-method" role="region" aria-labelledby="api-pathtemplatemetadata-ensure_id">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-pathtemplatemetadata-ensure_id"><code>ensure_id</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PathTemplateMetadata.ensure_id(
-    self,
-    meta: 'dict[str, Any]',
-    paths: 'str | list[str]',
-    data_dir: 'str | None' = None
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Inject or return unique ID in meta. Auto-generate if not present.
-
-**Parameters:**
-
-- **`meta`** (`dict`):
-  Metadata dict (modified in place).
-- **`paths`** (`str or list of str`):
-  File path(s) for this sample.
-- **`data_dir`** (`str, optional`):
-  Base directory for ID generation. Uses instance data_dir if None.
-
-**Returns:**
-
-- **`str`**:
-  The unique ID (existing or newly generated).
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-pathtemplatemetadata-get_id">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-pathtemplatemetadata-get_id"><code>get_id</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PathTemplateMetadata.get_id(
-    self,
-    meta: 'dict[str, Any]'
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Return the unique ID from metadata.
-
-**Raises:**
-
-KeyError
-    If the unique ID column is missing from meta.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-pathtemplatemetadata-get_mask_path">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-pathtemplatemetadata-get_mask_path"><code>get_mask_path</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PathTemplateMetadata.get_mask_path(
+MetadataBase.get_mask_path(
     self,
     meta: 'dict[str, Any]'
 ) -> str | None
@@ -826,12 +237,110 @@ Resolve mask path from metadata when mask_filename_column and mask_dir are set.
 
 **Returns:**
 
-str or None
-    Full path to mask file, or None if not resolvable.
+- **`str or None`**:
+  Full path to mask file, or None if not resolvable.
 
 </div>
 
 </div>
+
+<div class="api-method" role="region" aria-labelledby="api-metadatabase-mask_dir">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--property">Property</span>
+<h4 class="api-method-title" id="api-metadatabase-mask_dir"><code>mask_dir</code></h4>
+</div>
+
+<p><em>Property on <code>MetadataBase</code></em></p>
+
+<div class="api-body">
+
+Root directory for mask files.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-metadatabase-mask_filename_column">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--property">Property</span>
+<h4 class="api-method-title" id="api-metadatabase-mask_filename_column"><code>mask_filename_column</code></h4>
+</div>
+
+<p><em>Property on <code>MetadataBase</code></em></p>
+
+<div class="api-body">
+
+Column containing mask filename when using explicit mask lookup.
+
+</div>
+
+</div>
+
+### Grouping
+
+<div class="api-method" role="region" aria-labelledby="api-metadatabase-group_by">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--property">Property</span>
+<h4 class="api-method-title" id="api-metadatabase-group_by"><code>group_by</code></h4>
+</div>
+
+<p><em>Property on <code>MetadataBase</code></em></p>
+
+<div class="api-body">
+
+Column used for multi-channel grouping in find_files.
+
+</div>
+
+</div>
+
+
+## `DefaultMetadata`
+
+Minimal metadata extractor: file_path and filename from path.
+
+Single filename column. Auto-generates ID from path when not provided.
+
+
+
+
+## `PathTemplateMetadata`
+
+Metadata extractor from path template with capture groups.
+
+Uses parentheses for capture groups, e.g. ``.../(drug)/(time)/(crop_name).*``.
+group_by is the last capture group.
+
+### Construction
+
+<div class="api-method" role="region" aria-labelledby="api-pathtemplatemetadata-__init__">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-pathtemplatemetadata-__init__"><code>__init__</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PathTemplateMetadata(
+    template: 'str',
+    filename_columns: 'str | list[str]' = 'filename',
+    unique_id_column: 'str' = 'id',
+    mask_filename_column: 'str | None' = None,
+    mask_dir: 'str | None' = None,
+    data_dir: 'str | None' = None
+)
+```
+
+</div>
+
+</div>
+
+### Grouping
 
 <div class="api-method" role="region" aria-labelledby="api-pathtemplatemetadata-group_by">
 
@@ -850,103 +359,32 @@ Return the last capture group name, or ``filename`` if there are no groups.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-pathtemplatemetadata-mask_dir">
 
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-pathtemplatemetadata-mask_dir"><code>mask_dir</code></h4>
-</div>
+## `DataFrameMetadata`
 
-<p><em>Property on <code>PathTemplateMetadata</code></em></p>
+Metadata lookup from DataFrame. Supports single and multi-channel modes.
 
-<div class="api-body">
+### Construction
 
-Root directory for mask files.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-pathtemplatemetadata-mask_filename_column">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-pathtemplatemetadata-mask_filename_column"><code>mask_filename_column</code></h4>
-</div>
-
-<p><em>Property on <code>PathTemplateMetadata</code></em></p>
-
-<div class="api-body">
-
-Column containing mask filename when using explicit mask lookup.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-pathtemplatemetadata-metadata_fn">
+<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-__init__">
 
 <div class="api-method-header">
 <span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-pathtemplatemetadata-metadata_fn"><code>metadata_fn</code></h4>
+<h4 class="api-method-title" id="api-dataframemetadata-__init__"><code>__init__</code></h4>
 </div>
 
 <div class="api-signature">
 
 ```python
-PathTemplateMetadata.metadata_fn(
-    self,
-    path: 'str',
+DataFrameMetadata(
+    metadata_df: 'pd.DataFrame',
+    filename_columns: 'str | list[str]' = 'filename',
+    unique_id_column: 'str' = 'id',
+    mask_filename_column: 'str | None' = None,
+    mask_dir: 'str | None' = None,
     data_dir: 'str | None' = None
-) -> dict[str, Any]
+)
 ```
-
-</div>
-
-<div class="api-body">
-
-Extract metadata for a path. Guarantees 'id' is present.
-
-**Parameters:**
-
-- **`path`** (`str`):
-  File path.
-- **`data_dir`** (`str, optional`):
-  Base directory for ID generation.
-
-**Returns:**
-
-- **`dict`**:
-  Metadata with file_path, metadata keys, and guaranteed id.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-pathtemplatemetadata-to_stable_key">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-pathtemplatemetadata-to_stable_key"><code>to_stable_key</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PathTemplateMetadata.to_stable_key(
-    self,
-    meta: 'dict[str, Any]'
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Build stable key for checkpoint matching.
-
-Uses the unique ID when present and non-path-like; otherwise delegates
-to metadata_to_stable_key for backward compatibility.
 
 </div>
 

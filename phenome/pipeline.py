@@ -67,13 +67,14 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
     detect_outliers, find_prototypes; compute_reference_distances; plot_pca,
     plot_tsne, plot_umap, and related methods.
 
-    Embedding lifecycle
-    ------------------
-    - **Eager**: When no checkpoint is used, embeddings live in results.embeddings (np.ndarray).
-    - **Lazy**: When a checkpoint is active (self._db), results.embeddings is None; embeddings
-      are read on demand via get_embeddings() from the HDF5 file.
-    - **Temporal**: Rows from process_temporal_images() are in-memory only (self._temporal_embeddings)
-      when _db is open; merged with checkpoint data in get_embeddings().
+    **Embedding lifecycle:**
+
+    - **Eager**: When no checkpoint is used, embeddings live in ``results.embeddings`` (np.ndarray).
+    - **Lazy**: When a checkpoint is active (``self._db``), ``results.embeddings`` is ``None``;
+      embeddings are read on demand via ``get_embeddings()`` from the HDF5 file.
+    - **Temporal**: Rows from ``process_temporal_images()`` are in-memory only
+      (``self._temporal_embeddings``) when ``_db`` is open; merged with checkpoint data in
+      ``get_embeddings()``.
 
     Args:
         device: Optional torch.device for GPU-accelerated analysis operations.

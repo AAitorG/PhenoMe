@@ -94,7 +94,7 @@ Create intensity property function over entire image (no mask).
 ### `create_blur_effect_function`
 
 ```python
-create_blur_effect_function()
+create_blur_effect_function() -> Callable
 ```
 
 Create property function that computes blur strength (Laplacian variance).
@@ -107,7 +107,7 @@ Create property function that computes blur strength (Laplacian variance).
 ### `create_entropy_function`
 
 ```python
-create_entropy_function()
+create_entropy_function() -> Callable
 ```
 
 Create property function that computes Shannon entropy of intensity distribution.

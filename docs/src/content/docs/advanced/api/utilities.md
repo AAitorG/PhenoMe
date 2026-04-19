@@ -7,7 +7,9 @@ Auto-generated from `phenome.utils.device`, `phenome.utils.metadata`, `phenome.i
 
 **See also:** [Model wrappers](/PhenoMe/advanced/api/model-wrapper/) · [HDF5 protocol](/PhenoMe/advanced/database_protocol/) · [Best practices](/PhenoMe/guides/best-practices/)
 
-## Device and reproducibility — `set_default_device`
+## Device and reproducibility
+
+### `set_default_device`
 
 ```python
 set_default_device(
@@ -21,10 +23,11 @@ Set the default device for phenotyping operations.
 
 - **`device`**: Target device (torch.device, string like 'cuda:0', or None to reset).
 
-## Device and reproducibility — `get_default_device`
+
+### `get_default_device`
 
 ```python
-get_default_device()
+get_default_device() -> device
 ```
 
 Return a default device for phenotyping operations.
@@ -35,9 +38,10 @@ When CUDA_VISIBLE_DEVICES is set, cuda:0 refers to the first visible GPU.
 
 **Returns:**
 
-- **`torch.device`**: cuda:0 if CUDA is available, else cpu.
+  torch.device: cuda:0 if CUDA is available, else cpu.
 
-## Device and reproducibility — `set_determinism`
+
+### `set_determinism`
 
 ```python
 set_determinism(
@@ -51,9 +55,8 @@ Set random seeds for reproducibility across all frameworks.
 
 - **`seed`**: Random seed value
 
-## Metadata helpers
 
-Functional wrappers over `phenome.metadata` classes. For OOP extractors, see [Metadata classes](/PhenoMe/advanced/api/metadata/).
+## Metadata helpers
 
 ### `default_metadata_from_path`
 
@@ -81,7 +84,6 @@ identifiers is ``"filename"`` across all metadata helpers.
 **Returns:**
 
   Dictionary with 'file_path', 'filename', and 'id' keys.
-- **``**:
 
 **Example:**
 
@@ -89,8 +91,8 @@ identifiers is ``"filename"`` across all metadata helpers.
 >>> meta = default_metadata_from_path('/data/image.tif')
 >>> meta['file_path'], meta['filename']
 ('/data/image.tif', 'image')
-
 ```
+
 
 ### `get_metadata_from_path`
 
@@ -119,7 +121,6 @@ Features:
   default column name for file identifiers). The returned function has a
   ``group_by`` attribute (last capture group, or ``"filename"``) for
   [find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files) multi-channel grouping.
-- **``**:
 
 **Example:**
 
@@ -133,8 +134,8 @@ Features:
 >>> extractor = get_metadata_from_path(".../(plate)/(well).*")
 >>> extractor("/data/P1/A01.tif")['filename']
 'A01'
-
 ```
+
 
 ### `make_dataframe_metadata_fn`
 
@@ -185,41 +186,57 @@ filename column already identifies the image.
   dataframe columns are included (filename column identifies the image).
   The returned function has a ``group_by`` attribute (first filename column)
   for [find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files) multi-channel grouping.
-- **``**:
 
 **Raises:**
 
 - **`ValueError`**: If filename_column (or any of its elements) is not in
   metadata_df.
-- **`Example (single file)`** (``):
-  >>> df = pd.DataFrame({
-  ...     'filename': ['img1', 'img2'],
-  ...     'condition': ['Control', 'Treatment'],
-  ...     'time': ['24h', '48h']
-  ... })
-  >>> metadata_fn = make_dataframe_metadata_fn(df, filename_column='filename')
-  >>> meta = metadata_fn('/data/img1.tif')
-  >>> sorted(meta.items())  # doctest: +NORMALIZE_WHITESPACE
-  [('condition', 'Control'), ('file_path', '/data/img1.tif'), ('filename', 'img1'),
-  ('id', 'img1'), ('time', '24h')]
-- **`Example (single file, df with extension - both formats accepted)`** (``):
-  >>> df_ext = pd.DataFrame({'filename': ['img1.tif', 'img2.tif'], 'cond': ['A', 'B']})
-  >>> fn_ext = make_dataframe_metadata_fn(df_ext, filename_column='filename')
-  >>> fn_ext('/data/img1.tif')['cond']
-  'A'
-- **`Example (multi-channel, one column per channel)`** (``):
-  >>> df = pd.DataFrame(&#123;
-  ...     'ch0': ['sample1_c0', 'sample2_c0'],
-  ...     'ch1': ['sample1_c1', 'sample2_c1'],
-  ...     'ch2': ['sample1_c2', 'sample2_c2'],
-  ...     'condition': ['Control', 'Treatment'],
-  ... &#125;)
-  >>> metadata_fn = make_dataframe_metadata_fn(df, filename_column=['ch0', 'ch1', 'ch2'])
-  >>> meta = metadata_fn('/data/sample1_c1.tif')
-  >>> meta['condition'], meta['channel_index'], meta['ch0']
-  ('Control', 1, 'sample1_c0')
 
-## Image I/O — `read_image`
+**Example (single file):**
+
+```python
+>>> df = pd.DataFrame({
+...     'filename': ['img1', 'img2'],
+...     'condition': ['Control', 'Treatment'],
+...     'time': ['24h', '48h']
+... })
+>>> metadata_fn = make_dataframe_metadata_fn(df, filename_column='filename')
+>>> meta = metadata_fn('/data/img1.tif')
+>>> sorted(meta.items())  # doctest: +NORMALIZE_WHITESPACE
+[('condition', 'Control'), ('file_path', '/data/img1.tif'), ('filename', 'img1'),
+ ('id', 'img1'), ('time', '24h')]
+
+```
+
+**Example (single file, df with extension - both formats accepted):**
+
+```python
+>>> df_ext = pd.DataFrame({'filename': ['img1.tif', 'img2.tif'], 'cond': ['A', 'B']})
+>>> fn_ext = make_dataframe_metadata_fn(df_ext, filename_column='filename')
+>>> fn_ext('/data/img1.tif')['cond']
+'A'
+
+```
+
+**Example (multi-channel, one column per channel):**
+
+```python
+>>> df = pd.DataFrame({
+...     'ch0': ['sample1_c0', 'sample2_c0'],
+...     'ch1': ['sample1_c1', 'sample2_c1'],
+...     'ch2': ['sample1_c2', 'sample2_c2'],
+...     'condition': ['Control', 'Treatment'],
+... })
+>>> metadata_fn = make_dataframe_metadata_fn(df, filename_column=['ch0', 'ch1', 'ch2'])
+>>> meta = metadata_fn('/data/sample1_c1.tif')
+>>> meta['condition'], meta['channel_index'], meta['ch0']
+('Control', 1, 'sample1_c0')
+```
+
+
+## Image I/O and checkpoints
+
+### `read_image`
 
 ```python
 read_image(
@@ -241,9 +258,10 @@ concatenated along the channel axis, yielding shape (H, W, C_total).
 
 **Returns:**
 
-- **`np.ndarray`**: Shape (H, W) or (H, W, C), dtype float32. All channels returned.
+  np.ndarray: Shape (H, W) or (H, W, C), dtype float32. All channels returned.
 
-## Image I/O — `ensure_hwc`
+
+### `ensure_hwc`
 
 ```python
 ensure_hwc(
@@ -260,7 +278,8 @@ Ensure image is in (H, W, C) format.
 
 **Returns:**
 
-- **`np.ndarray`**: Shape (H, W, C). Single channel gets (H, W, 1).
+  np.ndarray: Shape (H, W, C). Single channel gets (H, W, 1).
+
 
 ## `CheckpointManager`
 
@@ -281,8 +300,7 @@ Version configuration (Constants section):
   CHECKPOINT_FORMAT_VERSION: version written to new checkpoints
   CHECKPOINT_SUPPORTED_VERSIONS: set of versions that can be loaded
 
-HDF5 schema
------------
+**HDF5 schema**
 /embeddings              (N, D)  float32, chunked, lossless gzip
 /img_path                (N,)    vlen UTF-8  — primary/only path per image
 /img_path_channels       (N, C)  vlen UTF-8  — present only for multi-channel images;
@@ -305,8 +323,7 @@ Root attributes
     embedding_dim        int   — 0 when no embeddings
     is_multichannel      bool  — True when /img_path_channels is present
 
-External access (no custom code required)
------------------------------------------
+**External access (no custom code required)**
     import h5py, numpy as np
     with h5py.File("results.h5", "r") as f:
         paths      = f["img_path"][:]
@@ -328,6 +345,8 @@ External access (no custom code required)
   (``channel_mode``, ``channels``, ``resize_size``, ``pad_size``,
   ``force_rgb``).  Stored in ``/config`` so that a resumed run can
   verify the same settings are being used.
+
+### Other
 
 <div class="api-method" role="region" aria-labelledby="api-checkpointmanager-buffer_embeddings">
 
@@ -837,13 +856,12 @@ Paths are resolved to absolute when _storage_root is stored in the file.
 
 **Returns:**
 
-- **`PhenoMeResults`**:
-- **``**:
+  PhenoMeResults
 
 **Raises:**
 
-ValueError
-    If the file format is invalid or corrupted.
+- **`ValueError`**:
+  If the file format is invalid or corrupted.
 
 </div>
 
@@ -874,9 +892,9 @@ Paths are resolved to absolute when _storage_root is available (from file or inf
 
 **Returns:**
 
-(paths, metadata_dicts)
-    ``paths`` is a list of ``str`` (single-channel) or ``List[str]``
-    (multi-channel).  ``metadata_dicts`` is a list of dicts.
+  (paths, metadata_dicts)
+  ``paths`` is a list of ``str`` (single-channel) or ``List[str]``
+  (multi-channel).  ``metadata_dicts`` is a list of dicts.
 
 </div>
 
@@ -905,8 +923,8 @@ Load all committed property dicts.
 
 **Returns:**
 
-list of dict
-    Length n_committed_props.  Empty list when no properties stored.
+  list of dict
+  Length n_committed_props.  Empty list when no properties stored.
 
 </div>
 
@@ -1051,18 +1069,22 @@ Uses a temporary file + ``os.replace`` for crash safety.
   ``'metadata'``, ``'properties'``.
 - **`path`** (`str`):
   Output file path.
-compression, compression_level
-    Passed to h5py for the embeddings dataset.
-processing_params : dict or None
-    Written to the ``/config`` group when provided.
+  compression, compression_level
+  Passed to h5py for the embeddings dataset.
+- **`processing_params`** (`dict or None`):
+  Written to the ``/config`` group when provided.
 
 </div>
 
 </div>
 
-## `FileDiscovery`
+
+
+## File discovery — `FileDiscovery`
 
 Finds image files and extracts metadata from directories.
+
+### Other
 
 <div class="api-method" role="region" aria-labelledby="api-filediscovery-inspect_data">
 
@@ -1105,7 +1127,9 @@ the ``mask_path`` column of file_df when present.
 
 </div>
 
-## `TransformBuilder`
+
+
+## Transforms — `TransformBuilder`
 
 Builds torchvision transform pipelines for image preprocessing.
 
@@ -1115,6 +1139,8 @@ Uses ImageNet normalization by default.
 
 - **`mean`**: Normalization mean per channel (default: ImageNet).
 - **`std`**: Normalization std per channel (default: ImageNet).
+
+### Other
 
 <div class="api-method" role="region" aria-labelledby="api-transformbuilder-build">
 
@@ -1150,7 +1176,7 @@ When both pad_size and resize_size are given, padding is applied first, then res
 
 **Returns:**
 
-- **`transforms.Compose`**: Pipeline for (H, W, C) numpy image -> (C, H', W') tensor.
+  transforms.Compose: Pipeline for (H, W, C) numpy image -> (C, H', W') tensor.
 
 </div>
 

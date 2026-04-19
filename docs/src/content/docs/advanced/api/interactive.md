@@ -3,8 +3,6 @@ title: "Interactive explorer"
 description: Jupyter widget explorer for embeddings.
 ---
 
-# Interactive explorer
-
 Auto-generated from `phenome.mixins.interactive`.
 
 **See also:** [Visualization](/PhenoMe/advanced/api/visualization/) · [Pipeline](/PhenoMe/advanced/api/pipeline/)
@@ -42,7 +40,6 @@ highlight mode, and click-to-inspect image viewing.
 **Returns:**
 
 - **`PhenoMeInteractive`**: The explorer instance. Call .show() again to re-display.
-- **``**:
 
 **Example:**
 
@@ -56,8 +53,8 @@ highlight mode, and click-to-inspect image viewing.
 ...     filters={'condition': 'Treatment'},
 ...     hover_features=['drug', 'area', 'eccentricity'],
 ... )
-
 ```
+
 
 ## Class `PhenoMeInteractive`
 

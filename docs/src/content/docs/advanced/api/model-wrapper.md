@@ -36,7 +36,6 @@ subclasses ModelWrapper and is fully compatible with the pipeline.
 
   DinoV2ModelWrapper. Use with process_images(). The underlying
   ``torch.nn.Module`` is ``wrapper.model``.
-- **``**:
 
 **Example:**
 
@@ -44,7 +43,6 @@ subclasses ModelWrapper and is fully compatible with the pipeline.
 >>> wrapper = load_dinov2_model()
 >>> pheno.find_files("path/to/images")
 >>> pheno.process_images(wrapper)
-
 ```
 
 ### `class ModelWrapper`
@@ -59,6 +57,26 @@ tensor flattening are the heritage class's responsibility.
 
 - **`model`**: PyTorch vision model.
 - **`device`**: Optional torch.device. If None, uses get_default_device().
+
+<div class="api-method" role="region" aria-labelledby="api-modelwrapper-__init__">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-modelwrapper-__init__"><code>__init__</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+ModelWrapper(
+    model: Any,
+    device: torch.device | None = None
+)
+```
+
+</div>
+
+</div>
 
 <div class="api-method" role="region" aria-labelledby="api-modelwrapper-extract_embeddings">
 
@@ -108,6 +126,27 @@ Handles dict output with 'x_norm_clstoken' (default key) and squeeze (B,1,D) -> 
 - **`device`**: Optional torch.device. If None, uses get_default_device().
 - **`embedding_output_key`**: Key for global embedding in forward_features output.
   Default 'x_norm_clstoken' (required for DINOv2).
+
+<div class="api-method" role="region" aria-labelledby="api-dinov2modelwrapper-__init__">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-dinov2modelwrapper-__init__"><code>__init__</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+DinoV2ModelWrapper(
+    model: Any,
+    device: torch.device | None = None,
+    embedding_output_key: str = 'x_norm_clstoken'
+)
+```
+
+</div>
+
+</div>
 
 <div class="api-method" role="region" aria-labelledby="api-dinov2modelwrapper-extract_embeddings">
 

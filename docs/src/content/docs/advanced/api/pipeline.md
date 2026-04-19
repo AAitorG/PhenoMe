@@ -7,19 +7,22 @@ Auto-generated from `phenome.pipeline`, mixins, and `phenome.core.pipeline_resul
 
 **See also:** [Getting started](/PhenoMe/getting-started/) · [Concepts](/PhenoMe/concepts/) · [Visualization](/PhenoMe/advanced/api/visualization/) · [Distances](/PhenoMe/advanced/api/distances/) · [Model wrappers](/PhenoMe/advanced/api/model-wrapper/)
 
+## Class `PhenoMe`
+
 Main class for phenotyping analysis using deep learning embeddings.
 
 Provides: compute_properties, filter_properties_by_group; compute_clustering,
 detect_outliers, find_prototypes; compute_reference_distances; plot_pca,
 plot_tsne, plot_umap, and related methods.
 
-Embedding lifecycle
-------------------
-- **Eager**: When no checkpoint is used, embeddings live in results.embeddings (np.ndarray).
-- **Lazy**: When a checkpoint is active (self._db), results.embeddings is None; embeddings
-  are read on demand via get_embeddings() from the HDF5 file.
-- **Temporal**: Rows from process_temporal_images() are in-memory only (self._temporal_embeddings)
-  when _db is open; merged with checkpoint data in get_embeddings().
+**Embedding lifecycle:**
+
+- **Eager**: When no checkpoint is used, embeddings live in ``results.embeddings`` (np.ndarray).
+- **Lazy**: When a checkpoint is active (``self._db``), ``results.embeddings`` is ``None``;
+  embeddings are read on demand via ``get_embeddings()`` from the HDF5 file.
+- **Temporal**: Rows from ``process_temporal_images()`` are in-memory only
+  (``self._temporal_embeddings``) when ``_db`` is open; merged with checkpoint data in
+  ``get_embeddings()``.
 
 **Args:**
 
@@ -33,11 +36,8 @@ Embedding lifecycle
   dimensionality reduction (PCA, t-SNE, UMAP). If False (default), always
   use sklearn/umap-learn on CPU.
 
-## Class `PhenoMe`
-
 ```python
 PhenoMe(
-    self,
     device: torch.device | str | None = None,
     seed: int | None = None,
     use_gpu_for_dr: bool = False
@@ -670,7 +670,6 @@ pheno.find_files("path/to/images")
 with pheno.checkpoint_context("results.h5") as p:
     p.plot_pca(color_by="condition")
 # Checkpoint closed here
-
 ```
 
 </div>
@@ -841,7 +840,6 @@ supported.
 
   DataFrame with all properties and metadata columns. Also populates
   ``results.properties`` as ``List[dict]`` (one dict per image).
-- **``**:
 
 **Raises:**
 
@@ -889,7 +887,6 @@ Uses `_build_properties_dataframe` from computed
 **Returns:**
 
   Aggregated DataFrame with mean/std/min/max per property per group.
-- **``**:
 
 **Raises:**
 
@@ -1206,7 +1203,7 @@ population statistics when computing z-scores.
 
 **Returns:**
 
-- **`pd.DataFrame`**: Columns: Cluster, Property, Score, Mean_Cluster, Mean_Pop, AbsScore.
+  pd.DataFrame: Columns: Cluster, Property, Score, Mean_Cluster, Mean_Pop, AbsScore.
   Z-score enrichment per cluster-property pair.
 
 </div>
@@ -1903,6 +1900,7 @@ Print distance summary statistics without plotting. Safe to use when enable_plot
 </div>
 
 
+
 ## Class `PhenoMeResults`
 
 Typed container for per-image phenotyping data.
@@ -1914,8 +1912,7 @@ interface (``__getitem__``, ``__setitem__``, ``get``, ``__contains__``,
 changes.  On top of that it provides typed attributes and convenience
 properties for cleaner client code.
 
-Embeddings lifecycle
---------------------
+**Embeddings lifecycle**
 ``embeddings`` is **always** ``None`` inside ``PhenoMeResults``.
 
 * **Not yet computed** — ``embeddings is None``, ``pipeline._db is None``
@@ -1941,24 +1938,7 @@ and never touch this container until they are finalised.
   Shape ``(N, D)`` float32 array, or ``None`` when not available /
   when embeddings are stored lazily in an HDF5 file.
 
-### Results container
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-n_images">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-phenomeresults-n_images"><code>n_images</code></h4>
-</div>
-
-<p><em>Property on <code>PhenoMeResults</code></em></p>
-
-<div class="api-body">
-
-Number of images stored.
-
-</div>
-
-</div>
+### Accessors and inspection
 
 <div class="api-method" role="region" aria-labelledby="api-phenomeresults-has_embeddings">
 
@@ -1977,57 +1957,6 @@ True if embeddings are stored eagerly (not lazy or absent).
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-has_properties">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-phenomeresults-has_properties"><code>has_properties</code></h4>
-</div>
-
-<p><em>Property on <code>PhenoMeResults</code></em></p>
-
-<div class="api-body">
-
-True if at least one image has computed properties.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-property_keys">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-phenomeresults-property_keys"><code>property_keys</code></h4>
-</div>
-
-<p><em>Property on <code>PhenoMeResults</code></em></p>
-
-<div class="api-body">
-
-Sorted list of property names from the first non-empty properties dict.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-metadata_keys">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--property">Property</span>
-<h4 class="api-method-title" id="api-phenomeresults-metadata_keys"><code>metadata_keys</code></h4>
-</div>
-
-<p><em>Property on <code>PhenoMeResults</code></em></p>
-
-<div class="api-body">
-
-Sorted unique metadata keys across all images (case-preserving).
-
-</div>
-
-</div>
-
 <div class="api-method" role="region" aria-labelledby="api-phenomeresults-embedding_dim">
 
 <div class="api-method-header">
@@ -2040,6 +1969,34 @@ Sorted unique metadata keys across all images (case-preserving).
 <div class="api-body">
 
 Embedding dimensionality, or 0 if no embeddings are stored.
+
+</div>
+
+</div>
+
+
+### Other
+
+<div class="api-method" role="region" aria-labelledby="api-phenomeresults-clear">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenomeresults-clear"><code>clear</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMeResults.clear(
+    self
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Reset all fields to empty state.
 
 </div>
 
@@ -2072,127 +2029,18 @@ Dict-style .get() with default.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-keys">
+<div class="api-method" role="region" aria-labelledby="api-phenomeresults-has_properties">
 
 <div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeresults-keys"><code>keys</code></h4>
+<span class="api-badge api-badge--property">Property</span>
+<h4 class="api-method-title" id="api-phenomeresults-has_properties"><code>has_properties</code></h4>
 </div>
 
-<div class="api-signature">
-
-```python
-PhenoMeResults.keys(
-    self
-) -> Iterable[str]
-```
-
-</div>
+<p><em>Property on <code>PhenoMeResults</code></em></p>
 
 <div class="api-body">
 
-Return the valid dict-style keys for this results container.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-items">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeresults-items"><code>items</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMeResults.items(
-    self
-) -> Iterator[tuple[str, Any]]
-```
-
-</div>
-
-<div class="api-body">
-
-Yield ``(key, value)`` pairs for each valid key.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-values">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeresults-values"><code>values</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMeResults.values(
-    self
-) -> Iterator[Any]
-```
-
-</div>
-
-<div class="api-body">
-
-Yield values for each valid key.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-clear">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeresults-clear"><code>clear</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMeResults.clear(
-    self
-) -> None
-```
-
-</div>
-
-<div class="api-body">
-
-Reset all fields to empty state.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-primary_path">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeresults-primary_path"><code>primary_path</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMeResults.primary_path(
-    self,
-    idx: 'int'
-) -> str
-```
-
-</div>
-
-<div class="api-body">
-
-Return the primary (or only) file path for image *idx*.
+True if at least one image has computed properties.
 
 </div>
 
@@ -2224,6 +2072,73 @@ Return the basename of the primary path for image *idx*.
 
 </div>
 
+<div class="api-method" role="region" aria-labelledby="api-phenomeresults-items">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenomeresults-items"><code>items</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMeResults.items(
+    self
+) -> Iterator[tuple[str, Any]]
+```
+
+</div>
+
+<div class="api-body">
+
+Yield ``(key, value)`` pairs for each valid key.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenomeresults-keys">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenomeresults-keys"><code>keys</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMeResults.keys(
+    self
+) -> Iterable[str]
+```
+
+</div>
+
+<div class="api-body">
+
+Return the valid dict-style keys for this results container.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenomeresults-metadata_keys">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--property">Property</span>
+<h4 class="api-method-title" id="api-phenomeresults-metadata_keys"><code>metadata_keys</code></h4>
+</div>
+
+<p><em>Property on <code>PhenoMeResults</code></em></p>
+
+<div class="api-body">
+
+Sorted unique metadata keys across all images (case-preserving).
+
+</div>
+
+</div>
+
 <div class="api-method" role="region" aria-labelledby="api-phenomeresults-metadata_value">
 
 <div class="api-method-header">
@@ -2246,6 +2161,66 @@ PhenoMeResults.metadata_value(
 <div class="api-body">
 
 Case-insensitive metadata lookup for image *idx*.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenomeresults-n_images">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--property">Property</span>
+<h4 class="api-method-title" id="api-phenomeresults-n_images"><code>n_images</code></h4>
+</div>
+
+<p><em>Property on <code>PhenoMeResults</code></em></p>
+
+<div class="api-body">
+
+Number of images stored.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenomeresults-primary_path">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenomeresults-primary_path"><code>primary_path</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMeResults.primary_path(
+    self,
+    idx: 'int'
+) -> str
+```
+
+</div>
+
+<div class="api-body">
+
+Return the primary (or only) file path for image *idx*.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenomeresults-property_keys">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--property">Property</span>
+<h4 class="api-method-title" id="api-phenomeresults-property_keys"><code>property_keys</code></h4>
+</div>
+
+<p><em>Property on <code>PhenoMeResults</code></em></p>
+
+<div class="api-body">
+
+Sorted list of property names from the first non-empty properties dict.
 
 </div>
 
@@ -2314,6 +2289,31 @@ machine or directory.
   stored paths.  Special value "relative" indicates that stored
   paths are already relative and just need to be joined with
   *data_dir*.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenomeresults-values">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenomeresults-values"><code>values</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMeResults.values(
+    self
+) -> Iterator[Any]
+```
+
+</div>
+
+<div class="api-body">
+
+Yield values for each valid key.
 
 </div>
 
