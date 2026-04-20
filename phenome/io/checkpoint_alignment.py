@@ -112,7 +112,17 @@ def compute_path_alignment(
         Tuple of (path_to_ckpt_idx, paths_with_data, paths_to_compute, identifier_list).
         paths_to_compute is [(index, path), ...] for images needing processing.
     """
-    path_to_ckpt_idx: dict[str, int] = {p: i for i, p in enumerate(ckpt_paths)}
+    path_to_ckpt_idx: dict[str, int] = {}
+    for i, p in enumerate(ckpt_paths):
+        if p in path_to_ckpt_idx:
+            logger.warning(
+                "Duplicate checkpoint path representation %r: keeping index %d, ignoring %d.",
+                p,
+                path_to_ckpt_idx[p],
+                i,
+            )
+        else:
+            path_to_ckpt_idx[p] = i
     primary_list = [path_repr_fn(p) for p in image_paths]
     paths_with_data: set[str] = {
         pp for pp in primary_list if pp in path_to_ckpt_idx and path_to_ckpt_idx[pp] < n_committed
@@ -155,7 +165,15 @@ def compute_metadata_alignment(
     for i, meta in enumerate(ckpt_metadata):
         try:
             key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
-            meta_key_to_ckpt_idx[key] = i
+            if key in meta_key_to_ckpt_idx:
+                logger.warning(
+                    "Duplicate checkpoint metadata key %r: keeping index %d, ignoring %d.",
+                    key,
+                    meta_key_to_ckpt_idx[key],
+                    i,
+                )
+            else:
+                meta_key_to_ckpt_idx[key] = i
         except ValueError:
             pass
 
@@ -165,7 +183,7 @@ def compute_metadata_alignment(
 
     identifier_list: list[str] = []
     paths_to_compute: list[tuple[int, str | list[str]]] = []
-    for i, (path, meta) in enumerate(zip(image_paths, image_metadata, strict=False)):
+    for i, (path, meta) in enumerate(zip(image_paths, image_metadata, strict=True)):
         try:
             key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
             identifier_list.append(key)

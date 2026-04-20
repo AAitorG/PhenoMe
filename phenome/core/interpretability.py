@@ -44,7 +44,7 @@ def compute_lasso_interpretability(
             - n_samples: Number of samples used.
             - n_features: Number of input features.
     """
-    _n_samples, n_features = x.shape
+    _, n_features = x.shape
 
     # Ensure inputs are finite
     mask = np.isfinite(y) & np.isfinite(x).all(axis=1)
@@ -75,7 +75,8 @@ def compute_lasso_interpretability(
 
     # Compute cross-validated R2 score robustly using cross_val_predict
     # This prevents using the training R2 which might be overfitted
-    y_cv_pred = cross_val_predict(model, x_scaled, y_scaled, cv=cv, n_jobs=-1)
+    cv_n_jobs = 1 if seed is not None else -1
+    y_cv_pred = cross_val_predict(model, x_scaled, y_scaled, cv=cv, n_jobs=cv_n_jobs)
     cv_r2 = float(r2_score(y_scaled, y_cv_pred))
 
     # Fit final model on all data to get final coefficients
@@ -85,7 +86,7 @@ def compute_lasso_interpretability(
     intercept = float(model.intercept_)
 
     drivers = []
-    for name, weight in zip(feature_names, coefs, strict=False):
+    for name, weight in zip(feature_names, coefs, strict=True):
         if weight != 0:
             drivers.append({"feature": name, "weight": float(weight)})
 
@@ -129,7 +130,7 @@ def compute_rf_interpretability(
             - n_samples: Number of samples used.
             - n_features: Number of input features.
     """
-    _n_samples, n_features = x.shape
+    _, n_features = x.shape
 
     # Ensure inputs are finite
     mask = np.isfinite(y) & np.isfinite(x).all(axis=1)
@@ -155,7 +156,7 @@ def compute_rf_interpretability(
     importances = model.feature_importances_
 
     drivers = []
-    for name, weight in zip(feature_names, importances, strict=False):
+    for name, weight in zip(feature_names, importances, strict=True):
         if weight > 0:
             drivers.append({"feature": name, "weight": float(weight)})
 

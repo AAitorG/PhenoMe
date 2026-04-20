@@ -50,15 +50,14 @@ def read_image(path: str | list[str]) -> np.ndarray:
         return np.concatenate(hwc, axis=-1)
 
     ext = os.path.splitext(path)[1].lower()
+    path_lower = path.lower()
 
     if ext == ".npy":
         img = np.load(path)
     elif ext == ".npz":
         with np.load(path) as data:
             img = data[data.files[0]]
-    elif ext in {".nii", ".gz"} and (
-        path.lower().endswith(".nii") or path.lower().endswith(".nii.gz")
-    ):
+    elif path_lower.endswith(".nii.gz") or path_lower.endswith(".nii"):
         try:
             import nibabel as nib
 

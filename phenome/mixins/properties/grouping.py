@@ -27,7 +27,7 @@ def filter_properties_by_group(
     """Group property DataFrame and compute per-group statistics.
 
     DataFrames from [find_files](pipeline.md#api-phenome-find_files) and
-    [compute_properties](pipeline.md#api-phenome-compute_properties) use lowercase column
+    [compute_properties](pipeline.md#api-phenomeproperties-compute_properties) use lowercase column
     names for metadata. The ``group_by`` keys are matched case-insensitively so that
     e.g. ``"Image_Metadata_Compound"`` matches the stored column
     ``"image_metadata_compound"``.

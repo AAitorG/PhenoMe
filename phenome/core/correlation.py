@@ -84,19 +84,30 @@ def compute_pearson_correlation(
         device: Torch device to run computation on. Defaults to utils.device.get_default_device().
 
     Returns:
-        np.ndarray: Correlation coefficient(s), dtype float64. If x is 1D, scalar (as length-1 array).
-            If x is 2D, shape (n_features,). NaN where insufficient valid samples.
+        np.ndarray: Correlation coefficient(s), dtype float64. If x is 1D, shape (1,).
+            If x is 2D, shape (n_features,). NaN where insufficient valid samples or constant columns.
     """
     x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=3)
     if x_clean is None:
-        return np.nan if x.ndim == 1 else np.full(x.shape[1], np.nan)
+        return np.array([np.nan]) if x.ndim == 1 else np.full(x.shape[1], np.nan)
 
     # Pearson correlation undefined when y is constant (zero variance)
     if _is_constant(y_clean):
-        return np.nan if x.ndim == 1 else np.full(x.shape[1], np.nan)
+        return np.array([np.nan]) if x.ndim == 1 else np.full(x.shape[1], np.nan)
 
     result = _pearson_torch(x_clean, y_clean, device=device)
-    return np.array(result) if x.ndim == 1 else result
+    if x.ndim == 1:
+        r = (
+            float(result)
+            if isinstance(result, (float, np.floating))
+            else float(np.asarray(result).item())
+        )
+        return np.array([np.nan if not np.isfinite(r) else r], dtype=np.float64)
+    out = np.asarray(result, dtype=np.float64)
+    for i in range(x_clean.shape[1]):
+        if _is_constant(x_clean[:, i]):
+            out[i] = np.nan
+    return out
 
 
 def compute_spearman_correlation(
@@ -112,7 +123,7 @@ def compute_spearman_correlation(
     Args:
         x: First array (n_samples,) or (n_samples, n_features).
         y: Second array (n_samples,).
-        device: Torch device (included for API consistency; Spearman uses CPU).
+        device: Ignored; Spearman uses scipy on CPU (kept for API parity with other metrics).
 
     Returns:
         np.ndarray: Correlation coefficient(s), dtype float64. If x is 1D, scalar (as length-1 array).

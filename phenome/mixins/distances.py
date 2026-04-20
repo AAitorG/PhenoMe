@@ -237,19 +237,27 @@ class PhenoMeDistances:
         Returns:
             Array of distances (N,).
         """
+        n_samples = embeddings.shape[0]
+        batch_size = _DISTANCE_BATCH_SIZE
         all_emb = torch.from_numpy(embeddings).to(self.device)
         ref_emb = all_emb[ref_indices]
         centroid = torch.mean(ref_emb, dim=0)
 
-        if distance_type == "cosine":
-            all_norm = torch.nn.functional.normalize(all_emb, dim=-1)
-            cent_norm = torch.nn.functional.normalize(centroid, dim=-1)
-            sim = torch.matmul(all_norm, cent_norm)
-            distances = 1.0 - sim
-        else:
-            distances = torch.norm(all_emb - centroid.unsqueeze(0), dim=1)
+        distances_out = np.zeros(n_samples, dtype=np.float32)
+        for start in range(0, n_samples, batch_size):
+            end = min(start + batch_size, n_samples)
+            batch_emb = all_emb[start:end]
+            if distance_type == "cosine":
+                batch_norm = torch.nn.functional.normalize(batch_emb, dim=-1)
+                cent_norm = torch.nn.functional.normalize(centroid, dim=-1)
+                sim = torch.matmul(batch_norm, cent_norm)
+                distances_out[start:end] = (1.0 - sim).cpu().numpy()
+            else:
+                distances_out[start:end] = (
+                    torch.norm(batch_emb - centroid.unsqueeze(0), dim=1).cpu().numpy()
+                )
 
-        return distances.cpu().numpy()
+        return distances_out
 
     def _compute_all_to_all_distances(
         self,

@@ -7,8 +7,12 @@ Uses simple dict-based storage. No entry points required.
 from collections.abc import Callable
 from typing import Any
 
+from .._logging import get_logger
+
 # Type for property functions: (image2d, mask2d) -> Dict[str, float]
 PropertyFunction = Callable[[Any | None, Any | None], dict[str, float | int]]
+
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -31,6 +35,8 @@ def register_property(name: str, fn: PropertyFunction) -> None:
         name: Property identifier (e.g. "blob", "my_custom").
         fn: Callable(image2d, mask2d) -> dict of property name -> value.
     """
+    if name in _PROPERTY_FUNCTIONS:
+        logger.warning("Overwriting existing registered property %r.", name)
     _PROPERTY_FUNCTIONS[name] = fn
 
 
@@ -61,6 +67,8 @@ def register_metadata_extractor(name: str, fn: Callable[[str], dict[str, Any]]) 
         name: Extractor identifier.
         fn: Callable(path) -> metadata dict.
     """
+    if name in _METADATA_EXTRACTORS:
+        logger.warning("Overwriting existing registered metadata extractor %r.", name)
     _METADATA_EXTRACTORS[name] = fn
 
 

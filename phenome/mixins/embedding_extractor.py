@@ -128,11 +128,12 @@ class EmbeddingExtractor:
 
             if use_ckpt and checkpoint_path is not None:
                 if ckpt is None:
-                    dim = (
-                        batch_embeddings.shape[1]
-                        if batch_embeddings.ndim == 2
-                        else batch_embeddings.shape[0]
-                    )
+                    if batch_embeddings.ndim != 2:
+                        raise ValueError(
+                            "batch_embeddings must be 2D (n_batch, n_features); "
+                            f"got shape {batch_embeddings.shape}."
+                        )
+                    dim = int(batch_embeddings.shape[-1])
                     ckpt = CheckpointManager(
                         checkpoint_path,
                         embedding_dim=dim,

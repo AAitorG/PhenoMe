@@ -136,7 +136,7 @@ class PhenoMeProperties:
 
         Uses `_build_properties_dataframe` from computed
         ``results.properties`` and metadata (same source as
-        [compute_properties](pipeline.md#api-phenome-compute_properties)).
+        [compute_properties](pipeline.md#api-phenomeproperties-compute_properties)).
 
         Args:
             group_by: Metadata columns to group by. If None, auto-selects first 2.
@@ -1145,6 +1145,10 @@ class PhenoMeProperties:
                     ckpt.buffer_embeddings(eager_emb, img_paths_list, metadata_list)
                     ckpt.commit_embeddings()
                 else:
+                    # Properties-only checkpoint: no embedding dataset yet
+                    # (``embedding_dim`` is None). Paths/metadata are committed so
+                    # later runs can align rows; ``get_embeddings`` stays unavailable
+                    # until embeddings are written.
                     ckpt.buffer_paths_and_metadata(img_paths_list, metadata_list)
                     ckpt.commit_embeddings()
                 ckpt_created_this_run = True

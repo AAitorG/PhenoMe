@@ -15,7 +15,8 @@ def path_repr(fname: str | list[str] | tuple) -> str:
     Handles single and multi-channel paths; multi-channel uses sorted JSON for consistency.
     """
     if isinstance(fname, (list, tuple)):
-        return json.dumps(sorted(str(x) for x in fname))
+        # Preserve channel order (sorting can make distinct orderings collide).
+        return json.dumps([str(x) for x in fname])
     return str(fname)
 
 

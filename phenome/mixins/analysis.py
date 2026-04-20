@@ -82,7 +82,7 @@ class PhenoMeAnalysis:
         dbscan_eps: float | None = None,
         dbscan_min_samples: int | None = None,
     ) -> np.ndarray | tuple[np.ndarray, float | None]:
-        """Perform clustering and store labels as property ``'cluster'``.
+        """Perform clustering and store labels in ``metadata[i]['cluster']`` for each image.
 
         Args:
             source: ``'embeddings'``, ``'properties'``, or ``'combined'``.
@@ -140,6 +140,7 @@ class PhenoMeAnalysis:
 
         # Step 2: Apply dimensionality reduction
         # We extract components to avoid the curse of dimensionality and ill-conditioned fits.
+        dr_object_after_reduce: Any | None = None
         if reduce_dim is not None and reduce_dim > 0:
             n_comp = min(reduce_dim, matrix.shape[0] - 1, matrix.shape[1])
             if n_comp > 0:
@@ -147,6 +148,7 @@ class PhenoMeAnalysis:
                 n_samples = matrix.shape[0]
                 seed = random_state if random_state is not None else getattr(self, "seed", None)
                 dev = getattr(self, "device", None)
+                use_gpu_dr = getattr(self, "use_gpu_for_dr", True)
                 dr_kwargs: dict[str, Any] = {}
                 if reduce_method == "tsne":
                     # Perplexity must be < n_samples (sklearn constraint)
@@ -155,13 +157,13 @@ class PhenoMeAnalysis:
                     # n_neighbors must be <= n_samples
                     dr_kwargs["n_neighbors"] = min(15, n_samples - 1) if n_samples > 1 else 1
 
-                matrix, _, _ = run_dimensionality_reduction_matrix(
+                matrix, dr_object_after_reduce, _ = run_dimensionality_reduction_matrix(
                     matrix,
                     method=reduce_method,
                     n_components=n_comp,
                     seed=seed,
                     device=dev,
-                    use_gpu=True,
+                    use_gpu=use_gpu_dr,
                     **dr_kwargs,
                 )
                 logger.info(
@@ -171,6 +173,9 @@ class PhenoMeAnalysis:
                     orig_dim,
                     clustering_method.upper(),
                 )
+
+        # Fitted DR object from the optional pre-clustering step (None if no reduction).
+        self._last_clustering_dr_object = dr_object_after_reduce
 
         # Step 3: Apply the clustering only over the extracted components
         effective_seed = random_state if random_state is not None else getattr(self, "seed", None)
@@ -320,7 +325,7 @@ class PhenoMeAnalysis:
 
         # Step 1: Run dimensionality reduction to get the target (y)
         # We reuse the existing run_dimensionality_reduction logic
-        dr_results, _, _ = run_dimensionality_reduction(
+        dr_results, _, dr_obj = run_dimensionality_reduction(
             self,
             method=method,
             n_components=max(2, component),
@@ -391,6 +396,7 @@ class PhenoMeAnalysis:
                 "method": method,
                 "model_type": model_type,
                 "target_component": comp_col,
+                "dr_object": dr_obj,
             }
         )
 

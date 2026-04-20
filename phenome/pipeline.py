@@ -1035,6 +1035,11 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         ensure the HDF5 file handle is released (e.g. before moving or deleting
         the file, or when opening multiple checkpoints in sequence).
 
+        **Embeddings:** While the context is open, lazy embeddings are read from the
+        HDF5 file via ``get_embeddings()``. After exit, ``self._db`` is closed and
+        ``results.embeddings`` remains ``None``; call ``load_results(..., lazy_checkpoint=True)``
+        again (or another ``checkpoint_context``) before using ``get_embeddings()``.
+
         Example:
             pheno.find_files("path/to/images")
             with pheno.checkpoint_context("results.h5") as p:

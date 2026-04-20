@@ -824,7 +824,7 @@ class CheckpointManager:
     # ------------------------------------------------------------------
 
     def load_committed_results(self) -> PhenoMeResults:
-        """Read all committed data and return a [PhenoMeResults](pipeline.md#api-phenomeresults).
+        """Read all committed data and return a [PhenoMeResults](pipeline.md#class-phenomeresults).
 
         Paths are resolved to absolute when _storage_root is available.
 

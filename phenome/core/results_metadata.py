@@ -2,7 +2,7 @@
 Results metadata access and filtering.
 
 Provides functions to read metadata from pipeline results and filter indices.
-Accepts both [PhenoMeResults](pipeline.md#api-phenomeresults) instances and legacy dicts.
+Accepts both [PhenoMeResults](pipeline.md#class-phenomeresults) instances and legacy dicts.
 """
 
 from __future__ import annotations

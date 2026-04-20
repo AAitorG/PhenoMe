@@ -40,9 +40,48 @@ from .results_metadata import filter_indices
 logger = get_logger(__name__)
 
 
+class TSNEInsufficientSamplesError(ValueError):
+    """Raised when t-SNE perplexity is not smaller than the number of samples."""
+
+
+def _torchdr_random_state(seed: int | None) -> int | None:
+    """Integer random_state for TorchDR (sklearn-style); None if no seed."""
+    if seed is None:
+        return None
+    return int(seed)
+
+
+def _should_fallback_torchdr_to_cpu(exc: BaseException) -> bool:
+    """True for likely transient GPU / backend failures worth retrying on CPU."""
+    if isinstance(exc, (MemoryError, ImportError)):
+        return True
+    if isinstance(exc, RuntimeError):
+        msg = str(exc).lower()
+        if "out of memory" in msg:
+            return True
+        if "cublas" in msg or "cudnn" in msg or "keops" in msg:
+            return True
+    oom_cls = getattr(torch.cuda, "OutOfMemoryError", None)
+    return oom_cls is not None and isinstance(exc, oom_cls)
+
+
 def _to_batches(matrix: np.ndarray, batch_size: int) -> list[np.ndarray]:
     """Split matrix into batches for memory-efficient processing."""
     return [matrix[i : i + batch_size] for i in range(0, len(matrix), batch_size)]
+
+
+def _validate_tsne_sample_count(n_samples: int, perplexity: float) -> None:
+    """Ensure n_samples is large enough for the chosen perplexity (sklearn rule: perplexity < n_samples)."""
+    if perplexity >= n_samples:
+        hint_default = (
+            " With the usual default perplexity of 30, you need at least 31 samples."
+            if perplexity == 30.0
+            else ""
+        )
+        raise TSNEInsufficientSamplesError(
+            "t-SNE needs more samples than the perplexity setting. "
+            f"Right now there are {n_samples} sample(s) and perplexity is {perplexity:g}.{hint_default} "
+        )
 
 
 def run_dimensionality_reduction_matrix(
@@ -91,8 +130,12 @@ def run_dimensionality_reduction_matrix(
             use_torchdr=use_torchdr,
             **kwargs,
         )
+    except TSNEInsufficientSamplesError:
+        raise
+    except ValueError:
+        raise
     except Exception as e:
-        if use_torchdr:
+        if use_torchdr and _should_fallback_torchdr_to_cpu(e):
             logger.warning(
                 "TorchDR GPU path failed (%s). Falling back to CPU (sklearn / umap-learn).",
                 e,
@@ -139,7 +182,7 @@ def _run_dimensionality_reduction_matrix_impl(
             dr_obj = TorchdrExactIncrementalPCA(
                 n_components=n_components,
                 device=dev_str,
-                random_state=float(seed) if seed is not None else None,
+                random_state=_torchdr_random_state(seed),
                 **pca_kwargs,
             )
             dr_obj.fit(batches)
@@ -161,6 +204,7 @@ def _run_dimensionality_reduction_matrix_impl(
     elif method == "tsne":
         # Perplexity controls local vs global structure; must be < n_samples (sklearn constraint)
         perplexity = kwargs.get("perplexity", 30.0)
+        _validate_tsne_sample_count(matrix.shape[0], float(perplexity))
         tsne_kwargs = {k: v for k, v in kwargs.items() if k != "perplexity"}
         if use_torchdr:
             # TorchDR TSNE: use KeOps backend for linear memory (avoids O(n^2) OOM)
@@ -173,7 +217,7 @@ def _run_dimensionality_reduction_matrix_impl(
                         perplexity=perplexity,
                         n_components=n_components,
                         device=dev_str,
-                        random_state=float(seed) if seed is not None else None,
+                        random_state=_torchdr_random_state(seed),
                         backend=backend,
                         **tsne_kwargs,
                     )
@@ -371,8 +415,8 @@ def _torchdr_umap_fit(
 ) -> Any:
     """Create TorchDR UMAP with memory-efficient backend, falling back as needed.
 
-    Tries backends in order: keops (linear memory), faiss, None (raw PyTorch).
-    KeOps and FAISS may fail if not installed; falls back to the next option.
+    When KeOps is available: tries ``keops``, then ``faiss``, then raw PyTorch.
+    When KeOps is unavailable: tries ``faiss``, then raw PyTorch.
     """
     backends = ["keops", "faiss", None] if _KEOPS_AVAILABLE else ["faiss", None]
     last_error = None
@@ -383,7 +427,7 @@ def _torchdr_umap_fit(
                 n_components=n_components,
                 min_dist=min_dist,
                 device=device,
-                random_state=float(seed) if seed is not None else None,
+                random_state=_torchdr_random_state(seed),
                 backend=backend,
                 **umap_kwargs,
             )

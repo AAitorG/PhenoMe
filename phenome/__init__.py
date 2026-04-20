@@ -3,7 +3,7 @@
 A modular, **dataset-agnostic** and **model-agnostic** pipeline for phenotyping
 analysis using deep learning embeddings.
 
-Top-level imports: PhenoMe, load_dinov2_model, default_metadata_from_path,
+Top-level imports: PhenoMe, PhenoMeResults, load_dinov2_model, default_metadata_from_path,
   get_metadata_from_path, make_dataframe_metadata_fn, create_regionprops_function,
   create_intensity_function, create_masked_intensity_function,
   create_concentric_ring_function, create_texture_function, create_blur_effect_function,

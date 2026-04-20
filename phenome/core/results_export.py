@@ -9,6 +9,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
+from .._logging import get_logger
 from ..utils.path_utils import path_basename
 from .pipeline_results import PhenoMeResults
 from .results_metadata import (
@@ -16,6 +17,8 @@ from .results_metadata import (
     get_all_metadata_keys,
     get_metadata_value_from_dict,
 )
+
+logger = get_logger(__name__)
 
 
 def prepare_embedding_dataframe(
@@ -57,10 +60,14 @@ def prepare_embedding_dataframe(
         results.properties if isinstance(results, PhenoMeResults) else results.get("properties", [])
     )
     if props_list:
-        for k in props_list[0]:
+        prop_keys: set[str] = set()
+        for i in indices:
+            if i < len(props_list) and isinstance(props_list[i], dict):
+                prop_keys.update(props_list[i].keys())
+        for k in sorted(prop_keys):
             values = []
             for i in indices:
-                if i < len(props_list):
+                if i < len(props_list) and isinstance(props_list[i], dict):
                     val = props_list[i].get(k)
                     values.append(np.nan if val is None else val)
                 else:
@@ -131,9 +138,16 @@ def build_export_dataframe(
     # Distance column
     if dist_results and "distances" in dist_results:
         distances = dist_results["distances"]
-        export_data["distance"] = (
-            distances.tolist() if isinstance(distances, np.ndarray) else list(distances)
-        )
+        dist_list = distances.tolist() if isinstance(distances, np.ndarray) else list(distances)
+        if len(dist_list) != n_images:
+            logger.warning(
+                "dist_results['distances'] length (%d) does not match n_images (%d); "
+                "distance column omitted to avoid misalignment.",
+                len(dist_list),
+                n_images,
+            )
+        else:
+            export_data["distance"] = dist_list
 
     # Property columns
     if properties_list:
