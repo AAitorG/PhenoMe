@@ -1,18 +1,21 @@
 ---
-title: "PhenoMe documentation"
-description: Model- and dataset-agnostic phenotyping with deep learning embeddings (Python package phenome).
+title: "PhenoMe"
+description: Model- and dataset-agnostic phenotyping with deep learning embeddings. Python package - phenome.
 template: splash
 hero:
-  tagline: A modular framework for phenotyping analysis using deep learning embeddings. Provide images and a vision model—it is model- and dataset-agnostic.
+  tagline: |
+    Point it at your images, pick a vision model, and get embeddings,
+    distances, interactive plots, and a shareable HTML report.
+    Model- and dataset-agnostic.
   image:
     file: ../../assets/Logo.png
   actions:
-    - text: Getting Started
-      link: ./getting-started/
+    - text: Getting started
+      link: /PhenoMe/getting-started/
       icon: right-arrow
       variant: primary
-    - text: Quick Start Card
-      link: ./quick-start-card/
+    - text: Quick start card
+      link: /PhenoMe/quick-start-card/
       icon: rocket
       variant: secondary
     - text: View on GitHub
@@ -21,11 +24,37 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import { Card, CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
+
+## What is PhenoMe?
+
+**PhenoMe** is a reproducible phenotyping pipeline built around three ideas:
+
+- **Embeddings as the common representation.** Any vision model that exposes
+  features (DINOv2 by default) can be plugged in; all downstream analyses
+  work on the resulting vectors.
+- **Metadata as the experimental context.** File paths, CSVs, or custom
+  callables tell the pipeline about conditions, doses, time points, plates,
+  and wells.
+- **Classical properties to keep results interpretable.** Shape, intensity,
+  texture, and quality metrics are computed alongside the embeddings and
+  can be correlated back into them.
+
+## How it fits together
+
+1. **Discover** — `find_files` (and metadata) from images and masks.
+2. **Embed** — `process_images` with your vision model.
+3. **Properties** — `compute_properties` for classical features (in parallel with embeddings from the same discovery step).
+4. **Analyze** — distances, DR, clustering; then plots, interactive explorer, and HTML report.
+
+The same four steps underpin every workflow: **discover files, extract
+embeddings, compute properties, analyze**. Everything else - interactive
+exploration, reporting, extension hooks - plugs into that backbone.
 
 ## Choose your path
 
-Pick the lane that matches you best. Each path ends with the same core idea: **install, point at data, run notebooks or code, interpret results**.
+Pick the card that matches you best. Each path ends at the same core idea:
+install, point at data, run notebooks or code, interpret results.
 
 <CardGrid stagger>
   <Card title="New to PhenoMe or Python" icon="rocket">
@@ -42,34 +71,33 @@ Pick the lane that matches you best. Each path ends with the same core idea: **i
     - [03 Core workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb)
   </Card>
 
-  <Card title="Developer or Integrator" icon="setting">
+  <Card title="Developer or integrator" icon="setting">
     Extend or embed PhenoMe into your pipeline.
     - [Architecture](/PhenoMe/guides/architecture/)
-    - [API reference](/PhenoMe/advanced/)
+    - [API & data formats](/PhenoMe/advanced/)
     - [Developer guide](/PhenoMe/guides/developer-guide/)
   </Card>
 
-  <Card title="Advanced Concepts" icon="magnifier">
-    Deepen your understanding of constraints and embeddings.
+  <Card title="Advanced concepts" icon="magnifier">
+    Deepen your understanding of embeddings and interpretability.
     - [Core concepts](/PhenoMe/concepts/)
-    - [Advanced metadata handling](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)
-    - [Exploratory analysis](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
+    - [04 Advanced metadata](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)
+    - [05 Exploratory analysis](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
   </Card>
 </CardGrid>
 
-## Essential Guides & Reference
-
-Whether you are configuring your first experiment or embedding our API, explore our curated manuals:
+## Essential guides and references
 
 <CardGrid>
-  <LinkCard title="Property reference" description="Choose standard and custom image properties." href="guides/property-reference" />
-  <LinkCard title="Function location guide" description="Find where a symbol lives in the codebase." href="function-location-guide" />
-  <LinkCard title="Report guide" description="Understand and read HTML reports." href="guides/report-guide" />
-  <LinkCard title="Examples gallery" description="See common screening and time course scenarios." href="examples" />
+  <LinkCard title="Property reference" description="Choose standard and custom image properties." href={`${import.meta.env.BASE_URL}guides/property-reference/`} />
+  <LinkCard title="Function location" description="Find where a symbol lives in the codebase." href={`${import.meta.env.BASE_URL}function-location-guide/`} />
+  <LinkCard title="Report guide" description="Understand and read the HTML reports." href={`${import.meta.env.BASE_URL}guides/report-guide/`} />
+  <LinkCard title="Examples gallery" description="Match your study design to a known pattern." href={`${import.meta.env.BASE_URL}examples/`} />
 </CardGrid>
 
 <br/>
 
-:::tip[Quick Links]
-Need a quick lookup? Check out our [FAQ](/PhenoMe/faq/), [Glossary](/PhenoMe/glossary/), or the [Quick reference](/PhenoMe/quick-reference/) guide!
+:::tip[Quick lookups]
+Need a quick lookup? Check the [FAQ](/PhenoMe/faq/), the
+[Glossary](/PhenoMe/glossary/), or the [Quick reference](/PhenoMe/quick-reference/).
 :::

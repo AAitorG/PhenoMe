@@ -1,9 +1,15 @@
 ---
 title: "Vision model wrappers"
-description: ModelWrapper, DinoV2ModelWrapper, load_dinov2_model.
+description: "ModelWrapper, DinoV2ModelWrapper, load_dinov2_model."
+editUrl: false
+tableOfContents:
+  maxHeadingLevel: 3
 ---
 
-Auto-generated from `phenome.utils.model_wrapper`. Rebuild with `npm run prebuild` in `docs/`.
+<p><span class="api-tier api-tier--public">Tier: Public API</span></p>
+
+:::note[Auto-generated]
+This page is rebuilt from docstrings in [`phenome.utils.model_wrapper`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/model_wrapper.py) (module).:::
 
 **See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/)
 

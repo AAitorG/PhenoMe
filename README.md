@@ -81,6 +81,8 @@ pip install -r envs/requirements-gpu.txt -e .
 
 > **Note:**
 > From the repository root, `requirements.txt` acts as a convenient alias to `envs/requirements-cpu.txt` for CPU-oriented environments. On **Windows**, `pykeops` is gracefully omitted.
+>
+> See [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) for GPU setup details, verification commands, and first-analysis walkthroughs.
 
 ---
 
@@ -103,8 +105,8 @@ pip install -r envs/requirements-gpu.txt -e .
 ### Developers
 
 - **[Architecture](https://AAitorG.github.io/PhenoMe/guides/architecture/)** — packages and extension points.
-- **[API index](https://AAitorG.github.io/PhenoMe/reference/)** — narrative API pages.
-- **[API from code](https://AAitorG.github.io/PhenoMe/reference/api/pipeline/)** — regenerated from docstrings on each docs build (see [Developer guide](https://AAitorG.github.io/PhenoMe/guides/developer-guide/)).
+- **[Reference index](https://AAitorG.github.io/PhenoMe/advanced/)** — narrative API pages and the HDF5 database protocol.
+- **[API from code](https://AAitorG.github.io/PhenoMe/advanced/api/pipeline/)** — regenerated from docstrings on each docs build (see [Developer guide](https://AAitorG.github.io/PhenoMe/guides/developer-guide/)).
 - **[Custom properties](https://AAitorG.github.io/PhenoMe/guides/custom-properties/)** · **[Extending](https://AAitorG.github.io/PhenoMe/guides/extending/)** · **[Testing](https://AAitorG.github.io/PhenoMe/guides/testing/)**
 
 ---

@@ -1,0 +1,94 @@
+---
+title: "Quick start card"
+description: Minimum install, minimal script, and where to go next.
+sidebar:
+  order: 2
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+## Install
+
+<Tabs>
+  <TabItem label="CPU">
+    ```bash
+    git clone https://github.com/AAitorG/PhenoMe.git
+    cd PhenoMe
+    conda env create -f envs/environment-cpu.yml
+    conda activate phenome-cpu
+    ```
+  </TabItem>
+  <TabItem label="GPU (CUDA)">
+    ```bash
+    git clone https://github.com/AAitorG/PhenoMe.git
+    cd PhenoMe
+    conda env create -f envs/environment-gpu.yml
+    conda activate phenome-gpu
+    ```
+  </TabItem>
+  <TabItem label="Pip (editable)">
+    ```bash
+    git clone https://github.com/AAitorG/PhenoMe.git
+    cd PhenoMe
+    pip install -r requirements.txt -e .          # CPU
+    pip install -r envs/requirements-gpu.txt -e . # GPU
+    ```
+  </TabItem>
+</Tabs>
+
+```python
+from phenome import PhenoMe
+print(f"PhenoMe {PhenoMe.__version__} is ready!")
+```
+
+## Minimal analysis (4 steps)
+
+```python
+import torch
+from phenome import PhenoMe, load_dinov2_model
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+wrapper = load_dinov2_model(device=device)
+pheno = PhenoMe(device=device, seed=42)
+
+pheno.find_files("path/to/images")
+pheno.process_images(wrapper)
+pheno.compute_properties(property_preset="basic")  # masks needed for most features - use "intensity" if no masks
+pheno.plot_pca(color_by="condition")               # replace with any metadata column you have
+```
+
+| Step | Method | Notes |
+|------|--------|--------|
+| Discover images | `find_files(path, metadata_fn=...)` | Optional metadata: [Data setup](/PhenoMe/guides/data-setup/) |
+| Embeddings | `process_images(wrapper, ...)` | GPU recommended |
+| Classical features | `compute_properties(property_preset=...)` | See [Property reference](/PhenoMe/guides/property-reference/) |
+| Explore | `plot_pca`, `plot_tsne`, `plot_umap`, `create_interactive_explorer` | [Visualization API](/PhenoMe/advanced/api/visualization/) |
+
+## Common parameters
+
+| Parameter | Typical values | Where |
+|-----------|----------------|--------|
+| `device` | `cuda:0` or `cpu` | `PhenoMe(...)`, `load_dinov2_model(...)` |
+| `seed` | `42` | `PhenoMe(seed=42)` for reproducible DR |
+| `property_preset` | `intensity`, `basic`, `full` | `compute_properties` |
+| `batch_size` | `16`-`64` (GPU) | `process_images`; lower it on OOM |
+
+<Aside type="tip">
+If plots fail with `KeyError`, run `pheno.get_available_metadata_keys()`
+to confirm the column exists before passing it to `color_by`.
+</Aside>
+
+## When you are stuck
+
+| Symptom | Doc |
+|---------|-----|
+| Install / CUDA | [FAQ - installation](/PhenoMe/faq/#installation-and-setup) |
+| Metadata / CSV | [Data setup](/PhenoMe/guides/data-setup/), [FAQ - data](/PhenoMe/faq/#data-and-metadata) |
+| Slow / OOM | [Best practices - performance](/PhenoMe/guides/best-practices/performance/) |
+| Terminology | [Glossary](/PhenoMe/glossary/) |
+
+## Next steps
+
+1. [Notebook 01 - Interactive quickstart](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb)
+2. [Notebook 03 - Core workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb)
+3. [API & data formats](/PhenoMe/advanced/) · [Pipeline API](/PhenoMe/advanced/api/pipeline/)

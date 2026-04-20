@@ -1,87 +1,90 @@
 ---
-title: "Common Workflows"
+title: "Common workflows"
+description: High-level overview of the phenotyping tasks PhenoMe supports, with links to the canonical notebook for each one.
+sidebar:
+  order: 5
 ---
 
-**Author:** [Aitor González-Marfil](https://github.com/AAitorG) (@AAitorG)
 
-This page provides an overview of common phenotyping tasks. To minimize redundancy, full code examples and advanced implementations for these workflows are maintained directly in our interactive Jupyter Notebook tutorials.
+Full code for each workflow lives in the Jupyter notebooks under
+[`Notebooks/tutorials/`](https://github.com/AAitorG/PhenoMe/tree/main/Notebooks/tutorials).
+This page keeps only a short summary and pointers.
 
----
+## 1. Basic analysis
 
-## 1. Basic Analysis Workflow
+The standard end-to-end workflow - from loading images and extracting
+visual fingerprints to computing distances and generating reports - is
+covered in the core tutorial.
 
-The standard end-to-end workflow—from loading images and extracting visual fingerprints to computing distances and generating reports—is fully covered in our core tutorial.
+- **Tutorial:** [03 - Core phenotyping workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb)
 
-➡️ **See Tutorial:** [03_core_phenotyping_workflow.ipynb](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb)
+## 2. Drug screening and time-course
 
----
+Analysing the effects of different drug treatments or mapping changes
+over time requires robust metadata extraction. Whether your data is
+organised hierarchically (`{drug}/{concentration}/{image}.tif`) or
+encoded in filenames (`Treated_24h`), you can handle it through the
+metadata pipeline.
 
-## 2. Drug Screening & Time-Course Analysis
+- **Tutorial:** [04 - Advanced metadata handling](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)
+- **Guide:** [Experiment details (metadata)](/PhenoMe/guides/experiment-details/)
 
-Analyzing the phenotypic effects of different drug treatments or mapping changes over time requires robust metadata extraction. Whether your data is organized hierarchically (`{drug}/{concentration}/{image}.tif`) or encoded in file names (`Treated_24h`), you can handle it smoothly using our experiment details pipeline.
+## 3. Property-based and explainability analysis
 
-➡️ **See Tutorial:** [04_advanced_metadata_handling.ipynb](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)
-➡️ **See Guide:** [Experiment Details (Metadata)](/PhenoMe/guides/experiment-details/)
+To connect abstract AI patterns to real biology, compute classical
+physical properties (area, eccentricity, intensity) and correlate them
+with your embeddings.
 
----
+- **Tutorial:** [05 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
+- **Guide:** [Property reference](/PhenoMe/guides/property-reference/), [Interpretability](/PhenoMe/guides/interpretability/)
 
-## 3. Property-Based & Explainability Analysis
+## 4. Subpopulations and outlier detection
 
-To connect abstract AI patterns to real biology, you can compute classic physical properties (e.g., area, eccentricity) and analyze how they correlate with your embeddings.
+Discover hidden functional states (clusters) within a single condition
+or find anomalous cells dynamically via clustering and distance
+thresholds.
 
-➡️ **See Tutorial:** [05_exploratory_analysis_and_explainability.ipynb](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
-➡️ **See Guide:** [Property Reference](/PhenoMe/guides/property-reference/)
+- **Tutorial:** [05 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
 
----
+## 5. Temporal images (in-memory exploration)
 
-## 4. Subpopulations & Outlier Detection
-
-Discovering hidden functional states (clusters) within a single condition or finding anomalous cells dynamically is supported through clustering and distance thresholds.
-
-➡️ **See Tutorial:** [05_exploratory_analysis_and_explainability.ipynb](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
-
----
-
-## 5. Temporal Images (In-Memory Exploration)
-
-If you have an existing dataset and want to test how *new* images map onto your pre-calculated PCA/t-SNE spaces without reprocessing your entire checkpoint, PhenoMe supports temporal image processing.
+To test how **new** images map onto your pre-calculated PCA / t-SNE
+spaces without reprocessing a checkpoint, use temporal processing.
 
 ```python
-
 pheno.process_temporal_images(
     wrapper,
-    image_paths=["new_data/test1.tif", "new_data/test2.tif"]
+    image_paths=["new_data/test1.tif", "new_data/test2.tif"],
 )
 
-pheno.plot_pca(color_by='condition', hover_features=['source'])
+pheno.plot_pca(color_by="condition", hover_features=["source"])
 
 pheno.clear_temporal_data()
 ```
 
----
+## 6. Batch processing large datasets
 
-## 6. Batch Processing Large Datasets
-
-For processing huge datasets that don't fit in memory, you can enable checkpointing to continuously save extracted embeddings to disk.
+For datasets that do not fit in memory, enable checkpointing so
+embeddings are written to disk as they are computed.
 
 ```python
-
 pheno.process_images(
     wrapper,
     checkpoint_path="results/my_large_dataset.h5",
-    batch_size=128
+    batch_size=128,
 )
 ```
 
----
+See [Best practices - performance](/PhenoMe/guides/best-practices/performance/)
+for memory sizing.
 
-## See Also
+## See also
 
-| Topic | Document |
-|-------|----------|
-| Installation and quick start | [Getting Started](/PhenoMe/getting-started/) |
-| Folder structure and metadata | [Expected Folder Structure](/PhenoMe/getting-started/#3-expected-folder-structure), [Experiment Details](/PhenoMe/guides/experiment-details/) |
-| Embeddings, channels, results | [Core Concepts](/PhenoMe/concepts/) |
-| Full API reference | [API Reference Index](/PhenoMe/advanced/) · [Pipeline](/PhenoMe/advanced/api/pipeline/) |
-| Property presets and custom functions | [Custom Properties](/PhenoMe/guides/custom-properties/) · [Property Reference](/PhenoMe/guides/property-reference/) |
-| Reproducibility and optimization | [Best Practices](/PhenoMe/guides/best-practices/) |
+| Topic | Where |
+|-------|-------|
+| Installation and quick start | [Getting started](/PhenoMe/getting-started/) |
+| Folder structure and metadata | [Data setup](/PhenoMe/guides/data-setup/), [Experiment details](/PhenoMe/guides/experiment-details/) |
+| Embeddings, channels, results | [Core concepts](/PhenoMe/concepts/) |
+| Full API reference | [API & data formats](/PhenoMe/advanced/), [Pipeline API](/PhenoMe/advanced/api/pipeline/) |
+| Property presets and custom functions | [Property reference](/PhenoMe/guides/property-reference/), [Custom properties](/PhenoMe/guides/custom-properties/) |
+| Reproducibility and optimization | [Best practices](/PhenoMe/guides/best-practices/) |

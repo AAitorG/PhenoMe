@@ -1,10 +1,11 @@
 ---
-title: "Function Location Guide"
+title: "Function location guide"
+description: Quick lookup of which module exports each PhenoMe function or class, grouped by tier (Public, Advanced, Internal).
+sidebar:
+  order: 1
 ---
 
-Quick lookup of where each function and class lives, and links to extended documentation.
-
----
+## Tiers
 
 ## Audience
 
@@ -82,10 +83,10 @@ Common methods on `PhenoMe` instances:
 
 | Method                               | Description                          | Tier | Extended docs                                                       |
 | ------------------------------------ | ------------------------------------ | ---- | ------------------------------------------------------------------- |
-| `find_files`                         | Discover images and extract metadata | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#find_files)                    |
-| `process_images`                     | Extract embeddings from images       | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#process_images)                |
-| `compute_properties`                 | Compute image/mask features          | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#compute_properties)        |
-| `compute_reference_distances`        | Distances to reference group         | ✅ | [Distances](/PhenoMe/advanced/api/distances/#compute_reference_distances) |
+| `find_files`                         | Discover images and extract metadata | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files)                    |
+| `process_images`                     | Extract embeddings from images       | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-process_images)                |
+| `compute_properties`                 | Compute image/mask features          | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties)        |
+| `compute_reference_distances`        | Distances to reference group         | ✅ | [Distances](/PhenoMe/advanced/api/distances/#api-phenomedistances-compute_reference_distances) |
 | `plot_pca`, `plot_tsne`, `plot_umap` | Dimensionality reduction plots       | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/)                     |
 | `plot_distance_distribution`         | Distance distribution plots          | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/)                     |
 | `generate_report`                    | Generate HTML report                 | ✅ | [Report](/PhenoMe/advanced/api/report/)                                   |
@@ -116,8 +117,8 @@ Common methods on `PhenoMe` instances:
 | `get_default_device`                                                                 | Return global default device             | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#get_default_device) |
 | `set_default_device`                                                                 | Set global default device                | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#set_default_device) |
 | `set_determinism`                                                                    | Set random seeds for reproducibility     | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#set_determinism)   |
-| `TransformBuilder`, `PadToSize`, `TypeMaxNorm`                                       | For custom model preprocessing           | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#transformers)      |
-| `normalize_by_dtype_max`, `scale_minmax`                                             | Normalization helpers used in transforms | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/#transformers)      |
+| `TransformBuilder`, `PadToSize`, `TypeMaxNorm`                                       | For custom model preprocessing           | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#transforms--transformbuilder)      |
+| `normalize_by_dtype_max`, `scale_minmax`                                             | Normalization helpers used in transforms | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/#transforms--transformbuilder)      |
 
 ---
 
@@ -126,7 +127,7 @@ Common methods on `PhenoMe` instances:
 | Import              | Description                                                                     | Tier | Extended docs                                             |
 | ------------------- | ------------------------------------------------------------------------------- | ---- | --------------------------------------------------------- |
 | `read_image`        | Load image(s) from path(s) as numpy array                                       | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#read_image)        |
-| `FileDiscovery`     | Find image files and extract metadata (pipeline uses internally)                | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#filediscovery)     |
+| `FileDiscovery`     | Find image files and extract metadata (pipeline uses internally)                | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#file-discovery--filediscovery)     |
 | `CheckpointManager` | Low-level HDF5 checkpoint; most users use `checkpoint_path` on `process_images` | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#checkpointmanager) · [HDF5 Protocol](/PhenoMe/advanced/database_protocol/) |
 | `ensure_hwc`        | Ensure image array is (H, W, C) format                                          | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/#ensure_hwc)        |
 
@@ -151,12 +152,12 @@ Common methods on `PhenoMe` instances:
 
 | Import                                                                                        | Description                            | Tier | Extended docs                                                |
 | --------------------------------------------------------------------------------------------- | -------------------------------------- | ---- | ------------------------------------------------------------ |
-| `filter_indices`                                                                              | Filter image indices by metadata       | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
-| `build_metadata_columns`                                                                      | Build metadata columns for a DataFrame | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
-| `build_export_dataframe`, `prepare_embedding_dataframe`                                       | Build export DataFrame from results    | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
-| `run_dimensionality_reduction`, `run_dimensionality_reduction_matrix`                         | PCA, t-SNE, UMAP                       | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
-| `compute_pearson_correlation`, `compute_spearman_correlation`, `compute_distance_correlation` | Correlation metrics                    | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
-| `compute_entropy`, `compute_mutual_info`                                                      | Information-theoretic metrics          | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#core-module-advanced) |
+| `filter_indices`                                                                              | Filter image indices by metadata       | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `build_metadata_columns`                                                                      | Build metadata columns for a DataFrame | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `build_export_dataframe`, `prepare_embedding_dataframe`                                       | Build export DataFrame from results    | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `run_dimensionality_reduction`, `run_dimensionality_reduction_matrix`                         | PCA, t-SNE, UMAP                       | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `compute_pearson_correlation`, `compute_spearman_correlation`, `compute_distance_correlation` | Correlation metrics                    | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `compute_entropy`, `compute_mutual_info`                                                      | Information-theoretic metrics          | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `build_combined_features`                                                                     | Concatenate embeddings + properties    | 🔒 | —                                                            |
 | `validate_results`                                                                            | Validate pipeline results              | 🔒 | —                                                            |
 | `metadata_to_stable_key`, `optimize_property_types`                                           | Property utilities                     | 🔒 | —                                                            |

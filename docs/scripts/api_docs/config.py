@@ -197,7 +197,12 @@ class CompoundSource:
 
 @dataclass(frozen=True)
 class PageSpec:
-    """A single generated page."""
+    """A single generated page.
+
+    ``tier`` classifies the primary audience for the page, matching the
+    Public/Internal/Advanced buckets used in the function-location guide.
+    Valid values are ``"public"``, ``"internal"``, and ``"advanced"``.
+    """
 
     slug: str
     title: str
@@ -205,6 +210,7 @@ class PageSpec:
     source: Any  # ClassSource | MultiClassSource | ModuleSource | CompoundSource
     related: tuple[tuple[str, str], ...] = ()
     intro_extra: str | None = None
+    tier: str = "public"
 
     @property
     def filename(self) -> str:
@@ -229,8 +235,13 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         ),
         source=CompoundSource(
             header_note=(
-                "Auto-generated from `phenome.pipeline`, mixins, and "
-                "`phenome.core.pipeline_results`. Rebuild with `npm run prebuild` in `docs/`."
+                ":::note[Auto-generated]\n"
+                "This page is rebuilt from docstrings in "
+                "[`phenome.pipeline`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/pipeline.py), "
+                "the mixins under "
+                "[`phenome.mixins`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/mixins), and "
+                "[`phenome.core.pipeline_results`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/core/pipeline_results.py).\n"
+                ":::"
             ),
             blocks=(
                 CompoundBlock(
@@ -316,15 +327,21 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         slug="utilities",
         title="Utility functions",
         description="Device helpers, transforms, image I/O, checkpoints, file discovery.",
+        tier="internal",
         related=(
             ("Model wrappers", "model-wrapper"),
-            ("HDF5 protocol", "../DATABASE_PROTOCOL"),
+            ("HDF5 protocol", "../database_protocol"),
             ("Best practices", "../../guides/best-practices"),
         ),
         source=CompoundSource(
             header_note=(
-                "Auto-generated from `phenome.utils.device`, `phenome.utils.metadata`, "
-                "`phenome.io`, and `phenome.utils.transforms`."
+                ":::note[Auto-generated]\n"
+                "This page is rebuilt from docstrings in "
+                "[`phenome.utils.device`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/device.py), "
+                "[`phenome.utils.metadata`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/metadata.py), "
+                "[`phenome.io`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/io), and "
+                "[`phenome.utils.transforms`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/transforms.py).\n"
+                ":::"
             ),
             blocks=(
                 CompoundBlock(
@@ -414,6 +431,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         slug="plugins",
         title="Plugins and registry",
         description="register_property, metadata extractors, report sections.",
+        tier="internal",
         related=(
             ("Plugins guide", "../../guides/plugins"),
             ("Properties", "properties"),
@@ -436,7 +454,12 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         description="Jupyter widget explorer for embeddings.",
         related=(("Visualization", "visualization"), ("Pipeline", "pipeline")),
         source=CompoundSource(
-            header_note="Auto-generated from `phenome.mixins.interactive`.",
+            header_note=(
+                ":::note[Auto-generated]\n"
+                "This page is rebuilt from docstrings in "
+                "[`phenome.mixins.interactive`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/mixins/interactive.py).\n"
+                ":::"
+            ),
             blocks=(
                 CompoundBlock(
                     kind="function",

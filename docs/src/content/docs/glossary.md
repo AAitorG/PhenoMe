@@ -1,10 +1,9 @@
 ---
 title: "Glossary"
+description: Plain-language definitions of the terms used across PhenoMe.
 ---
 
 Definitions of key terms used in the PhenoMe documentation, in plain language.
-
----
 
 ## A–D
 
@@ -94,9 +93,9 @@ Definitions of key terms used in the PhenoMe documentation, in plain language.
 
 ---
 
-## See also (guides)
+## See also
 
-- **Embeddings and metadata** — [Core concepts](/PhenoMe/concepts/), [Data setup](/PhenoMe/guides/data-setup/)
-- **Channel / split mode** — [Concepts: channel modes](/PhenoMe/concepts/#channel-modes)
-- **Checkpoints and HDF5** — [HDF5 protocol](/PhenoMe/advanced/database_protocol/), [Best practices](/PhenoMe/guides/best-practices/)
-- **Correlations and explainability** — [Interpretability](/PhenoMe/guides/interpretability/)
+- **Embeddings and metadata** - [Core concepts](/PhenoMe/concepts/), [Data setup](/PhenoMe/guides/data-setup/)
+- **Channel / split mode** - [Concepts - channel modes](/PhenoMe/concepts/#channel-modes)
+- **Checkpoints and HDF5** - [HDF5 protocol](/PhenoMe/advanced/database_protocol/), [Best practices](/PhenoMe/guides/best-practices/)
+- **Correlations and explainability** - [Interpretability](/PhenoMe/guides/interpretability/)

@@ -1,9 +1,15 @@
 ---
 title: "Property computation"
-description: Custom property extraction — factory helpers and presets.
+description: "Custom property extraction — factory helpers and presets."
+editUrl: false
+tableOfContents:
+  maxHeadingLevel: 3
 ---
 
-Auto-generated from `phenome.utils.property_factories`. Rebuild with `npm run prebuild` in `docs/`.
+<p><span class="api-tier api-tier--public">Tier: Public API</span></p>
+
+:::note[Auto-generated]
+This page is rebuilt from docstrings in [`phenome.utils.property_factories`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/property_factories.py) (module).:::
 
 **See also:** [Pipeline compute_properties](/PhenoMe/advanced/api/pipeline/) · [Custom properties guide](/PhenoMe/guides/custom-properties/)
 

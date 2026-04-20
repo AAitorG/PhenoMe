@@ -1,9 +1,16 @@
 ---
 title: "Interactive explorer"
-description: Jupyter widget explorer for embeddings.
+description: "Jupyter widget explorer for embeddings."
+editUrl: false
+tableOfContents:
+  maxHeadingLevel: 3
 ---
 
-Auto-generated from `phenome.mixins.interactive`.
+<p><span class="api-tier api-tier--public">Tier: Public API</span></p>
+
+:::note[Auto-generated]
+This page is rebuilt from docstrings in [`phenome.mixins.interactive`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/mixins/interactive.py).
+:::
 
 **See also:** [Visualization](/PhenoMe/advanced/api/visualization/) · [Pipeline](/PhenoMe/advanced/api/pipeline/)
 

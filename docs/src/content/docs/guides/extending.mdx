@@ -1,0 +1,80 @@
+---
+title: "Extending PhenoMe"
+description: The four places to plug in - metadata, properties, vision models, and plugin registries.
+sidebar:
+  order: 0
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Most users start by extracting metadata from paths or CSVs, or by adding
+a domain-specific property function. Pick the extension point that
+matches what you need.
+
+## Extension map
+
+<CardGrid stagger>
+  <Card title="Metadata extraction" icon="seti:csv">
+    Your file paths or layout differ from the defaults; extract
+    `condition`, `drug`, `timepoint` from paths or a CSV.
+
+    - [Experiment details](/PhenoMe/guides/experiment-details/) - overview.
+    - [Path templates](/PhenoMe/guides/experiment-details/path-templates/) -
+      folder-based parsing.
+    - [CSV lookup](/PhenoMe/guides/experiment-details/csv-lookup/).
+    - [Advanced patterns](/PhenoMe/guides/experiment-details/advanced-patterns/) -
+      regex, `MetadataBase`.
+  </Card>
+
+  <Card title="Property computation" icon="seti:graphql">
+    Add domain-specific features (morphology, intensity, texture) from
+    images and masks.
+
+    - [Custom properties - presets](/PhenoMe/guides/custom-properties/presets/) -
+      built-in factories.
+    - [Writing property functions](/PhenoMe/guides/custom-properties/writing-functions/).
+    - [Advanced recipes](/PhenoMe/guides/custom-properties/advanced-recipes/) -
+      GLCM, OpenCV, multi-channel.
+  </Card>
+
+  <Card title="Vision models" icon="seti:python">
+    Use a different architecture (for example ResNet or custom
+    transformers) or load ONNX / TensorFlow models natively.
+
+    - [Vision model wrappers](/PhenoMe/advanced/api/model-wrapper/) - subclass
+      `ModelWrapper`.
+    - [`load_dinov2_model`](/PhenoMe/advanced/api/pipeline/) -
+      reference implementation.
+  </Card>
+
+  <Card title="Plugins and registries" icon="seti:config">
+    Register named property functions, metadata extractors, or report
+    sections so other code can discover them.
+
+    - [Plugins](/PhenoMe/guides/plugins/).
+    - `register_property`, `register_metadata_extractor`,
+      `register_report_section`.
+  </Card>
+</CardGrid>
+
+## Rule of thumb
+
+Prefer **hooks** before forking internals:
+
+1. A `metadata_fn` if you need different metadata.
+2. A property function if you need different features.
+3. A `ModelWrapper` subclass if you need a different backbone.
+4. A plugin registration when you want the extension to be discoverable
+   across projects.
+
+Only modify `phenome.pipeline` or `phenome.mixins` when none of the
+above is enough; see [Architecture](/PhenoMe/guides/architecture/) for boundaries.
+
+## See also
+
+<CardGrid>
+  <LinkCard title="Architecture" description="Package layout and data flow." href={`${import.meta.env.BASE_URL}guides/architecture/`} />
+  <LinkCard title="Developer guide" description="Docstrings, Astro build, CI." href={`${import.meta.env.BASE_URL}guides/developer-guide/`} />
+  <LinkCard title="Testing" description="Ruff, mypy, interrogate before you open a PR." href={`${import.meta.env.BASE_URL}guides/testing/`} />
+  <LinkCard title="HDF5 protocol" description="Checkpoint layout for integrators." href={`${import.meta.env.BASE_URL}advanced/database_protocol/`} />
+</CardGrid>

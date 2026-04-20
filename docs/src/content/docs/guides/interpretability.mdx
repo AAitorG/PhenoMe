@@ -1,0 +1,185 @@
+---
+title: "Interpretability"
+description: Turn correlation engine output into biological hypotheses - from component correlations to LASSO-based multivariate explanations.
+sidebar:
+  order: 0
+---
+
+import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+
+PhenoMe ships a **correlation engine** that bridges abstract deep-learning
+embeddings and interpretable morphological features. When PCA, t-SNE, or
+UMAP shows interesting clusters, the engine helps answer:
+
+> "What morphological property drives this separation?"
+
+## Two correlation modes
+
+<CardGrid>
+  <Card title="Component correlation" icon="seti:graphql">
+    Correlates **principal components** (or t-SNE / UMAP coordinates) with
+    classical properties.
+
+    **Use when** you want to explain the main axes of variation.
+
+    **Example**: "PC1 correlates with eccentricity (r = 0.88)" → the main
+    separation in PCA is driven by cell elongation.
+
+    ```python
+    pheno.compute_component_correlation(method="pca")
+    ```
+  </Card>
+
+  <Card title="Embedding-property correlation" icon="seti:json">
+    Correlates **raw embedding dimensions** with classical properties.
+
+    **Use when** you want fine-grained insight into which embedding
+    dimensions encode specific traits.
+
+    **Example**: "Embedding dim 142 correlates with nuclear intensity."
+
+    ```python
+    pheno.compute_embedding_property_correlations()
+    pheno.aggregate_embedding_property_correlations()
+    ```
+  </Card>
+</CardGrid>
+
+For most users, **component correlation** is the most intuitive starting
+point.
+
+## Multivariate interpretability
+
+Univariate correlation (Pearson / Spearman) looks at one classical
+property at a time. Deep learning models often rely on **combinations**
+of features. Multivariate interpretability trains a secondary model
+(regression or random forest) to predict the embedding axis from
+**all** classical features simultaneously.
+
+### Why it matters
+
+Seeing two conditions form distinct clusters only tells you half the
+story; the critical question is *"what geometric or morphological
+rules is the black-box model using to separate them?"*
+
+Multivariate forward probing lets you translate an abstract deep
+learning axis (for example t-SNE axis 1) into a concrete, readable
+formula of classical biology.
+
+### Reading the output
+
+You get two critical pieces of information per axis:
+
+<CardGrid>
+  <Card title="Explainability score (R²)" icon="approve-check">
+    *Did the neural network find something novel, or is it just looking
+    at known classical features?*
+
+    - **High R² (e.g. 0.85)** — 85% of what the model sees along this
+      axis can be explained by standard features (size, shape, texture).
+      You successfully "opened the black box".
+    - **Low R² (e.g. 0.15)** — classical features cannot explain the
+      axis. The foundation model has likely found a sub-resolution
+      texture, novel phenotype, or hidden interaction.
+  </Card>
+
+  <Card title="Drivers (weights / importances)" icon="random">
+    Unlike univariate metrics, this shows the **combination** of features
+    acting together.
+
+    *Example:* if t-SNE axis 1 separates healthy and diseased cells, the
+    model might return `[+0.45] Eccentricity + [-0.30] Intensity Entropy` -
+    proving both elongation and nuclear texture matter.
+  </Card>
+</CardGrid>
+
+### LASSO regression (sparse linear)
+
+**LASSO** (L1-regularised regression) identifies a small subset of
+properties that linearly combine to explain the axis. It shrinks
+irrelevant properties to exactly zero weight.
+
+- **Best for**: primary drivers in a human-readable formula.
+- **Output**: an R² score and a list of weights.
+- **Example**: "t-SNE axis 1 is explained (R² = 0.85) by `[+0.65] Area,
+  [-0.42] Circularity, [+0.15] Texture Entropy`."
+
+```python
+results = pheno.compute_multivariate_interpretability(model_type="lasso")
+pheno.plot_multivariate_interpretability(results)
+```
+
+<Aside type="tip">
+Set `seed` for reproducibility of dimensionality reduction and the
+fitted model. If omitted, PhenoMe falls back to the pipeline's
+`PhenoMe(seed=...)` when set.
+</Aside>
+
+### Random forest (non-linear)
+
+**Random forest** captures non-linear relationships and interactions
+linear models miss.
+
+- **Best for**: when LASSO gives a low R² but you still suspect
+  classical properties hold the answer.
+- **Output**: R² plus non-negative feature importances.
+
+```python
+results = pheno.compute_multivariate_interpretability(model_type="random_forest")
+pheno.plot_multivariate_interpretability(results)
+```
+
+## Reading univariate correlation coefficients
+
+| r value | Meaning |
+|---------|---------|
+| r ≈ 1 | Strong positive - both increase together. |
+| r ≈ -1 | Strong negative - one increases while the other decreases. |
+| r ≈ 0 | Weak or no linear relationship. |
+
+- **r = 0.88 between PC1 and eccentricity** → moving along PC1
+  (left-to-right) corresponds to increasingly elongated cells.
+- **r = -0.75 between PC2 and area** → PC2 encodes cell size.
+
+Strong correlations (`|r| > 0.7`) suggest a clear biological story.
+Weaker correlations (`|r| < 0.5`) may indicate noise or multi-factor
+effects - that is often when multivariate interpretability becomes
+useful.
+
+## From numbers to hypotheses
+
+1. **Compute** properties and a dimensionality reduction.
+2. **Run component correlation** for each component (PC1, PC2, ...);
+   the `top_k` properties with highest `|r|` are the main drivers.
+3. **Formulate a hypothesis**: "PC1 represents cell elongation; clusters
+   along PC1 likely differ in aspect ratio."
+4. **Validate**: colour the same space by the top property to confirm -
+   `pheno.plot_pca(color_by="eccentricity")` (if eccentricity is a
+   column) or overlay property values.
+5. **Report**: include correlations in the HTML report via
+   `pheno.generate_report(include_correlations=True, top_k_features=...)`.
+
+## Choosing a correlation method
+
+| Method | Use when |
+|--------|----------|
+| **Pearson** (default) | Roughly linear relationships (size, intensity). |
+| **Spearman** | Monotonic but non-linear; robust to outliers. |
+| **Distance correlation** | Suspected non-linear dependency; Pearson is low. |
+| **Mutual information** | Any dependency, including non-monotonic. |
+
+For most morphological traits, **Pearson** is sufficient and
+GPU-accelerated. Switch to Spearman for outliers or dose-response
+curves; switch to distance correlation or mutual information when
+linear metrics miss obvious structure.
+
+- **Tutorial**: [05 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb).
+
+## See also
+
+| Topic | Document |
+|-------|----------|
+| Property definitions | [Property reference](/PhenoMe/guides/property-reference/) |
+| Custom properties | [Custom properties](/PhenoMe/guides/custom-properties/) |
+| Report with correlations | [Report API](/PhenoMe/advanced/api/report/), [Report guide](/PhenoMe/guides/report-guide/) |
+| Workflow examples | [Common workflows](/PhenoMe/workflows/#3-property-based-and-explainability-analysis) |

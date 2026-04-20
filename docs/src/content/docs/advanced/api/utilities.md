@@ -1,9 +1,16 @@
 ---
 title: "Utility functions"
-description: Device helpers, transforms, image I/O, checkpoints, file discovery.
+description: "Device helpers, transforms, image I/O, checkpoints, file discovery."
+editUrl: false
+tableOfContents:
+  maxHeadingLevel: 3
 ---
 
-Auto-generated from `phenome.utils.device`, `phenome.utils.metadata`, `phenome.io`, and `phenome.utils.transforms`.
+<p><span class="api-tier api-tier--internal">Tier: Internal API</span></p>
+
+:::note[Auto-generated]
+This page is rebuilt from docstrings in [`phenome.utils.device`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/device.py), [`phenome.utils.metadata`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/metadata.py), [`phenome.io`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/io), and [`phenome.utils.transforms`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/transforms.py).
+:::
 
 **See also:** [Model wrappers](/PhenoMe/advanced/api/model-wrapper/) · [HDF5 protocol](/PhenoMe/advanced/database_protocol/) · [Best practices](/PhenoMe/guides/best-practices/)
 
@@ -773,7 +780,7 @@ CheckpointManager.load_committed_results(
 
 <div class="api-body">
 
-Read all committed data and return a [PhenoMeResults](/PhenoMe/advanced/api/pipeline/#api-phenomeresults).
+Read all committed data and return a [PhenoMeResults](/PhenoMe/advanced/api/pipeline/#class-phenomeresults).
 
 Paths are resolved to absolute when _storage_root is available.
 

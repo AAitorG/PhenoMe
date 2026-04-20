@@ -134,6 +134,44 @@ html[data-theme="dark"] {
 }
 
 /* -----------------------------------------------------------------------------
+   Tier badges on API reference pages
+   ----------------------------------------------------------------------------- */
+.api-tier {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  line-height: 1.2;
+  border: 1px solid transparent;
+}
+
+.api-tier--public {
+  background: color-mix(in srgb, #16a34a 14%, var(--sl-color-bg));
+  color: #15803d;
+  border-color: color-mix(in srgb, #16a34a 28%, transparent);
+}
+
+.api-tier--internal {
+  background: color-mix(in srgb, #f59e0b 14%, var(--sl-color-bg));
+  color: #b45309;
+  border-color: color-mix(in srgb, #f59e0b 28%, transparent);
+}
+
+.api-tier--advanced {
+  background: color-mix(in srgb, #ef4444 14%, var(--sl-color-bg));
+  color: #b91c1c;
+  border-color: color-mix(in srgb, #ef4444 28%, transparent);
+}
+
+html[data-theme="dark"] .api-tier--public { color: #4ade80; }
+html[data-theme="dark"] .api-tier--internal { color: #fbbf24; }
+html[data-theme="dark"] .api-tier--advanced { color: #fb7185; }
+
+/* -----------------------------------------------------------------------------
    Signature + code
    ----------------------------------------------------------------------------- */
 .api-signature {

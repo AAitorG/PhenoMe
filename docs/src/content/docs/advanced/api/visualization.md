@@ -1,9 +1,15 @@
 ---
 title: "Visualization"
-description: PCA, t-SNE, UMAP, plots, distance distributions, correlations.
+description: "PCA, t-SNE, UMAP, plots, distance distributions, correlations."
+editUrl: false
+tableOfContents:
+  maxHeadingLevel: 3
 ---
 
-Auto-generated from docstrings in `phenome.mixins.visualization._core` (`PhenoMeVisualization`). Rebuild with `npm run prebuild` in `docs/`.
+<p><span class="api-tier api-tier--public">Tier: Public API</span></p>
+
+:::note[Auto-generated]
+This page is rebuilt from docstrings in [`phenome.mixins.visualization._core`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/mixins/visualization/_core.py) (class `PhenoMeVisualization`).:::
 
 **See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/) · [Distances](/PhenoMe/advanced/api/distances/) · [Concepts](/PhenoMe/concepts/)
 
@@ -429,7 +435,7 @@ the target embedding dimension.
 
 **Args:**
 
-- **`results`**: Output dict from [compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenome-compute_multivariate_interpretability)
+- **`results`**: Output dict from [compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability)
   (must include ``drivers``, ``r2``, ``method``, ``target_component``,
   ``model_type``).
 - **`top_k`**: Number of top driving features to show in the plot.

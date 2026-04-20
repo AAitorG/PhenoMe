@@ -39,7 +39,7 @@ Use GitHub **Issues** with label `documentation` when possible. Include:
 
 - [ ] `npm run build` succeeds under `docs/`
 - [ ] New public API has docstrings (interrogate)
-- [ ] Spot-check generated pages under [Reference / API](/PhenoMe/advanced/api/pipeline/)
+- [ ] Spot-check [Pipeline API](/PhenoMe/advanced/api/pipeline/) (generated)
 
 ---
 
@@ -47,4 +47,4 @@ Use GitHub **Issues** with label `documentation` when possible. Include:
 
 - Prefer **clear headings** and short paragraphs.
 - Use **code fences** with language tags for Python and shell.
-- Avoid duplicating long signatures; link to [generated API](/PhenoMe/advanced/api/pipeline/) or [reference overview](/PhenoMe/advanced/) instead.
+- Avoid duplicating long signatures; link to [Pipeline API](/PhenoMe/advanced/api/pipeline/) or [API & data formats](/PhenoMe/advanced/) instead.

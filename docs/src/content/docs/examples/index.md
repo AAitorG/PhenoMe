@@ -10,7 +10,7 @@ Short **patterns** that map common studies to PhenoMe docs and notebooks. Use th
 
 **Goal:** Compare treatments and doses; color plots and reports by compound and concentration.
 
-- **Metadata:** CSV with `filename`, `compound`, `concentration_uM`, optional `plate`, `well`. See [Experiment details — CSV](/PhenoMe/guides/experiment-details/#2-using-a-csv-or-spreadsheet).
+- **Metadata:** CSV with `filename`, `compound`, `concentration_uM`, optional `plate`, `well`. See [Experiment details — CSV lookup](/PhenoMe/guides/experiment-details/csv-lookup/).
 - **Workflow:** [Notebook 03 — Core workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb) then [Notebook 05](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb).
 - **Distances / references:** [Distances API](/PhenoMe/advanced/api/distances/), [Workflows](/PhenoMe/workflows/).
 

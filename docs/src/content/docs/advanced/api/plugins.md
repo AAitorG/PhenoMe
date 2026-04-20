@@ -1,9 +1,15 @@
 ---
 title: "Plugins and registry"
-description: register_property, metadata extractors, report sections.
+description: "register_property, metadata extractors, report sections."
+editUrl: false
+tableOfContents:
+  maxHeadingLevel: 3
 ---
 
-Auto-generated from `phenome.plugins`. Rebuild with `npm run prebuild` in `docs/`.
+<p><span class="api-tier api-tier--internal">Tier: Internal API</span></p>
+
+:::note[Auto-generated]
+This page is rebuilt from docstrings in [`phenome.plugins`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/plugins.py) (module).:::
 
 **See also:** [Plugins guide](/PhenoMe/guides/plugins/) · [Properties](/PhenoMe/advanced/api/properties/)
 

@@ -1,22 +1,16 @@
 ---
-title: "Property Reference"
+title: "Property reference"
+description: Dictionary of the built-in properties PhenoMe computes, what each one measures, and when to use it.
+sidebar:
+  order: 0
 ---
 
-What each built-in property measures and how to interpret it. Use this to understand your results and choose the right properties for your analysis.
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Shape Properties (from mask)](#shape-properties-from-mask)
-3. [Intensity Properties](#intensity-properties)
-4. [Concentric Ring Properties](#concentric-ring-properties)
-5. [Texture Properties (GLCM)](#texture-properties-glcm)
-6. [Image Quality Properties](#image-quality-properties)
-7. [Choosing Properties](#choosing-properties)
-
----
+:::tip
+**Start with `property_preset="basic"`.** It gives a sensible mix of
+shape (mask-based) and intensity features for almost any dataset and is
+the preset used in the notebooks.
+:::
 
 ## Overview
 
@@ -122,12 +116,12 @@ Gray Level Co-occurrence Matrix (Haralick) features. Require both image and mask
 
 ---
 
-## See Also
+## See also
 
 | Topic | Document |
 |-------|----------|
-| Writing custom functions | [Custom Properties](/PhenoMe/guides/custom-properties/) |
-| Extension points | [Extending the Pipeline](/PhenoMe/guides/extending/) |
-| API reference | [compute_properties](/PhenoMe/advanced/api/pipeline/#compute_properties) |
-| Concepts overview | [Metadata and Properties](/PhenoMe/concepts/#metadata-and-properties) |
-| Workflow examples | [Common Workflows: Property-Based](/PhenoMe/workflows/#property-based-analysis) |
+| Writing custom functions | [Custom properties](/PhenoMe/guides/custom-properties/) |
+| Extension points | [Extending PhenoMe](/PhenoMe/guides/extending/) |
+| API reference | [`compute_properties`](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties) |
+| Concepts overview | [Metadata and properties](/PhenoMe/concepts/#metadata-and-properties) |
+| Workflow examples | [Common workflows](/PhenoMe/workflows/#3-property-based-and-explainability-analysis) |

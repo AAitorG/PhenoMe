@@ -1,9 +1,15 @@
 ---
 title: "Report generation"
-description: ReportConfig and generate_report standalone API.
+description: "ReportConfig and generate_report standalone API."
+editUrl: false
+tableOfContents:
+  maxHeadingLevel: 3
 ---
 
-Auto-generated from `phenome.report.generator`. Rebuild with `npm run prebuild` in `docs/`.
+<p><span class="api-tier api-tier--public">Tier: Public API</span></p>
+
+:::note[Auto-generated]
+This page is rebuilt from docstrings in [`phenome.report.generator`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/report/generator.py) (module).:::
 
 **See also:** [Pipeline generate_report](/PhenoMe/advanced/api/pipeline/)
 

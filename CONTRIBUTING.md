@@ -100,7 +100,7 @@ Quick reference for maintainers: which file to edit for each type of change.
 | Add/change dependencies | `pyproject.toml` → `[project].dependencies` or `[project.optional-dependencies]` |
 | Update conda environment | `envs/environment-cpu.yml` / `envs/environment-gpu.yml` – adjust pins under `dependencies:` / `pip:` |
 | Update pip pins | `envs/requirements-base.txt` (shared); `torch` / index in `envs/requirements-cpu.txt` / `envs/requirements-gpu.txt` |
-| Document a new API | Docstrings in `phenome/` (generated pages) and/or narrative `docs/src/content/docs/reference/api/` |
+| Document a new API | Docstrings in `phenome/` (generated pages) and/or narrative `docs/src/content/docs/advanced/api/` |
 | Add a guide or tutorial | `docs/src/content/docs/guides/` or `docs/src/content/docs/examples/` |
 | Record a release | `CHANGELOG.md` – move [Unreleased] items under `[X.Y.Z] – YYYY-MM-DD` |
 | Change lint/format rules | `pyproject.toml` → `[tool.ruff]`, `[tool.mypy]` |
@@ -111,7 +111,7 @@ Open an issue on GitHub for questions or discussions.
 
 ## Updating API Documentation
 
-The API reference pages (in `docs/src/content/docs/reference/api/`) are **auto-generated** from Python docstrings. To update them:
+The API reference pages (in `docs/src/content/docs/advanced/api/`) are **auto-generated** from Python docstrings. To update them:
 
 1. **Edit docstrings** in `phenome/` source files (e.g., `phenome/pipeline.py`, `phenome/mixins/visualization.py`)
 2. **Test locally** (optional, to preview changes):
@@ -126,7 +126,7 @@ The API reference pages (in `docs/src/content/docs/reference/api/`) are **auto-g
    - Builds the Astro site
    - Deploys to GitHub Pages (~2-3 minutes)
 
-**Important**: Do NOT manually edit files in `docs/src/content/docs/reference/api/` – they are regenerated on each build. Edit the Python docstrings instead.
+**Important**: Do NOT manually edit files in `docs/src/content/docs/advanced/api/` – they are regenerated on each build. Edit the Python docstrings instead.
 
 You can add optional metadata to docstrings to control section organization:
 ```python

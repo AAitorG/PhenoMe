@@ -1,9 +1,16 @@
 ---
 title: "PhenoMe API Reference"
-description: Main orchestrator — data, properties, analysis, reporting.
+description: "Main orchestrator — data, properties, analysis, reporting."
+editUrl: false
+tableOfContents:
+  maxHeadingLevel: 3
 ---
 
-Auto-generated from `phenome.pipeline`, mixins, and `phenome.core.pipeline_results`. Rebuild with `npm run prebuild` in `docs/`.
+<p><span class="api-tier api-tier--public">Tier: Public API</span></p>
+
+:::note[Auto-generated]
+This page is rebuilt from docstrings in [`phenome.pipeline`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/pipeline.py), the mixins under [`phenome.mixins`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/mixins), and [`phenome.core.pipeline_results`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/core/pipeline_results.py).
+:::
 
 **See also:** [Getting started](/PhenoMe/getting-started/) · [Concepts](/PhenoMe/concepts/) · [Visualization](/PhenoMe/advanced/api/visualization/) · [Distances](/PhenoMe/advanced/api/distances/) · [Model wrappers](/PhenoMe/advanced/api/model-wrapper/)
 
@@ -663,6 +670,11 @@ More reliable than relying on __del__ for cleanup. Use when you need to
 ensure the HDF5 file handle is released (e.g. before moving or deleting
 the file, or when opening multiple checkpoints in sequence).
 
+**Embeddings:** While the context is open, lazy embeddings are read from the
+HDF5 file via ``get_embeddings()``. After exit, ``self._db`` is closed and
+``results.embeddings`` remains ``None``; call ``load_results(..., lazy_checkpoint=True)``
+again (or another ``checkpoint_context``) before using ``get_embeddings()``.
+
 **Example:**
 
 ```python
@@ -877,7 +889,7 @@ Group property DataFrame and compute per-group statistics.
 
 Uses `_build_properties_dataframe` from computed
 ``results.properties`` and metadata (same source as
-[compute_properties](/PhenoMe/advanced/api/pipeline/#api-phenome-compute_properties)).
+[compute_properties](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties)).
 
 **Args:**
 
@@ -1020,7 +1032,7 @@ PhenoMeAnalysis.compute_clustering(
 
 <div class="api-body">
 
-Perform clustering and store labels as property ``'cluster'``.
+Perform clustering and store labels in ``metadata[i]['cluster']`` for each image.
 
 **Args:**
 
@@ -1697,7 +1709,7 @@ the target embedding dimension.
 
 **Args:**
 
-- **`results`**: Output dict from [compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenome-compute_multivariate_interpretability)
+- **`results`**: Output dict from [compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability)
   (must include ``drivers``, ``r2``, ``method``, ``target_component``,
   ``model_type``).
 - **`top_k`**: Number of top driving features to show in the plot.

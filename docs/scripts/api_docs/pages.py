@@ -17,15 +17,59 @@ from .rendering import (
 from .signatures import callable_sig_str
 from .sorting import member_sort_key, section_rank
 
+_GITHUB_BLOB = "https://github.com/AAitorG/PhenoMe/blob/main"
+
+_TIER_LABELS: dict[str, tuple[str, str]] = {
+    # (human label, CSS-friendly variant name)
+    "public": ("Public API", "public"),
+    "internal": ("Internal API", "internal"),
+    "advanced": ("Advanced API", "advanced"),
+}
+
 
 def _frontmatter(title: str, description: str) -> list[str]:
+    # Escape any embedded double quotes so the YAML stays valid.
+    safe_title = title.replace('"', '\\"')
+    safe_desc = description.replace('"', '\\"')
     return [
         "---",
-        f'title: "{title}"',
-        f"description: {description}",
+        f'title: "{safe_title}"',
+        f'description: "{safe_desc}"',
+        "editUrl: false",
+        "tableOfContents:",
+        "  maxHeadingLevel: 3",
         "---",
         "",
     ]
+
+
+def _tier_badge(tier: str) -> str:
+    """Render a tier badge as inline HTML.
+
+    ``tier`` maps to the Public/Internal/Advanced bucket used in
+    :doc:`function-location-guide`. Unknown tiers fall back to ``public``.
+    """
+    label, variant = _TIER_LABELS.get(tier, _TIER_LABELS["public"])
+    return f'<p><span class="api-tier api-tier--{variant}">Tier: {label}</span></p>'
+
+
+def _source_link(module_name: str) -> str:
+    """Return a GitHub permalink to the module source file.
+
+    Used in the auto-generated pages to point readers at the docstrings
+    they should edit to change the page.
+    """
+    if not module_name:
+        return ""
+    rel = module_name.replace(".", "/")
+    return f"{_GITHUB_BLOB}/{rel}.py"
+
+
+def _generated_note(module_name: str, what: str) -> str:
+    """Consistent "this page is generated" banner."""
+    src = _source_link(module_name)
+    link = f"[`{module_name}`]({src})" if src else f"`{module_name}`"
+    return f":::note[Auto-generated]\nThis page is rebuilt from docstrings in {link} ({what}).:::"
 
 
 def _related_line(related: tuple[tuple[str, str], ...] | None) -> list[str]:
@@ -87,10 +131,9 @@ def render_class_page(spec: Any) -> str:
     mod_name = mod.__name__ if mod else ""
 
     parts: list[str] = _frontmatter(spec.title, spec.description)
-    parts.append(
-        f"Auto-generated from docstrings in `{mod_name}` "
-        f"(`{cls.__name__}`). Rebuild with `npm run prebuild` in `docs/`."
-    )
+    parts.append(_tier_badge(spec.tier))
+    parts.append("")
+    parts.append(_generated_note(mod_name, f"class `{cls.__name__}`"))
     parts.append("")
     parts.extend(_related_line(spec.related))
     if spec.intro_extra:
@@ -143,7 +186,9 @@ def render_multi_class_page(spec: Any) -> str:
     page_class_names = {name for name, _ in classes}
 
     parts: list[str] = _frontmatter(spec.title, spec.description)
-    parts.append(f"Auto-generated from `{src.module}`. Rebuild with `npm run prebuild` in `docs/`.")
+    parts.append(_tier_badge(spec.tier))
+    parts.append("")
+    parts.append(_generated_note(src.module, "multiple classes"))
     parts.append("")
     parts.extend(_related_line(spec.related))
 
@@ -205,7 +250,9 @@ def render_module_page(spec: Any) -> str:
     src: ModuleSource = spec.source
     module = import_module(src.module)
     parts: list[str] = _frontmatter(spec.title, spec.description)
-    parts.append(f"Auto-generated from `{src.module}`. Rebuild with `npm run prebuild` in `docs/`.")
+    parts.append(_tier_badge(spec.tier))
+    parts.append("")
+    parts.append(_generated_note(src.module, "module"))
     parts.append("")
     parts.extend(_related_line(spec.related))
 
@@ -290,6 +337,8 @@ def render_compound_page(spec: Any) -> str:
     src: CompoundSource = spec.source
 
     parts: list[str] = _frontmatter(spec.title, spec.description)
+    parts.append(_tier_badge(spec.tier))
+    parts.append("")
     if src.header_note:
         parts.append(src.header_note)
         parts.append("")

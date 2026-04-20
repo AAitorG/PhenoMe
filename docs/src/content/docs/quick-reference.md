@@ -98,5 +98,5 @@ See [Property Reference](/PhenoMe/guides/property-reference/#choosing-properties
 | Explain embedding axes with properties | [Interpretability Guide](/PhenoMe/guides/interpretability/) |
 | Generate an HTML report | [Report](/PhenoMe/advanced/api/report/) · [Report Guide](/PhenoMe/guides/report-guide/) |
 | Explore interactively in Jupyter | [Interactive Explorer](/PhenoMe/advanced/api/interactive/) |
-| Explore new images without re-running full processing | [Temporal Images](/PhenoMe/workflows/#temporal-images-explore-new-data-in-memory) |
+| Explore new images without re-running full processing | [Temporal Images](/PhenoMe/workflows/#5-temporal-images-in-memory-exploration) |
 | See end-to-end workflows | [Common Workflows](/PhenoMe/workflows/) |

@@ -1,0 +1,132 @@
+---
+title: "Data setup"
+description: Organise images, masks, and metadata so plots, distances, and reports are meaningful.
+sidebar:
+  order: 0
+---
+
+import { FileTree, Aside, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+
+A short, decision-oriented tour of how PhenoMe expects images, masks,
+and **metadata** (experiment details) to be organised.
+
+## 1. Do I need metadata?
+
+| You need... | Setup |
+|-------------|-------|
+| Just embeddings / properties per file | Flat folder + default metadata is enough. |
+| Plots, distances, or reports split by biology (drug, dose, time, plate, well) | Add a **path template**, **CSV**, or **custom function**. |
+
+<Aside type="tip">
+Start with a small subset of your data and confirm the metadata keys
+show up with `pheno.get_available_metadata_keys()` before processing
+the full dataset.
+</Aside>
+
+## 2. Simple layouts
+
+### Flat folder
+
+<FileTree>
+- images/
+  - img001.tif
+  - img002.tif
+</FileTree>
+
+```python
+pheno.find_files("images/")
+```
+
+Default metadata includes path and filename. Add a template or CSV when
+you need `condition`, `drug`, etc.
+
+### One level of grouping
+
+<FileTree>
+- data/
+  - Control/
+    - a.tif
+  - Treated/
+    - b.tif
+</FileTree>
+
+Use a **path template** (see
+[Experiment details - path templates](/PhenoMe/guides/experiment-details/path-templates/)):
+
+```python
+from phenome import get_metadata_from_path
+
+metadata_fn = get_metadata_from_path(".../(condition)/(filename).*")
+pheno.find_files("data", metadata_fn=metadata_fn)
+```
+
+## 3. CSV or spreadsheet metadata
+
+Use when labels live in a table.
+
+1. Folder scan lists **real image files**.
+2. Each file is matched to a CSV row (usually by **filename**).
+3. **Only the overlap** is kept - files without a row are skipped by
+   default; extra CSV rows are ignored.
+
+Details and `on_missing_metadata`:
+[Experiment details - CSV lookup](/PhenoMe/guides/experiment-details/csv-lookup/).
+
+```python
+import pandas as pd
+from phenome import make_dataframe_metadata_fn
+
+df = pd.read_csv("metadata.csv")
+metadata_fn = make_dataframe_metadata_fn(df)
+pheno.find_files("images/", metadata_fn=metadata_fn)
+```
+
+## 4. Masks alongside images
+
+If properties need masks, configure **mask discovery** when calling
+`find_files` (see
+[Experiment details - mask discovery](/PhenoMe/guides/experiment-details/mask-discovery/)).
+
+A typical layout is a parallel mask tree:
+
+<FileTree>
+- project/
+  - images/
+    - plate1/
+      - A01.tif
+      - A02.tif
+  - masks/
+    - plate1/
+      - A01.tif
+      - A02.tif
+</FileTree>
+
+```python
+pheno.find_files("images", mask_dir="masks")
+```
+
+## 5. Common study designs
+
+| Design | Suggested metadata approach | See also |
+|--------|------------------------------|----------|
+| Drug screening (plate + compound + dose) | CSV with `filename`, `compound`, `concentration_uM`, `plate`, `well`. | [Examples](/PhenoMe/examples/) |
+| Time course (same field over time) | Path template `(timepoint)/(filename).*` or CSV. | [Workflows](/PhenoMe/workflows/) |
+| Multi-replicate | Include `replicate` in CSV or path. | [Best practices - data organization](/PhenoMe/guides/best-practices/data-organization/) |
+
+## 6. Troubleshooting
+
+| Problem | What to check |
+|---------|---------------|
+| `plot_pca(color_by='condition')` fails | Column exists on `file_df` - run `pheno.get_available_metadata_keys()`. |
+| CSV row count != image count | Overlap behaviour - [FAQ](/PhenoMe/faq/#data-and-metadata). |
+| Filter returns no images | Exact string match and keys - [Best practices - data organization](/PhenoMe/guides/best-practices/data-organization/). |
+| Masks not found | `mask_dir` and naming - [Experiment details - mask discovery](/PhenoMe/guides/experiment-details/mask-discovery/). |
+
+## Go deeper
+
+<CardGrid>
+  <LinkCard title="Experiment details (metadata)" description="Full metadata patterns, CSV lookup, advanced recipes." href={`${import.meta.env.BASE_URL}guides/experiment-details/`} />
+  <LinkCard title="Metadata API" description="Classes for unique IDs, mask resolution, and centralised config." href={`${import.meta.env.BASE_URL}advanced/api/metadata/`} />
+  <LinkCard title="Notebook 04 - metadata" description="Runnable example with nested directories and CSV joins." href="https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb" />
+</CardGrid>

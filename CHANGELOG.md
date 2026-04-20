@@ -22,6 +22,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- `prepare_embedding_dataframe` unions property keys across rows (not only row 0)
+- TorchDR→CPU fallback only on likely GPU/transient failures; `ValueError` always propagates; integer `random_state` for TorchDR PCA/TSNE/UMAP
+- Pearson correlation: constant `x` columns yield NaN; 1D result is always a length-1 `ndarray`
+- Checkpoint alignment: strict `zip` for metadata vs paths; duplicate path/key warnings; `path_repr` preserves multi-channel order; NIfTI detection limited to `.nii` / `.nii.gz`
+- `EmbeddingExtractor` checkpoint `embedding_dim` from last feature dimension with 2D requirement
+- `build_export_dataframe` skips misaligned `distances` with a warning
+- Centroid reference distances batched to reduce GPU OOM risk
 - Logging in Jupyter: validation and DR modules now respect the package logger configuration
 
 ## [1.1.0] – 2026-03
