@@ -32,11 +32,18 @@ pheno.find_files("data", metadata_fn=metadata_fn)
 
 ## Template rules
 
+A template matches a file path from right to left. You choose the names of
+the tokens in parentheses—they become the column names in your results.
+
 | Token | Meaning |
 |-------|---------|
 | `...` | Matches any parent folders you do not care about. |
 | `(name)` | Captures a path segment into the `name` metadata field. |
 | `.*` | Matches any file extension. |
+
+For example, `(drug)` or `(condition)` are common choices. Avoid spaces
+inside the parentheses and keep names consistent across your experiments,
+as downstream filters are case-sensitive.
 
 ## Multiple levels
 
@@ -47,6 +54,14 @@ metadata_fn = get_metadata_from_path(
     ".../(plate)/(drug)/(time)/(filename).*"
 )
 ```
+
+## Common mistakes
+
+| Mistake | Why it fails | Correct version |
+|---------|--------------|-----------------|
+| `(drug)/(filename)` | Missing `.../` to match parents. | `.../(drug)/(filename).*` |
+| `.../(drug)/img.tif` | Hardcoded filename; matches one file. | `.../(drug)/(filename).*` |
+| `(drug)/(drug)/(filename)` | Duplicate key `drug`. | `(plate)/(drug)/(filename).*` |
 
 ## When path templates are not enough
 

@@ -25,12 +25,7 @@ A GPU is **strongly recommended** for reasonable speed. The pipeline works on CP
 
 ### How do I verify the install?
 
-```python
-from phenome import PhenoMe
-print("PhenoMe is ready!", PhenoMe)
-```
-
-See [Getting started](/PhenoMe/getting-started/).
+See the verification steps in [Getting started — Installation](/PhenoMe/getting-started/#2-installation).
 
 ### Do I need masks?
 
@@ -108,7 +103,7 @@ The correlation engine links embedding dimensions (or PCA/UMAP components) to cl
 - **Split**: Fluorescence images with distinct channels (DAPI, GFP, etc.). Each channel is processed separately.
 - **Combined**: Brightfield, phase contrast, or RGB images. Channels are treated as a single color image.
 
-See [Core concepts - channel modes](/PhenoMe/concepts/#channel-modes).
+See [Core concepts — channel modes](/PhenoMe/concepts/channel-modes/).
 
 ### Which property preset should I use?
 

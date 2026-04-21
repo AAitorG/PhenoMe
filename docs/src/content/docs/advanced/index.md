@@ -31,36 +31,11 @@ in the same build step from live `phenome` exports (`docs/scripts/api_docs/funct
 It lists top-level imports, `PhenoMe` methods, and submodule exports with tier badges (public /
 advanced / internal) and deep links into the API pages above.
 
-## 5-Step Workflow
+## Getting started
 
-1. **Setup**: Load model and create pipeline
-2. **Find files**: Discover images and metadata
-3. **Process**: Extract embeddings from images
-4. **Properties** (optional): Compute image/mask features
-5. **Analyze & visualize**: Distances, plots, reports
-
----
-
-### Quick Example
-
-```python
-from phenome import PhenoMe, load_dinov2_model
-
-wrapper = load_dinov2_model()
-pheno = PhenoMe()  # pass device=torch.device("cuda") and seed=42 as needed
-
-file_df = pheno.find_files("path/to/images")
-
-pheno.process_images(wrapper)
-
-pheno.compute_properties(property_preset='basic')
-
-distance_results = pheno.compute_reference_distances(
-    reference_filters={'condition': 'Control'},
-    source='embeddings'
-)
-pheno.plot_pca(color_by='condition')
-```
+For a walkthrough of the complete pipeline, installation, and a first analysis, see the
+[Getting started guide](/PhenoMe/getting-started/). For an overview of the core concepts,
+see [Core concepts](/PhenoMe/concepts/).
 
 ## Extending the pipeline
 

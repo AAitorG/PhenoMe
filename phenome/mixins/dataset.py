@@ -181,6 +181,18 @@ def collate_fn(batch: list[Any]) -> Any:
     # Check if first image is a list (split mode) or tensor/array (combined mode)
     if isinstance(images[0], list):
         # Split mode: images is tuple of lists
+        # Ensure all items in the batch have the same number of channels by padding with zero tensors if needed
+        max_ch = max(len(imgs) for imgs in images)
+        if any(len(imgs) != max_ch for imgs in images):
+            new_images = []
+            for imgs in images:
+                if len(imgs) < max_ch:
+                    # Pad with zeros
+                    pad_val = torch.zeros_like(imgs[0])
+                    imgs = imgs + [pad_val] * (max_ch - len(imgs))
+                new_images.append(imgs)
+            images = tuple(new_images)
+
         stacked_per_item = [torch.stack(imgs) for imgs in images]
         batch_tensor = torch.stack(stacked_per_item)  # (B, N_ch, C, H, W)
     else:

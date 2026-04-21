@@ -79,10 +79,11 @@ pip install -r requirements.txt -e .
 pip install -r envs/requirements-gpu.txt -e .
 ```
 
+> **Full instructions, verification, and troubleshooting:**
+> See the [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) guide for GPU setup details, verification commands, and first-analysis walkthroughs.
+
 > **Note:**
 > From the repository root, `requirements.txt` acts as a convenient alias to `envs/requirements-cpu.txt` for CPU-oriented environments. On **Windows**, `pykeops` is gracefully omitted.
->
-> See [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) for GPU setup details, verification commands, and first-analysis walkthroughs.
 
 ---
 
@@ -96,7 +97,7 @@ pip install -r envs/requirements-gpu.txt -e .
 
 | Step | Link |
 |------|------|
-| 1. Install | [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) · [Quick start card](https://AAitorG.github.io/PhenoMe/quick-start-card/) |
+| 1. Install | [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) |
 | 2. Set up your data | [Data setup](https://AAitorG.github.io/PhenoMe/guides/data-setup/) · [Experiment details](https://AAitorG.github.io/PhenoMe/guides/experiment-details/) |
 | 3. Tutorials | [Notebooks/tutorials/](Notebooks/tutorials/) (start with **01**, then **02**–**03**) · [Learning paths](https://AAitorG.github.io/PhenoMe/user-paths/) |
 

@@ -123,5 +123,5 @@ Gray Level Co-occurrence Matrix (Haralick) features. Require both image and mask
 | Writing custom functions | [Custom properties](/PhenoMe/guides/custom-properties/) |
 | Extension points | [Extending PhenoMe](/PhenoMe/guides/extending/) |
 | API reference | [`compute_properties`](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties) |
-| Concepts overview | [Metadata and properties](/PhenoMe/concepts/#metadata-and-properties) |
+| Concepts overview | [Metadata and properties](/PhenoMe/concepts/metadata-and-properties/) |
 | Workflow examples | [Common workflows](/PhenoMe/workflows/#3-property-based-and-explainability-analysis) |

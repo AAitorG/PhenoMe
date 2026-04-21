@@ -430,8 +430,10 @@ class PhenoMeInteractive:
         # Shallow copies: when set, DR always uses these instead of UI widget state.
         self._constructor_filters: dict | None = dict(filters) if filters else None
         self._constructor_exclude: dict | None = dict(exclude) if exclude else None
-        self.initial_filters = filters
-        self.initial_exclude = exclude
+        self.initial_filters = dict(filters) if filters else {}
+        self.initial_exclude = dict(exclude) if exclude else {}
+        self._ui_filters = dict(filters) if filters else {}
+        self._ui_exclude = dict(exclude) if exclude else {}
         self.hover_features = hover_features
         self.max_points = max_points
 
@@ -539,6 +541,8 @@ class PhenoMeInteractive:
         self._update_color_options()
         self._update_highlight_key_options()
         self._update_filter_exclude_options()
+        self._update_filter_summary()
+        self._update_exclude_summary()
 
         # Setup callbacks
         self._setup_callbacks()
@@ -573,6 +577,8 @@ class PhenoMeInteractive:
         self._update_color_options()
         self._update_highlight_key_options()
         self._update_filter_exclude_options()
+        self._update_filter_summary()
+        self._update_exclude_summary()
 
         # --- Accordion panels: controls in rows with wrap for better horizontal use of space ---
         _row_layout = widgets.Layout(
@@ -994,44 +1000,72 @@ class PhenoMeInteractive:
             layout=widgets.Layout(width="100%", gap="8px"),
         )
         self.filter_clear_btn = widgets.Button(
-            description="Clear filter",
+            description="Clear All",
             button_style="warning",
-            icon="times",
-            layout=widgets.Layout(width="130px"),
+            icon="trash",
+            layout=widgets.Layout(width="110px"),
+            tooltip="Clear all active filters",
         )
+        self.filter_add_btn = widgets.Button(
+            description="Add Filter",
+            button_style="info",
+            icon="plus",
+            layout=widgets.Layout(width="110px"),
+            tooltip="Add currently selected values to filters",
+        )
+        self.filter_summary = widgets.HTML(
+            value='<div style="font-size:11px; color:#64748B;"><i>No active filters</i></div>',
+            layout=widgets.Layout(width="100%", padding="4px 0"),
+        )
+
         self.exclude_clear_btn = widgets.Button(
-            description="Clear exclude",
+            description="Clear All",
             button_style="warning",
-            icon="times",
-            layout=widgets.Layout(width="130px"),
+            icon="trash",
+            layout=widgets.Layout(width="110px"),
+            tooltip="Clear all active exclusions",
         )
+        self.exclude_add_btn = widgets.Button(
+            description="Add Exclude",
+            button_style="info",
+            icon="plus",
+            layout=widgets.Layout(width="110px"),
+            tooltip="Add currently selected values to exclusions",
+        )
+        self.exclude_summary = widgets.HTML(
+            value='<div style="font-size:11px; color:#64748B;"><i>No active exclusions</i></div>',
+            layout=widgets.Layout(width="100%", padding="4px 0"),
+        )
+
         self._filter_accordion_panel = widgets.VBox(
             [
                 self._filter_help,
                 self._filter_include_block,
                 widgets.HBox(
-                    [self.filter_clear_btn],
-                    layout=widgets.Layout(
-                        width="100%",
-                        padding="4px 0 0 70px",
-                    ),
+                    [self.filter_add_btn, self.filter_clear_btn],
+                    layout=widgets.Layout(width="100%", gap="8px", padding="4px 0 0 70px"),
                 ),
+                widgets.HTML(
+                    '<div style="font-size:10px;font-weight:600;color:#334155;margin-top:8px;">Active Filters:</div>'
+                ),
+                self.filter_summary,
             ],
-            layout=widgets.Layout(width="100%", gap="10px", padding="10px 12px 12px 12px"),
+            layout=widgets.Layout(width="100%", gap="4px", padding="10px 12px 12px 12px"),
         )
         self._exclude_accordion_panel = widgets.VBox(
             [
                 self._exclude_help,
                 self._filter_exclude_block,
                 widgets.HBox(
-                    [self.exclude_clear_btn],
-                    layout=widgets.Layout(
-                        width="100%",
-                        padding="4px 0 0 70px",
-                    ),
+                    [self.exclude_add_btn, self.exclude_clear_btn],
+                    layout=widgets.Layout(width="100%", gap="8px", padding="4px 0 0 70px"),
                 ),
+                widgets.HTML(
+                    '<div style="font-size:10px;font-weight:600;color:#334155;margin-top:8px;">Active Exclusions:</div>'
+                ),
+                self.exclude_summary,
             ],
-            layout=widgets.Layout(width="100%", gap="10px", padding="10px 12px 12px 12px"),
+            layout=widgets.Layout(width="100%", gap="4px", padding="10px 12px 12px 12px"),
         )
         self._embedding_filter_accordion = widgets.Accordion(
             children=[self._filter_accordion_panel],
@@ -1161,7 +1195,9 @@ class PhenoMeInteractive:
         self.exclude_search_input.observe(self._on_exclude_search_changed, names="value")
         self.exclude_value_select.observe(self._on_exclude_value_changed, names="value")
         self.filter_clear_btn.on_click(self._on_filter_clear_clicked)
+        self.filter_add_btn.on_click(self._on_filter_add_clicked)
         self.exclude_clear_btn.on_click(self._on_exclude_clear_clicked)
+        self.exclude_add_btn.on_click(self._on_exclude_add_clicked)
         self.highlight_key_dropdown.observe(self._on_highlight_key_changed, names="value")
         self.highlight_search_input.observe(self._on_highlight_search_changed, names="value")
         self.highlight_value_select.observe(self._on_highlight_value_changed, names="value")
@@ -1246,6 +1282,56 @@ class PhenoMeInteractive:
         if hasattr(self.pheno, "get_available_property_keys"):
             cols.extend(self.pheno.get_available_property_keys())
         cols = sorted(set(cols))
+
+        # Filter out non-informative columns (all NaNs, all same, or unique per row)
+        informative_cols = []
+        results = self.pheno.results
+        n_total = results.n_images
+
+        # Pre-build a mini-dataframe for quick checking if possible, or just sample/scan
+        # For small-ish datasets, we can check everything. For large ones, we might want to sample.
+        # But here we just want to avoid obviously bad columns.
+        for col in cols:
+            vals = []
+            # Check metadata
+            is_meta = col in get_all_metadata_keys(results)
+            if is_meta:
+                for i in range(min(n_total, 1000)):  # Check first 1000 for efficiency
+                    meta = results.metadata[i]
+                    if isinstance(meta, dict):
+                        v = get_metadata_value_from_dict(meta, col)
+                        if v is not None:
+                            vals.append(v)
+            else:
+                # Check properties
+                for i in range(min(n_total, 1000)):
+                    props = results.properties[i]
+                    if isinstance(props, dict):
+                        v = props.get(col)
+                        if v is not None and not (
+                            isinstance(v, (float, np.floating)) and np.isnan(v)
+                        ):
+                            vals.append(v)
+
+            if not vals:
+                continue
+
+            unique_vals = set(vals)
+            if len(unique_vals) <= 1:
+                # All same or all None/NaN
+                continue
+
+            # Unique per row (like id, filename)
+            if (
+                len(unique_vals) > n_total * 0.9
+                and n_total > 10
+                and col.lower() in ("id", "filename", "file_path", "path", "index")
+            ):
+                continue
+
+            informative_cols.append(col)
+
+        cols = sorted(informative_cols)
         self.color_dropdown.options = cols
 
         # Set sensible default
@@ -1317,13 +1403,29 @@ class PhenoMeInteractive:
         return sorted(set(all_vals), key=str)
 
     def _sync_embed_filters_from_widgets(self) -> None:
-        """Set ``initial_filters`` / ``initial_exclude`` from widgets or constructor overrides."""
+        """Set ``initial_filters`` / ``initial_exclude`` from UI state or constructor overrides."""
+        # Start with current UI multi-filter dictionaries
+        ui_filters = dict(self._ui_filters) if self._ui_filters else None
+        ui_exclude = dict(self._ui_exclude) if self._ui_exclude else None
+
+        # Also add current temporary selection in the dropdown/SelectMultiple
+        # (if not already added via Add Filter button)
         fk = self.filter_key_dropdown.value
         fv = list(self.filter_value_select.value)
-        ui_filters = None if fk is None or not fv else {fk: fv}
+        if fk and fv:
+            if ui_filters is None:
+                ui_filters = {}
+            if fk not in ui_filters:
+                ui_filters[fk] = fv
+
         ek = self.exclude_key_dropdown.value
         ev = list(self.exclude_value_select.value)
-        ui_exclude = None if ek is None or not ev else {ek: ev}
+        if ek and ev:
+            if ui_exclude is None:
+                ui_exclude = {}
+            if ek not in ui_exclude:
+                ui_exclude[ek] = ev
+
         self.initial_filters = (
             self._constructor_filters if self._constructor_filters is not None else ui_filters
         )
@@ -1531,16 +1633,28 @@ class PhenoMeInteractive:
         self._sync_embed_filters_from_widgets()
 
         t0 = time.time()
-        df, _feature_type, dr_obj = run_dimensionality_reduction(
-            self.pheno,
-            method=method_key,
-            n_components=n_dims,
-            source=source,
-            filters=self.initial_filters,
-            exclude=self.initial_exclude,
-            device=self.pheno.device,
-            use_gpu=getattr(self.pheno, "use_gpu_for_dr", True),
-        )
+        try:
+            df, _feature_type, dr_obj = run_dimensionality_reduction(
+                self.pheno,
+                method=method_key,
+                n_components=n_dims,
+                source=source,
+                filters=self.initial_filters,
+                exclude=self.initial_exclude,
+                device=self.pheno.device,
+                use_gpu=getattr(self.pheno, "use_gpu_for_dr", True),
+            )
+        except ImportError as e:
+            # Catch missing dependencies like umap-learn or torchdr
+            if "umap" in str(e).lower():
+                raise ImportError(
+                    "UMAP is not installed. Please install it with: pip install umap-learn"
+                ) from e
+            if "torchdr" in str(e).lower():
+                raise ImportError(
+                    "TorchDR is not installed. Please install it with: pip install torchdr"
+                ) from e
+            raise e
         elapsed = time.time() - t0
 
         if df is None:
@@ -2664,21 +2778,77 @@ class PhenoMeInteractive:
             lambda: self._apply_exclude_search_filter(select_default=False),
         )
 
+    def _on_filter_add_clicked(self, _btn: Any) -> None:
+        """Add current selection to filters."""
+        fk = self.filter_key_dropdown.value
+        fv = list(self.filter_value_select.value)
+        if fk and fv:
+            self._ui_filters[fk] = fv
+            self._update_filter_summary()
+            self.status_label.value = self._status_html(f"Added filter: {fk}", "ok")
+
+    def _on_exclude_add_clicked(self, _btn: Any) -> None:
+        """Add current selection to exclusions."""
+        ek = self.exclude_key_dropdown.value
+        ev = list(self.exclude_value_select.value)
+        if ek and ev:
+            self._ui_exclude[ek] = ev
+            self._update_exclude_summary()
+            self.status_label.value = self._status_html(f"Added exclude: {ek}", "ok")
+
     def _on_filter_clear_clicked(self, _btn: Any) -> None:
-        """Clear filter (include) selections only (recompute still requires Compute)."""
+        """Clear all filters (include) - recompute still required."""
+        self._ui_filters = {}
         self._constructor_filters = None
         self.filter_search_input.value = ""
         self.filter_value_select.value = ()
         self._update_filter_value_options(select_default=False)
-        self.status_label.value = self._status_html("Filter cleared", "info")
+        self._update_filter_summary()
+        self.status_label.value = self._status_html("All filters cleared", "info")
 
     def _on_exclude_clear_clicked(self, _btn: Any) -> None:
-        """Clear exclude selections only (recompute still requires Compute)."""
+        """Clear all exclusions - recompute still required."""
+        self._ui_exclude = {}
         self._constructor_exclude = None
         self.exclude_search_input.value = ""
         self.exclude_value_select.value = ()
         self._update_exclude_value_options(select_default=False)
-        self.status_label.value = self._status_html("Exclude cleared", "info")
+        self._update_exclude_summary()
+        self.status_label.value = self._status_html("All exclusions cleared", "info")
+
+    def _update_filter_summary(self) -> None:
+        """Update the active filters HTML summary."""
+        if not self._ui_filters:
+            self.filter_summary.value = (
+                '<div style="font-size:11px; color:#64748B;"><i>No active filters</i></div>'
+            )
+        else:
+            items = []
+            for k, v in self._ui_filters.items():
+                val_str = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
+                items.append(f"<b>{k}</b>: {val_str}")
+            self.filter_summary.value = (
+                '<div style="font-size:11px; color:#475569; line-height:1.4;">'
+                + "<br>".join(items)
+                + "</div>"
+            )
+
+    def _update_exclude_summary(self) -> None:
+        """Update the active exclusions HTML summary."""
+        if not self._ui_exclude:
+            self.exclude_summary.value = (
+                '<div style="font-size:11px; color:#64748B;"><i>No active exclusions</i></div>'
+            )
+        else:
+            items = []
+            for k, v in self._ui_exclude.items():
+                val_str = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
+                items.append(f"<b>{k}</b>: {val_str}")
+            self.exclude_summary.value = (
+                '<div style="font-size:11px; color:#475569; line-height:1.4;">'
+                + "<br>".join(items)
+                + "</div>"
+            )
 
     def _on_marker_style_changed(self, change: Any) -> None:
         """Adjust marker size / opacity without recomputation."""

@@ -54,8 +54,11 @@ stack. Pip works too with the provided lockfiles.
     3. **Verify the install**
 
        ```python
+       import torch
        from phenome import PhenoMe
        print(f"PhenoMe {PhenoMe.__version__} is ready!")
+       print("GPU:", torch.cuda.is_available(),
+             f"({torch.cuda.get_device_name(0)})" if torch.cuda.is_available() else "(CPU-only mode)")
        ```
     </Steps>
   </TabItem>
@@ -87,8 +90,11 @@ stack. Pip works too with the provided lockfiles.
     3. **Verify the install**
 
        ```python
+       import torch
        from phenome import PhenoMe
        print(f"PhenoMe {PhenoMe.__version__} is ready!")
+       print("GPU:", torch.cuda.is_available(),
+             f"({torch.cuda.get_device_name(0)})" if torch.cuda.is_available() else "(CPU-only mode)")
        ```
     </Steps>
   </TabItem>
@@ -121,6 +127,14 @@ More in the [FAQ - installation](/PhenoMe/faq/#installation-and-setup).
 </details>
 
 ## 3. Your first analysis
+
+The snippet below runs the full pipeline on a folder of images. You can run
+this in a **Python script** or a **Jupyter Notebook** cell.
+
+:::tip[Ready-to-run version]
+If you prefer a guided walkthrough with interactive widgets, start with
+[Notebook 01 — Interactive quickstart](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb).
+:::
 
 <Steps>
 1. **Setup & initialization**
@@ -171,8 +185,8 @@ More in the [FAQ - installation](/PhenoMe/faq/#installation-and-setup).
 ## What's next?
 
 <CardGrid>
-  <LinkCard title="Interactive quickstart" description="A Jupyter widget walkthrough with minimal code." href="https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb" />
+  <LinkCard title="Interactive quickstart" description="Run a guided walkthrough in Jupyter or Colab." href="https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb" />
+  <LinkCard title="Open in Colab" description="Run the quickstart directly in your browser." href="https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb" />
   <LinkCard title="Data setup" description="Folders, CSVs, path templates and masks." href={`${import.meta.env.BASE_URL}guides/data-setup/`} />
   <LinkCard title="Core concepts" description="Embeddings, channel modes, checkpoints." href={`${import.meta.env.BASE_URL}concepts/`} />
-  <LinkCard title="Quick start card" description="Condensed one-page cheat sheet." href={`${import.meta.env.BASE_URL}quick-start-card/`} />
 </CardGrid>

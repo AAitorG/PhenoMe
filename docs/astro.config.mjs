@@ -12,6 +12,9 @@ export default defineConfig({
   site,
   base,
   trailingSlash: "always",
+  redirects: {
+    "/quick-start-card/": "/getting-started/",
+  },
   integrations: [
     starlight({
       title: "PhenoMe",
@@ -38,9 +41,19 @@ export default defineConfig({
           label: "Start here",
           items: [
             { label: "Getting started", link: "/getting-started/" },
-            { label: "Quick start card", link: "/quick-start-card/" },
             { label: "Learning paths", link: "/user-paths/" },
-            { label: "Core concepts", link: "/concepts/" },
+            {
+              label: "Core concepts",
+              collapsed: true,
+              items: [
+                { label: "Overview", link: "/concepts/" },
+                { label: "Embeddings", link: "/concepts/embeddings/" },
+                { label: "Channel modes", link: "/concepts/channel-modes/" },
+                { label: "Distance metrics", link: "/concepts/distances/" },
+                { label: "Metadata & properties", link: "/concepts/metadata-and-properties/" },
+                { label: "Visualization & results", link: "/concepts/visualization-and-results/" },
+              ],
+            },
             { label: "Common workflows", link: "/workflows/" },
           ],
         },
