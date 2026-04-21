@@ -69,7 +69,7 @@ def _generated_note(module_name: str, what: str) -> str:
     """Consistent "this page is generated" banner."""
     src = _source_link(module_name)
     link = f"[`{module_name}`]({src})" if src else f"`{module_name}`"
-    return f":::note[Auto-generated]\nThis page is rebuilt from docstrings in {link} ({what}).:::"
+    return f":::note[Auto-generated]\nThis page is rebuilt from docstrings in {link} ({what}).\n:::"
 
 
 def _related_line(related: tuple[tuple[str, str], ...] | None) -> list[str]:

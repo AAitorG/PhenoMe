@@ -9,7 +9,8 @@ tableOfContents:
 <p><span class="api-tier api-tier--public">Tier: Public API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.report.generator`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/report/generator.py) (module).:::
+This page is rebuilt from docstrings in [`phenome.report.generator`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/report/generator.py) (module).
+:::
 
 **See also:** [Pipeline generate_report](/PhenoMe/advanced/api/pipeline/)
 
@@ -105,7 +106,7 @@ generate_report(
 
 Generate comprehensive standalone HTML report from phenotyping results.
 
-Uses [ReportConfig](/PhenoMe/advanced/api/report/#api-reportconfig) as the primary source of options. Pass ``config=``
+Uses [ReportConfig](/PhenoMe/advanced/api/report/#reportconfig) as the primary source of options. Pass ``config=``
 for full control, or use ``**overrides`` to tweak individual settings.
 
 **Args:**

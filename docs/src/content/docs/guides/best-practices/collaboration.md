@@ -89,5 +89,5 @@ versioning and large-file storage.
 - [Reproducibility](/PhenoMe/guides/best-practices/reproducibility/) - seed and DR-backend choice.
 - [External checkpoints](/PhenoMe/guides/external-checkpoints/) - exchange
   embeddings with non-PhenoMe tooling.
-- [Report guide](/PhenoMe/guides/report-guide/) - the primary artefact shared
+- [Report API](/PhenoMe/advanced/api/report/) - `generate_report()` and the primary HTML artefact shared
   with non-technical reviewers.

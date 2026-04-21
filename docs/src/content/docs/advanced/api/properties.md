@@ -9,7 +9,8 @@ tableOfContents:
 <p><span class="api-tier api-tier--public">Tier: Public API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.utils.property_factories`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/property_factories.py) (module).:::
+This page is rebuilt from docstrings in [`phenome.utils.property_factories`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/property_factories.py) (module).
+:::
 
 **See also:** [Pipeline compute_properties](/PhenoMe/advanced/api/pipeline/) · [Custom properties guide](/PhenoMe/guides/custom-properties/)
 

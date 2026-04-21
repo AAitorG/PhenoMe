@@ -1,22 +1,15 @@
 ---
 title: "API & data formats"
-description: Hub for generated module docs, quick lookups, and the HDF5 checkpoint layout.
+description: Hub for auto-generated API docs, the function-location index, and the HDF5 checkpoint layout.
 sidebar:
   order: 0
 ---
 
-- For a cheat-sheet of available methods, see the
-  [Quick reference](/PhenoMe/quick-reference/).
-- To find out where a specific symbol lives, use the
-  [Function location guide](/PhenoMe/function-location-guide/).
-
 ## API reference
 
-The API pages under [`advanced/api/`](/PhenoMe/advanced/api/pipeline/) are
-**auto-generated** from Python docstrings on every docs build
-(`docs/scripts/generate_api_docs.py`). **To change them, edit the
-docstrings in `phenome/` and rebuild.** There is no separate
-hand-maintained copy.
+The pages under [`advanced/api/`](/PhenoMe/advanced/api/pipeline/) are **auto-generated**
+from Python docstrings on every docs build (`docs/scripts/generate_api_docs.py`).
+**Edit docstrings in `phenome/` and rebuild** — there is no hand-maintained copy.
 
 | Document | Description |
 |----------|-------------|
@@ -30,6 +23,44 @@ hand-maintained copy.
 | [Utilities](/PhenoMe/advanced/api/utilities/) | Device helpers, transforms, image I/O, checkpoints, file discovery. |
 | [Metadata classes](/PhenoMe/advanced/api/metadata/) | `MetadataBase`, `DefaultMetadata`, `PathTemplateMetadata`, `DataFrameMetadata`. |
 | [Plugins](/PhenoMe/advanced/api/plugins/) | Property and metadata registries, report sections. |
+
+## Function location guide
+
+The [Function location guide](/PhenoMe/function-location-guide/) is **auto-generated**
+in the same build step from live `phenome` exports (`docs/scripts/api_docs/function_index.py`).
+It lists top-level imports, `PhenoMe` methods, and submodule exports with tier badges (public /
+advanced / internal) and deep links into the API pages above.
+
+## 5-Step Workflow
+
+1. **Setup**: Load model and create pipeline
+2. **Find files**: Discover images and metadata
+3. **Process**: Extract embeddings from images
+4. **Properties** (optional): Compute image/mask features
+5. **Analyze & visualize**: Distances, plots, reports
+
+---
+
+### Quick Example
+
+```python
+from phenome import PhenoMe, load_dinov2_model
+
+wrapper = load_dinov2_model()
+pheno = PhenoMe()  # pass device=torch.device("cuda") and seed=42 as needed
+
+file_df = pheno.find_files("path/to/images")
+
+pheno.process_images(wrapper)
+
+pheno.compute_properties(property_preset='basic')
+
+distance_results = pheno.compute_reference_distances(
+    reference_filters={'condition': 'Control'},
+    source='embeddings'
+)
+pheno.plot_pca(color_by='condition')
+```
 
 ## Extending the pipeline
 

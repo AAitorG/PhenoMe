@@ -5,7 +5,7 @@ sidebar:
   order: 0
 ---
 
-import { Card, CardGrid, Aside } from '@astrojs/starlight/components';
+import { Card, Aside } from '@astrojs/starlight/components';
 
 PhenoMe ships a **correlation engine** that bridges abstract deep-learning
 embeddings and interpretable morphological features. When PCA, t-SNE, or
@@ -15,7 +15,7 @@ UMAP shows interesting clusters, the engine helps answer:
 
 ## Two correlation modes
 
-<CardGrid>
+<div class="card-stack">
   <Card title="Component correlation" icon="seti:graphql">
     Correlates **principal components** (or t-SNE / UMAP coordinates) with
     classical properties.
@@ -43,7 +43,7 @@ UMAP shows interesting clusters, the engine helps answer:
     pheno.aggregate_embedding_property_correlations()
     ```
   </Card>
-</CardGrid>
+</div>
 
 For most users, **component correlation** is the most intuitive starting
 point.
@@ -70,7 +70,7 @@ formula of classical biology.
 
 You get two critical pieces of information per axis:
 
-<CardGrid>
+<div class="card-stack">
   <Card title="Explainability score (R²)" icon="approve-check">
     *Did the neural network find something novel, or is it just looking
     at known classical features?*
@@ -91,7 +91,7 @@ You get two critical pieces of information per axis:
     model might return `[+0.45] Eccentricity + [-0.30] Intensity Entropy` -
     proving both elongation and nuclear texture matter.
   </Card>
-</CardGrid>
+</div>
 
 ### LASSO regression (sparse linear)
 
@@ -181,5 +181,5 @@ linear metrics miss obvious structure.
 |-------|----------|
 | Property definitions | [Property reference](/PhenoMe/guides/property-reference/) |
 | Custom properties | [Custom properties](/PhenoMe/guides/custom-properties/) |
-| Report with correlations | [Report API](/PhenoMe/advanced/api/report/), [Report guide](/PhenoMe/guides/report-guide/) |
+| Report with correlations | [Report API](/PhenoMe/advanced/api/report/) |
 | Workflow examples | [Common workflows](/PhenoMe/workflows/#3-property-based-and-explainability-analysis) |

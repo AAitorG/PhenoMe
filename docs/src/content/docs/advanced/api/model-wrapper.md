@@ -9,7 +9,8 @@ tableOfContents:
 <p><span class="api-tier api-tier--public">Tier: Public API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.utils.model_wrapper`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/model_wrapper.py) (module).:::
+This page is rebuilt from docstrings in [`phenome.utils.model_wrapper`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/model_wrapper.py) (module).
+:::
 
 **See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/)
 

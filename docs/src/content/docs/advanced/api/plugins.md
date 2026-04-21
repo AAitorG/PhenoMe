@@ -9,7 +9,8 @@ tableOfContents:
 <p><span class="api-tier api-tier--internal">Tier: Internal API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.plugins`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/plugins.py) (module).:::
+This page is rebuilt from docstrings in [`phenome.plugins`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/plugins.py) (module).
+:::
 
 **See also:** [Plugins guide](/PhenoMe/guides/plugins/) · [Properties](/PhenoMe/advanced/api/properties/)
 

@@ -59,7 +59,6 @@ export default defineConfig({
                 { label: "Advanced patterns", link: "/guides/experiment-details/advanced-patterns/" },
               ],
             },
-            { label: "Property reference", link: "/guides/property-reference/" },
             {
               label: "Custom properties",
               collapsed: true,
@@ -70,8 +69,6 @@ export default defineConfig({
                 { label: "Advanced recipes", link: "/guides/custom-properties/advanced-recipes/" },
               ],
             },
-            { label: "Report guide", link: "/guides/report-guide/" },
-            { label: "Interpretability", link: "/guides/interpretability/" },
             {
               label: "Best practices",
               collapsed: true,
@@ -91,12 +88,28 @@ export default defineConfig({
             { label: "06 Extending with plugins", link: `${NOTEBOOKS}/06_extending_phenome_plugins.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
             {
               label: "Examples",
+              collapsed: true,
               autogenerate: { directory: "examples" },
             },
           ],
         },
         {
+          label: "API & data formats",
+          collapsed: true,
+          items: [
+            { label: "Overview", link: "/advanced/" },
+            { label: "Function location", link: "/function-location-guide/" },
+            {
+              label: "API",
+              collapsed: true,
+              autogenerate: { directory: "advanced/api" },
+            },
+            { label: "HDF5 database protocol", link: "/advanced/database_protocol/" },
+          ],
+        },
+        {
           label: "For developers",
+          collapsed: true,
           items: [
             { label: "Architecture", link: "/guides/architecture/" },
             { label: "Extending the pipeline", link: "/guides/extending/" },
@@ -108,22 +121,10 @@ export default defineConfig({
           ],
         },
         {
-          label: "API & data formats",
-          items: [
-            { label: "Overview", link: "/advanced/" },
-            { label: "Function location", link: "/function-location-guide/" },
-            { label: "Quick reference", link: "/quick-reference/" },
-            {
-              label: "API",
-              collapsed: true,
-              autogenerate: { directory: "advanced/api" },
-            },
-            { label: "HDF5 database protocol", link: "/advanced/database_protocol/" },
-          ],
-        },
-        {
           label: "More",
           items: [
+            { label: "Property reference", link: "/guides/property-reference/" },
+            { label: "Interpretability", link: "/guides/interpretability/" },
             { label: "FAQ", link: "/faq/" },
             { label: "Glossary", link: "/glossary/" },
           ],

@@ -320,3 +320,50 @@ html[data-theme="dark"] .api-tier--advanced { color: #fb7185; }
   max-width: 100%;
   overflow-x: auto;
 }
+
+/* -----------------------------------------------------------------------------
+   Starlight Card stacks (avoid 2-col CardGrid overflowing into the TOC column)
+   ----------------------------------------------------------------------------- */
+.card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.card-stack .card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.card-stack .card .body {
+  min-width: 0;
+}
+
+.card-stack .card .body pre {
+  max-width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+}
+
+/* Two-column CardGrid: grid min-content width can exceed the main column */
+.sl-markdown-content .card-grid {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.sl-markdown-content .card-grid > .card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sl-markdown-content .card-grid .card .body pre {
+  max-width: 100%;
+  overflow-x: auto;
+}

@@ -9,7 +9,8 @@ tableOfContents:
 <p><span class="api-tier api-tier--public">Tier: Public API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.mixins.visualization._core`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/mixins/visualization/_core.py) (class `PhenoMeVisualization`).:::
+This page is rebuilt from docstrings in [`phenome.mixins.visualization._core`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/mixins/visualization/_core.py) (class `PhenoMeVisualization`).
+:::
 
 **See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/) · [Distances](/PhenoMe/advanced/api/distances/) · [Concepts](/PhenoMe/concepts/)
 

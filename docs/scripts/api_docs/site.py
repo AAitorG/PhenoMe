@@ -12,6 +12,7 @@ from .config import (
     MultiClassSource,
     PageSpec,
 )
+from .function_index import write_function_location_guide
 from .loader import ensure_repo_root_on_sys_path, out_dir
 from .pages import (
     render_class_page,
@@ -75,7 +76,9 @@ def build() -> None:
         for spec in PAGE_SPECS:
             text = _render_page(spec)
             (target / spec.filename).write_text(text, encoding="utf-8")
+        guide = write_function_location_guide()
         print(f"Wrote narrative API docs to {target}")
+        print(f"Wrote function location guide to {guide}")
     except Exception as exc:
         print(f"generate_api_docs: falling back to stub ({exc!r})")
         traceback.print_exc()
