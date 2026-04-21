@@ -8,8 +8,7 @@ sidebar:
 import { Tabs, TabItem, Steps, Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 This page walks you from an empty environment to a first PCA plot of your
-own images. It takes ~10 minutes on a machine with a GPU, ~20 minutes on
-CPU.
+own images.
 
 ## 1. Requirements
 
@@ -184,9 +183,38 @@ If you prefer a guided walkthrough with interactive widgets, start with
 
 ## What's next?
 
+Pick the card that matches your next goal. Each links to the most relevant
+guide, reference, or notebook - no duplicates of the quickstart above.
+
 <CardGrid>
-  <LinkCard title="Interactive quickstart" description="Run a guided walkthrough in Jupyter or Colab." href="https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb" />
-  <LinkCard title="Open in Colab" description="Run the quickstart directly in your browser." href="https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb" />
-  <LinkCard title="Data setup" description="Folders, CSVs, path templates and masks." href={`${import.meta.env.BASE_URL}guides/data-setup/`} />
-  <LinkCard title="Core concepts" description="Embeddings, channel modes, checkpoints." href={`${import.meta.env.BASE_URL}concepts/`} />
+  <LinkCard
+    title="Pick a learning path"
+    description="Curated routes by audience: first day, own dataset, reporting, developer, interpretability."
+    href={`${import.meta.env.BASE_URL}user-paths/`}
+  />
+  <LinkCard
+    title="Bring your own data"
+    description="Organize folders, attach metadata via path templates or CSV, and discover masks."
+    href={`${import.meta.env.BASE_URL}guides/data-setup/`}
+  />
+  <LinkCard
+    title="Common workflows"
+    description="Recipes for typical study designs: conditions, doses, time courses, plates."
+    href={`${import.meta.env.BASE_URL}workflows/`}
+  />
+  <LinkCard
+    title="Core concepts"
+    description="Embeddings, channel modes, distance metrics, metadata, and results."
+    href={`${import.meta.env.BASE_URL}concepts/`}
+  />
+  <LinkCard
+    title="Choose properties"
+    description="Compare presets (basic, intensity, texture, shape) and pick what fits your images."
+    href={`${import.meta.env.BASE_URL}guides/property-reference/`}
+  />
+  <LinkCard
+    title="Reproducibility & performance"
+    description="Seeds, device selection, batching, and best practices for reliable runs."
+    href={`${import.meta.env.BASE_URL}guides/best-practices/`}
+  />
 </CardGrid>

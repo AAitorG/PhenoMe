@@ -12,9 +12,6 @@ export default defineConfig({
   site,
   base,
   trailingSlash: "always",
-  redirects: {
-    "/quick-start-card/": "/getting-started/",
-  },
   integrations: [
     starlight({
       title: "PhenoMe",
@@ -30,9 +27,6 @@ export default defineConfig({
       // >= 0.32, migrate to the array form: [{ icon: 'github', label: 'GitHub', href: '...' }].
       social: {
         github: "https://github.com/AAitorG/PhenoMe",
-      },
-      editLink: {
-        baseUrl: "https://github.com/AAitorG/PhenoMe/edit/main/docs/src/content/docs/",
       },
       customCss: ["./src/styles/custom.css"],
       sidebar: [
@@ -138,8 +132,8 @@ export default defineConfig({
           items: [
             { label: "Property reference", link: "/guides/property-reference/" },
             { label: "Interpretability", link: "/guides/interpretability/" },
-            { label: "FAQ", link: "/faq/" },
             { label: "Glossary", link: "/glossary/" },
+            { label: "FAQ", link: "/faq/" },
           ],
         },
       ],

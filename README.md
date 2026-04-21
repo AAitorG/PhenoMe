@@ -1,12 +1,7 @@
 # PhenoMe
 
 <p align="center">
-  <img src="docs/src/assets/Logo.png" alt="PhenoMe logo" width="560"/>
-</p>
-
-<p align="center">
-    <a href="https://AAitorG.github.io/PhenoMe/"><img src="https://img.shields.io/badge/docs-live-blue.svg" alt="Documentation"></a>
-    <a href="https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
+  <img src="docs/src/assets/Logo.png" alt="PhenoMe logo" width="360"/>
 </p>
 
 A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping analysis using deep learning embeddings (**visual fingerprints**) and extracted image properties.
