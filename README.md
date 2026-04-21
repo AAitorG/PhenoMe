@@ -11,17 +11,6 @@
 
 A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping analysis using deep learning embeddings (**visual fingerprints**) and extracted image properties.
 
-<p align="center">
-  <img src="docs/src/assets/pipeline_overview.png" alt="PhenoMe Pipeline Overview" width="800"/>
-</p>
-
-### 🛠️ How it works
-PhenoMe processes images through a dual-path pipeline visualized above:
-1.  **Discover** (Input): Find raw images and extract experimental metadata.
-2.  **Embed** (Branch A): Deep learning extraction (preprocessing → vision model → visual fingerprints).
-3.  **Properties** (Branch B): Parallel extraction of interpretable features (shape, intensity, texture).
-4.  **Analyze** (Correlation C): The correlation engine merges both branches to generate distances, interactive plots, and reports.
-
 ---
 
 ## ✨ Features
