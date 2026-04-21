@@ -32,15 +32,14 @@ property factories), **`phenome.plugins`** (user registries), and
 
 ## Data flow (typical run)
 
-End-to-end:
+![Pipeline Overview](../../../assets/pipeline_overview.png)
 
-1. **Discovery** - paths + optional `metadata_fn` → tabular `file_df`.
-2. **Embeddings** - batched inference through a `ModelWrapper` → stored
-   vectors (with checkpointing).
-3. **Properties** - classical features from images/masks (presets or
-   custom callables).
-4. **Analysis / viz / report** - embeddings + metadata + properties
-   combined.
+The typical data flow maps directly to the pipeline overview components:
+
+1.  **Discovery (Input)** — Raw image paths and optional `metadata_fn` are gathered into a tabular `file_df`.
+2.  **Embeddings (A)** — Images are preprocessed and passed through a `ModelWrapper` for batched inference; resulting vectors are stored with checkpointing.
+3.  **Properties (B)** — Interpretable classical features (intensity, shape, texture) are computed in parallel from images/masks (presets or custom callables).
+4.  **Analysis & Visualization (C)** — Embeddings, properties, and metadata are combined by the correlation engine for final distance quantification, dimensionality reduction, plotting, and reporting.
 
 ## Extension points
 

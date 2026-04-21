@@ -5,25 +5,36 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/AAitorG/PhenoMe/actions/workflows/ci.yml">
-    <img src="https://github.com/AAitorG/PhenoMe/actions/workflows/ci.yml/badge.svg" alt="CI Status"/>
-  </a>
-  <a href="https://github.com/AAitorG/PhenoMe/actions/workflows/docs-build.yml">
-    <img src="https://github.com/AAitorG/PhenoMe/actions/workflows/docs-build.yml/badge.svg" alt="Documentation Status"/>
-  </a>
-  <a href="https://www.python.org/downloads/release/python-3120/">
-    <img src="https://img.shields.io/badge/python-3.12+-blue.svg" alt="Python 3.12+"/>
-  </a>
-  <a href="https://opensource.org/licenses/MIT">
-    <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/>
-  </a>
+    <a href="https://AAitorG.github.io/PhenoMe/"><img src="https://img.shields.io/badge/docs-live-blue.svg" alt="Documentation"></a>
+    <a href="https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"></a>
 </p>
 
 A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping analysis using deep learning embeddings (**visual fingerprints**) and extracted image properties.
 
+<p align="center">
+  <img src="docs/src/assets/pipeline_overview.png" alt="PhenoMe Pipeline Overview" width="800"/>
+</p>
+
+### 🛠️ How it works
+PhenoMe processes images through a dual-path pipeline visualized above:
+1.  **Discover** (Input): Find raw images and extract experimental metadata.
+2.  **Embed** (Branch A): Deep learning extraction (preprocessing → vision model → visual fingerprints).
+3.  **Properties** (Branch B): Parallel extraction of interpretable features (shape, intensity, texture).
+4.  **Analyze** (Correlation C): The correlation engine merges both branches to generate distances, interactive plots, and reports.
+
 ---
 
-## Quick Start
+## ✨ Features
+
+- **Model Agnostic**: Extract embeddings using DINOv2 or any custom PyTorch vision model.
+- **Dataset Agnostic**: Works with any image dataset structure with customizable metadata extraction.
+- **Analysis Toolkit**: Distance quantification, anomaly detection, property extraction, and correlation analysis.
+- **Interactive Visualizations**: High-performance Plotly-based PCA, t-SNE, and UMAP plots.
+- **Automated Reporting**: Generate comprehensive standalone HTML reports.
+
+---
+
+## 🚀 Quick Start
 
 Analyze your images in four simple steps:
 
@@ -46,7 +57,7 @@ pheno.compute_properties(property_preset="basic")
 pheno.create_interactive_explorer()
 ```
 
-For a no-code experience, try the **[Interactive Quickstart](Notebooks/tutorials/01_interactive_quickstart.ipynb)**.
+For a no-code experience, try the **[Interactive Quickstart](Notebooks/tutorials/01_interactive_quickstart.ipynb)** or run it directly in **[Google Colab](https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb)**.
 
 ---
 
@@ -88,7 +99,7 @@ pip install -r envs/requirements-gpu.txt -e .
 
 ## 📖 Documentation
 
-**Live site:** [Documentation website](https://AAitorG.github.io/PhenoMe/).
+**Explore the [Live Documentation Website](https://AAitorG.github.io/PhenoMe/)** for detailed guides, API references, and tutorials.
 
 **Source:** Markdown under [`docs/src/content/docs/`](docs/src/content/docs/).
 
@@ -110,14 +121,6 @@ pip install -r envs/requirements-gpu.txt -e .
 - **[Custom properties](https://AAitorG.github.io/PhenoMe/guides/custom-properties/)** · **[Extending](https://AAitorG.github.io/PhenoMe/guides/extending/)** · **[Testing](https://AAitorG.github.io/PhenoMe/guides/testing/)**
 
 ---
-
-## Features
-
-- **Model Agnostic**: Extract embeddings using DINOv2 or any custom PyTorch vision model.
-- **Dataset Agnostic**: Works with any image dataset structure with customizable metadata extraction.
-- **Analysis Toolkit**: Distance quantification, anomaly detection, property extraction, and correlation analysis.
-- **Interactive Visualizations**: High-performance Plotly-based PCA, t-SNE, and UMAP plots.
-- **Automated Reporting**: Generate comprehensive standalone HTML reports.
 
 ## Author
 

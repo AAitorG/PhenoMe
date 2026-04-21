@@ -42,14 +42,16 @@ import { Card, CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
 
 ## How it fits together
 
-1. **Discover** — `find_files` (and metadata) from images and masks.
-2. **Embed** — `process_images` with your vision model.
-3. **Properties** — `compute_properties` for classical features (in parallel with embeddings from the same discovery step).
-4. **Analyze** — distances, DR, clustering; then plots, interactive explorer, and HTML report.
+![Pipeline Overview](../../assets/pipeline_overview.png)
 
-The same four steps underpin every workflow: **discover files, extract
-embeddings, compute properties, analyze**. Everything else - interactive
-exploration, reporting, extension hooks - plugs into that backbone.
+PhenoMe follows a modular 4-step workflow:
+
+1.  **Discover** (Input Images) — `find_files` identifies your raw microscopy images and masks.
+2.  **Embeddings** (A) — `process_images` handles preprocessing and batched inference through a vision model to extract **visual fingerprints** (embeddings).
+3.  **Properties** (B) — `compute_properties` extracts explainable **classical features** (intensity, shape, texture) in parallel.
+4.  **Analyze** (C) — The engine merges both branches for distance quantification, dimensionality reduction (PCA/UMAP), interactive plotting, and reporting.
+
+The same four steps underpin every workflow. Everything else - interactive exploration, extension hooks - plugs into that backbone.
 
 ## Choose your path
 

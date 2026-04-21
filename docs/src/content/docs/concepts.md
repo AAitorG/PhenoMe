@@ -66,11 +66,14 @@ consumes analysis and distance outputs; **interactive** tooling and the
 
 ### Processing flow
 
-1. **`find_files()`** - discover images and extract metadata.
-2. **`process_images()`** - load images, apply transforms, extract embeddings.
-3. **`compute_reference_distances()`** - quantify phenotypic distances to a reference group.
-4. **Visualize** - PCA / t-SNE / UMAP plots, distance distributions.
-5. **`generate_report()`** - produce a standalone HTML report.
+![Pipeline Overview](../../assets/pipeline_overview.png)
+
+PhenoMe processes data through a bifurcated 4-step pipeline (visualized above):
+
+1.  **`find_files()`** (Input) — Discover images and extract experimental metadata.
+2.  **`process_images()`** (A) — Load images, apply transforms, and extract deep learning embeddings (visual fingerprints).
+3.  **`compute_properties()`** (B) — Compute interpretable classical features (shape, texture, intensity) in parallel.
+4.  **Analysis & Visualization** (C) — The correlation engine integrates both sources to quantify phenotypic distances and produce interactive plots and reports.
 
 ### Temporal images (in-memory)
 
