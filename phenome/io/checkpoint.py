@@ -571,6 +571,16 @@ class CheckpointManager:
             all_emb = np.concatenate(self._buf_embeddings, axis=0)
             dim = all_emb.shape[1]
             if "embeddings" not in f:
+                # Refuse to create an embedding dataset on top of an existing
+                # properties-only checkpoint: rows [0, n_old) would be zero-filled
+                # by HDF5 and silently misalign with committed paths/metadata.
+                if n_old > 0:
+                    raise RuntimeError(
+                        f"Cannot add embeddings to a checkpoint that was committed "
+                        f"without embeddings (n_committed={n_old}). Create a new "
+                        f"checkpoint or extend it only with rows that include "
+                        f"embeddings from the start."
+                    )
                 f.create_dataset(
                     "embeddings",
                     shape=(0, dim),
@@ -728,7 +738,8 @@ class CheckpointManager:
         if "embeddings" not in self._file:
             raise RuntimeError("No embeddings dataset in this checkpoint.")
 
-        n_emb = self.n_committed
+        emb_ds = cast(h5py.Dataset, self._file["embeddings"])
+        n_emb = min(self.n_committed, int(emb_ds.shape[0]))
         indices = np.asarray(indices, dtype=np.int64)
         if indices.size == 0:
             dim = int(self._file.attrs.get("embedding_dim", 0))
@@ -742,7 +753,7 @@ class CheckpointManager:
         inv_order = np.empty_like(sort_order)
         inv_order[sort_order] = np.arange(len(sort_order))
 
-        raw = np.array(cast(h5py.Dataset, self._file["embeddings"])[sorted_idx], dtype=np.float32)
+        raw = np.array(emb_ds[sorted_idx], dtype=np.float32)
         return raw[inv_order]
 
     def load_metadata_and_paths(self) -> tuple[list[Any], list[dict[str, Any]]]:

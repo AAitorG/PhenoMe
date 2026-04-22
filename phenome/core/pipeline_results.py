@@ -29,10 +29,11 @@ class PhenoMeResults:
 
     Embeddings lifecycle
     --------------------
-    ``embeddings`` is **always** ``None`` inside ``PhenoMeResults``.
+    ``embeddings`` tracks the eager copy held by the pipeline:
 
     * **Not yet computed** — ``embeddings is None``, ``pipeline._db is None``
     * **Lazy-backed (HDF5)** — ``embeddings is None``, ``pipeline._db is not None``
+      (rows are fetched from disk on demand)
     * **Eagerly computed** — ``embeddings`` is an ``np.ndarray`` of shape ``(N, D)``
 
     The former ``[]``-sentinel that mixed "uninitialised" with "lazy" with

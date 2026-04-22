@@ -23,6 +23,19 @@ A GPU is **strongly recommended** for reasonable speed. The pipeline works on CP
 2. For GPU, ensure your driver matches the CUDA wheel you install; see [PyTorch get started](https://pytorch.org/get-started/locally/).
 3. If `pykeops` fails on your OS, omit it and use slower backends (see [Best practices - performance](/PhenoMe/guides/best-practices/performance/)).
 
+### I get a `[KeOps] Warning : CUDA libraries not found or could not be loaded; Switching to CPU only` error, what should I do?
+
+This happens if `pykeops` is installed but cannot find your system's CUDA toolkit or compiler. In most cases, you can ignore this: PhenoMe will automatically fall back to standard PyTorch or Scikit-Learn backends for dimensionality reduction (PCA, t-SNE, UMAP), which is fast enough for most datasets.
+
+If you are working with very large datasets (e.g., >100,000 images) and need the memory efficiency of KeOps, ensure you have a functional C++ compiler and that your `CUDA_HOME` environment variable is set. For standard usage, you can safely ignore the warning or simply uninstall `pykeops`.
+
+If you have a working CUDA setup but still see the error, try clearing the cache:
+
+```python
+import pykeops
+pykeops.clean_pykeops()
+```
+
 ### How do I verify the install?
 
 See the verification steps in [Getting started — Installation](/PhenoMe/getting-started/#2-installation).

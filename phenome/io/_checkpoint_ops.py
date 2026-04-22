@@ -98,14 +98,18 @@ def append_metadata_group(
     n_old: int,
     n_new_total: int,
 ) -> None:
-    """Append a batch of metadata dicts to the metadata group (columnar)."""
+    """Append a batch of metadata dicts to the metadata group (columnar).
+
+    Keys are sorted before touching HDF5 so dataset creation order in the
+    file is deterministic across runs with the same logical metadata.
+    """
     grp = f.require_group(group_name)
     all_keys: set[str] = set()
     for m in meta_dicts:
         if isinstance(m, dict):
             all_keys.update(k for k in m if k not in _METADATA_EXCLUDE_KEYS)
 
-    for key in all_keys:
+    for key in sorted(all_keys):
         col = [meta_value_to_str(m.get(key) if isinstance(m, dict) else None) for m in meta_dicts]
 
         if key not in grp:
@@ -125,7 +129,7 @@ def append_metadata_group(
         ds.resize(n_new_total, axis=0)
         ds[n_old:n_new_total] = col
 
-    for key in grp:
+    for key in sorted(grp):
         if key not in all_keys:
             ds = cast(h5py.Dataset, grp[key])
             cur_size = ds.shape[0]
@@ -140,7 +144,13 @@ def write_metadata_group(
     meta_dicts: list[dict[str, Any]],
     n: int,
 ) -> None:
-    """Write complete metadata as a columnar group."""
+    """Write complete metadata as a columnar group.
+
+    ``n`` is the authoritative row count for the file; ``meta_dicts`` must
+    match it exactly so columns stay aligned with paths/embeddings.
+    """
+    if len(meta_dicts) != n:
+        raise ValueError(f"write_metadata_group: expected {n} rows, got {len(meta_dicts)}.")
     grp = f.create_group(group_name)
     all_keys: set[str] = set()
     for m in meta_dicts:
@@ -189,14 +199,18 @@ def append_properties_group(
     n_old: int,
     n_new_total: int,
 ) -> None:
-    """Append a batch of property dicts to the properties group (columnar)."""
+    """Append a batch of property dicts to the properties group (columnar).
+
+    Keys are sorted before touching HDF5 so dataset creation order in the
+    file is deterministic across runs with the same logical properties.
+    """
     grp = f.require_group(group_name)
     all_keys: set[str] = set()
     for p in prop_dicts:
         if isinstance(p, dict):
             all_keys.update(p.keys())
 
-    for key in all_keys:
+    for key in sorted(all_keys):
         col = np.array(
             [float(p.get(key, np.nan)) if isinstance(p, dict) else np.nan for p in prop_dicts],
             dtype=np.float32,
@@ -221,7 +235,7 @@ def append_properties_group(
         ds.resize(n_new_total, axis=0)
         ds[n_old:n_new_total] = col
 
-    for key in grp:
+    for key in sorted(grp):
         if key not in all_keys:
             ds = cast(h5py.Dataset, grp[key])
             cur_size = ds.shape[0]
@@ -237,7 +251,13 @@ def write_properties_group(
     prop_dicts: list[dict[str, Any]],
     n: int,
 ) -> None:
-    """Write complete properties as a columnar group."""
+    """Write complete properties as a columnar group.
+
+    ``n`` is the authoritative row count for the file; ``prop_dicts`` must
+    match it exactly so columns stay aligned with paths/embeddings.
+    """
+    if len(prop_dicts) != n:
+        raise ValueError(f"write_properties_group: expected {n} rows, got {len(prop_dicts)}.")
     grp = f.create_group(group_name)
     all_keys: set[str] = set()
     for p in prop_dicts:

@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Environment: Simplified `environment-gpu.yml` to use standard backends; `pykeops` is now optional for extreme-scale datasets.
 - `prepare_embedding_dataframe` unions property keys across rows (not only row 0)
 - TorchDR→CPU fallback only on likely GPU/transient failures; `ValueError` always propagates; integer `random_state` for TorchDR PCA/TSNE/UMAP
 - Pearson correlation: constant `x` columns yield NaN; 1D result is always a length-1 `ndarray`

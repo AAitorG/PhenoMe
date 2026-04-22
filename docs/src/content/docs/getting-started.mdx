@@ -16,7 +16,7 @@ own images.
 - **Hardware**: any CPU works; an NVIDIA GPU is strongly recommended for
   speed. See [Best practices - performance](/PhenoMe/guides/best-practices/performance/)
   for sizing.
-- **OS**: Linux, macOS, Windows. `pykeops` is omitted gracefully on Windows.
+- **OS**: Linux, macOS, Windows.
 
 ## 2. Installation
 
@@ -118,7 +118,6 @@ Pass the same `device` into `load_dinov2_model(...)` and `PhenoMe(...)`.
 |---------|------------|
 | `torch` not found or wrong CUDA | Reinstall torch from PyTorch instructions; match driver and wheel. |
 | `opencv` / `h5py` build errors | Use conda-forge or the full conda env file. |
-| `pykeops` fails (common on Windows) | Omit from optional deps; fallback backends are slower but work. |
 | Import works but GPU not used | `import torch; print(torch.cuda.is_available())`; ensure `device` is passed into `PhenoMe(...)`. |
 
 More in the [FAQ - installation](/PhenoMe/faq/#installation-and-setup).

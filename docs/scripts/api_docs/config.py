@@ -457,7 +457,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
             header_note=(
                 ":::note[Auto-generated]\n"
                 "This page is rebuilt from docstrings in "
-                "[`phenome.mixins.interactive`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/mixins/interactive.py).\n"
+                "[`phenome.mixins.interactive`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/mixins/interactive).\n"
                 ":::"
             ),
             blocks=(

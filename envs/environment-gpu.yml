@@ -1,6 +1,5 @@
 # PhenoMe — GPU-oriented Conda environment
 # PyTorch: pip install torch torchvision from PyPI
-# Includes GPU-acceleration libraries (pykeops, torchdr).
 #
 # From repo root: conda env create -f envs/environment-gpu.yml
 # Activate: conda activate phenome-gpu
@@ -35,7 +34,7 @@ dependencies:
   - pip>=25.0
 
   - pip:
-    - -e .
+    - -e ..
     - jupyterlab==4.5.6
     - nbformat==5.10.4
     - jupyterlab_widgets==3.0.16
@@ -45,6 +44,5 @@ dependencies:
     - anywidget==0.9.21
     - umap-learn==0.5.11
     - dcor==0.7
-    - "pykeops==2.3; sys_platform != 'win32'"
     - "torchdr>=0.1,<0.5"
     - "nibabel>=5.2.0,<6"

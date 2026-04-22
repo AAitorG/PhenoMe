@@ -1,5 +1,6 @@
 """Main phenotyping analysis pipeline."""
 
+import contextlib
 import json
 import os
 from collections.abc import Callable, Generator
@@ -179,12 +180,21 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
             logger.info("Reset: All stored data cleared.")
 
     def __del__(self) -> None:
-        """Close HDF5 database handle on garbage collection."""
-        if self._db is not None:
-            try:
-                self._db.close()
-            except OSError as e:
-                logger.debug("Error closing checkpoint in __del__: %s", e)
+        """Close HDF5 database handle on garbage collection.
+
+        Robust to partial initialization: if ``__init__`` failed before
+        assigning ``_db`` (or the Python runtime is tearing down), the
+        ``getattr`` default avoids ``AttributeError`` noise at shutdown.
+        """
+        db = getattr(self, "_db", None)
+        if db is not None:
+            # ``logger`` may itself be torn down during interpreter exit, so we
+            # suppress any follow-up errors to keep __del__ from raising.
+            with contextlib.suppress(Exception):
+                try:
+                    db.close()
+                except OSError as e:
+                    logger.debug("Error closing checkpoint in __del__: %s", e)
             self._db = None
 
     # ------------------------------------------------------------------
@@ -193,9 +203,14 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
 
     @property
     def has_embeddings(self) -> bool:
-        """Return True if embedding data is available (lazy or eager)."""
+        """Return True if embedding data is available (lazy or eager).
+
+        A properties-only checkpoint has ``n_committed > 0`` but no embedding
+        dataset; we additionally require ``embedding_dim`` to be a positive int.
+        """
         if self._db is not None:
-            if self._db.n_committed > 0:
+            db_dim = self._db.embedding_dim or 0
+            if db_dim > 0 and self._db.n_committed > 0:
                 return True
             return bool(
                 self._temporal_embeddings is not None and len(self._temporal_embeddings) > 0
