@@ -7,12 +7,10 @@ so one failure does not block the others.
 
 from typing import TYPE_CHECKING
 
-import plotly.io as pio
-
 from ..._logging import get_logger
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
 from ..components import generate_info_box, generate_plot_container
-from ..helpers import apply_dark_theme
+from ..helpers import apply_dark_theme, plotly_to_html_fragment
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -60,12 +58,7 @@ def generate_visualization_section(
             fig_pca.update_layout(width=None, height=None, autosize=True)
             plots_html.append(
                 generate_plot_container(
-                    pio.to_html(
-                        fig_pca,
-                        full_html=False,
-                        include_plotlyjs="cdn",
-                        config=PLOTLY_DISPLAY_CONFIG,
-                    ),
+                    plotly_to_html_fragment(fig_pca, config=PLOTLY_DISPLAY_CONFIG),
                     title="Principal Component Analysis (PCA)",
                 )
             )
@@ -86,12 +79,7 @@ def generate_visualization_section(
             fig_tsne.update_layout(width=None, height=None, autosize=True)
             plots_html.append(
                 generate_plot_container(
-                    pio.to_html(
-                        fig_tsne,
-                        full_html=False,
-                        include_plotlyjs="cdn",
-                        config=PLOTLY_DISPLAY_CONFIG,
-                    ),
+                    plotly_to_html_fragment(fig_tsne, config=PLOTLY_DISPLAY_CONFIG),
                     title="t-SNE Embedding",
                 )
             )
@@ -112,12 +100,7 @@ def generate_visualization_section(
             fig_umap.update_layout(width=None, height=None, autosize=True)
             plots_html.append(
                 generate_plot_container(
-                    pio.to_html(
-                        fig_umap,
-                        full_html=False,
-                        include_plotlyjs="cdn",
-                        config=PLOTLY_DISPLAY_CONFIG,
-                    ),
+                    plotly_to_html_fragment(fig_umap, config=PLOTLY_DISPLAY_CONFIG),
                     title="UMAP Embedding",
                 )
             )

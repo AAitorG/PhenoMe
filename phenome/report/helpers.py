@@ -3,14 +3,16 @@ Utility functions for the phenotyping report.
 
 This module provides helper functions for:
 - Plotly figure styling (dark theme)
+- Plotly HTML fragment rendering (offline-safe, no per-plot CDN script)
 - Image encoding to base64
 - HTML escaping for safe insertion of user content
 """
 
 import base64
+from functools import lru_cache
 from html import escape as html_escape
 from io import BytesIO
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import numpy as np
 
@@ -123,14 +125,70 @@ def image_to_base64(
     else:
         pil_image = image
 
-    # Resize if specified
+    # Downscale to fit inside box while preserving aspect ratio (no upscaling).
     if size is not None:
-        pil_image = pil_image.resize(size, PILImage.Resampling.LANCZOS)
+        pil_image = pil_image.copy()
+        pil_image.thumbnail(size, PILImage.Resampling.LANCZOS)
 
     # Convert to base64
     buffer = BytesIO()
     pil_image.save(buffer, format=format, optimize=True)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+
+def plotly_to_html_fragment(
+    fig: "go.Figure",
+    config: dict[str, Any] | None = None,
+    div_id: str | None = None,
+) -> str:
+    """Render a Plotly figure as an HTML fragment without inlining the Plotly library.
+
+    All reports embed the Plotly library exactly once (see
+    :func:`get_plotly_bundle`), so every individual plot uses
+    ``include_plotlyjs=False`` to avoid duplicating ~5 MB of JS per chart.
+
+    Args:
+        fig: Plotly figure to render.
+        config: Optional Plotly ``config`` dict (e.g. PLOTLY_DISPLAY_CONFIG).
+        div_id: Optional explicit DOM id for the plot container.
+
+    Returns:
+        HTML fragment containing the chart div and its bootstrap script.
+    """
+    import plotly.io as pio
+
+    kwargs: dict[str, Any] = {
+        "full_html": False,
+        "include_plotlyjs": False,
+    }
+    if config is not None:
+        kwargs["config"] = config
+    if div_id is not None:
+        kwargs["div_id"] = div_id
+    return pio.to_html(fig, **kwargs)
+
+
+@lru_cache(maxsize=1)
+def _cached_plotlyjs() -> str:
+    """Return the Plotly library JS source, cached to avoid repeated reads."""
+    from plotly.offline import get_plotlyjs
+
+    return get_plotlyjs()
+
+
+def get_plotly_bundle(offline: bool = True) -> str:
+    """Return an HTML snippet that loads the Plotly JavaScript library.
+
+    Args:
+        offline: If True (default), inline the full Plotly JS so the report
+            works without network access. If False, load from the Plotly CDN.
+
+    Returns:
+        HTML ``<script>...</script>`` snippet to inject into the document head.
+    """
+    if offline:
+        return f"<script>{_cached_plotlyjs()}</script>"
+    return '<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>'
 
 
 def safe_html(s: str) -> str:

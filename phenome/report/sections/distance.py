@@ -3,12 +3,11 @@
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import plotly.io as pio
 
 from ...core import get_all_metadata_keys, get_metadata_value_from_dict
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
 from ..components import generate_info_box, generate_plot_container
-from ..helpers import apply_dark_theme
+from ..helpers import apply_dark_theme, plotly_to_html_fragment
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -109,12 +108,7 @@ def generate_distance_section(
             apply_dark_theme(fig)
             fig.update_layout(width=None, height=None, autosize=True)
             plot_html = generate_plot_container(
-                pio.to_html(
-                    fig,
-                    full_html=False,
-                    include_plotlyjs="cdn",
-                    config=PLOTLY_DISPLAY_CONFIG,
-                )
+                plotly_to_html_fragment(fig, config=PLOTLY_DISPLAY_CONFIG)
             )
     except (ValueError, KeyError, RuntimeError) as e:
         plot_html = generate_info_box(f"Distance plot unavailable: {e}", "warning")

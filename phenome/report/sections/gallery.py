@@ -211,10 +211,12 @@ def _generate_random_sample(
     """Generate gallery of random sample images."""
     n_total = len(pipeline.results.img_path)
 
+    # Use a local RNG to avoid mutating global numpy random state. When
+    # ``pipeline.seed`` is None this yields entropy-seeded draws without
+    # side effects on other consumers of ``np.random``.
     seed = getattr(pipeline, "seed", None)
-    if seed is not None:
-        np.random.seed(seed)
-    random_indices = np.random.choice(n_total, size=min(n_images, n_total), replace=False)
+    rng = np.random.default_rng(seed)
+    random_indices = rng.choice(n_total, size=min(n_images, n_total), replace=False)
 
     random_images = load_image_data(pipeline, random_indices.tolist(), image_size)
 

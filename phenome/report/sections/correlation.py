@@ -3,11 +3,10 @@
 from typing import TYPE_CHECKING
 
 import plotly.graph_objects as go
-import plotly.io as pio
 
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
 from ..components import generate_feature_tags, generate_info_box, generate_plot_container
-from ..helpers import apply_dark_theme
+from ..helpers import apply_dark_theme, plotly_to_html_fragment
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -68,5 +67,5 @@ def generate_correlation_section(
     <h4>Top Correlated Features</h4>
     {generate_feature_tags(top_features)}
 
-    {generate_plot_container(pio.to_html(fig, full_html=False, include_plotlyjs="cdn", config=PLOTLY_DISPLAY_CONFIG))}
+    {generate_plot_container(plotly_to_html_fragment(fig, config=PLOTLY_DISPLAY_CONFIG))}
     """

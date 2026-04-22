@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import plotly.io as pio
 from sklearn.decomposition import PCA
 
 from ...core import get_metadata_value_from_dict
@@ -19,7 +18,7 @@ from ..components import (
     generate_subsection_grid,
     generate_table,
 )
-from ..helpers import apply_dark_theme
+from ..helpers import apply_dark_theme, plotly_to_html_fragment
 from ._helpers import load_image_data
 
 if TYPE_CHECKING:
@@ -200,7 +199,7 @@ def _generate_cluster_pca(
 
     return f"""
     <h4>Cluster Visualization</h4>
-    {generate_plot_container(pio.to_html(fig, full_html=False, include_plotlyjs="cdn", config=PLOTLY_DISPLAY_CONFIG))}
+    {generate_plot_container(plotly_to_html_fragment(fig, config=PLOTLY_DISPLAY_CONFIG))}
     """
 
 
@@ -261,7 +260,7 @@ def _generate_cluster_composition(
 
     return f"""
     <h4>Cluster Composition</h4>
-    {generate_plot_container(pio.to_html(fig, full_html=False, include_plotlyjs="cdn", config=PLOTLY_DISPLAY_CONFIG))}
+    {generate_plot_container(plotly_to_html_fragment(fig, config=PLOTLY_DISPLAY_CONFIG))}
     """
 
 

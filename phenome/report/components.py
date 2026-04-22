@@ -21,10 +21,10 @@ def generate_navigation(nav_items: list[tuple[str, str]]) -> str:
         HTML string for navigation bar.
     """
     links = "\n".join(
-        [f'<a href="#{sid}" class="nav-link">{label}</a>' for sid, label in nav_items]
+        [f'<a href="#{sid}" class="nav-link"><span>{label}</span></a>' for sid, label in nav_items]
     )
     return f"""
-    <nav class="nav-container">
+    <nav class="nav-container" id="reportNav" aria-label="Report navigation">
         <div class="nav-title">Quick Navigation</div>
         <div class="nav-links">
             {links}
@@ -274,9 +274,17 @@ def generate_image_gallery(images: list[dict[str, Any]], title: str | None = Non
 
         title_safe = escape(img.get("title", "Image"))
         meta_safe = escape(img.get("meta", ""))
+        # data-* attributes power the lightbox (ESC, arrow keys, counter)
         cards.append(f"""
         <div class="image-card">
-            <img src="data:image/png;base64,{img["data"]}" alt="{title_safe}">
+            <img
+                src="data:image/png;base64,{img["data"]}"
+                alt="{title_safe}"
+                loading="lazy"
+                decoding="async"
+                data-caption="{title_safe}"
+                data-meta="{meta_safe}"
+            >
             <div class="image-card-info">
                 <div class="image-card-title">{title_safe}</div>
                 <div class="image-card-meta">{meta_safe}{cluster_badge}</div>
@@ -285,9 +293,10 @@ def generate_image_gallery(images: list[dict[str, Any]], title: str | None = Non
         """)
 
     title_html = f"<h4>{title}</h4>" if title else ""
+    # Each gallery is marked so the lightbox can scope prev/next within it.
     return f"""
     {title_html}
-    <div class="image-gallery">
+    <div class="image-gallery" data-gallery>
         {"".join(cards)}
     </div>
     """
