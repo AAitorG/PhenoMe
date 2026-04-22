@@ -1,14 +1,22 @@
 """
 Interactive Visualization Module for PhenoMe.
+
+Host class and factory. Shared constants, HTML builders, protocol, and pure
+helpers live in sibling modules; everything is re-exported through
+:mod:`phenome.mixins.interactive.__init__` to preserve the historical import
+path ``phenome.mixins.interactive.PhenoMeInteractive``.
 """
 
-import asyncio
+from __future__ import annotations
+
 import contextlib
+import csv
 import html
+import io
 import threading
 import time
 from collections.abc import Callable
-from typing import Any, Protocol
+from typing import Any
 
 import ipywidgets as widgets
 import numpy as np
@@ -17,368 +25,57 @@ import plotly.express as px
 import plotly.graph_objects as go
 from IPython.display import clear_output, display
 
-from .._logging import get_logger
-from ..core import (
+from ..._logging import get_logger
+from ...core import (
     get_all_metadata_keys,
     get_metadata_value_from_dict,
     run_dimensionality_reduction,
 )
-from ..plotly_display import apply_figurewidget_display_config
+from ...plotly_display import apply_figurewidget_display_config
+from ._constants import (
+    CLICK_DEBOUNCE_SEC,
+    CONTINUOUS_SCALES,
+    DR_RANDOM_STATE,
+    EMBEDDING_FIG_HEIGHT_PX,
+    EMBEDDING_FIG_WIDTH_PX,
+    HALO_COLOR_HIGHLIGHT,
+    HALO_COLOR_MULTI,
+    HALO_SIZE_MULTIPLIER,
+    HIGHLIGHT_DISCRETE_INT_MAX_UNIQUES,
+    HIGHLIGHT_OVERLAY_NAME,
+    IMAGE_OVERLAY_WIDTH_PX,
+    IMAGE_PANEL_MIN_HEIGHT_PX,
+    INTERACTIVE_APPEAR_COL_W_PX,
+    INTERACTIVE_DESC_STYLE,
+    INTERACTIVE_FIELD_MAX_W_PX,
+    INTERACTIVE_SEARCH_W_PX,
+    INTERACTIVE_SECTION_SEP_HTML,
+    INTERACTIVE_VALUES_H,
+    INTERACTIVE_VALUES_W_PX,
+    MULTI_SELECT_OVERLAY_NAME,
+    SEARCH_DEBOUNCE_SEC,
+    SELECTION_OVERLAY_NAME,
+)
+from ._html import (
+    embedding_placeholder_computing,
+    embedding_placeholder_idle,
+    image_panel_idle,
+    image_panel_loading,
+    stats_bar_html,
+    status_html,
+)
+from ._protocol import _InteractiveExplorerProtocol
+from ._utils import (
+    apply_hoverlabels_matching_markers,
+    figurewidget_safe_figure,
+    format_elapsed_time,
+    raw_index_from_customdata_row,
+    schedule_after_plotly_event_loop,
+    set_trace_hoverlabel_continuous,
+    set_trace_hoverlabel_uniform,
+)
 
 logger = get_logger(__name__)
-
-
-# Small delay so the browser finishes dropdown/slider closure and releases focus
-# before we push large FigureWidget state syncs (avoids notebook/IDE cell selection
-# getting "stuck" after Appearance / Highlight interactions).
-_DEFER_UI_SEC = 0.1
-# Typing debounce for filter/exclude/highlight search inputs
-_SEARCH_DEBOUNCE_SEC = 0.25
-# Click handler re-entry guard (debounce)
-_CLICK_DEBOUNCE_SEC = 0.15
-# Reproducible subsample when downsampling in _compute_embedding
-_DR_RANDOM_STATE = 42
-# Extra Plotly trace for click-to-select border (2D/3D); must match overlay click skip
-_SELECTION_OVERLAY_NAME = "_phenome_sel_overlay"
-
-
-def _format_elapsed_time(seconds: float) -> str:
-    """Format elapsed seconds for status labels (adds m/h as duration grows).
-
-    Uses tenths under 10s for responsiveness; then whole seconds; then ``Xm Ys`` / ``Xh Ym Zs``.
-    """
-    if seconds < 0:
-        seconds = 0.0
-    if seconds < 10:
-        return f"{seconds:.1f}s"
-    if seconds < 60:
-        return f"{int(seconds)}s"
-    total = round(seconds)
-    h, rem = divmod(total, 3600)
-    m, s = divmod(rem, 60)
-    if h > 0:
-        return f"{h}h {m}m {s}s"
-    return f"{m}m {s}s"
-
-
-def _schedule_after_plotly_event_loop(fn: Callable[[], None]) -> None:
-    """Run ``fn`` after the current stack unwinds when an asyncio loop exists.
-
-    Plotly ``FigureWidget`` click handlers run inside traitlets / widget plumbing;
-    updating the same widget tree, ``Output``, and matplotlib immediately can
-    re-enter and freeze Jupyter or the VS Code / Cursor notebook UI. Deferring
-    one tick avoids that without delaying visible feedback noticeably.
-
-    The same applies to **ipywidgets** ``observe`` callbacks (dropdowns, sliders):
-    rebuilding a ``FigureWidget`` or large ``batch_update`` synchronously while
-    the widget frontend is still finishing the interaction can block the UI and
-    prevent selecting other notebook cells until the sync completes.
-
-    In VS Code / Cursor, a short delay is more reliable than ``call_soon`` for
-    ensuring the frontend has finished processing the original interaction.
-    """
-    try:
-        loop = asyncio.get_running_loop()
-        if loop.is_running():
-            # Using call_later with a small delay is more robust in VS Code/Cursor
-            # than call_soon for preventing UI focus/lockup issues.
-            loop.call_later(_DEFER_UI_SEC, fn)
-        else:
-            fn()
-    except RuntimeError:
-        # No loop running, but we might be in a thread that wants to update UI.
-        # If we're not on the main thread, we should try to find the main loop.
-        # For simplicity, we fallback to a thread-based deferral.
-        threading.Timer(_DEFER_UI_SEC, fn).start()
-
-
-def _figurewidget_safe_figure(fig: go.Figure) -> go.Figure:
-    """Return a figure whose data/layout use JSON-native types (lists, floats).
-
-    ``plotly.express`` leaves NumPy arrays on traces; ``FigureWidget`` state sync
-    in Plotly's ``basewidget`` uses ``if not value`` on nested props, which
-    raises on multi-element arrays. Converting known trace fields to Python lists
-    avoids a full ``pio.to_json`` / ``from_json`` round-trip (very slow on large
-    point clouds) while fixing widget sync.
-    """
-    out = go.Figure(fig)
-    for tr in out.data:
-        for attr in ("x", "y", "z", "customdata", "text", "hovertext", "ids"):
-            val = getattr(tr, attr, None)
-            if isinstance(val, np.ndarray):
-                setattr(tr, attr, val.tolist())
-        m = tr.marker
-        if m is not None:
-            for mattr in ("color", "size", "opacity"):
-                if hasattr(m, mattr):
-                    mv = getattr(m, mattr)
-                    if isinstance(mv, np.ndarray):
-                        setattr(tr.marker, mattr, mv.tolist())
-    return out
-
-
-def _hover_text_color_for_bg(bg: str) -> str:
-    """Readable hover text: light on dark marker colors, dark on light."""
-    if not bg or not isinstance(bg, str):
-        return "#f8fafc"
-    s = bg.strip()
-    try:
-        if s.startswith("#"):
-            from plotly.colors import hex_to_rgb
-
-            r, g, b = hex_to_rgb(s)
-        elif s.startswith("rgb"):
-            inner = s[s.find("(") + 1 : s.rfind(")")].split(",")
-            r, g, b = [int(float(inner[i].strip())) for i in range(3)]
-        else:
-            return "#f8fafc"
-        lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
-        return "#0f172a" if lum > 0.62 else "#f8fafc"
-    except Exception:
-        return "#f8fafc"
-
-
-def _set_trace_hoverlabel_uniform(tr: Any, color: str) -> None:
-    tr.update(
-        hoverlabel={
-            "bgcolor": color,
-            "bordercolor": "rgba(0,0,0,0.18)",
-            "font": {"color": _hover_text_color_for_bg(color), "size": 11},
-        }
-    )
-
-
-def _set_trace_hoverlabel_continuous(tr: Any, colorscale_name: str) -> None:
-    """Per-point hover background sampled from the same colorscale as markers."""
-    from plotly.colors import sample_colorscale
-
-    mc = tr.marker.color
-    vals = np.asarray(mc, dtype=float)
-    if vals.size == 0:
-        return
-    valid = np.isfinite(vals)
-    cmin = float(np.nanmin(vals))
-    cmax = float(np.nanmax(vals))
-    if cmax <= cmin:
-        cmax = cmin + 1e-12
-    t_arr = np.clip((vals - cmin) / (cmax - cmin), 0, 1)
-    try:
-        bg_list = sample_colorscale(colorscale_name, t_arr.tolist())
-    except Exception:
-        bg_list = ["rgba(55,55,55,0.92)"] * len(vals)
-    bg_list = [bg_list[i] if valid[i] else "rgba(110,110,110,0.92)" for i in range(len(vals))]
-    fc_list = [_hover_text_color_for_bg(b) for b in bg_list]
-    tr.update(
-        hoverlabel={
-            "bgcolor": bg_list,
-            "bordercolor": "rgba(0,0,0,0.15)",
-            "font": {"color": fc_list, "size": 11},
-        }
-    )
-
-
-def _apply_hoverlabels_matching_markers(
-    fig: go.Figure,
-    *,
-    color_column: str | None,
-    is_continuous: bool,
-    colorscale_name: str,
-    fallback_uniform: str,
-) -> None:
-    """Set trace hoverlabel colors to match marker colors (Plotly supports per-point bgcolor)."""
-    for tr in fig.data:
-        ttype = getattr(tr, "type", "")
-        if ttype not in ("scatter", "scattergl", "scatter3d"):
-            continue
-        mc = tr.marker.color
-        if color_column is None:
-            _set_trace_hoverlabel_uniform(tr, fallback_uniform)
-            continue
-        if is_continuous:
-            _set_trace_hoverlabel_continuous(tr, colorscale_name)
-            continue
-        if isinstance(mc, str):
-            _set_trace_hoverlabel_uniform(tr, mc)
-        else:
-            _set_trace_hoverlabel_uniform(tr, fallback_uniform)
-
-
-class _InteractiveExplorerProtocol(Protocol):
-    """Protocol for objects that can be explored interactively (pipeline or visualization mixin)."""
-
-    results: Any
-    device: Any
-
-    def get_available_property_keys(self) -> list[str]:
-        """Return available scalar property column names."""
-        ...
-
-    def _get_color_column(self, color_by: str, df: Any) -> tuple[str, bool]:
-        """Resolve ``color_by`` to a DataFrame column and whether it is continuous."""
-        ...
-
-    def plot_image_by_index(
-        self,
-        idx: int,
-        distance_results: dict | None = None,
-        channels: Any | None = None,
-        figsize: tuple[float, float] = (5.0, 5.0),
-        title_fields: list[str] | None = None,
-        show_extra_info: bool = True,
-        apply_transforms: bool = True,
-        downsample: int | None = None,
-    ) -> None:
-        """Display the image for result index ``idx`` in the notebook."""
-        ...
-
-    def image_preview_png_bytes(
-        self,
-        idx: int,
-        distance_results: dict | None = None,
-        channels: Any | None = None,
-        title_fields: list[str] | None = None,
-        show_extra_info: bool = False,
-        apply_transforms: bool = True,
-        downsample: int | None = None,
-    ) -> tuple[bytes, str | None, str | None]:
-        """PNG bytes and optional details text (same as ``plot_image_by_index`` extra block)."""
-        ...
-
-
-# ---------------------------------------------------------------------------
-# Continuous color scales
-# ---------------------------------------------------------------------------
-_CONTINUOUS_SCALES = [
-    "Viridis",
-    "Plasma",
-    "Inferno",
-    "Magma",
-    "Cividis",
-    "RdYlBu",
-    "Coolwarm",
-    "Spectral",
-    "RdBu",
-    "BrBG",
-    "Blues",
-    "Greens",
-    "Reds",
-    "Purples",
-    "YlOrRd",
-]
-
-# Shared layout for field + search + multi-select (Highlight + Embedding filter/exclude).
-_INTERACTIVE_VALUES_H = 168
-# Fixed widths (px) for stable ipywidgets layout (flex alone often mis-sizes in notebooks).
-_INTERACTIVE_SEARCH_W_PX = 240
-_INTERACTIVE_VALUES_W_PX = 320
-_INTERACTIVE_APPEAR_COL_W_PX = 300
-_INTERACTIVE_FIELD_MAX_W_PX = 600
-# Horizontal rule between control blocks (Highlight + Filter/exclude).
-_INTERACTIVE_SECTION_SEP_HTML = (
-    '<div style="height:1px;background:#DDE1E6;margin:2px 0 0 0;width:100%;"></div>'
-)
-# Shared label gutter for Filter/Exclude/Highlight (matches Appearance sliders).
-_INTERACTIVE_DESC_STYLE = {"description_width": "70px"}
-# Integer columns with at most this many distinct values use categorical highlight
-# (multi-select), same idea as Filter/Exclude — avoids a range slider on cluster IDs.
-_HIGHLIGHT_DISCRETE_INT_MAX_UNIQUES = 512
-
-# Fixed pixel layout for embedding plot and click-to-inspect overlay (no flex resizing).
-_EMBEDDING_FIG_WIDTH_PX = 800
-_EMBEDDING_FIG_HEIGHT_PX = 700
-_IMAGE_OVERLAY_WIDTH_PX = 500
-# Min height for the image panel (compact idle/loading; PNG expands when shown).
-_IMAGE_PANEL_MIN_HEIGHT_PX = 380
-# Matplotlib figsize (inches) for overlay image; ~100 DPI matches panel width minus padding.
-_IMAGE_OVERLAY_FIGSIZE: tuple[float, float] = (6.0, 6.0)
-
-
-def _html_embedding_placeholder_idle(w_px: int, h_px: int) -> str:
-    """Full-size empty state for the embedding slot (matches figure dimensions)."""
-    wh = f"{w_px}px"
-    hh = f"{h_px}px"
-    return (
-        f'<div style="width:{wh};max-width:100%;height:{hh};min-height:{hh};box-sizing:border-box;'
-        "display:flex;align-items:center;justify-content:center;"
-        "background:linear-gradient(165deg,#f8fafc 0%,#eef1f6 100%);"
-        'border:1px solid #d0d8e3;border-radius:8px;overflow:hidden;position:relative;">'
-        '<div style="position:absolute;inset:0;opacity:0.04;pointer-events:none;'
-        "background-image:radial-gradient(#4E79A7 1px,transparent 1px);"
-        'background-size:18px 18px;"></div>'
-        '<div style="position:relative;z-index:1;text-align:center;padding:10px 14px;max-width:320px;'
-        "border:1px solid #dce3eb;border-radius:6px;background:rgba(255,255,255,0.85);"
-        'box-shadow:0 1px 2px rgba(0,0,0,0.04);">'
-        '<div style="font-size:12px;font-weight:600;color:#2c3e50;">Embedding</div>'
-        '<p style="margin:6px 0 0;font-size:11px;line-height:1.4;color:#5d6d7e;">'
-        "Press <b>Compute</b> to build the plot. Use <b>Compute</b> again after changing "
-        "method, dims, or source.</p>"
-        "</div></div>"
-    )
-
-
-def _html_embedding_placeholder_computing(w_px: int, h_px: int) -> str:
-    """Full-size state shown while DR runs (replaces idle or previous figure)."""
-    wh = f"{w_px}px"
-    hh = f"{h_px}px"
-    return (
-        "<style>"
-        "@keyframes ph-bar-slide{0%{transform:translateX(-100%);}100%{transform:translateX(350%);}}"
-        "</style>"
-        f'<div style="width:{wh};max-width:100%;height:{hh};min-height:{hh};box-sizing:border-box;'
-        "display:flex;align-items:center;justify-content:center;"
-        "background:linear-gradient(165deg,#f0f3f8 0%,#e8ecf2 100%);"
-        'border:1px solid #c5d0df;border-radius:8px;overflow:hidden;position:relative;">'
-        '<div style="position:relative;z-index:1;text-align:center;padding:10px 14px;max-width:300px;'
-        'border:1px solid #cfd8e3;border-radius:6px;background:rgba(255,255,255,0.9);">'
-        '<div style="font-size:12px;font-weight:600;color:#2c3e50;">Computing…</div>'
-        '<p style="margin:4px 0 0;font-size:10px;color:#7f8c8d;line-height:1.35;">'
-        "Dimensionality reduction (may take a while on large data).</p>"
-        '<div style="margin:10px auto 0;width:200px;max-width:100%;height:3px;border-radius:2px;'
-        'background:#d5dde8;overflow:hidden;">'
-        '<div style="width:38%;height:100%;border-radius:2px;'
-        "background:linear-gradient(90deg,#4E79A7,#59A14F);"
-        'animation:ph-bar-slide 1.25s ease-in-out infinite;"></div></div>'
-        "</div></div>"
-    )
-
-
-def _html_image_panel_idle(w_px: int, min_h_px: int) -> str:
-    """Empty state for click-to-inspect until a point is selected."""
-    mh = f"{min_h_px}px"
-    box_max = max(120, min_h_px - 48)
-    return (
-        f'<div style="width:100%;min-width:0;min-height:{mh};box-sizing:border-box;'
-        "display:flex;flex-direction:column;align-items:center;justify-content:center;"
-        'padding:6px 6px;gap:6px;">'
-        f'<div style="width:min(100%,{box_max}px);aspect-ratio:1;max-height:{min_h_px - 40}px;'
-        "border:1px dashed #c5ced8;border-radius:6px;"
-        'background:#f4f6f9;display:flex;align-items:center;justify-content:center;">'
-        '<div style="font-size:22px;line-height:1;opacity:0.35;color:#4E79A7;">◇</div>'
-        "</div>"
-        '<div style="font-size:10px;color:#6b7785;text-align:center;line-height:1.35;max-width:260px;">'
-        "Click the <b>embedding</b> to preview an image.</div>"
-        "</div>"
-    )
-
-
-def _html_image_panel_loading(w_px: int, min_h_px: int) -> str:
-    """Shown while ``image_preview_png_bytes`` runs on a worker thread."""
-    mh = f"{min_h_px}px"
-    box_max = max(120, min_h_px - 48)
-    return (
-        "<style>@keyframes ph-img-pulse{0%,100%{opacity:0.4;}50%{opacity:0.85;}}</style>"
-        f'<div style="width:100%;min-width:0;min-height:{mh};box-sizing:border-box;'
-        "display:flex;flex-direction:column;align-items:center;justify-content:center;"
-        'padding:6px 6px;gap:6px;">'
-        f'<div style="width:min(100%,{box_max}px);aspect-ratio:1;max-height:{min_h_px - 40}px;'
-        "border:1px solid #d0d8e2;border-radius:6px;"
-        "background:linear-gradient(110deg,#eceff4 0%,#f5f7fa 50%,#e8ecf2 100%);"
-        "background-size:200% 100%;animation:ph-img-pulse 1s ease-in-out infinite;"
-        'display:flex;align-items:center;justify-content:center;">'
-        '<span style="font-size:11px;font-weight:600;color:#5d6d7e;">Loading…</span>'
-        "</div>"
-        "</div>"
-    )
 
 
 class PhenoMeInteractive:
@@ -391,6 +88,9 @@ class PhenoMeInteractive:
       - Highlight mode (shows all points, emphasises a subset).
       - Multi-select categorical highlight and live stats bar.
       - Click-to-inspect image viewer.
+      - 2D box/lasso selection with CSV export of selected indices; HTML export
+        and clear live in the Selection section (Plotly modebar: pan, zoom, box/lasso, PNG).
+      - Dark mode for the plot (Appearance).
 
         Key design:
           - **Color changes** are instant (no recomputation, only visual update).
@@ -398,11 +98,13 @@ class PhenoMeInteractive:
             same field + search + multi-select pattern as Highlight.
           - **Method/Source/Dim** or metadata filter changes trigger dimensionality reduction (expensive).
           - **Highlight mode** shows ALL data points but visually emphasises a matching
-            subset (larger, brighter markers with a contrasting border) instead of hiding
+            subset (translucent halo + dimmed non-matching points) instead of hiding
             the rest.  This lets the user "find" a group in context.
           - **Multi-value highlight**: categorical fields use filter + multi-select (OR).
-          - **Live stats bar** (total / highlighted / selected).
-          - **Selected point**: clicking a point highlights it (larger, border) for inspection.
+          - **Live stats bar** (total / highlighted / selected / lasso-box).
+          - **Selected point**: clicking a point shows a black ring (hollow marker) for inspection.
+          - **Multi-selection**: box / lasso on the 2D plot stores a persistent set of
+            image indices that can be copied or downloaded as CSV.
     """
 
     # ------------------------------------------------------------------
@@ -443,6 +145,8 @@ class PhenoMeInteractive:
         self._cached_filters: dict | None = None
         self._cached_exclude: dict | None = None
         self._cached_dr_obj: Any = None
+        self._cached_source: str | None = None
+        self._cached_ndims: int | None = None
         # Map pipeline image index -> row position in ``_cached_df`` (avoids repeated dict builds).
         self._cached_index_to_row: dict[int, int] | None = None
         # Incremented after each successful embedding compute; image-load callbacks skip stale work.
@@ -450,13 +154,17 @@ class PhenoMeInteractive:
 
         # Widget state
         self.fig_widget: go.FigureWidget | None = None
-        # Number of data traces from plotly express (excludes selection overlay trace).
+        # Number of data traces from plotly express (excludes overlay traces).
         self._n_data_traces: int = 0
         self._current_color_by: str | None = None
         self._selected_point_index: int | None = None  # Click-to-highlight single point
         self._image_error_msg: str | None = None
         # Group highlight on/off (replaces former checkbox; synced to ``highlight_toggle`` button UI).
         self._highlight_active: bool = False
+        # Box/lasso multi-selection: pipeline image indices currently selected (2D only).
+        self._multi_selected_indices: list[int] = []
+        # Theme state for Appearance dark-mode (plot) toggle.
+        self._dark_mode: bool = False
         # Full list of categorical highlight values (for search filtering)
         self._highlight_value_options_all: list[str] = []
         # Pre-compute filter/exclude value lists (search narrows SelectMultiple like Highlight)
@@ -467,6 +175,7 @@ class PhenoMeInteractive:
         self._compute_thread: threading.Thread | None = None
         self._click_lock = threading.Lock()
         self._last_click_time = 0.0
+        self._last_deselect_time = 0.0
         self._debounce_timer: threading.Timer | None = None
         self._filter_search_debounce_timer: threading.Timer | None = None
         self._exclude_search_debounce_timer: threading.Timer | None = None
@@ -481,17 +190,13 @@ class PhenoMeInteractive:
         # (set only on the main thread), so ``display`` from a worker never reaches the
         # widget.  Updating ``VBox.children`` syncs correctly from any thread.
         self._embedding_placeholder = widgets.HTML(
-            value=_html_embedding_placeholder_idle(
-                _EMBEDDING_FIG_WIDTH_PX, _EMBEDDING_FIG_HEIGHT_PX
-            )
+            value=embedding_placeholder_idle(EMBEDDING_FIG_WIDTH_PX, EMBEDDING_FIG_HEIGHT_PX)
         )
         self._embedding_placeholder_computing = widgets.HTML(
-            value=_html_embedding_placeholder_computing(
-                _EMBEDDING_FIG_WIDTH_PX, _EMBEDDING_FIG_HEIGHT_PX
-            )
+            value=embedding_placeholder_computing(EMBEDDING_FIG_WIDTH_PX, EMBEDDING_FIG_HEIGHT_PX)
         )
-        _pw = f"{_EMBEDDING_FIG_WIDTH_PX}px"
-        _ph = f"{_EMBEDDING_FIG_HEIGHT_PX}px"
+        _pw = f"{EMBEDDING_FIG_WIDTH_PX}px"
+        _ph = f"{EMBEDDING_FIG_HEIGHT_PX}px"
         self._plot_slot = widgets.VBox(
             [self._embedding_placeholder],
             layout=widgets.Layout(
@@ -501,21 +206,17 @@ class PhenoMeInteractive:
                 min_height=_ph,
             ),
         )
-        # Do not stretch to the plot column height: a tall plot + overflow_y auto
-        # makes the browser show a vertical scrollbar even when the image overlay
-        # fits.  align_self flex-start keeps this box only as tall as its content;
-        # overflow visible avoids a scroll track when there is nothing to scroll.
-        _ow = f"{_IMAGE_OVERLAY_WIDTH_PX}px"
+        _ow = f"{IMAGE_OVERLAY_WIDTH_PX}px"
         # Matplotlib inside ``ipywidgets.Output`` does not reliably render from Plotly
         # click callbacks (display goes to the cell / nowhere).  Use PNG +
         # ``widgets.Image`` instead, like ``_plot_slot.children`` for the embedding.
         self._img_idle_placeholder = widgets.HTML(
-            value=_html_image_panel_idle(_IMAGE_OVERLAY_WIDTH_PX, _IMAGE_PANEL_MIN_HEIGHT_PX)
+            value=image_panel_idle(IMAGE_OVERLAY_WIDTH_PX, IMAGE_PANEL_MIN_HEIGHT_PX)
         )
         self._img_loading_placeholder = widgets.HTML(
-            value=_html_image_panel_loading(_IMAGE_OVERLAY_WIDTH_PX, _IMAGE_PANEL_MIN_HEIGHT_PX)
+            value=image_panel_loading(IMAGE_OVERLAY_WIDTH_PX, IMAGE_PANEL_MIN_HEIGHT_PX)
         )
-        _imh = f"{_IMAGE_PANEL_MIN_HEIGHT_PX}px"
+        _imh = f"{IMAGE_PANEL_MIN_HEIGHT_PX}px"
         self.img_output = widgets.VBox(
             [self._img_idle_placeholder],
             layout=widgets.Layout(
@@ -534,8 +235,9 @@ class PhenoMeInteractive:
             ),
         )
 
-        # Build UI widgets
+        # Build UI widgets (main controls + Selection accordion helpers)
         self._create_widgets()
+        self._create_toolbar_widgets()
 
         # Populate options
         self._update_color_options()
@@ -616,10 +318,11 @@ class PhenoMeInteractive:
         )
         # Align checkbox with control column (same 70px label gutter as sliders/dropdowns)
         _appear_row_extra = widgets.HBox(
-            [self.show_extra_info_checkbox],
+            [self.show_extra_info_checkbox, self.dark_mode_checkbox],
             layout=widgets.Layout(
                 width="100%",
                 padding="2px 0 0 70px",
+                gap="16px",
             ),
         )
         _appear = widgets.VBox(
@@ -668,13 +371,40 @@ class PhenoMeInteractive:
                 padding="10px 12px 12px 12px",
             ),
         )
+        _selection_panel = widgets.VBox(
+            [
+                self._selection_help,
+                self._selection_summary,
+                widgets.HBox(
+                    [
+                        self.selection_copy_btn,
+                        self.selection_download_btn,
+                        self.export_html_btn,
+                    ],
+                    layout=widgets.Layout(
+                        width="100%",
+                        gap="8px",
+                        flex_flow="row wrap",
+                        align_items="center",
+                        padding="4px 0 0 0",
+                    ),
+                ),
+                self._selection_download_area,
+            ],
+            layout=widgets.Layout(
+                width="100%",
+                gap="8px",
+                padding="10px 12px 12px 12px",
+            ),
+        )
         accordion = widgets.Accordion(
-            children=[_embed_full, _appear, _hl],
+            children=[_embed_full, _appear, _hl, _selection_panel],
             layout=widgets.Layout(width="100%"),
         )
         accordion.set_title(0, "⊞ Embedding")
         accordion.set_title(1, "◑ Appearance")
         accordion.set_title(2, "◎ Highlight")
+        accordion.set_title(3, "⬚ Selection (box / lasso)")
         accordion.selected_index = 0
 
         sidebar = widgets.VBox(
@@ -705,8 +435,19 @@ class PhenoMeInteractive:
             ),
         )
 
+        # Plot column: figure slot only (Plotly modebar: pan, zoom, box, lasso, PNG, home).
+        plot_column = widgets.VBox(
+            [self.output_area],
+            layout=widgets.Layout(
+                gap="4px",
+                width=f"{EMBEDDING_FIG_WIDTH_PX}px",
+                min_width=f"{EMBEDDING_FIG_WIDTH_PX}px",
+                max_width=f"{EMBEDDING_FIG_WIDTH_PX}px",
+                align_items="flex-start",
+            ),
+        )
         main_area = widgets.HBox(
-            [self.output_area, self.img_output],
+            [plot_column, self.img_output],
             layout=widgets.Layout(
                 gap="8px",
                 width="100%",
@@ -722,6 +463,7 @@ class PhenoMeInteractive:
         display(self._dashboard)
 
         self._update_stats()
+        self._update_selection_summary()
 
         # Placeholder lives in _plot_slot; display once here (main thread) so later
         # thread-only updates can replace _plot_slot.children with the FigureWidget.
@@ -781,7 +523,7 @@ class PhenoMeInteractive:
         self._create_filter_exclude_widgets()
 
         # Appearance controls — fixed column width so pairs align across rows
-        _ac = _INTERACTIVE_APPEAR_COL_W_PX
+        _ac = INTERACTIVE_APPEAR_COL_W_PX
         _appear_pair_layout = widgets.Layout(
             width=f"{_ac}px",
             min_width=f"{_ac}px",
@@ -795,7 +537,7 @@ class PhenoMeInteractive:
             layout=_appear_pair_layout,
         )
         self.colorscale_dropdown = widgets.Dropdown(
-            options=_CONTINUOUS_SCALES,
+            options=CONTINUOUS_SCALES,
             value="Viridis",
             description="Palette:",
             style=_appear_desc,
@@ -833,25 +575,75 @@ class PhenoMeInteractive:
             layout=widgets.Layout(width="120px"),
         )
         self.status_label = widgets.HTML(
-            value=self._status_html("Ready", "info"),
+            value=status_html("Ready", "info"),
             layout=widgets.Layout(flex="0 1 auto"),
         )
         self.stats_bar = widgets.HTML(
-            value=self._stats_bar_html(0, 0, None, None),
+            value=stats_bar_html(0, 0, None, None),
             layout=widgets.Layout(flex="1 1 200px"),
         )
 
-        # Image viewer
+        # Image viewer + dark mode checkbox (paired in "Appearance" panel)
         self.show_extra_info_checkbox = widgets.Checkbox(
             value=True,
             description="Image extra info",
             indent=False,
             layout=widgets.Layout(
-                width=f"{_INTERACTIVE_FIELD_MAX_W_PX}px",
-                min_width="200px",
-                max_width=f"{_INTERACTIVE_FIELD_MAX_W_PX}px",
+                min_width="180px",
+                max_width=f"{INTERACTIVE_FIELD_MAX_W_PX}px",
             ),
         )
+        self.dark_mode_checkbox = widgets.Checkbox(
+            value=False,
+            description="Dark mode",
+            indent=False,
+            layout=widgets.Layout(
+                min_width="120px",
+                max_width="200px",
+            ),
+        )
+
+    # ------------------------------------------------------------------
+    # Selection section widgets (export HTML / copy / CSV / clear)
+    # ------------------------------------------------------------------
+    def _create_toolbar_widgets(self) -> None:
+        """Create widgets for the Selection accordion (box/lasso tools live on Plotly's modebar)."""
+        # --- Selection (box / lasso) accordion panel widgets ---
+        self._selection_help = widgets.HTML(
+            value=(
+                '<div style="font-size:11px;color:#5D6D7E;line-height:1.45;">'
+                "Use the Plotly <b>modebar</b> above the figure (e.g. box or lasso select) "
+                "to select multiple points (<b>2D only</b>). <b>Double-click the plot to clear selections.</b> "
+                "</div>"
+            ),
+            layout=widgets.Layout(width="100%"),
+        )
+        self._selection_summary = widgets.HTML(
+            value=('<div style="font-size:11px;color:#64748B;"><i>No points selected.</i></div>'),
+            layout=widgets.Layout(width="100%"),
+        )
+        self.selection_copy_btn = widgets.Button(
+            description="Copy indices",
+            icon="clipboard",
+            button_style="info",
+            tooltip="Copy selected pipeline indices (comma separated)",
+            layout=widgets.Layout(width="auto", min_width="140px"),
+        )
+        self.selection_download_btn = widgets.Button(
+            description="Download CSV",
+            icon="download",
+            button_style="info",
+            tooltip="Download selected rows of the embedding DataFrame as CSV",
+            layout=widgets.Layout(width="auto", min_width="150px"),
+        )
+        self.export_html_btn = widgets.Button(
+            description="Download HTML",
+            icon="file-code-o",
+            button_style="",
+            tooltip="Download current figure as a standalone HTML file",
+            layout=widgets.Layout(width="auto", min_width="150px"),
+        )
+        self._selection_download_area = widgets.HTML(value="", layout=widgets.Layout(width="100%"))
 
     @staticmethod
     def _apply_search_to_select_multiple(
@@ -877,17 +669,16 @@ class PhenoMeInteractive:
             elif not old_sel:
                 select_widget.value = ()
             else:
-                # Prior selection(s) no longer in filtered list: fall back like Highlight.
                 select_widget.value = (filtered[0],)
         else:
             select_widget.value = ()
 
     def _create_filter_exclude_widgets(self) -> None:
         """Create embedding filter/exclude controls (same layout pattern as Highlight)."""
-        _vh = _INTERACTIVE_VALUES_H
-        _sw = _INTERACTIVE_SEARCH_W_PX
-        _vw = _INTERACTIVE_VALUES_W_PX
-        _fmax = _INTERACTIVE_FIELD_MAX_W_PX
+        _vh = INTERACTIVE_VALUES_H
+        _sw = INTERACTIVE_SEARCH_W_PX
+        _vw = INTERACTIVE_VALUES_W_PX
+        _fmax = INTERACTIVE_FIELD_MAX_W_PX
         _fe_pair_layout = widgets.Layout(
             width="100%",
             gap="10px",
@@ -925,21 +716,21 @@ class PhenoMeInteractive:
         )
         self.filter_key_dropdown = widgets.Dropdown(
             description="Field:",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=widgets.Layout(width="100%", min_width="0", max_width=f"{_fmax}px"),
         )
         self.filter_search_input = widgets.Text(
             value="",
             description="Search:",
             placeholder="Search values…",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=_fe_search_layout,
         )
         self.filter_value_select = widgets.SelectMultiple(
             options=[],
             value=(),
             description="Values:",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=_fe_values_layout,
         )
         self._filter_row_cat = widgets.HBox(
@@ -963,21 +754,21 @@ class PhenoMeInteractive:
         )
         self.exclude_key_dropdown = widgets.Dropdown(
             description="Field:",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=widgets.Layout(width="100%", min_width="0", max_width=f"{_fmax}px"),
         )
         self.exclude_search_input = widgets.Text(
             value="",
             description="Search:",
             placeholder="Search values…",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=_fe_search_layout,
         )
         self.exclude_value_select = widgets.SelectMultiple(
             options=[],
             value=(),
             description="Values:",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=_fe_values_layout,
         )
         self._exclude_row_cat = widgets.HBox(
@@ -1082,10 +873,10 @@ class PhenoMeInteractive:
 
     def _create_highlight_widgets(self) -> None:
         """Create highlight/filter widgets."""
-        _values_h = _INTERACTIVE_VALUES_H
-        _sw = _INTERACTIVE_SEARCH_W_PX
-        _vw = _INTERACTIVE_VALUES_W_PX
-        _fmax = _INTERACTIVE_FIELD_MAX_W_PX
+        _values_h = INTERACTIVE_VALUES_H
+        _sw = INTERACTIVE_SEARCH_W_PX
+        _vw = INTERACTIVE_VALUES_W_PX
+        _fmax = INTERACTIVE_FIELD_MAX_W_PX
         _hl_pair_layout = widgets.Layout(
             width="100%",
             gap="10px",
@@ -1115,21 +906,21 @@ class PhenoMeInteractive:
         )
         self.highlight_key_dropdown = widgets.Dropdown(
             description="Field:",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=widgets.Layout(width="100%", min_width="0", max_width=f"{_fmax}px"),
         )
         self.highlight_search_input = widgets.Text(
             value="",
             description="Search:",
             placeholder="Search values…",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=_hl_search_layout,
         )
         self.highlight_value_select = widgets.SelectMultiple(
             options=[],
             value=(),
             description="Values:",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=_hl_values_layout,
         )
         self.highlight_range_slider = widgets.FloatRangeSlider(
@@ -1138,7 +929,7 @@ class PhenoMeInteractive:
             max=1.0,
             step=0.01,
             description="Range:",
-            style=_INTERACTIVE_DESC_STYLE,
+            style=INTERACTIVE_DESC_STYLE,
             layout=widgets.Layout(
                 width=f"{_fmax}px",
                 min_width="280px",
@@ -1161,7 +952,7 @@ class PhenoMeInteractive:
         self._highlight_field_is_numeric: bool = False
 
         self._highlight_actions_sep = widgets.HTML(
-            value=_INTERACTIVE_SECTION_SEP_HTML,
+            value=INTERACTIVE_SECTION_SEP_HTML,
             layout=widgets.Layout(width="100%"),
         )
 
@@ -1205,68 +996,12 @@ class PhenoMeInteractive:
         self.highlight_toggle.on_click(self._on_highlight_click)
         self.point_size_slider.observe(self._on_marker_style_changed, names="value")
         self.opacity_slider.observe(self._on_marker_style_changed, names="value")
+        self.dark_mode_checkbox.observe(self._on_dark_mode_changed, names="value")
 
-    # ------------------------------------------------------------------
-    # Status helpers
-    # ------------------------------------------------------------------
-    @staticmethod
-    def _status_html(msg: str, level: str = "info") -> str:
-        """Return styled HTML status label.
-
-        Args:
-            msg: Status message text.
-            level: Status level: 'info', 'ok', 'warn', or 'err'.
-
-        Returns:
-            HTML string for status label.
-        """
-        msg_safe = html.escape(str(msg))
-        icons = {"info": "&#x2139;", "ok": "✓", "warn": "⚠", "err": "✕"}
-        bg = {"info": "#EBF5FB", "ok": "#EAFAF1", "warn": "#FEF9E7", "err": "#FDEDEC"}
-        border = {"info": "#3498db", "ok": "#27ae60", "warn": "#f39c12", "err": "#e74c3c"}
-        color = {"info": "#1a5276", "ok": "#1e8449", "warn": "#9a7b0a", "err": "#922b21"}
-        icon = icons.get(level, "&#x2139;")
-        b = bg.get(level, "#F4F4F4")
-        br = border.get(level, "#555")
-        c = color.get(level, "#333")
-        return (
-            f'<span style="display:inline-flex;align-items:center;gap:5px;'
-            f"padding:3px 10px;border-radius:12px;font-size:11px;"
-            f"background:{b};border:1px solid {br};color:{c};"
-            f'">{icon} {msg_safe}</span>'
-        )
-
-    @staticmethod
-    def _stats_bar_html(
-        n_total: int, n_highlighted: int, selected: int | None, error_msg: str | None = None
-    ) -> str:
-        """HTML for the live stats bar (totals / highlight / selection)."""
-        sel = "—" if selected is None else html.escape(str(selected))
-        err_span = (
-            f'<span style="flex-basis:100%;color:#e74c3c;font-weight:600;">'
-            f"{html.escape(error_msg)}</span>"
-            if error_msg
-            else ""
-        )
-        sep_after_sel = (
-            '<div style="flex-basis:100%;height:1px;background:#E9ECEF;margin:4px 0 0 0;"></div>'
-            if error_msg
-            else ""
-        )
-        return (
-            '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;'
-            "padding:5px 10px;background:#F8F9FA;border-radius:6px;"
-            'font-size:11px;color:#444;border:1px solid #E9ECEF;">'
-            f"<span><b>Total</b> {n_total:,}</span>"
-            '<span style="color:#ccc;">|</span>'
-            f"<span><b>Highlighted</b> {n_highlighted:,}</span>"
-            '<span style="color:#ccc;">|</span>'
-            f"<span><b>Selected id</b> {sel}</span>"
-            '<span style="color:#ccc;">|</span>'
-            f"{sep_after_sel}"
-            f"{err_span}"
-            "</div>"
-        )
+        # Selection section callbacks
+        self.selection_copy_btn.on_click(self._on_selection_copy_clicked)
+        self.selection_download_btn.on_click(self._on_selection_download_clicked)
+        self.export_html_btn.on_click(self._on_export_html_clicked)
 
     # ------------------------------------------------------------------
     # Option builders
@@ -1283,27 +1018,22 @@ class PhenoMeInteractive:
             cols.extend(self.pheno.get_available_property_keys())
         cols = sorted(set(cols))
 
-        # Filter out non-informative columns (all NaNs, all same, or unique per row)
+        # Filter out non-informative columns (all NaNs, all same, or unique per row).
         informative_cols = []
         results = self.pheno.results
         n_total = results.n_images
 
-        # Pre-build a mini-dataframe for quick checking if possible, or just sample/scan
-        # For small-ish datasets, we can check everything. For large ones, we might want to sample.
-        # But here we just want to avoid obviously bad columns.
         for col in cols:
             vals = []
-            # Check metadata
             is_meta = col in get_all_metadata_keys(results)
             if is_meta:
-                for i in range(min(n_total, 1000)):  # Check first 1000 for efficiency
+                for i in range(min(n_total, 1000)):
                     meta = results.metadata[i]
                     if isinstance(meta, dict):
                         v = get_metadata_value_from_dict(meta, col)
                         if v is not None:
                             vals.append(v)
             else:
-                # Check properties
                 for i in range(min(n_total, 1000)):
                     props = results.properties[i]
                     if isinstance(props, dict):
@@ -1318,10 +1048,9 @@ class PhenoMeInteractive:
 
             unique_vals = set(vals)
             if len(unique_vals) <= 1:
-                # All same or all None/NaN
                 continue
 
-            # Unique per row (like id, filename)
+            # Unique-per-row id-like columns (id, filename, path) are not informative for colouring.
             if (
                 len(unique_vals) > n_total * 0.9
                 and n_total > 10
@@ -1334,7 +1063,6 @@ class PhenoMeInteractive:
         cols = sorted(informative_cols)
         self.color_dropdown.options = cols
 
-        # Set sensible default
         for default in ["drug", "cluster", "treatment", "condition", "time"]:
             if default in cols:
                 self.color_dropdown.value = default
@@ -1345,7 +1073,6 @@ class PhenoMeInteractive:
     def _update_highlight_key_options(self) -> None:
         """Populate highlight field dropdown from cached DataFrame or pipeline."""
         if self._cached_df is not None:
-            # Use DataFrame columns (excludes coordinate cols)
             coord_prefixes = ("Component ",)
             exclude = {"Index", "Image"}
             opts = [
@@ -1384,8 +1111,8 @@ class PhenoMeInteractive:
         """Sorted unique string values for a metadata key across ``pheno.results``.
 
         ``PhenoMeResults`` stores ``metadata`` as a list of per-image dicts; we walk
-        that list once and use `get_metadata_value_from_dict` per row (avoids
-        re-fetching the metadata list on every index as `get_metadata_value` does).
+        that list once and use ``get_metadata_value_from_dict`` per row (avoids
+        re-fetching the metadata list on every index as ``get_metadata_value`` does).
         """
         if key is None or not hasattr(self.pheno, "results") or not self.pheno.results:
             return []
@@ -1404,12 +1131,9 @@ class PhenoMeInteractive:
 
     def _sync_embed_filters_from_widgets(self) -> None:
         """Set ``initial_filters`` / ``initial_exclude`` from UI state or constructor overrides."""
-        # Start with current UI multi-filter dictionaries
         ui_filters = dict(self._ui_filters) if self._ui_filters else None
         ui_exclude = dict(self._ui_exclude) if self._ui_exclude else None
 
-        # Also add current temporary selection in the dropdown/SelectMultiple
-        # (if not already added via Add Filter button)
         fk = self.filter_key_dropdown.value
         fv = list(self.filter_value_select.value)
         if fk and fv:
@@ -1538,16 +1262,14 @@ class PhenoMeInteractive:
 
         col = self._cached_df[key]
 
-        # Treat boolean columns as categorical
         is_bool = pd.api.types.is_bool_dtype(col)
         is_numeric = pd.api.types.is_numeric_dtype(col) and not is_bool
         n_unique_non_na = int(col.dropna().nunique()) if is_numeric else 0
-        # Cluster-like integer columns: multi-select, not a range slider (Filter/Exclude
-        # already expose these as discrete string tokens).
+        # Cluster-like integer columns: multi-select, not a range slider.
         discrete_int_categorical = (
             is_numeric
             and pd.api.types.is_integer_dtype(col)
-            and n_unique_non_na <= _HIGHLIGHT_DISCRETE_INT_MAX_UNIQUES
+            and n_unique_non_na <= HIGHLIGHT_DISCRETE_INT_MAX_UNIQUES
         )
 
         if is_numeric and not discrete_int_categorical:
@@ -1559,15 +1281,12 @@ class PhenoMeInteractive:
                 return
             col_min = float(col_clean.min())
             col_max = float(col_clean.max())
-            # Guard against min == max (constant column)
             if col_min == col_max:
                 col_max = col_min + 1.0
 
-            # Choose a sensible step size (~200 steps across the range)
             span = col_max - col_min
             step = round(span / 200, 6) if span > 0 else 0.01
 
-            # Determine readout format based on magnitude (more precision for small values)
             if span >= 100:
                 readout_fmt = ".1f"
             elif span >= 1:
@@ -1577,9 +1296,8 @@ class PhenoMeInteractive:
             else:
                 readout_fmt = ".6f"
 
-            # Update slider bounds.  Order matters because traitlets
-            # enforces min <= value <= max at every step.  Widen first,
-            # then narrow, so the intermediate state is always valid.
+            # Update slider bounds.  Order matters because traitlets enforces
+            # min <= value <= max at every step; widen first, then narrow.
             slider = self.highlight_range_slider
             slider.min = min(col_min, slider.min)
             slider.max = max(col_max, slider.max)
@@ -1617,16 +1335,16 @@ class PhenoMeInteractive:
             self._apply_highlight_search_filter(select_default=False)
             # The value change implicitly schedules the highlight update if it changed.
 
-        self._debounce_timer = threading.Timer(_SEARCH_DEBOUNCE_SEC, _do_search)
+        self._debounce_timer = threading.Timer(SEARCH_DEBOUNCE_SEC, _do_search)
         self._debounce_timer.start()
 
     # ------------------------------------------------------------------
     # Compute (expensive - dimensionality reduction)
     # ------------------------------------------------------------------
     def _compute_embedding(self) -> float:
-        """Run dimensionality reduction and populate self._cached_df."""
-        method_label = self.method_dropdown.value  # 'PCA', 't-SNE', 'UMAP'
-        method_key = method_label.lower().replace("-", "")  # 'pca', 'tsne', 'umap'
+        """Run dimensionality reduction and populate ``self._cached_df``."""
+        method_label = self.method_dropdown.value
+        method_key = method_label.lower().replace("-", "")
         n_dims = self.dim_toggle.value
         source = self.source_dropdown.value
 
@@ -1645,7 +1363,6 @@ class PhenoMeInteractive:
                 use_gpu=getattr(self.pheno, "use_gpu_for_dr", True),
             )
         except ImportError as e:
-            # Catch missing dependencies like umap-learn or torchdr
             if "umap" in str(e).lower():
                 raise ImportError(
                     "UMAP is not installed. Please install it with: pip install umap-learn"
@@ -1661,7 +1378,7 @@ class PhenoMeInteractive:
             raise ValueError("Dimensionality reduction returned no data.")
 
         if len(df) > self.max_points:
-            df = df.sample(n=self.max_points, random_state=_DR_RANDOM_STATE).copy()
+            df = df.sample(n=self.max_points, random_state=DR_RANDOM_STATE).copy()
 
         self._cached_df = df
         self._cached_method = method_label
@@ -1678,6 +1395,9 @@ class PhenoMeInteractive:
         self._refresh_index_row_map()
         self._compute_seq += 1
 
+        # Recomputation invalidates the previous multi-selection (row positions shift).
+        self._multi_selected_indices = []
+
         return elapsed
 
     def _refresh_index_row_map(self) -> None:
@@ -1687,7 +1407,6 @@ class PhenoMeInteractive:
             self._cached_index_to_row = None
             return
         idx_arr = df["Index"].to_numpy()
-        # First occurrence wins (same as ``df.loc[df['Index']==i].iloc[0]``).
         self._cached_index_to_row = {}
         for j, v in enumerate(idx_arr):
             iv = int(v)
@@ -1704,7 +1423,7 @@ class PhenoMeInteractive:
         return x, y, z
 
     def _get_data_traces(self) -> list[Any]:
-        """Return plotly express data traces only (exclude selection overlay)."""
+        """Return plotly express data traces only (exclude overlay traces)."""
         if self.fig_widget is None or self._n_data_traces <= 0:
             return []
         return list(self.fig_widget.data[: self._n_data_traces])
@@ -1717,14 +1436,35 @@ class PhenoMeInteractive:
             return None
         return self.fig_widget.data[self._n_data_traces]
 
+    def _multi_select_overlay_trace(self) -> Any | None:
+        """The extra trace used to outline box/lasso multi-selected points (2D only)."""
+        if self.fig_widget is None or self._n_data_traces <= 0:
+            return None
+        if len(self.fig_widget.data) <= self._n_data_traces + 1:
+            return None
+        return self.fig_widget.data[self._n_data_traces + 1]
+
+    def _highlight_overlay_trace(self) -> Any | None:
+        """Halo for group-Highlight (2D only; empty stub in 3D builds)."""
+        if self.fig_widget is None or self._n_data_traces <= 0:
+            return None
+        if len(self.fig_widget.data) <= self._n_data_traces + 2:
+            return None
+        return self.fig_widget.data[self._n_data_traces + 2]
+
     def _highlight_marker_size(self) -> int:
-        """Marker size for selection overlay / highlight emphasis vs base point size."""
-        ns = self.point_size_slider.value
+        """Halo marker diameter (multi-select + group-highlight overlays) vs base point size."""
+        ns = int(self.point_size_slider.value)
+        return max(int(ns * HALO_SIZE_MULTIPLIER), ns + 2)
+
+    def _click_select_ring_size(self) -> int:
+        """Ring marker size for single-point click (classic hollow + border, not a filled halo)."""
+        ns = int(self.point_size_slider.value)
         return max(ns + 5, int(ns * 2))
 
     def _make_selection_overlay_trace(self, is_3d: bool) -> go.Scatter3d | go.Scatter:
-        """Single extra trace for click-to-select border (WebGL traces lack per-point line width)."""
-        hs = self._highlight_marker_size()
+        """Single extra trace: hollow marker with black border (click-to-select; WebGL has no per-point line width on data)."""
+        hs = self._click_select_ring_size()
         marker = {
             "size": hs,
             "color": "rgba(0,0,0,0)",
@@ -1733,7 +1473,7 @@ class PhenoMeInteractive:
         }
         if is_3d:
             return go.Scatter3d(
-                name=_SELECTION_OVERLAY_NAME,
+                name=SELECTION_OVERLAY_NAME,
                 x=[],
                 y=[],
                 z=[],
@@ -1745,7 +1485,49 @@ class PhenoMeInteractive:
                 customdata=[],
             )
         return go.Scatter(
-            name=_SELECTION_OVERLAY_NAME,
+            name=SELECTION_OVERLAY_NAME,
+            x=[],
+            y=[],
+            mode="markers",
+            showlegend=False,
+            hoverinfo="skip",
+            visible=False,
+            marker=marker,
+            customdata=[],
+        )
+
+    def _make_multi_select_overlay_trace(self) -> go.Scatter:
+        """Extra 2D trace: translucent blue halos for box/lasso multi-selected points."""
+        hs = self._highlight_marker_size()
+        marker = {
+            "size": hs,
+            "color": HALO_COLOR_MULTI,
+            "opacity": 1.0,
+            "line": {"width": 0, "color": "rgba(0,0,0,0)"},
+        }
+        return go.Scatter(
+            name=MULTI_SELECT_OVERLAY_NAME,
+            x=[],
+            y=[],
+            mode="markers",
+            showlegend=False,
+            hoverinfo="skip",
+            visible=False,
+            marker=marker,
+            customdata=[],
+        )
+
+    def _make_highlight_overlay_trace(self) -> go.Scatter:
+        """Extra 2D trace: pink halos for group-Highlight over matching rows."""
+        hs = self._highlight_marker_size()
+        marker = {
+            "size": hs,
+            "color": HALO_COLOR_HIGHLIGHT,
+            "opacity": 1.0,
+            "line": {"width": 0, "color": "rgba(0,0,0,0)"},
+        }
+        return go.Scatter(
+            name=HIGHLIGHT_OVERLAY_NAME,
             x=[],
             y=[],
             mode="markers",
@@ -1769,21 +1551,41 @@ class PhenoMeInteractive:
             [0] * n_tr,
         )
 
+    def _figure_theme_layout(self) -> dict[str, Any]:
+        """Return a layout dict patch for the current theme (light/dark)."""
+        if self._dark_mode:
+            return {
+                "template": "plotly_dark",
+                "paper_bgcolor": "#111827",
+                "plot_bgcolor": "#1f2937",
+                "font_color": "#e5e7eb",
+            }
+        return {
+            "template": "plotly_white",
+            "paper_bgcolor": "white",
+            "plot_bgcolor": "#FAFCFE",
+            "font_color": "#141428",
+        }
+
     def _build_figure(self) -> None:
         """Build a new FigureWidget from the cached DataFrame."""
         df = self._cached_df
         if df is None:
             return
+
+        theme = self._figure_theme_layout()
+
         if len(df) == 0:
             # No data - show empty placeholder and clear selection
             self._selected_point_index = None
+            self._multi_selected_indices = []
             self._n_data_traces = 0
             self.fig_widget = go.FigureWidget(
                 layout=go.Layout(
-                    template="plotly_white",
+                    template=theme["template"],
                     autosize=False,
-                    width=_EMBEDDING_FIG_WIDTH_PX,
-                    height=_EMBEDDING_FIG_HEIGHT_PX,
+                    width=EMBEDDING_FIG_WIDTH_PX,
+                    height=EMBEDDING_FIG_HEIGHT_PX,
                     title={
                         "text": "<b>No data</b>",
                         "x": 0.5,
@@ -1793,14 +1595,20 @@ class PhenoMeInteractive:
                         "font": {
                             "size": 17,
                             "family": "Inter, Helvetica Neue, Arial, sans-serif",
-                            "color": "#141428",
+                            "color": theme["font_color"],
                         },
                     },
-                    paper_bgcolor="white",
-                    plot_bgcolor="#FAFCFE",
+                    paper_bgcolor=theme["paper_bgcolor"],
+                    plot_bgcolor=theme["plot_bgcolor"],
                     xaxis={"visible": False},
                     yaxis={"visible": False},
-                    annotations=[{"text": "Compute embedding to see data", "showarrow": False}],
+                    annotations=[
+                        {
+                            "text": "Compute embedding to see data",
+                            "showarrow": False,
+                            "font": {"color": theme["font_color"]},
+                        }
+                    ],
                     margin={"l": 50, "r": 50, "t": 72, "b": 50},
                 )
             )
@@ -1809,7 +1617,6 @@ class PhenoMeInteractive:
         x_col, y_col, z_col = self._coord_columns()
         color_by = self.color_dropdown.value
 
-        # Determine colour column
         color_column: str | None = None
         is_continuous = False
         if color_by:
@@ -1818,7 +1625,6 @@ class PhenoMeInteractive:
             except ValueError:
                 color_column = None
 
-        # Hover columns
         coord_cols = {x_col, y_col, z_col}
         hover_cols = ["Index"]
         if "Image" in df.columns:
@@ -1836,15 +1642,12 @@ class PhenoMeInteractive:
             "x": x_col,
             "y": y_col,
             "hover_data": hover_cols,
-            # Ensure pipeline image index is always the first customdata column for clicks.
             "custom_data": ["Index"],
-            "width": _EMBEDDING_FIG_WIDTH_PX,
-            "height": _EMBEDDING_FIG_HEIGHT_PX,
+            "width": EMBEDDING_FIG_WIDTH_PX,
+            "height": EMBEDDING_FIG_HEIGHT_PX,
         }
         if z_col:
             kwargs["z"] = z_col
-        # 2D defaults to WebGL (``scattergl``) for performance; ``_resolve_click_point_index``
-        # falls back to nearest x/y when ``point_inds`` is empty.
 
         if color_column:
             kwargs["color"] = color_column
@@ -1857,19 +1660,17 @@ class PhenoMeInteractive:
 
         fig = px.scatter_3d(**kwargs) if z_col else px.scatter(**kwargs)
 
-        # Labelled hover (customdata column order matches ``hover_cols`` / hover_data)
         if hover_cols:
             ht_parts = [f"{col}=%{{customdata[{i}]}}" for i, col in enumerate(hover_cols)]
             fig.update_traces(hovertemplate="<br>".join(ht_parts) + "<extra></extra>")
 
-        # Marker styling (no outline in baseline — highlight/selection add borders)
         marker_size = self.point_size_slider.value
         opacity = self.opacity_slider.value
         fig.update_traces(marker={"size": marker_size, "opacity": opacity, "line": {"width": 0}})
         if not color_column:
             fig.update_traces(marker_color="#636EFA")
 
-        _apply_hoverlabels_matching_markers(
+        apply_hoverlabels_matching_markers(
             fig,
             color_column=color_column,
             is_continuous=is_continuous,
@@ -1878,28 +1679,30 @@ class PhenoMeInteractive:
         )
 
         _font = {"family": "Inter, Helvetica Neue, Arial, sans-serif", "size": 12}
+        _grid_color = "#2d3748" if self._dark_mode else "#EBEBEB"
         _axis_2d = {
             "showline": False,
             "zeroline": False,
-            "gridcolor": "#EBEBEB",
+            "gridcolor": _grid_color,
             "ticks": "",
         }
-        # Per-trace hoverlabel bgcolor is set in `_apply_hoverlabels_matching_markers`
-        # so each point matches its marker color; layout only sets shared defaults.
         _hoverlabel = {
             "bordercolor": "rgba(0,0,0,0)",
             "font": {"size": 11},
         }
+        _legend_bg = "rgba(31,41,55,0.92)" if self._dark_mode else "rgba(248,250,252,0.92)"
+        _legend_border = "#374151" if self._dark_mode else "#E2E8F0"
+        _legend_font_color = "#e5e7eb" if self._dark_mode else "#334155"
         _legend = {
             "orientation": "h",
             "yanchor": "top",
             "y": -0.14,
             "xanchor": "center",
             "x": 0.5,
-            "bgcolor": "rgba(248,250,252,0.92)",
-            "bordercolor": "#E2E8F0",
+            "bgcolor": _legend_bg,
+            "bordercolor": _legend_border,
             "borderwidth": 1,
-            "font": {"size": 10, "family": _font["family"], "color": "#334155"},
+            "font": {"size": 10, "family": _font["family"], "color": _legend_font_color},
             "itemsizing": "constant",
             "tracegroupgap": 8,
             "itemwidth": 30,
@@ -1908,19 +1711,21 @@ class PhenoMeInteractive:
             _legend["title"] = {
                 "text": color_column,
                 "side": "top center",
-                "font": {"size": 11, "family": _font["family"], "color": "#334155"},
+                "font": {"size": 11, "family": _font["family"], "color": _legend_font_color},
             }
 
         source_label = self._cached_source if self._cached_source else "?"
         title_main = f"{self._cached_method} ({source_label})"
+        _title_color = theme["font_color"]
+        _subtitle_color = "#cbd5f5" if self._dark_mode else "#64748b"
         title_html = (
-            f'<span style="font-size:17px;font-weight:600;letter-spacing:-0.02em;color:#141428;">'
+            f'<span style="font-size:17px;font-weight:600;letter-spacing:-0.02em;color:{_title_color};">'
             f"{html.escape(title_main)}</span>"
         )
         if color_by:
             title_html += (
-                f'<br><span style="font-size:12px;font-weight:500;color:#64748b;">'
-                f'Colored by <span style="color:#334155;">{html.escape(str(color_by))}</span></span>'
+                f'<br><span style="font-size:12px;font-weight:500;color:{_subtitle_color};">'
+                f'Colored by <span style="color:{_title_color};">{html.escape(str(color_by))}</span></span>'
             )
         _title_layout = {
             "text": title_html,
@@ -1929,10 +1734,9 @@ class PhenoMeInteractive:
             "y": 0.98,
             "yanchor": "top",
             "pad": {"t": 6},
-            "font": {"family": _font["family"], "size": 14, "color": "#141428"},
+            "font": {"family": _font["family"], "size": 14, "color": _title_color},
         }
 
-        # Axis titles (PCA: show explained variance)
         x_title, y_title, z_title = x_col, y_col, z_col
         if self._cached_method == "PCA" and self._cached_dr_obj is not None:
             pca = self._cached_dr_obj
@@ -1941,19 +1745,22 @@ class PhenoMeInteractive:
             if z_col:
                 z_title = f"Component 3 ({pca.explained_variance_ratio_[2]:.1%})"
 
+        _drag_mode = "pan"
         if z_col:
+            _scene_bg = "#111827" if self._dark_mode else "#FAFCFE"
+            _scene_grid = "#1f2937" if self._dark_mode else "#E8ECF0"
             _scene_axis = {
                 "showbackground": True,
-                "backgroundcolor": "#FAFCFE",
-                "gridcolor": "#E8ECF0",
+                "backgroundcolor": _scene_bg,
+                "gridcolor": _scene_grid,
                 "showline": False,
                 "zeroline": False,
                 "ticks": "",
             }
             fig.update_layout(
-                template="plotly_white",
+                template=theme["template"],
                 font=_font,
-                paper_bgcolor="white",
+                paper_bgcolor=theme["paper_bgcolor"],
                 hovermode="closest",
                 autosize=False,
                 title=_title_layout,
@@ -1961,7 +1768,7 @@ class PhenoMeInteractive:
                 hoverlabel=_hoverlabel,
                 legend=_legend,
                 scene={
-                    "bgcolor": "#FAFCFE",
+                    "bgcolor": _scene_bg,
                     "xaxis": {**_scene_axis, "title": x_title},
                     "yaxis": {**_scene_axis, "title": y_title},
                     "zaxis": {**_scene_axis, "title": z_title},
@@ -1969,10 +1776,10 @@ class PhenoMeInteractive:
             )
         else:
             fig.update_layout(
-                template="plotly_white",
+                template=theme["template"],
                 font=_font,
-                paper_bgcolor="white",
-                plot_bgcolor="#FAFCFE",
+                paper_bgcolor=theme["paper_bgcolor"],
+                plot_bgcolor=theme["plot_bgcolor"],
                 hovermode="closest",
                 autosize=False,
                 xaxis={**_axis_2d, "title": x_title},
@@ -1981,9 +1788,9 @@ class PhenoMeInteractive:
                 margin={"l": 50, "r": 50, "t": 56, "b": 124},
                 hoverlabel=_hoverlabel,
                 legend=_legend,
+                dragmode=_drag_mode if _drag_mode else None,
             )
 
-        # Continuous colour: horizontal colorbar at the bottom of the plot (shared coloraxis for 2D/3D)
         if is_continuous and color_column:
             fig.update_layout(
                 coloraxis={
@@ -1999,13 +1806,13 @@ class PhenoMeInteractive:
                         "title": {
                             "text": color_column,
                             "side": "top",
-                            "font": {"size": 12, "color": "#334155"},
+                            "font": {"size": 12, "color": _legend_font_color},
                         },
-                        "tickfont": {"size": 10, "color": "#64748b"},
+                        "tickfont": {"size": 10, "color": _legend_font_color},
                         "ticklen": 5,
-                        "tickcolor": "#cbd5e1",
+                        "tickcolor": _legend_border,
                         "outlinewidth": 1,
-                        "outlinecolor": "#e2e8f0",
+                        "outlinecolor": _legend_border,
                     }
                 },
                 margin_b=max(fig.layout.margin.b or 124, 152),
@@ -2013,31 +1820,75 @@ class PhenoMeInteractive:
 
         fig.update_layout(
             autosize=False,
-            width=_EMBEDDING_FIG_WIDTH_PX,
-            height=_EMBEDDING_FIG_HEIGHT_PX,
+            width=EMBEDDING_FIG_WIDTH_PX,
+            height=EMBEDDING_FIG_HEIGHT_PX,
         )
-        # Convert to FigureWidget (strip numpy from trace/layout for widget sync)
-        self.fig_widget = go.FigureWidget(_figurewidget_safe_figure(fig))
+        # Convert to FigureWidget (strip numpy from trace/layout for widget sync).
+        self.fig_widget = go.FigureWidget(figurewidget_safe_figure(fig))
         apply_figurewidget_display_config(self.fig_widget)
         self._n_data_traces = len(self.fig_widget.data)
         self._current_color_by = color_by
 
-        # Selection overlay: scattergl/scatter3d do not support per-point line width; use a
-        # dedicated trace so only one point shows a border (see module docstring).
+        # Overlay traces: click = ring on a separate trace; box/lasso + group-Highlight = halos.
+        # scattergl/scatter3d do not support per-point line width on data; use extra traces.
         self.fig_widget.add_trace(self._make_selection_overlay_trace(is_3d=bool(z_col)))
+        # Multi-select overlay (2D only). Add an empty 3D-compatible trace otherwise
+        # so the overlay index stays consistent across builds.
+        if z_col:
+            self.fig_widget.add_trace(
+                go.Scatter3d(
+                    name=MULTI_SELECT_OVERLAY_NAME,
+                    x=[],
+                    y=[],
+                    z=[],
+                    mode="markers",
+                    showlegend=False,
+                    hoverinfo="skip",
+                    visible=False,
+                    marker={"size": 1, "color": "rgba(0,0,0,0)"},
+                    customdata=[],
+                )
+            )
+            # Group highlight halo: 2D only; in 3D keep a stub so overlay indices match.
+            self.fig_widget.add_trace(
+                go.Scatter3d(
+                    name=HIGHLIGHT_OVERLAY_NAME,
+                    x=[],
+                    y=[],
+                    z=[],
+                    mode="markers",
+                    showlegend=False,
+                    hoverinfo="skip",
+                    visible=False,
+                    marker={"size": 1, "color": "rgba(0,0,0,0)"},
+                    customdata=[],
+                )
+            )
+        else:
+            self.fig_widget.add_trace(self._make_multi_select_overlay_trace())
+            self.fig_widget.add_trace(self._make_highlight_overlay_trace())
 
-        # Apply mode-specific styling
         if self._highlight_active:
             self._apply_highlight()
 
-        # Selected point highlight (click-to-select)
         if self._selected_point_index is not None:
             self._apply_selected_point_highlight()
 
-        # Click callback for image inspection and point selection
+        # Click + 2D selection / deselect callbacks (data traces only; not overlay halos)
         if self.fig_widget is not None:
-            for trace in self.fig_widget.data:
+            for trace in self._get_data_traces():
                 trace.on_click(self._on_figure_click)
+            # Box/lasso: selection events; double-click clear fires plotly_deselect (2D only).
+            if not z_col:
+                try:
+                    for trace in self._get_data_traces():
+                        trace.on_selection(self._on_figure_selection)
+                        trace.on_deselect(self._on_figure_deselect)
+                except Exception:
+                    logger.debug("Could not wire selection/deselect callbacks", exc_info=True)
+
+        # Repaint persistent multi-selection if still applicable.
+        self._apply_multi_select_overlay()
 
     # ------------------------------------------------------------------
     # Instant colour update (no recomputation)
@@ -2047,7 +1898,7 @@ class PhenoMeInteractive:
 
         Plotly express uses one data trace + ``layout.coloraxis`` for continuous
         colour. Categorical plots use one trace per category; those must still
-        go through `_build_figure`.
+        go through ``_build_figure``.
 
         Returns:
             True if the figure was updated without a full rebuild.
@@ -2070,7 +1921,7 @@ class PhenoMeInteractive:
                 cbar = getattr(self.fig_widget.layout.coloraxis, "colorbar", None)
                 if cbar is not None and getattr(cbar, "title", None) is not None:
                     cbar.title.text = color_column
-                _set_trace_hoverlabel_continuous(tr, self.colorscale_dropdown.value)
+                set_trace_hoverlabel_continuous(tr, self.colorscale_dropdown.value)
         except Exception:
             logger.debug(
                 "Continuous recolor patch failed; falling back to full rebuild.",
@@ -2096,12 +1947,11 @@ class PhenoMeInteractive:
                 color_column = None
 
         if color_column is None:
-            # Single colour fallback (Plotly default first discrete color)
             u = "#636EFA"
             with self.fig_widget.batch_update():
                 for trace in self._get_data_traces():
                     trace.marker.color = u
-                    _set_trace_hoverlabel_uniform(trace, u)
+                    set_trace_hoverlabel_uniform(trace, u)
             self._current_color_by = color_by
             return
 
@@ -2115,32 +1965,14 @@ class PhenoMeInteractive:
         self._current_color_by = color_by
 
     # ------------------------------------------------------------------
-    # Highlight logic
+    # Click / selection logic
     # ------------------------------------------------------------------
-    @staticmethod
-    def _raw_index_from_customdata_row(cd: Any) -> int:
-        """First column of a Plotly ``customdata`` row (image index in the pipeline)."""
-        if cd is None:
-            return -1
-        if isinstance(cd, np.ndarray):
-            v = np.asarray(cd).flat[0]
-        elif isinstance(cd, (list, tuple)):
-            if not cd:
-                return -1
-            v = cd[0]
-        else:
-            v = cd
-        try:
-            return int(v)
-        except (TypeError, ValueError):
-            return -1
-
     def _resolve_click_point_index(self, trace: Any, points: Any) -> int | None:
         """Marker index within ``trace`` for a click (handles empty ``point_inds`` on WebGL).
 
         Expected shapes:
             ``trace.x`` / ``trace.y``: length ``n_points`` coordinate arrays.
-            ``points.xs`` / ``points.ys``: click coordinates from the frontend (at least one point).
+            ``points.xs`` / ``points.ys``: click coordinates from the frontend.
         """
         if points is None:
             return None
@@ -2148,22 +1980,18 @@ class PhenoMeInteractive:
             return int(points.point_inds[0])
 
         ttype = getattr(trace, "type", "")
-        # ``scatter3d`` also uses WebGL; ``point_inds`` may be empty like ``scattergl``.
         if ttype not in ("scatter", "scattergl", "scatter3d"):
             return None
 
-        # Extract click coords from points object immediately (points may be transient)
         if not hasattr(points, "xs") or not points.xs or not hasattr(points, "ys") or not points.ys:
             return None
 
         try:
             x0, y0 = float(points.xs[0]), float(points.ys[0])
-            # Use cached coordinates if possible (faster than fetching from trace on every click)
             tx = np.asarray(trace.x, dtype=float)
             ty = np.asarray(trace.y, dtype=float)
             if tx.size == 0 or ty.size == 0 or tx.shape != ty.shape:
                 return None
-            # 3D: nearest point in x,y,z when click provides z (WebGL may omit point_inds)
             if ttype == "scatter3d":
                 tz = np.asarray(getattr(trace, "z", None), dtype=float)
                 if tz.size == tx.size and hasattr(points, "zs") and points.zs:
@@ -2176,17 +2004,20 @@ class PhenoMeInteractive:
 
     def _on_figure_click(self, trace: Any, points: Any, _state: Any) -> None:
         """Handle FigureWidget clicks - scheduled via event loop to avoid hangs."""
-        # Fast exit if busy or too soon (simple debouncing)
         t_now = time.time()
-        if t_now - self._last_click_time < _CLICK_DEBOUNCE_SEC:
+        if t_now - self._last_click_time < CLICK_DEBOUNCE_SEC:
             return
         if not self._click_lock.acquire(blocking=False):
             return
 
         scheduled = False
         try:
-            # Skip clicks on the selection overlay trace itself
-            if getattr(trace, "name", "") == _SELECTION_OVERLAY_NAME:
+            # Skip clicks on overlay traces themselves.
+            if getattr(trace, "name", "") in (
+                SELECTION_OVERLAY_NAME,
+                MULTI_SELECT_OVERLAY_NAME,
+                HIGHLIGHT_OVERLAY_NAME,
+            ):
                 return
 
             point_idx = self._resolve_click_point_index(trace, points)
@@ -2197,13 +2028,12 @@ class PhenoMeInteractive:
                 if trace.customdata is None or point_idx >= len(trace.customdata):
                     return
                 cdata = trace.customdata[point_idx]
-                idx = self._raw_index_from_customdata_row(cdata)
+                idx = raw_index_from_customdata_row(cdata)
                 if idx < 0:
                     return
             except (TypeError, ValueError, IndexError):
                 return
 
-            # Update click time for debouncing
             self._last_click_time = t_now
 
             def _apply_click_safe() -> None:
@@ -2215,7 +2045,6 @@ class PhenoMeInteractive:
                     else:
                         self._selected_point_index = idx
 
-                    # Update plot styling using only the overlay to be fast
                     self._apply_selected_point_overlay()
                     self._update_stats()
 
@@ -2229,18 +2058,15 @@ class PhenoMeInteractive:
 
                     def _load_and_show_image_task() -> None:
                         try:
-                            # Track which point this thread is loading for
                             loading_idx = sel_idx
                             png, details_text, title = self.pheno.image_preview_png_bytes(
                                 loading_idx,
                                 apply_transforms=False,
-                                downsample=max(360, _IMAGE_OVERLAY_WIDTH_PX * 2),
+                                downsample=max(360, IMAGE_OVERLAY_WIDTH_PX * 2),
                                 show_extra_info=self.show_extra_info_checkbox.value,
                             )
 
-                            # Create widgets on main thread loop via _schedule_after_plotly_event_loop
                             def _update_ui() -> None:
-                                # Skip if embedding was recomputed or selection moved
                                 if self._compute_seq != seq_at_load:
                                     return
                                 if self._selected_point_index != loading_idx:
@@ -2251,7 +2077,7 @@ class PhenoMeInteractive:
                                     format="png",
                                     layout=widgets.Layout(
                                         width="100%",
-                                        max_width=f"{_IMAGE_OVERLAY_WIDTH_PX}px",
+                                        max_width=f"{IMAGE_OVERLAY_WIDTH_PX}px",
                                         max_height="400px",
                                         object_fit="contain",
                                     ),
@@ -2261,7 +2087,11 @@ class PhenoMeInteractive:
 
                                 if title:
                                     title_widget = widgets.HTML(
-                                        value=f"<div style='text-align:center; font-weight:bold; font-size:14px; margin-bottom:8px;'>{html.escape(title)}</div>",
+                                        value=(
+                                            "<div style='text-align:center; font-weight:bold; "
+                                            "font-size:14px; margin-bottom:8px;'>"
+                                            f"{html.escape(title)}</div>"
+                                        ),
                                         layout=widgets.Layout(width="100%"),
                                     )
                                     children_list.append(title_widget)
@@ -2284,9 +2114,8 @@ class PhenoMeInteractive:
                                 self.img_output.children = tuple(children_list)
                                 self._update_stats()
 
-                            _schedule_after_plotly_event_loop(_update_ui)
+                            schedule_after_plotly_event_loop(_update_ui)
                         except Exception as e:
-                            # Bind for the deferred callback: `e` is cleared when the except block ends.
                             image_load_err = e
 
                             def _update_err() -> None:
@@ -2305,17 +2134,14 @@ class PhenoMeInteractive:
                                 )
                                 self._update_stats()
 
-                            _schedule_after_plotly_event_loop(_update_err)
+                            schedule_after_plotly_event_loop(_update_err)
 
-                    # Offload image loading to a background thread
                     threading.Thread(target=_load_and_show_image_task, daemon=True).start()
 
                 finally:
-                    # Always release the lock via the event loop task
                     self._click_lock.release()
 
-            # Schedule UI work after Plotly's event handling
-            _schedule_after_plotly_event_loop(_apply_click_safe)
+            schedule_after_plotly_event_loop(_apply_click_safe)
             scheduled = True
 
         except Exception:
@@ -2323,6 +2149,79 @@ class PhenoMeInteractive:
         finally:
             if not scheduled:
                 self._click_lock.release()
+
+    def _on_figure_selection(self, trace: Any, points: Any, _state: Any) -> None:
+        """Handle 2D box/lasso selection from FigureWidget.
+
+        Selection events fire per-trace; we accumulate pipeline indices across
+        all data traces into ``_multi_selected_indices`` and draw a single
+        overlay. Called from the Plotly event thread → schedule the UI update.
+        """
+        if self.fig_widget is None or self._cached_df is None:
+            return
+        if getattr(trace, "name", "") in (
+            SELECTION_OVERLAY_NAME,
+            MULTI_SELECT_OVERLAY_NAME,
+            HIGHLIGHT_OVERLAY_NAME,
+        ):
+            return
+
+        if points is None or not hasattr(points, "point_inds") or not points.point_inds:
+            # Empty selection (e.g. clicking outside) clears per-trace; only fully clear
+            # when the user explicitly hits the Clear button or no traces are selected.
+            return
+
+        # Collect pipeline indices for the selected points on this trace.
+        try:
+            cd = trace.customdata
+            if cd is None:
+                return
+            selected_ids = []
+            for pi in points.point_inds:
+                if pi < 0 or pi >= len(cd):
+                    continue
+                idx = raw_index_from_customdata_row(cd[pi])
+                if idx >= 0:
+                    selected_ids.append(idx)
+        except (TypeError, ValueError, IndexError):
+            return
+
+        if not selected_ids:
+            return
+
+        # Merge across traces (deduplicate). Selections from multiple traces arrive via
+        # consecutive callbacks; replace-on-different-trace gives best UX.
+        existing = set(self._multi_selected_indices)
+        merged = list(dict.fromkeys(list(existing) + selected_ids))
+        if merged == self._multi_selected_indices:
+            return
+
+        self._multi_selected_indices = merged
+
+        def _do() -> None:
+            self._apply_multi_select_overlay()
+            self._update_selection_summary()
+            self._update_stats()
+            self.status_label.value = status_html(
+                f"Selected {len(self._multi_selected_indices):,} point(s)", "ok"
+            )
+
+        schedule_after_plotly_event_loop(_do)
+
+    def _on_figure_deselect(self, trace: Any, _points: Any) -> None:
+        """When the user double-clicks to clear Plotly's box/lasso, drop every kind of selection."""
+        if getattr(trace, "name", "") in (
+            SELECTION_OVERLAY_NAME,
+            MULTI_SELECT_OVERLAY_NAME,
+            HIGHLIGHT_OVERLAY_NAME,
+        ):
+            return
+        t_now = time.time()
+        if t_now - self._last_deselect_time < 0.08:
+            return
+        self._last_deselect_time = t_now
+
+        self._clear_all_selections(reset_dragmode=False)
 
     def _get_per_trace_masks(self, row_mask: np.ndarray) -> list[np.ndarray]:
         """Map a boolean mask over cached DataFrame rows to per-trace boolean arrays."""
@@ -2342,9 +2241,7 @@ class PhenoMeInteractive:
                 continue
             if trace.customdata is not None and len(trace.customdata) > 0:
                 try:
-                    trace_indices = [
-                        self._raw_index_from_customdata_row(cd) for cd in trace.customdata
-                    ]
+                    trace_indices = [raw_index_from_customdata_row(cd) for cd in trace.customdata]
                     tm = np.array(
                         [
                             bool(row_mask[df_row_map[ti]]) if ti in df_row_map else False
@@ -2366,7 +2263,7 @@ class PhenoMeInteractive:
     ) -> None:
         """Apply marker size, opacity, and line width per data trace (scalar or per-point list).
 
-        Does not modify the selection overlay trace; use `_selection_overlay_trace` for that.
+        Does not modify the selection overlay trace; use ``_selection_overlay_trace`` for that.
         """
         if self.fig_widget is None:
             return
@@ -2387,10 +2284,14 @@ class PhenoMeInteractive:
                 trace.marker.line = {"width": lw, "color": "black"}
 
     def _update_stats(self) -> None:
-        """Refresh the stats bar (total / highlighted / selected index)."""
+        """Refresh the stats bar (total / highlighted / selected index / multi-selected)."""
         if self._cached_df is None:
-            self.stats_bar.value = self._stats_bar_html(
-                0, 0, self._selected_point_index, getattr(self, "_image_error_msg", None)
+            self.stats_bar.value = stats_bar_html(
+                0,
+                0,
+                self._selected_point_index,
+                getattr(self, "_image_error_msg", None),
+                n_multi_selected=len(self._multi_selected_indices),
             )
             return
         n_total = len(self._cached_df)
@@ -2399,8 +2300,12 @@ class PhenoMeInteractive:
             mask = self._build_highlight_mask()
             if mask is not None:
                 n_hl = int(mask.sum())
-        self.stats_bar.value = self._stats_bar_html(
-            n_total, n_hl, self._selected_point_index, getattr(self, "_image_error_msg", None)
+        self.stats_bar.value = stats_bar_html(
+            n_total,
+            n_hl,
+            self._selected_point_index,
+            getattr(self, "_image_error_msg", None),
+            n_multi_selected=len(self._multi_selected_indices),
         )
 
     def _build_highlight_mask(self) -> np.ndarray | None:
@@ -2416,11 +2321,9 @@ class PhenoMeInteractive:
         col_vals = self._cached_df[key]
 
         if self._highlight_field_is_numeric:
-            # Range-based highlight
             lo, hi = self.highlight_range_slider.value
             numeric_vals = pd.to_numeric(col_vals, errors="coerce")
             return ((numeric_vals >= lo) & (numeric_vals <= hi)).values
-        # Multi-value categorical (OR); widget tokens are strings — align column values as str once.
         vals = self.highlight_value_select.value
         if not vals:
             return np.zeros(len(col_vals), dtype=bool)
@@ -2432,11 +2335,7 @@ class PhenoMeInteractive:
         return col_vals.astype(str).isin(val_list).values
 
     def _apply_highlight(self) -> None:
-        """Apply or remove highlight styling based on widget state.
-
-        Uses per-point sizes (supported by scattergl/scatter3d) and **trace-level** opacity
-        (per-point opacity is not reliable on WebGL traces). No borders on data traces.
-        """
+        """Dim non-matching points and show a pink halo on matches (or restore uniform when off)."""
         if self.fig_widget is None or self._cached_df is None:
             self._update_stats()
             return
@@ -2452,17 +2351,18 @@ class PhenoMeInteractive:
                 [normal_opacity] * n_tr,
                 [0] * n_tr,
             )
+            self._apply_highlight_halo_overlay()
             self._update_stats()
             return
 
         highlight_mask = self._build_highlight_mask()
         if highlight_mask is None:
+            self._apply_highlight_halo_overlay()
             self._update_stats()
             return
 
         trace_masks = self._get_per_trace_masks(highlight_mask)
         normal_size = self.point_size_slider.value
-        highlight_size = self._highlight_marker_size()
         normal_opacity = self.opacity_slider.value
         dim_opacity = max(0.08, normal_opacity * 0.15)
 
@@ -2477,20 +2377,74 @@ class PhenoMeInteractive:
                 lw_l.append(0)
                 continue
             has_any = bool(np.any(tm))
-            sizes = np.where(tm, highlight_size, normal_size).tolist()
-            # Scalar per trace: dim whole trace if it has no highlighted points.
-            op: Any = normal_opacity if has_any else dim_opacity
-            lw = 0
-            sizes_l.append(sizes)
+            if has_any:
+                op: Any = np.where(tm, normal_opacity, dim_opacity).tolist()
+            else:
+                op = dim_opacity
+            sizes_l.append(normal_size)
             op_l.append(op)
-            lw_l.append(lw)
+            lw_l.append(0)
         self._apply_marker_style_to_traces(sizes_l, op_l, lw_l)
+        self._apply_highlight_halo_overlay()
         self._update_stats()
+
+    def _apply_highlight_halo_overlay(self) -> None:
+        """Draw or clear the 2D pink halo for group-Highlight; always hidden in 3D (stub trace)."""
+        if self.fig_widget is None or self._cached_df is None:
+            return
+        ov = self._highlight_overlay_trace()
+        if ov is None:
+            return
+        _, _, z_col = self._coord_columns()
+        if z_col:
+            with self.fig_widget.batch_update():
+                ov.visible = False
+            return
+        if not self._highlight_active:
+            with self.fig_widget.batch_update():
+                ov.x = []
+                ov.y = []
+                ov.customdata = []
+                ov.visible = False
+            return
+        mask = self._build_highlight_mask()
+        if mask is None or not np.any(mask):
+            with self.fig_widget.batch_update():
+                ov.x = []
+                ov.y = []
+                ov.customdata = []
+                ov.visible = False
+            return
+        df = self._cached_df
+        if "Index" not in df.columns:
+            with self.fig_widget.batch_update():
+                ov.visible = False
+            return
+        x_col, y_col, _ = self._coord_columns()
+        xs: list[float] = []
+        ys: list[float] = []
+        cd: list[list[int]] = []
+        for j in range(len(mask)):
+            if not bool(mask[j]):
+                continue
+            row = df.iloc[j]
+            xs.append(float(row[x_col]))
+            ys.append(float(row[y_col]))
+            cd.append([int(row["Index"])])
+        with self.fig_widget.batch_update():
+            ov.x = xs
+            ov.y = ys
+            ov.customdata = cd
+            ov.marker.size = self._highlight_marker_size()
+            ov.marker.color = HALO_COLOR_HIGHLIGHT
+            ov.marker.line = {"width": 0, "color": "rgba(0,0,0,0)"}
+            ov.visible = bool(xs)
 
     def _apply_selected_point_highlight(self) -> None:
         """Apply base styling and show selection via overlay trace."""
         self._apply_base_styling()
         self._apply_selected_point_overlay()
+        self._apply_multi_select_overlay()
         self._update_stats()
 
     def _apply_base_styling(self) -> None:
@@ -2498,6 +2452,7 @@ class PhenoMeInteractive:
             self._apply_highlight()
         else:
             self._apply_uniform_data_traces()
+            self._apply_highlight_halo_overlay()
 
     def _apply_selected_point_overlay(self) -> None:
         if self.fig_widget is None or self._cached_df is None:
@@ -2533,8 +2488,9 @@ class PhenoMeInteractive:
                         ov.customdata = []
                     else:
                         row = df.iloc[m[self._selected_point_index]]
-                        highlight_size = self._highlight_marker_size()
-                        ov.marker.size = highlight_size
+                        ring_size = self._click_select_ring_size()
+                        ov.marker.size = ring_size
+                        ov.marker.color = "rgba(0,0,0,0)"
                         ov.marker.line = {"color": "black", "width": 2}
                         if z_col:
                             ov.x = [float(row[x_col])]
@@ -2546,6 +2502,48 @@ class PhenoMeInteractive:
                         ov.customdata = [[self._selected_point_index]]
                         ov.visible = True
 
+    def _apply_multi_select_overlay(self) -> None:
+        """Paint the multi-selection overlay from ``_multi_selected_indices`` (2D only)."""
+        if self.fig_widget is None or self._cached_df is None:
+            return
+        ov = self._multi_select_overlay_trace()
+        if ov is None:
+            return
+        _, _, z_col = self._coord_columns()
+        if z_col:
+            # 3D: overlay trace exists but we don't support box/lasso in 3D.
+            with self.fig_widget.batch_update():
+                ov.visible = False
+            return
+
+        m = self._cached_index_to_row or {}
+        df = self._cached_df
+        x_col, y_col, _ = self._coord_columns()
+        xs: list[float] = []
+        ys: list[float] = []
+        cd: list[list[int]] = []
+        kept: list[int] = []
+        for idx in self._multi_selected_indices:
+            j = m.get(idx)
+            if j is None:
+                continue
+            row = df.iloc[j]
+            xs.append(float(row[x_col]))
+            ys.append(float(row[y_col]))
+            cd.append([int(idx)])
+            kept.append(idx)
+
+        # Keep list aligned with what we can actually display (strip stale ids).
+        self._multi_selected_indices = kept
+
+        with self.fig_widget.batch_update():
+            ov.x = xs
+            ov.y = ys
+            ov.customdata = cd
+            ov.marker.size = self._highlight_marker_size()
+            ov.marker.color = HALO_COLOR_MULTI
+            ov.visible = bool(xs)
+
     # ------------------------------------------------------------------
     # Widget callbacks
     # ------------------------------------------------------------------
@@ -2555,7 +2553,7 @@ class PhenoMeInteractive:
         DR runs in a daemon thread so the UI stays responsive; a ticker updates
         elapsed time in the status label.  The embedding plot is mounted by
         updating ``_plot_slot.children`` so it still appears when compute
-        finishes on that thread (see module docstring / Output widget threading
+        finishes on that thread (see class docstring / Output widget threading
         notes).  Library warnings from DR may still print to the notebook or
         kernel log.
         """
@@ -2565,9 +2563,7 @@ class PhenoMeInteractive:
         compute_done = threading.Event()
         t_start = time.time()
         self.compute_button.disabled = True
-        self.status_label.value = self._status_html(
-            f"Computing… {_format_elapsed_time(0.0)}", "warn"
-        )
+        self.status_label.value = status_html(f"Computing… {format_elapsed_time(0.0)}", "warn")
         # Full-size computing state so the plot area is not a blank gap while DR runs.
         self._plot_slot.children = (self._embedding_placeholder_computing,)
 
@@ -2576,8 +2572,8 @@ class PhenoMeInteractive:
                 if compute_done.wait(timeout=0.5):
                     break
                 elapsed = time.time() - t_start
-                self.status_label.value = self._status_html(
-                    f"Computing… {_format_elapsed_time(elapsed)}", "warn"
+                self.status_label.value = status_html(
+                    f"Computing… {format_elapsed_time(elapsed)}", "warn"
                 )
 
         def _run() -> None:
@@ -2585,29 +2581,26 @@ class PhenoMeInteractive:
             ticker.start()
             elapsed = 0.0
             try:
-                # Do not use ``with self.output_area`` here: compute runs on a worker
-                # thread where Output's capture context has no valid kernel parent.
                 elapsed = self._compute_embedding()
 
-                # Rebuilding and displaying the figure should happen via the event loop
-                # to ensure it doesn't conflict with any active interaction.
                 def _display_new_fig() -> None:
                     try:
-                        # Lock during figure replacement to avoid race conditions with clicks
                         with self._click_lock:
                             self._build_figure()
                             self._display_figure()
+                            # Selection is cleared on recompute; refresh UI reflections.
+                            self._update_selection_summary()
                     except Exception as e:
-                        self.status_label.value = self._status_html(f"Display error: {e}", "err")
+                        self.status_label.value = status_html(f"Display error: {e}", "err")
 
-                _schedule_after_plotly_event_loop(_display_new_fig)
+                schedule_after_plotly_event_loop(_display_new_fig)
 
                 n = len(self._cached_df) if self._cached_df is not None else 0
-                self.status_label.value = self._status_html(
-                    f"Done — {n:,} points in {_format_elapsed_time(elapsed)}", "ok"
+                self.status_label.value = status_html(
+                    f"Done — {n:,} points in {format_elapsed_time(elapsed)}", "ok"
                 )
             except Exception as e:
-                self.status_label.value = self._status_html(f"Error: {e}", "err")
+                self.status_label.value = status_html(f"Error: {e}", "err")
                 import traceback
 
                 self._plot_slot.children = (self._embedding_placeholder,)
@@ -2624,18 +2617,18 @@ class PhenoMeInteractive:
         """Instant colour change (no recomputation)."""
         if self._cached_df is None:
             return
-        self.status_label.value = self._status_html("Updating colours…", "info")
+        self.status_label.value = status_html("Updating colours…", "info")
 
         def _do() -> None:
             try:
                 self._recolor_figure()
                 self._apply_selected_point_highlight()
-                self.status_label.value = self._status_html("Colour updated", "ok")
+                self.status_label.value = status_html("Colour updated", "ok")
                 self._update_stats()
             except Exception as e:
-                self.status_label.value = self._status_html(f"Colour error: {e}", "err")
+                self.status_label.value = status_html(f"Colour error: {e}", "err")
 
-        _schedule_after_plotly_event_loop(_do)
+        schedule_after_plotly_event_loop(_do)
 
     def _on_colorscale_changed(self, change: Any) -> None:
         """Instant colourscale change for continuous variables."""
@@ -2648,9 +2641,9 @@ class PhenoMeInteractive:
                 self._apply_selected_point_highlight()
                 self._update_stats()
             except Exception as e:
-                self.status_label.value = self._status_html(f"Colourscale error: {e}", "err")
+                self.status_label.value = status_html(f"Colourscale error: {e}", "err")
 
-        _schedule_after_plotly_event_loop(_do)
+        schedule_after_plotly_event_loop(_do)
 
     def _on_highlight_key_changed(self, change: Any) -> None:
         """Update available values when highlight field changes."""
@@ -2662,10 +2655,10 @@ class PhenoMeInteractive:
             self._apply_highlight()
             self._update_highlight_status()
 
-        _schedule_after_plotly_event_loop(_do)
+        schedule_after_plotly_event_loop(_do)
 
     def _sync_highlight_button_appearance(self) -> None:
-        """Sync highlight button label/style with `_highlight_active`."""
+        """Sync highlight button label/style with ``_highlight_active``."""
         btn = self.highlight_toggle
         btn.button_style = ""
         if self._highlight_active:
@@ -2686,7 +2679,7 @@ class PhenoMeInteractive:
             self._apply_highlight()
             self._update_highlight_status()
 
-        _schedule_after_plotly_event_loop(_do)
+        schedule_after_plotly_event_loop(_do)
 
     def _on_highlight_click(self, _btn: Any) -> None:
         """Toggle group highlight on/off via button."""
@@ -2699,10 +2692,10 @@ class PhenoMeInteractive:
             if new_on:
                 self._update_highlight_status()
             else:
-                self.status_label.value = self._status_html("Highlight off", "ok")
+                self.status_label.value = status_html("Highlight off", "ok")
                 self._update_stats()
 
-        _schedule_after_plotly_event_loop(_do)
+        schedule_after_plotly_event_loop(_do)
 
     def _update_highlight_status(self) -> None:
         """Show how many points are highlighted in the status bar."""
@@ -2711,22 +2704,22 @@ class PhenoMeInteractive:
         if mask is not None:
             n_hl = int(mask.sum())
             n_total = len(mask)
-            self.status_label.value = self._status_html(
+            self.status_label.value = status_html(
                 f"Highlighted {n_hl:,} / {n_total:,} points", "ok"
             )
         else:
-            self.status_label.value = self._status_html("Highlight on", "ok")
+            self.status_label.value = status_html("Highlight on", "ok")
 
     def _set_image_panel_idle(self) -> None:
         """Reset the click-to-inspect panel to the placeholder (no PNG)."""
         self.img_output.children = (self._img_idle_placeholder,)
 
     def _debounce_search(self, timer_attr: str, apply_fn: Callable[[], None]) -> None:
-        """Cancel any pending timer and schedule ``apply_fn`` after `_SEARCH_DEBOUNCE_SEC`."""
+        """Cancel any pending timer and schedule ``apply_fn`` after ``SEARCH_DEBOUNCE_SEC``."""
         timer: threading.Timer | None = getattr(self, timer_attr)
         if timer is not None:
             timer.cancel()
-        new_timer = threading.Timer(_SEARCH_DEBOUNCE_SEC, apply_fn)
+        new_timer = threading.Timer(SEARCH_DEBOUNCE_SEC, apply_fn)
         setattr(self, timer_attr, new_timer)
         new_timer.start()
 
@@ -2740,7 +2733,7 @@ class PhenoMeInteractive:
         self._sync_embed_filters_from_widgets()
         key = key_dropdown.value
         values = list(value_select.value)
-        self.status_label.value = self._status_html(
+        self.status_label.value = status_html(
             f"{label}: {key}={values if values else 'None'}", "info"
         )
 
@@ -2785,7 +2778,7 @@ class PhenoMeInteractive:
         if fk and fv:
             self._ui_filters[fk] = fv
             self._update_filter_summary()
-            self.status_label.value = self._status_html(f"Added filter: {fk}", "ok")
+            self.status_label.value = status_html(f"Added filter: {fk}", "ok")
 
     def _on_exclude_add_clicked(self, _btn: Any) -> None:
         """Add current selection to exclusions."""
@@ -2794,7 +2787,7 @@ class PhenoMeInteractive:
         if ek and ev:
             self._ui_exclude[ek] = ev
             self._update_exclude_summary()
-            self.status_label.value = self._status_html(f"Added exclude: {ek}", "ok")
+            self.status_label.value = status_html(f"Added exclude: {ek}", "ok")
 
     def _on_filter_clear_clicked(self, _btn: Any) -> None:
         """Clear all filters (include) - recompute still required."""
@@ -2804,7 +2797,7 @@ class PhenoMeInteractive:
         self.filter_value_select.value = ()
         self._update_filter_value_options(select_default=False)
         self._update_filter_summary()
-        self.status_label.value = self._status_html("All filters cleared", "info")
+        self.status_label.value = status_html("All filters cleared", "info")
 
     def _on_exclude_clear_clicked(self, _btn: Any) -> None:
         """Clear all exclusions - recompute still required."""
@@ -2814,7 +2807,7 @@ class PhenoMeInteractive:
         self.exclude_value_select.value = ()
         self._update_exclude_value_options(select_default=False)
         self._update_exclude_summary()
-        self.status_label.value = self._status_html("All exclusions cleared", "info")
+        self.status_label.value = status_html("All exclusions cleared", "info")
 
     def _update_filter_summary(self) -> None:
         """Update the active filters HTML summary."""
@@ -2861,7 +2854,212 @@ class PhenoMeInteractive:
                 return
             self._apply_selected_point_highlight()
 
-        _schedule_after_plotly_event_loop(_do)
+        schedule_after_plotly_event_loop(_do)
+
+    def _on_dark_mode_changed(self, change: Any) -> None:
+        """Toggle dark/light theme (requires a rebuild to change plotly template)."""
+        new_val = bool(change.get("new", change.get("owner").value if change else False))
+        self._dark_mode = new_val
+
+        if self._cached_df is None:
+            return
+
+        def _do() -> None:
+            try:
+                with self._click_lock:
+                    self._build_figure()
+                    self._display_figure()
+                self.status_label.value = status_html(
+                    f"Theme: {'dark' if self._dark_mode else 'light'}", "ok"
+                )
+            except Exception as e:
+                self.status_label.value = status_html(f"Theme error: {e}", "err")
+
+        schedule_after_plotly_event_loop(_do)
+
+    # ------------------------------------------------------------------
+    # Download helpers (Selection panel)
+    # ------------------------------------------------------------------
+    def _data_uri_html(self, label: str, filename: str, mimetype: str, payload: bytes) -> str:
+        """Return a compact "click to download" HTML link backed by a base64 data URI."""
+        import base64
+
+        b64 = base64.b64encode(payload).decode("ascii")
+        esc_label = html.escape(label)
+        esc_name = html.escape(filename)
+        return (
+            f'<a download="{esc_name}" href="data:{mimetype};base64,{b64}" '
+            f'style="display:inline-block;margin-left:4px;padding:2px 8px;border-radius:4px;'
+            f"background:#EAFAF1;border:1px solid #27ae60;color:#1e8449;"
+            f'font-size:11px;text-decoration:none;">⬇ {esc_label}</a>'
+        )
+
+    def _on_export_html_clicked(self, _btn: Any) -> None:
+        """Save the current figure as a standalone HTML file and offer a download link."""
+        fig = self.fig_widget
+        if fig is None:
+            self.status_label.value = status_html("No figure to export", "warn")
+            return
+        try:
+            buf = io.StringIO()
+            fig.write_html(buf, include_plotlyjs="cdn", full_html=True)
+            html_bytes = buf.getvalue().encode("utf-8")
+            link = self._data_uri_html(
+                "Download HTML", "phenome_embedding.html", "text/html", html_bytes
+            )
+            self._selection_download_area.value = link
+            self.status_label.value = status_html("HTML ready", "ok")
+        except Exception as e:
+            self._selection_download_area.value = ""
+            self.status_label.value = status_html(f"HTML export failed: {type(e).__name__}", "err")
+
+    # ------------------------------------------------------------------
+    # Selection panel callbacks
+    # ------------------------------------------------------------------
+    def _selected_indices_as_csv_bytes(self) -> bytes:
+        """CSV bytes for the selected rows of ``_cached_df``."""
+        df = self._cached_df
+        if df is None or not self._multi_selected_indices:
+            return b""
+        m = self._cached_index_to_row or {}
+        rows = [m[i] for i in self._multi_selected_indices if i in m]
+        if not rows:
+            return b""
+        sub = df.iloc[rows]
+        buf = io.StringIO()
+        sub.to_csv(buf, index=False, quoting=csv.QUOTE_MINIMAL)
+        return buf.getvalue().encode("utf-8")
+
+    def _update_selection_summary(self) -> None:
+        """Refresh the Selection accordion summary block."""
+        n = len(self._multi_selected_indices)
+        if n == 0:
+            self._selection_summary.value = (
+                '<div style="font-size:11px;color:#64748B;"><i>No points selected.</i></div>'
+            )
+            return
+        preview = self._multi_selected_indices[: min(20, n)]
+        extra = "" if n <= 20 else f" <i>(+{n - 20:,} more)</i>"
+        ids_html = ", ".join(
+            f'<code style="background:#EEF2F7;padding:1px 4px;border-radius:3px;">{i}</code>'
+            for i in preview
+        )
+        self._selection_summary.value = (
+            f'<div style="font-size:11px;color:#334155;line-height:1.5;">'
+            f"<b>{n:,}</b> points selected: {ids_html}{extra}</div>"
+        )
+
+    def _on_selection_copy_clicked(self, _btn: Any) -> None:
+        """Offer the list of selected indices as a plain-text download."""
+        if not self._multi_selected_indices:
+            self.status_label.value = status_html("No box/lasso selection", "warn")
+            return
+        text = ",".join(str(i) for i in self._multi_selected_indices).encode("utf-8")
+        link = self._data_uri_html(
+            "Download indices (.txt)",
+            "phenome_selected_indices.txt",
+            "text/plain",
+            text,
+        )
+        self._selection_download_area.value = link
+        self.status_label.value = status_html(
+            f"{len(self._multi_selected_indices):,} indices ready", "ok"
+        )
+
+    def _on_selection_download_clicked(self, _btn: Any) -> None:
+        """Save selected rows of the embedding DataFrame as a CSV download link."""
+        if not self._multi_selected_indices or self._cached_df is None:
+            self.status_label.value = status_html("No box/lasso selection", "warn")
+            return
+        payload = self._selected_indices_as_csv_bytes()
+        if not payload:
+            self.status_label.value = status_html("Nothing to export", "warn")
+            return
+        link = self._data_uri_html(
+            "Download CSV",
+            "phenome_selected_rows.csv",
+            "text/csv",
+            payload,
+        )
+        self._selection_download_area.value = link
+        self.status_label.value = status_html(
+            f"CSV ready ({len(self._multi_selected_indices):,} rows)", "ok"
+        )
+
+    def _clear_plotly_selection_visuals(self, *, reset_dragmode: bool = True) -> None:
+        """Remove Plotly's selection outline and restore marker opacity.
+
+        Uses batch_update to ensure traces and layout updates are sent together reliably.
+        """
+        fig = self.fig_widget
+        if fig is None:
+            return
+
+        try:
+            with fig.batch_update():
+                # 1. Clear selection and unselected styling for ALL traces
+                fig.update_traces(selectedpoints=None, unselected=None)
+
+                # 2. Drop drawn box/lasso
+                fig.layout.selections = ()
+
+                # 3. Reset dragmode if requested
+                if reset_dragmode:
+                    fig.layout.dragmode = "pan"
+        except Exception:
+            logger.debug("Could not clear Plotly selection visuals", exc_info=True)
+
+    def _clear_all_selections(self, *, reset_dragmode: bool = True) -> None:
+        """Drop every kind of selection state and repaint the plot.
+
+        Clears, in order:
+          1. the box/lasso multi-selection (``_multi_selected_indices``),
+          2. the single click-selected point (``_selected_point_index``),
+          3. Plotly's visible selection outline + per-trace ``selectedpoints``,
+          4. marker styling (``_apply_base_styling``) to remove residual dimming,
+          5. ``dragmode`` back to ``pan``,
+          6. any download link left in the Selection accordion footer.
+        """
+        had_multi = bool(self._multi_selected_indices)
+        had_single = self._selected_point_index is not None
+
+        self._multi_selected_indices = []
+        self._selected_point_index = None
+        self._selection_download_area.value = ""
+
+        def _do() -> None:
+            # 1. Repaint our halos to empty state.
+            self._apply_multi_select_overlay()
+            self._apply_selected_point_overlay()
+
+            # 2. Restore data trace markers (uniform or highlight) via batch_update.
+            if self.fig_widget is not None:
+                try:
+                    self._apply_base_styling()
+                except Exception:
+                    logger.debug("Could not re-apply base styling after clear", exc_info=True)
+
+            # 3. Final atomic sync: clear Plotly's internal selection/dimming for ALL traces.
+            # This uses batch_update to force the browser to exit selection mode.
+            self._clear_plotly_selection_visuals(reset_dragmode=reset_dragmode)
+
+            # Reset image side-panel, since the click selection is gone.
+            if had_single:
+                self._set_image_panel_idle()
+
+            self._update_selection_summary()
+            self._update_stats()
+
+            parts = []
+            if had_multi:
+                parts.append("box/lasso")
+            if had_single:
+                parts.append("click")
+            if not parts:
+                parts.append("plot")
+            self.status_label.value = status_html(f"Cleared {' + '.join(parts)} selection", "ok")
+
+        schedule_after_plotly_event_loop(_do)
 
     # ------------------------------------------------------------------
     # Display
@@ -2883,22 +3081,22 @@ def create_interactive_explorer(
 ) -> PhenoMeInteractive:
     """Launch an interactive explorer for phenotyping results in Jupyter.
 
-    Creates a PhenoMeInteractive instance and displays it. Use in Jupyter notebooks
-    to explore embeddings via PCA/t-SNE/UMAP with instant color switching,
-    highlight mode, and click-to-inspect image viewing.
+    Creates a :class:`PhenoMeInteractive` instance and displays it. Use in Jupyter
+    notebooks to explore embeddings via PCA/t-SNE/UMAP with instant color switching,
+    highlight mode, box/lasso multi-selection, and click-to-inspect image viewing.
 
     Args:
         pheno_me: Processed PhenoMe instance with embeddings
-            and optional properties. Must have run process_images() first.
+            and optional properties. Must have run ``process_images()`` first.
         filters: Optional metadata filters to restrict which images are shown.
             Dict mapping metadata keys to allowed values or lists of values.
-            Example: {'condition': 'Control', 'time': ['24h', '48h']}.
+            Example: ``{'condition': 'Control', 'time': ['24h', '48h']}``.
         exclude: Optional metadata exclusions (same structure as filters).
         hover_features: Optional list of metadata or property keys to show in
-            hover tooltips. If None, uses metadata keys from the pipeline.
+            hover tooltips. If ``None``, uses metadata keys from the pipeline.
 
     Returns:
-        PhenoMeInteractive: The explorer instance. Call .show() again to re-display.
+        PhenoMeInteractive: The explorer instance. Call ``.show()`` again to re-display.
 
     Example:
         >>> from phenome import PhenoMe, load_dinov2_model
