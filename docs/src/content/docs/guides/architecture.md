@@ -46,7 +46,7 @@ The typical data flow maps directly to the pipeline overview components:
 | Goal | Where to start |
 |------|----------------|
 | Custom metadata from paths or tables | [Experiment details](/PhenoMe/guides/experiment-details/), `MetadataBase`, `get_metadata_from_path`, `make_dataframe_metadata_fn`. |
-| Custom image features | [Custom properties](/PhenoMe/guides/custom-properties/), `phenome.plugins.register_property`. |
+| Custom image features | [Select properties](/PhenoMe/guides/select-properties/), `phenome.plugins.register_property`. |
 | Custom vision backbone | [Model wrapper API](/PhenoMe/advanced/api/model-wrapper/); subclass `ModelWrapper`. |
 | Report sections | [Extending PhenoMe](/PhenoMe/guides/extending/), `register_report_section`. |
 

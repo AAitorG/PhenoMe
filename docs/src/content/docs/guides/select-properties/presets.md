@@ -78,8 +78,8 @@ example `{"mask": create_regionprops_function(["area", "perimeter"])}`.
 
 ## See also
 
-- [Writing property functions](/PhenoMe/guides/custom-properties/writing-functions/) - define your own.
-- [Advanced recipes](/PhenoMe/guides/custom-properties/advanced-recipes/) - external libraries, GLCM,
+- [Writing property functions](/PhenoMe/guides/select-properties/writing-functions/) - define your own.
+- [Advanced recipes](/PhenoMe/guides/select-properties/advanced-recipes/) - external libraries, GLCM,
   multi-channel.
-- [Property reference](/PhenoMe/guides/property-reference/) - what each built-in
+- [Property interpretation](/PhenoMe/concepts/property-interpretation/) - what each built-in
   property measures.

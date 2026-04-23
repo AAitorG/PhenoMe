@@ -59,6 +59,11 @@ generate_report(..., **overrides).
 - **`description`**: Optional custom description for the report.
 - **`filters`**: Pre-report metadata filters applied to all results.
 - **`exclude`**: Pre-report metadata exclusions (same structure as filters).
+- **`offline_plotly`**: If True (default), inline the Plotly JS library so the
+  report renders without internet access. Adds ~5 MB to the file but
+  makes it truly standalone. Set False to load Plotly from a CDN.
+- **`theme`**: UI theme, ``"dark"`` (default) or ``"light"``, set on the
+  generated HTML ``<html data-theme>`` attribute.
 
 **Fields:**
 
@@ -84,12 +89,14 @@ generate_report(..., **overrides).
 - **`n_cluster_prototypes`** (`int`):
 - **`n_clusters`** (`int`):
 - **`n_gallery_images`** (`int`):
+- **`offline_plotly`** (`bool`):
 - **`outlier_group_by`** (`str | None`):
 - **`outlier_threshold`** (`float`):
 - **`overview_metadata_keys`** (`list[str] | None`):
 - **`property_group_by`** (`str | None`):
 - **`property_table_max_rows`** (`int`):
 - **`reference_filters`** (`dict[str, Any] | None`):
+- **`theme`** (`Literal['dark', 'light']`):
 - **`top_k_features`** (`int`):
 
 ### `generate_report`

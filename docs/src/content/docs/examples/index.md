@@ -48,7 +48,7 @@ Short **patterns** that map common studies to PhenoMe docs and notebooks. Use th
 
 **Goal:** Add biologically meaningful measurements beyond presets.
 
-- **Docs:** [Custom properties](/PhenoMe/guides/custom-properties/), [Property reference](/PhenoMe/guides/property-reference/).
+- **Docs:** [Select properties](/PhenoMe/guides/select-properties/), [Property interpretation](/PhenoMe/concepts/property-interpretation/).
 - **Notebook:** [06 — Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_extending_phenome_plugins.ipynb).
 
 ---

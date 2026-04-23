@@ -61,6 +61,6 @@ automatically if you omit them from `pheno.find_files` - see
 
 ## See also
 
-- [Property reference](/PhenoMe/guides/property-reference/) - which properties
+- [Property interpretation](/PhenoMe/concepts/property-interpretation/) - which properties
   depend on masks.
 - [Data setup](/PhenoMe/guides/data-setup/) - file-layout guidance.

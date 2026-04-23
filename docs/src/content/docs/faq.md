@@ -43,7 +43,7 @@ See the verification steps in [Getting started — Installation](/PhenoMe/gettin
 ### Do I need masks?
 
 - **For embeddings**: No. Embeddings are extracted directly from images.
-- **For classical properties**: Depends on the preset. The `intensity` preset works on images only (no masks). Presets like `basic`, `regionprops`, and `full` require masks for shape-based features. See [Property reference](/PhenoMe/guides/property-reference/).
+- **For classical properties**: Depends on the preset. The `intensity` preset works on images only (no masks). Presets like `basic`, `regionprops`, and `full` require masks for shape-based features. See [Property interpretation](/PhenoMe/concepts/property-interpretation/).
 
 ### How long does processing take?
 
@@ -109,7 +109,7 @@ t-SNE and UMAP are stochastic. For reproducibility, set `seed=42` when creating 
 
 ### What is the "correlation engine" and how do I use it?
 
-The correlation engine links embedding dimensions (or PCA/UMAP components) to classical properties. It answers: "What morphological feature does this axis encode?" For example, PC1 might correlate with eccentricity (r=0.88), suggesting elongation drives the separation. See [Interpretability](/PhenoMe/guides/interpretability/).
+The correlation engine links embedding dimensions (or PCA/UMAP components) to classical properties. It answers: "What morphological feature does this axis encode?" For example, PC1 might correlate with eccentricity (r=0.88), suggesting elongation drives the separation. See [Embeddings interpretability](/PhenoMe/concepts/embeddings-interpretability/).
 
 ### How do I choose channel mode (split vs combined)?
 
@@ -127,7 +127,7 @@ See [Core concepts — channel modes](/PhenoMe/concepts/channel-modes/).
 | Masks, shape only       | `regionprops`     |
 | Masks, full analysis    | `full` or `full_extended` |
 
-See [Property reference - choosing properties](/PhenoMe/guides/property-reference/#choosing-properties).
+See [Property interpretation — choosing properties](/PhenoMe/concepts/property-interpretation/#choosing-properties).
 
 ---
 
@@ -139,4 +139,4 @@ See [Property reference - choosing properties](/PhenoMe/guides/property-referenc
 
 ### Where do I add custom models, properties, or plugins?
 
-See [Extending PhenoMe](/PhenoMe/guides/extending/), [Custom properties](/PhenoMe/guides/custom-properties/), [Plugins](/PhenoMe/guides/plugins/), and notebook [06 - Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_extending_phenome_plugins.ipynb).
+See [Extending PhenoMe](/PhenoMe/guides/extending/), [Select properties](/PhenoMe/guides/select-properties/), [Plugins](/PhenoMe/guides/plugins/), and notebook [06 - Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_extending_phenome_plugins.ipynb).

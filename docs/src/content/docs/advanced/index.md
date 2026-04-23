@@ -42,7 +42,7 @@ see [Core concepts](/PhenoMe/concepts/).
 - [Extending PhenoMe](/PhenoMe/guides/extending/) - overview of extension points.
 - [Experiment details](/PhenoMe/guides/experiment-details/) - metadata
   extraction.
-- [Custom properties](/PhenoMe/guides/custom-properties/) - property presets,
+- [Select properties](/PhenoMe/guides/select-properties/) - property presets,
   requirement types, factories.
 - [Plugins](/PhenoMe/guides/plugins/) - plugin registry, custom presets.
 

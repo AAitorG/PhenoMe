@@ -20,28 +20,7 @@ A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping
 
 ## 🚀 Quick Start
 
-Analyze your images in four simple steps:
-
-```python
-from phenome import PhenoMe, load_dinov2_model
-
-# 1. Setup: Load a vision model (DINOv2)
-# device=torch.device("cuda") set device to GPU if available for faster processing
-wrapper = load_dinov2_model()  # pass device as needed
-pheno = PhenoMe() # pass device as needed
-
-# 2. Load: Find your images
-pheno.find_files("path/to/images")
-
-# 3. Analyze: Extract visual fingerprints and compute properties
-pheno.process_images(wrapper)
-pheno.compute_properties(property_preset="basic")
-
-# 4. Explore: Launch an interactive dashboard
-pheno.create_interactive_explorer()
-```
-
-For a no-code experience, try the **[Interactive Quickstart](Notebooks/tutorials/01_interactive_quickstart.ipynb)** or run it directly in **[Google Colab](https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb)**.
+Try the no-code experience with the **[Interactive Quickstart Notebook](Notebooks/tutorials/01_interactive_quickstart.ipynb)** or launch instantly in Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb)
 
 ---
 
@@ -58,7 +37,8 @@ cd PhenoMe
 # CPU-oriented env (default Conda setup)
 conda env create -f envs/environment-cpu.yml
 conda activate phenome-cpu
-
+```
+```bash
 # GPU-oriented env
 conda env create -f envs/environment-gpu.yml
 conda activate phenome-gpu
@@ -69,7 +49,8 @@ conda activate phenome-gpu
 ```bash
 # CPU-oriented env
 pip install -r requirements.txt -e .
-
+```
+```bash
 # GPU-oriented env
 pip install -r envs/requirements-gpu.txt -e .
 ```
@@ -77,16 +58,11 @@ pip install -r envs/requirements-gpu.txt -e .
 > **Full instructions, verification, and troubleshooting:**
 > See the [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) guide for GPU setup details, verification commands, and first-analysis walkthroughs.
 
-> **Note:**
-> From the repository root, `requirements.txt` acts as a convenient alias to `envs/requirements-cpu.txt` for CPU-oriented environments.
-
 ---
 
 ## 📖 Documentation
 
-**Explore the [Live Documentation Website](https://AAitorG.github.io/PhenoMe/)** for detailed guides, API references, and tutorials.
-
-**Source:** Markdown under [`docs/src/content/docs/`](docs/src/content/docs/).
+**Explore the [Documentation](https://AAitorG.github.io/PhenoMe/)** for detailed guides, API references, and tutorials.
 
 ### New users (install → data → notebooks)
 
@@ -97,13 +73,6 @@ pip install -r envs/requirements-gpu.txt -e .
 | 3. Tutorials | [Notebooks/tutorials/](Notebooks/tutorials/) (start with **01**, then **02**–**03**) · [Learning paths](https://AAitorG.github.io/PhenoMe/user-paths/) |
 
 **Concepts and examples:** [Core concepts](https://AAitorG.github.io/PhenoMe/concepts/) · [Workflows](https://AAitorG.github.io/PhenoMe/workflows/) · [Examples](https://AAitorG.github.io/PhenoMe/examples/) · [FAQ](https://AAitorG.github.io/PhenoMe/faq/) · [Glossary](https://AAitorG.github.io/PhenoMe/glossary/)
-
-### Developers
-
-- **[Architecture](https://AAitorG.github.io/PhenoMe/guides/architecture/)** — packages and extension points.
-- **[Reference index](https://AAitorG.github.io/PhenoMe/advanced/)** — narrative API pages and the HDF5 database protocol.
-- **[API from code](https://AAitorG.github.io/PhenoMe/advanced/api/pipeline/)** — regenerated from docstrings on each docs build (see [Developer guide](https://AAitorG.github.io/PhenoMe/guides/developer-guide/)).
-- **[Custom properties](https://AAitorG.github.io/PhenoMe/guides/custom-properties/)** · **[Extending](https://AAitorG.github.io/PhenoMe/guides/extending/)** · **[Testing](https://AAitorG.github.io/PhenoMe/guides/testing/)**
 
 ---
 

@@ -36,7 +36,7 @@ physical properties (area, eccentricity, intensity) and correlate them
 with your embeddings.
 
 - **Tutorial:** [05 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
-- **Guide:** [Property reference](/PhenoMe/guides/property-reference/), [Interpretability](/PhenoMe/guides/interpretability/)
+- **Guide:** [Property interpretation](/PhenoMe/concepts/property-interpretation/), [Embeddings interpretability](/PhenoMe/concepts/embeddings-interpretability/)
 
 ## 4. Subpopulations and outlier detection
 
@@ -86,5 +86,5 @@ for memory sizing.
 | Folder structure and metadata | [Data setup](/PhenoMe/guides/data-setup/), [Experiment details](/PhenoMe/guides/experiment-details/) |
 | Embeddings, channels, results | [Core concepts](/PhenoMe/concepts/) |
 | Full API reference | [API & data formats](/PhenoMe/advanced/), [Pipeline API](/PhenoMe/advanced/api/pipeline/) |
-| Property presets and custom functions | [Property reference](/PhenoMe/guides/property-reference/), [Custom properties](/PhenoMe/guides/custom-properties/) |
+| Property presets and custom functions | [Select properties](/PhenoMe/guides/select-properties/), [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
 | Reproducibility and optimization | [Best practices](/PhenoMe/guides/best-practices/) |

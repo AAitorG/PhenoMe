@@ -95,7 +95,7 @@ for path in ["/data/Control/image_001.tif", "/data/Drug1_10uM/image_001.tif"]:
 | Extension points overview | [Extending PhenoMe](/PhenoMe/guides/extending/) |
 | `find_files` API | [Pipeline - find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files) |
 | Metadata classes (OOP) | [Metadata classes](/PhenoMe/advanced/api/metadata/) |
-| Properties and grouping | [Custom properties](/PhenoMe/guides/custom-properties/) |
+| Properties and grouping | [Select properties](/PhenoMe/guides/select-properties/) |
 | End-to-end examples | [Workflows](/PhenoMe/workflows/) |
 | Plugins and discovery | [Plugins](/PhenoMe/guides/plugins/) |
 | Reproducibility and data organisation | [Best practices](/PhenoMe/guides/best-practices/) |

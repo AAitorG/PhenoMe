@@ -35,7 +35,7 @@ def texture_features(image2d, mask2d):
 ```
 
 For the built-in factory, see
-[`create_texture_function`](/PhenoMe/guides/custom-properties/presets/#built-in-helper-factories).
+[`create_texture_function`](/PhenoMe/guides/select-properties/presets/#built-in-helper-factories).
 
 ## Region properties with scikit-image
 
@@ -183,8 +183,8 @@ def memory_efficient_fn(image2d, mask2d):
 
 ## See also
 
-- [Writing property functions](/PhenoMe/guides/custom-properties/writing-functions/) - signature,
+- [Writing property functions](/PhenoMe/guides/select-properties/writing-functions/) - signature,
   testing, best practices.
-- [Presets](/PhenoMe/guides/custom-properties/presets/) - swap code for a one-line preset when possible.
+- [Presets](/PhenoMe/guides/select-properties/presets/) - swap code for a one-line preset when possible.
 - [Plugins](/PhenoMe/guides/plugins/) - ship your function as an importable
   plugin.

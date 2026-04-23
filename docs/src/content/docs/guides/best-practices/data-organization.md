@@ -135,12 +135,12 @@ Fixes:
 
 - Confirm masks exist for all images (or switch preset to `intensity`).
 - Verify property `requirements` match available data; see
-  [Custom properties](/PhenoMe/guides/custom-properties/).
+  [Select properties](/PhenoMe/guides/select-properties/).
 
 ## See also
 
 - [Data setup](/PhenoMe/guides/data-setup/) - folder → metadata mapping.
 - [Experiment details](/PhenoMe/guides/experiment-details/) - path templates,
   CSV lookup, mask discovery.
-- [Property reference](/PhenoMe/guides/property-reference/) - which preset
+- [Property interpretation](/PhenoMe/concepts/property-interpretation/) - which preset
   requires which inputs.

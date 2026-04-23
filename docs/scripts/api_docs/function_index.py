@@ -219,8 +219,10 @@ def _extended_for_top_level(name: str) -> str:
     elif (
         name.startswith("create_") and name.endswith("_function")
     ) or name == "get_preset_property_functions":
-        parts.append(_md_link("Custom Properties", "/guides/custom-properties/", None))
-        parts.append(_md_link("Property Reference", "/guides/property-reference/", None))
+        parts.append(_md_link("Select properties", "/guides/select-properties/", None))
+        parts.append(
+            _md_link("Property interpretation", "/concepts/property-interpretation/", None)
+        )
     else:
         parts.append(_md_link("Pipeline", "/advanced/api/pipeline/", None))
 
@@ -299,8 +301,10 @@ def _extended_for_symbol(
             "create_regionprops_function",
             "create_texture_function",
         ):
-            parts.append(_md_link("Custom Properties", "/guides/custom-properties/", None))
-            parts.append(_md_link("Property Reference", "/guides/property-reference/", None))
+            parts.append(_md_link("Select properties", "/guides/select-properties/", None))
+            parts.append(
+                _md_link("Property interpretation", "/concepts/property-interpretation/", None)
+            )
         elif name == "load_dinov2_model":
             parts.append(
                 _md_link("Model Wrappers", "/advanced/api/model-wrapper/", "load_dinov2_model")
@@ -318,7 +322,7 @@ def _extended_for_symbol(
         if name.startswith("register_") or name in ("get_property", "list_properties"):
             parts.append(_md_link("Plugins", "/guides/plugins/", None))
         if name == "get_blob_properties":
-            parts.append(_md_link("Custom Properties", "/guides/custom-properties/", None))
+            parts.append(_md_link("Select properties", "/guides/select-properties/", None))
 
     return " · ".join(parts)
 

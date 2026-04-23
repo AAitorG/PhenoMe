@@ -12,7 +12,7 @@ tableOfContents:
 This page is rebuilt from docstrings in [`phenome.utils.property_factories`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/property_factories.py) (module).
 :::
 
-**See also:** [Pipeline compute_properties](/PhenoMe/advanced/api/pipeline/) · [Custom properties guide](/PhenoMe/guides/custom-properties/)
+**See also:** [Pipeline compute_properties](/PhenoMe/advanced/api/pipeline/) · [Select properties guide](/PhenoMe/guides/select-properties/)
 
 Factory functions for property computation in phenotyping analysis.
 

@@ -12,6 +12,16 @@ export default defineConfig({
   site,
   base,
   trailingSlash: "always",
+  redirects: {
+    [`${base}guides/property-reference/`]: `${base}concepts/property-interpretation/`,
+    [`${base}guides/interpretability/`]: `${base}concepts/embeddings-interpretability/`,
+    [`${base}concepts/image-properties-and-presets/`]: `${base}concepts/property-interpretation/`,
+    [`${base}concepts/interpretability/`]: `${base}concepts/embeddings-interpretability/`,
+    [`${base}guides/custom-properties/`]: `${base}guides/select-properties/`,
+    [`${base}guides/custom-properties/presets/`]: `${base}guides/select-properties/presets/`,
+    [`${base}guides/custom-properties/writing-functions/`]: `${base}guides/select-properties/writing-functions/`,
+    [`${base}guides/custom-properties/advanced-recipes/`]: `${base}guides/select-properties/advanced-recipes/`,
+  },
   integrations: [
     starlight({
       title: "PhenoMe",
@@ -36,19 +46,21 @@ export default defineConfig({
           items: [
             { label: "Getting started", link: "/getting-started/" },
             { label: "Learning paths", link: "/user-paths/" },
-            {
-              label: "Core concepts",
-              collapsed: true,
-              items: [
-                { label: "Overview", link: "/concepts/" },
-                { label: "Embeddings", link: "/concepts/embeddings/" },
-                { label: "Channel modes", link: "/concepts/channel-modes/" },
-                { label: "Distance metrics", link: "/concepts/distances/" },
-                { label: "Metadata & properties", link: "/concepts/metadata-and-properties/" },
-                { label: "Visualization & results", link: "/concepts/visualization-and-results/" },
-              ],
-            },
             { label: "Common workflows", link: "/workflows/" },
+          ],
+        },
+        {
+          label: "Concepts",
+          collapsed: true,
+          items: [
+            { label: "Overview", link: "/concepts/" },
+            { label: "Embeddings", link: "/concepts/embeddings/" },
+            { label: "Channel modes", link: "/concepts/channel-modes/" },
+            { label: "Distance metrics", link: "/concepts/distances/" },
+            { label: "Metadata & properties", link: "/concepts/metadata-and-properties/" },
+            { label: "Property interpretation", link: "/concepts/property-interpretation/" },
+            { label: "Visualization & results", link: "/concepts/visualization-and-results/" },
+            { label: "Embeddings interpretability", link: "/concepts/embeddings-interpretability/" },
           ],
         },
         {
@@ -67,13 +79,13 @@ export default defineConfig({
               ],
             },
             {
-              label: "Custom properties",
+              label: "Select properties",
               collapsed: true,
               items: [
-                { label: "Overview", link: "/guides/custom-properties/" },
-                { label: "Presets", link: "/guides/custom-properties/presets/" },
-                { label: "Writing functions", link: "/guides/custom-properties/writing-functions/" },
-                { label: "Advanced recipes", link: "/guides/custom-properties/advanced-recipes/" },
+                { label: "Overview", link: "/guides/select-properties/" },
+                { label: "Presets", link: "/guides/select-properties/presets/" },
+                { label: "Writing functions", link: "/guides/select-properties/writing-functions/" },
+                { label: "Advanced recipes", link: "/guides/select-properties/advanced-recipes/" },
               ],
             },
             {
@@ -130,8 +142,6 @@ export default defineConfig({
         {
           label: "More",
           items: [
-            { label: "Property reference", link: "/guides/property-reference/" },
-            { label: "Interpretability", link: "/guides/interpretability/" },
             { label: "Glossary", link: "/glossary/" },
             { label: "FAQ", link: "/faq/" },
           ],

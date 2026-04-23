@@ -1,15 +1,15 @@
 ---
-title: "Property reference"
-description: Dictionary of the built-in properties PhenoMe computes, what each one measures, and when to use it.
+title: "Property interpretation"
+description: >-
+  What each built-in classical property measures (shape, intensity, texture, QC), how to read it,
+  and how to avoid redundant features when comparing groups.
 sidebar:
-  order: 0
+  order: 50
 ---
 
 
 :::tip
-**Start with `property_preset="basic"`.** It gives a sensible mix of
-shape (mask-based) and intensity features for almost any dataset and is
-the preset used in the notebooks.
+This page explains **what each built-in property means**. **Preset bundles** (`basic`, `full`, …) and choosing `property_preset` are covered under [Select properties — Presets](/PhenoMe/guides/select-properties/presets/).
 :::
 
 ## Overview
@@ -108,11 +108,11 @@ Gray Level Co-occurrence Matrix (Haralick) features. Require both image and mask
 
 ---
 
-## Choosing Properties
+## Choosing properties
 
 - **Avoid redundancy:** `circularity` and `compactness` are inverses; use `circularity`. `aspect_ratio` and `roundness` both capture elongation but from different formulas; use one or the other unless both add value.
 - **Match your question:** Morphology → area, perimeter, eccentricity, solidity. Intensity → masked mean/std. Texture → GLCM. QC → blur_effect.
-- **Start with presets:** Use `property_preset="basic"` for quick analysis; `property_preset="full"` for comprehensive; `property_preset="full_extended"` for maximum features including texture and QC. Use `property_preset="none"` with `additional_property_functions` for custom-only.
+- **Presets:** For which features are included in `property_preset="basic"` / `"full"` / `"full_extended"`, see [Select properties — Presets](/PhenoMe/guides/select-properties/presets/).
 
 ---
 
@@ -120,7 +120,8 @@ Gray Level Co-occurrence Matrix (Haralick) features. Require both image and mask
 
 | Topic | Document |
 |-------|----------|
-| Writing custom functions | [Custom properties](/PhenoMe/guides/custom-properties/) |
+| Preset bundles | [Select properties — Presets](/PhenoMe/guides/select-properties/presets/) |
+| Writing your own functions | [Select properties](/PhenoMe/guides/select-properties/) |
 | Extension points | [Extending PhenoMe](/PhenoMe/guides/extending/) |
 | API reference | [`compute_properties`](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties) |
 | Concepts overview | [Metadata and properties](/PhenoMe/concepts/metadata-and-properties/) |

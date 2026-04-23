@@ -297,7 +297,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         description="Custom property extraction — factory helpers and presets.",
         related=(
             ("Pipeline compute_properties", "pipeline"),
-            ("Custom properties guide", "../../guides/custom-properties"),
+            ("Select properties guide", "../../guides/select-properties"),
         ),
         source=ModuleSource(module="phenome.utils.property_factories"),
     ),

@@ -67,7 +67,7 @@ A scalar value indicating how different an image is from a reference group (e.g.
 Characterizing observable traits (phenotypes) of biological samples, e.g., cell morphology, fluorescence patterns, response to treatments.
 
 ### Property preset
-A predefined set of classical properties: `basic`, `regionprops`, `intensity`, `full`, `full_extended`, or `none`. See [Property Reference](/PhenoMe/guides/property-reference/).
+A predefined set of classical properties: `basic`, `regionprops`, `intensity`, `full`, `full_extended`, or `none`. See [Property interpretation](/PhenoMe/concepts/property-interpretation/).
 
 ### Reference group
 The set of images used as baseline (e.g., untreated controls). Defined by `reference_filters` when computing phenotypic distances.
@@ -98,4 +98,4 @@ Using a pre-trained model without training or fine-tuning on your data. DINOv2 a
 - **Embeddings and metadata** - [Core concepts](/PhenoMe/concepts/), [Data setup](/PhenoMe/guides/data-setup/)
 - **Channel / split mode** - [Concepts — channel modes](/PhenoMe/concepts/channel-modes/)
 - **Checkpoints and HDF5** - [HDF5 protocol](/PhenoMe/advanced/database_protocol/), [Best practices](/PhenoMe/guides/best-practices/)
-- **Correlations and explainability** - [Interpretability](/PhenoMe/guides/interpretability/)
+- **Correlations and explainability** - [Embeddings interpretability](/PhenoMe/concepts/embeddings-interpretability/)

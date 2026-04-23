@@ -1,0 +1,39 @@
+---
+title: "Core concepts"
+description: How PhenoMe represents images, distances, metadata, and results—not a prerequisite to install or run your first analysis.
+sidebar:
+  order: 1
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Use this section when you want background on **how the tool models** phenotyping: embeddings, channel handling, distances, metadata, and what gets stored in results. You can install, run the [Getting started](/PhenoMe/getting-started/) workflow, and read the [Learning paths](/PhenoMe/user-paths/) without it; come back here when terminology in other pages needs a fuller explanation.
+
+## What is phenotyping?
+
+**Phenotyping** characterises the observable traits of biological samples. In microscopy this means analysing cell shape (morphology), where proteins are located (fluorescence patterns), or how structures change under treatment.
+
+PhenoMe automates this with deep learning. It is **model-agnostic** (it works with almost any vision model) and **dataset-agnostic** (it does not care how your files are organised).
+
+## Processing flow
+
+![Pipeline Overview](../../../assets/pipeline_overview.png)
+
+PhenoMe processes data through a bifurcated 4-step pipeline:
+
+1.  **Discovery (Input)** — Discover images and extract experimental metadata.
+2.  **Embeddings (A)** — Load images, apply transforms, and extract deep learning embeddings.
+3.  **Properties (B)** — Compute interpretable classical features (shape, texture, intensity) in parallel.
+4.  **Analysis & Visualization (C)** — Integrate both sources to quantify phenotypic distances and produce interactive plots.
+
+## Explore concepts
+
+<CardGrid stagger>
+  <LinkCard title="Embeddings & Models" description="How visual fingerprints are extracted and the lifecycle of embeddings." href={`${import.meta.env.BASE_URL}concepts/embeddings/`} />
+  <LinkCard title="Channel modes" description="How to handle multi-channel fluorescence vs. brightfield images." href={`${import.meta.env.BASE_URL}concepts/channel-modes/`} />
+  <LinkCard title="Distance metrics" description="Measuring phenotypic change between treated and control groups." href={`${import.meta.env.BASE_URL}concepts/distances/`} />
+  <LinkCard title="Metadata & properties" description="Linking images to experimental context and classical image features." href={`${import.meta.env.BASE_URL}concepts/metadata-and-properties/`} />
+  <LinkCard title="Property interpretation" description="What each built-in classical property measures (shape, intensity, texture, QC) and how to avoid redundant comparisons." href={`${import.meta.env.BASE_URL}concepts/property-interpretation/`} />
+  <LinkCard title="Visualization & results" description="Dimensionality reduction (PCA/UMAP), results container structure, and sharing or portability of checkpoints." href={`${import.meta.env.BASE_URL}concepts/visualization-and-results/`} />
+  <LinkCard title="Embeddings interpretability" description="Correlating embeddings and DR axes with classical properties: univariate and multivariate explainability." href={`${import.meta.env.BASE_URL}concepts/embeddings-interpretability/`} />
+</CardGrid>

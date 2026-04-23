@@ -20,4 +20,4 @@ Where **embeddings** are abstract vectors from a deep learning model, **properti
 
 PhenoMe computes and stores properties alongside embeddings, so you can ask whether simple properties (like nucleus size) already explain the grouping a deep-learning model sees.
 
-See [Custom properties](/PhenoMe/guides/custom-properties/) for user-defined metrics and [Property reference](/PhenoMe/guides/property-reference/) for the built-ins.
+See [Select properties](/PhenoMe/guides/select-properties/) for user-defined metrics and [Property interpretation](/PhenoMe/concepts/property-interpretation/) for the built-ins.

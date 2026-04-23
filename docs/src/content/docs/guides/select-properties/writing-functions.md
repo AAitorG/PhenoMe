@@ -197,7 +197,7 @@ for name, value in result.items():
 
 ## See also
 
-- [Presets](/PhenoMe/guides/custom-properties/presets/) - prebuilt factories you can use instead of
+- [Presets](/PhenoMe/guides/select-properties/presets/) - prebuilt factories you can use instead of
   rolling your own.
-- [Advanced recipes](/PhenoMe/guides/custom-properties/advanced-recipes/) - GLCM, OpenCV, multi-channel.
+- [Advanced recipes](/PhenoMe/guides/select-properties/advanced-recipes/) - GLCM, OpenCV, multi-channel.
 - [Plugins](/PhenoMe/guides/plugins/) - register a named property function.
