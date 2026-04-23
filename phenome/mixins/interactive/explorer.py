@@ -9,13 +9,16 @@ path ``phenome.mixins.interactive.PhenoMeInteractive``.
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import csv
 import html
 import io
+import json
 import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import ipywidgets as widgets
@@ -23,7 +26,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from IPython.display import clear_output, display
+from IPython.display import Javascript, clear_output, display
 
 from ..._logging import get_logger
 from ...core import (
@@ -38,8 +41,8 @@ from ._constants import (
     DR_RANDOM_STATE,
     EMBEDDING_FIG_HEIGHT_PX,
     EMBEDDING_FIG_WIDTH_PX,
+    GRID_THUMB_OVERLAY_NAME,
     HALO_COLOR_HIGHLIGHT,
-    HALO_COLOR_MULTI,
     HALO_SIZE_MULTIPLIER,
     HIGHLIGHT_DISCRETE_INT_MAX_UNIQUES,
     HIGHLIGHT_OVERLAY_NAME,
@@ -55,6 +58,9 @@ from ._constants import (
     MULTI_SELECT_OVERLAY_NAME,
     SEARCH_DEBOUNCE_SEC,
     SELECTION_OVERLAY_NAME,
+    THUMBNAIL_DOWNSAMPLE,
+    THUMBNAIL_GRID_MAX_IMAGES,
+    THUMBNAIL_SIZE_PX,
 )
 from ._html import (
     embedding_placeholder_computing,
@@ -65,6 +71,7 @@ from ._html import (
     status_html,
 )
 from ._protocol import _InteractiveExplorerProtocol
+from ._thumbnail_grid import ThumbnailGrid
 from ._utils import (
     apply_hoverlabels_matching_markers,
     figurewidget_safe_figure,
@@ -88,8 +95,8 @@ class PhenoMeInteractive:
       - Highlight mode (shows all points, emphasises a subset).
       - Multi-select categorical highlight and live stats bar.
       - Click-to-inspect image viewer.
-      - 2D box/lasso selection with CSV export of selected indices; HTML export
-        and clear live in the Selection section (Plotly modebar: pan, zoom, box/lasso, PNG).
+      - 2D box/lasso selection with CSV export of selected rows
+        in the Selection section (Plotly modebar: pan, zoom, box/lasso, PNG).
       - Dark mode for the plot (Appearance).
 
         Key design:
@@ -103,8 +110,9 @@ class PhenoMeInteractive:
           - **Multi-value highlight**: categorical fields use filter + multi-select (OR).
           - **Live stats bar** (total / highlighted / selected / lasso-box).
           - **Selected point**: clicking a point shows a black ring (hollow marker) for inspection.
-          - **Multi-selection**: box / lasso on the 2D plot stores a persistent set of
-            image indices that can be copied or downloaded as CSV.
+      - **Multi-selection**: box / lasso on the 2D plot stores a persistent set of
+        image indices; the side panel shows a thumbnail grid (single-click traceback +
+        image id, double-click full view with back to grid).
     """
 
     # ------------------------------------------------------------------
@@ -170,6 +178,14 @@ class PhenoMeInteractive:
         # Pre-compute filter/exclude value lists (search narrows SelectMultiple like Highlight)
         self._filter_value_options_all: list[str] = []
         self._exclude_value_options_all: list[str] = []
+        # Lazy: anywidget grid for lasso/box selection thumbnails (click = traceback).
+        self._thumb_grid: Any = None
+        # Box/lasso thumbnail click: orange ring on embedding (not the same as plot click-to-inspect).
+        self._grid_trace_index: int | None = None
+        # Double-click grid → full single view; back button returns to grid.
+        self._single_view_from_grid: bool = False
+        # Live HTML under the grid header showing traceback image id; cleared when not on grid.
+        self._grid_panel_trace_label: widgets.HTML | None = None
 
         # Background compute (DR runs in a thread so the UI stays responsive)
         self._compute_thread: threading.Thread | None = None
@@ -379,7 +395,6 @@ class PhenoMeInteractive:
                     [
                         self.selection_copy_btn,
                         self.selection_download_btn,
-                        self.export_html_btn,
                     ],
                     layout=widgets.Layout(
                         width="100%",
@@ -604,7 +619,7 @@ class PhenoMeInteractive:
         )
 
     # ------------------------------------------------------------------
-    # Selection section widgets (export HTML / copy / CSV / clear)
+    # Selection section widgets (copy / CSV / clear)
     # ------------------------------------------------------------------
     def _create_toolbar_widgets(self) -> None:
         """Create widgets for the Selection accordion (box/lasso tools live on Plotly's modebar)."""
@@ -634,13 +649,6 @@ class PhenoMeInteractive:
             icon="download",
             button_style="info",
             tooltip="Download selected rows of the embedding DataFrame as CSV",
-            layout=widgets.Layout(width="auto", min_width="150px"),
-        )
-        self.export_html_btn = widgets.Button(
-            description="Download HTML",
-            icon="file-code-o",
-            button_style="",
-            tooltip="Download current figure as a standalone HTML file",
             layout=widgets.Layout(width="auto", min_width="150px"),
         )
         self._selection_download_area = widgets.HTML(value="", layout=widgets.Layout(width="100%"))
@@ -1001,7 +1009,6 @@ class PhenoMeInteractive:
         # Selection section callbacks
         self.selection_copy_btn.on_click(self._on_selection_copy_clicked)
         self.selection_download_btn.on_click(self._on_selection_download_clicked)
-        self.export_html_btn.on_click(self._on_export_html_clicked)
 
     # ------------------------------------------------------------------
     # Option builders
@@ -1397,6 +1404,8 @@ class PhenoMeInteractive:
 
         # Recomputation invalidates the previous multi-selection (row positions shift).
         self._multi_selected_indices = []
+        self._grid_trace_index = None
+        self._single_view_from_grid = False
 
         return elapsed
 
@@ -1437,7 +1446,7 @@ class PhenoMeInteractive:
         return self.fig_widget.data[self._n_data_traces]
 
     def _multi_select_overlay_trace(self) -> Any | None:
-        """The extra trace used to outline box/lasso multi-selected points (2D only)."""
+        """Reserved trace slot for box/lasso (2D only); selection is shown via Plotly dimming only."""
         if self.fig_widget is None or self._n_data_traces <= 0:
             return None
         if len(self.fig_widget.data) <= self._n_data_traces + 1:
@@ -1452,8 +1461,16 @@ class PhenoMeInteractive:
             return None
         return self.fig_widget.data[self._n_data_traces + 2]
 
+    def _grid_thumb_overlay_trace(self) -> Any | None:
+        """Thick ring for lasso-thumbnail traceback (2D; empty stub in 3D)."""
+        if self.fig_widget is None or self._n_data_traces <= 0:
+            return None
+        if len(self.fig_widget.data) <= self._n_data_traces + 3:
+            return None
+        return self.fig_widget.data[self._n_data_traces + 3]
+
     def _highlight_marker_size(self) -> int:
-        """Halo marker diameter (multi-select + group-highlight overlays) vs base point size."""
+        """Halo marker diameter for group-highlight overlay vs base point size."""
         ns = int(self.point_size_slider.value)
         return max(int(ns * HALO_SIZE_MULTIPLIER), ns + 2)
 
@@ -1461,6 +1478,10 @@ class PhenoMeInteractive:
         """Ring marker size for single-point click (classic hollow + border, not a filled halo)."""
         ns = int(self.point_size_slider.value)
         return max(ns + 5, int(ns * 2))
+
+    def _grid_thumb_select_ring_size(self) -> int:
+        """Larger orange ring so it reads clearly over dense points."""
+        return self._click_select_ring_size() + 6
 
     def _make_selection_overlay_trace(self, is_3d: bool) -> go.Scatter3d | go.Scatter:
         """Single extra trace: hollow marker with black border (click-to-select; WebGL has no per-point line width on data)."""
@@ -1497,11 +1518,10 @@ class PhenoMeInteractive:
         )
 
     def _make_multi_select_overlay_trace(self) -> go.Scatter:
-        """Extra 2D trace: translucent blue halos for box/lasso multi-selected points."""
-        hs = self._highlight_marker_size()
+        """Invisible stub trace: preserves overlay ordering; lasso/box uses Plotly dimming only."""
         marker = {
-            "size": hs,
-            "color": HALO_COLOR_MULTI,
+            "size": 1,
+            "color": "rgba(0,0,0,0)",
             "opacity": 1.0,
             "line": {"width": 0, "color": "rgba(0,0,0,0)"},
         }
@@ -1528,6 +1548,40 @@ class PhenoMeInteractive:
         }
         return go.Scatter(
             name=HIGHLIGHT_OVERLAY_NAME,
+            x=[],
+            y=[],
+            mode="markers",
+            showlegend=False,
+            hoverinfo="skip",
+            visible=False,
+            marker=marker,
+            customdata=[],
+        )
+
+    def _make_grid_thumb_overlay_trace(self, is_3d: bool) -> go.Scatter3d | go.Scatter:
+        """Hollow ring: orange border — thumbnail traceback, distinct from click black."""
+        hs = self._grid_thumb_select_ring_size()
+        marker = {
+            "size": hs,
+            "color": "rgba(0,0,0,0)",
+            "opacity": 1.0,
+            "line": {"color": "#f97316", "width": 3},
+        }
+        if is_3d:
+            return go.Scatter3d(
+                name=GRID_THUMB_OVERLAY_NAME,
+                x=[],
+                y=[],
+                z=[],
+                mode="markers",
+                showlegend=False,
+                hoverinfo="skip",
+                visible=False,
+                marker=marker,
+                customdata=[],
+            )
+        return go.Scatter(
+            name=GRID_THUMB_OVERLAY_NAME,
             x=[],
             y=[],
             mode="markers",
@@ -1579,6 +1633,8 @@ class PhenoMeInteractive:
             # No data - show empty placeholder and clear selection
             self._selected_point_index = None
             self._multi_selected_indices = []
+            self._grid_trace_index = None
+            self._single_view_from_grid = False
             self._n_data_traces = 0
             self.fig_widget = go.FigureWidget(
                 layout=go.Layout(
@@ -1829,7 +1885,7 @@ class PhenoMeInteractive:
         self._n_data_traces = len(self.fig_widget.data)
         self._current_color_by = color_by
 
-        # Overlay traces: click = ring on a separate trace; box/lasso + group-Highlight = halos.
+        # Overlay traces: click = ring; group-Highlight = pink halos; lasso/box = Plotly dimming only.
         # scattergl/scatter3d do not support per-point line width on data; use extra traces.
         self.fig_widget.add_trace(self._make_selection_overlay_trace(is_3d=bool(z_col)))
         # Multi-select overlay (2D only). Add an empty 3D-compatible trace otherwise
@@ -1864,9 +1920,12 @@ class PhenoMeInteractive:
                     customdata=[],
                 )
             )
+            # Lasso thumbnail traceback ring: 2D only; 3D stub for consistent trace indices.
+            self.fig_widget.add_trace(self._make_grid_thumb_overlay_trace(is_3d=True))
         else:
             self.fig_widget.add_trace(self._make_multi_select_overlay_trace())
             self.fig_widget.add_trace(self._make_highlight_overlay_trace())
+            self.fig_widget.add_trace(self._make_grid_thumb_overlay_trace(is_3d=False))
 
         if self._highlight_active:
             self._apply_highlight()
@@ -1889,6 +1948,7 @@ class PhenoMeInteractive:
 
         # Repaint persistent multi-selection if still applicable.
         self._apply_multi_select_overlay()
+        self._apply_grid_thumb_overlay()
 
     # ------------------------------------------------------------------
     # Instant colour update (no recomputation)
@@ -2002,6 +2062,308 @@ class PhenoMeInteractive:
         except (TypeError, ValueError, IndexError, AttributeError):
             return None
 
+    def _ensure_thumb_grid(self) -> ThumbnailGrid:
+        """Lazily create the lasso thumbnail grid and wire the click callback once."""
+        if self._thumb_grid is None:
+            self._thumb_grid = ThumbnailGrid(
+                thumb_size_px=THUMBNAIL_SIZE_PX,
+                layout=widgets.Layout(width="100%"),
+            )
+            self._thumb_grid.observe(self._on_thumb_grid_strike, names="thumb_strike")
+            self._thumb_grid.observe(self._on_thumb_grid_dbl, names="thumb_dbl_strike")
+        return self._thumb_grid
+
+    def _grid_trace_id_line_html(self) -> str:
+        """One-line status under the grid header: pipeline index for traceback (when set)."""
+        g = self._grid_trace_index
+        if g is None:
+            return '<div style="min-height:0;margin:0;padding:0;"></div>'
+        return (
+            f'<div style="font-size:11px;color:#0f172a;margin:0 0 6px 0;">'
+            f"Image id: <b>{html.escape(str(g))}</b></div>"
+        )
+
+    def _refresh_grid_trace_label(self) -> None:
+        """Update the traceback id line without rebuilding thumbnails."""
+        lab = self._grid_panel_trace_label
+        if lab is not None:
+            lab.value = self._grid_trace_id_line_html()
+
+    def _on_thumb_grid_strike(self, change: dict[str, Any]) -> None:
+        """Thumbnail click: orange plot ring + orange border on tile; keep grid (no single-image panel)."""
+        if change.get("name") != "thumb_strike":
+            return
+        grid = self._thumb_grid
+        if grid is None:
+            return
+        idx = int(grid.thumb_strike_index)
+        if idx < 0:
+            return
+
+        def _do() -> None:
+            if not self._multi_selected_indices:
+                return
+            # Only when switching off plot single-view do we need to rebuild the grid panel.
+            had_plot_single_view = self._selected_point_index is not None
+            self._image_error_msg = None
+            # Full single-image panel is only for plot clicks; lasso+grid defers to grid.
+            self._selected_point_index = None
+            # Same tile again: clear traceback highlight only.
+            if self._grid_trace_index == idx:
+                self._grid_trace_index = None
+                grid.grid_focus_index = -1
+            else:
+                self._grid_trace_index = idx
+                grid.grid_focus_index = idx
+            self._apply_selected_point_highlight()
+            # Thumbnail clicks only change overlays + tile border — do not reload the grid.
+            if had_plot_single_view:
+                self._update_image_panel()
+            self._refresh_grid_trace_label()
+
+        schedule_after_plotly_event_loop(_do)
+
+    def _on_thumb_grid_dbl(self, change: dict[str, Any]) -> None:
+        """Double-click: open the usual single-image panel (and offer back to grid)."""
+        if change.get("name") != "thumb_dbl_strike":
+            return
+        grid = self._thumb_grid
+        if grid is None:
+            return
+        idx = int(grid.thumb_dbl_strike_index)
+        if idx < 0:
+            return
+
+        def _do() -> None:
+            if not self._multi_selected_indices or idx not in set(self._multi_selected_indices):
+                return
+            self._image_error_msg = None
+            self._single_view_from_grid = True
+            self._grid_trace_index = None
+            if self._thumb_grid is not None:
+                self._thumb_grid.grid_focus_index = -1
+            self._selected_point_index = idx
+            self._apply_selected_point_highlight()
+            self._update_image_panel()
+
+        schedule_after_plotly_event_loop(_do)
+
+    def _on_back_to_grid_clicked(self, _btn: Any) -> None:
+        """Return from full single view (opened from the grid) to the thumbnail grid."""
+        self._image_error_msg = None
+        self._single_view_from_grid = False
+        self._selected_point_index = None
+
+        def _do() -> None:
+            self._apply_selected_point_highlight()
+            self._update_image_panel()
+            self._update_stats()
+
+        schedule_after_plotly_event_loop(_do)
+
+    def _update_image_panel(self) -> None:
+        """Refresh the side image panel based on current selection state.
+
+        Priority:
+          1. Plot click or grid double-click: full single preview + optional extra info
+             (grid double-click adds a back control to return to the grid).
+          2. Box/lasso only: compact thumbnail grid (scrollable).
+          3. Idle.
+        """
+        if self._selected_point_index is not None:
+            self._set_image_panel_single(self._selected_point_index)
+        elif self._multi_selected_indices:
+            self._set_image_panel_multi()
+        else:
+            self._set_image_panel_idle()
+
+    def _set_image_panel_single(self, idx: int) -> None:
+        """Load and show a single image in the preview panel (refactored from _on_figure_click)."""
+        self._grid_panel_trace_label = None
+        self.img_output.children = (self._img_loading_placeholder,)
+        seq_at_load = self._compute_seq
+        sel_idx = idx
+        opened_from_grid = self._single_view_from_grid
+
+        def _load_and_show_image_task() -> None:
+            try:
+                png, details_text, title = self.pheno.image_preview_png_bytes(
+                    sel_idx,
+                    apply_transforms=False,
+                    downsample=max(360, IMAGE_OVERLAY_WIDTH_PX * 2),
+                    show_extra_info=self.show_extra_info_checkbox.value,
+                )
+
+                def _update_ui() -> None:
+                    if self._compute_seq != seq_at_load:
+                        return
+                    if self._selected_point_index != sel_idx:
+                        return
+
+                    preview = widgets.Image(
+                        value=png,
+                        format="png",
+                        layout=widgets.Layout(
+                            width="100%",
+                            max_width=f"{IMAGE_OVERLAY_WIDTH_PX}px",
+                            max_height="400px",
+                            object_fit="contain",
+                        ),
+                    )
+
+                    children_list: list[Any] = []
+                    if (
+                        opened_from_grid
+                        and self._single_view_from_grid
+                        and self._selected_point_index == sel_idx
+                    ):
+                        back_btn = widgets.Button(
+                            description="←",
+                            tooltip="Back to grid",
+                            layout=widgets.Layout(width="40px", min_width="40px"),
+                        )
+                        back_btn.on_click(self._on_back_to_grid_clicked)
+                        children_list.append(
+                            widgets.HBox(
+                                [back_btn],
+                                layout=widgets.Layout(
+                                    width="100%",
+                                    justify_content="flex-start",
+                                    margin="0 0 6px 0",
+                                ),
+                            )
+                        )
+                    if title:
+                        title_widget = widgets.HTML(
+                            value=(
+                                "<div style='text-align:center; font-weight:bold; "
+                                "font-size:14px; margin-bottom:8px;'>"
+                                f"{html.escape(title)}</div>"
+                            ),
+                            layout=widgets.Layout(width="100%"),
+                        )
+                        children_list.append(title_widget)
+
+                    children_list.append(preview)
+
+                    if details_text:
+                        extra = widgets.HTML(
+                            value=(
+                                '<div style="margin-top:8px;font-size:13px;line-height:1.45;'
+                                "color:#333;max-height:260px;overflow-y:auto;border-top:1px solid #E0E0E0;"
+                                'padding-top:6px;">'
+                                '<pre style="margin:0;font-size:13px;white-space:pre-wrap;word-break:break-word;">'
+                                f"{html.escape(details_text)}</pre></div>"
+                            ),
+                            layout=widgets.Layout(width="100%"),
+                        )
+                        children_list.append(extra)
+
+                    self.img_output.children = tuple(children_list)
+                    self._update_stats()
+
+                schedule_after_plotly_event_loop(_update_ui)
+            except Exception as e:
+                image_load_err = e
+
+                def _update_err() -> None:
+                    if self._compute_seq != seq_at_load:
+                        return
+                    if self._selected_point_index != sel_idx:
+                        return
+                    self._set_image_panel_idle()
+                    logger.error(
+                        "Error displaying image for index %s: %s",
+                        sel_idx,
+                        image_load_err,
+                    )
+                    self._image_error_msg = (
+                        f"⚠ Error loading image: {type(image_load_err).__name__}"
+                    )
+                    self._update_stats()
+
+                schedule_after_plotly_event_loop(_update_err)
+
+        threading.Thread(target=_load_and_show_image_task, daemon=True).start()
+
+    def _set_image_panel_multi(self) -> None:
+        """Load box/lasso selection as a compact thumbnail grid (single/double-click differ)."""
+        self.img_output.children = (self._img_loading_placeholder,)
+        raw = list(self._multi_selected_indices)
+        max_n = THUMBNAIL_GRID_MAX_IMAGES
+        indices = raw[:max_n]
+        truncated = len(raw) > max_n
+        seq_at_load = self._compute_seq
+        ds = THUMBNAIL_DOWNSAMPLE
+
+        def _load_one_png_b64(idx: int) -> tuple[int, str | None]:
+            try:
+                png, _, _ = self.pheno.image_preview_png_bytes(
+                    idx,
+                    apply_transforms=False,
+                    downsample=ds,
+                    show_extra_info=False,
+                )
+                return idx, base64.b64encode(png).decode("ascii")
+            except Exception:
+                return idx, None
+
+        def _load_multi_task() -> None:
+            try:
+                if self._compute_seq != seq_at_load:
+                    return
+                if not self._multi_selected_indices or self._selected_point_index is not None:
+                    return
+
+                n_workers = min(8, max(1, len(indices)))
+                with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                    rows = list(pool.map(_load_one_png_b64, indices))
+
+                b64_list: list[str] = []
+                idx_list: list[int] = []
+                for idx, b64 in rows:
+                    if b64 is None:
+                        continue
+                    idx_list.append(idx)
+                    b64_list.append(b64)
+
+                def _update_ui() -> None:
+                    if self._compute_seq != seq_at_load:
+                        return
+                    if not self._multi_selected_indices or self._selected_point_index is not None:
+                        return
+                    if not b64_list:
+                        self._set_image_panel_idle()
+                        return
+
+                    grid = self._ensure_thumb_grid()
+                    grid.images_b64 = b64_list
+                    grid.indices = idx_list
+                    grid.thumb_size_px = THUMBNAIL_SIZE_PX
+                    gti = self._grid_trace_index
+                    grid.grid_focus_index = gti if (gti is not None and gti in idx_list) else -1
+                    extra = f" (showing first {max_n})" if truncated else ""
+                    note = widgets.HTML(
+                        value=(
+                            f'<div style="font-size:10px;color:#64748B;margin:0 0 2px 0;">'
+                            f"{len(raw):,} selected{extra} — <b>single</b> click: highlight in plot · "
+                            f"<b>double</b> click: full image</div>"
+                        ),
+                        layout=widgets.Layout(width="100%"),
+                    )
+                    trace_label = widgets.HTML(
+                        value=self._grid_trace_id_line_html(),
+                        layout=widgets.Layout(width="100%"),
+                    )
+                    self._grid_panel_trace_label = trace_label
+                    self.img_output.children = (note, trace_label, grid)
+
+                schedule_after_plotly_event_loop(_update_ui)
+            except Exception as e:
+                logger.error("Error in multi-image load: %s", e)
+
+        threading.Thread(target=_load_multi_task, daemon=True).start()
+
     def _on_figure_click(self, trace: Any, points: Any, _state: Any) -> None:
         """Handle FigureWidget clicks - scheduled via event loop to avoid hangs."""
         t_now = time.time()
@@ -2017,6 +2379,7 @@ class PhenoMeInteractive:
                 SELECTION_OVERLAY_NAME,
                 MULTI_SELECT_OVERLAY_NAME,
                 HIGHLIGHT_OVERLAY_NAME,
+                GRID_THUMB_OVERLAY_NAME,
             ):
                 return
 
@@ -2039,105 +2402,19 @@ class PhenoMeInteractive:
             def _apply_click_safe() -> None:
                 try:
                     self._image_error_msg = None
+                    self._single_view_from_grid = False
+                    # Plot click: full single-image inspect; clears thumbnail-traceback ring.
+                    self._grid_trace_index = None
+                    if self._thumb_grid is not None:
+                        self._thumb_grid.grid_focus_index = -1
                     # Toggle selected point: same click = deselect, different = select
                     if self._selected_point_index == idx:
                         self._selected_point_index = None
                     else:
                         self._selected_point_index = idx
 
-                    self._apply_selected_point_overlay()
-                    self._update_stats()
-
-                    if self._selected_point_index is None:
-                        self._set_image_panel_idle()
-                        return
-
-                    sel_idx = self._selected_point_index
-                    self.img_output.children = (self._img_loading_placeholder,)
-                    seq_at_load = self._compute_seq
-
-                    def _load_and_show_image_task() -> None:
-                        try:
-                            loading_idx = sel_idx
-                            png, details_text, title = self.pheno.image_preview_png_bytes(
-                                loading_idx,
-                                apply_transforms=False,
-                                downsample=max(360, IMAGE_OVERLAY_WIDTH_PX * 2),
-                                show_extra_info=self.show_extra_info_checkbox.value,
-                            )
-
-                            def _update_ui() -> None:
-                                if self._compute_seq != seq_at_load:
-                                    return
-                                if self._selected_point_index != loading_idx:
-                                    return
-
-                                preview = widgets.Image(
-                                    value=png,
-                                    format="png",
-                                    layout=widgets.Layout(
-                                        width="100%",
-                                        max_width=f"{IMAGE_OVERLAY_WIDTH_PX}px",
-                                        max_height="400px",
-                                        object_fit="contain",
-                                    ),
-                                )
-
-                                children_list = []
-
-                                if title:
-                                    title_widget = widgets.HTML(
-                                        value=(
-                                            "<div style='text-align:center; font-weight:bold; "
-                                            "font-size:14px; margin-bottom:8px;'>"
-                                            f"{html.escape(title)}</div>"
-                                        ),
-                                        layout=widgets.Layout(width="100%"),
-                                    )
-                                    children_list.append(title_widget)
-
-                                children_list.append(preview)
-
-                                if details_text:
-                                    extra = widgets.HTML(
-                                        value=(
-                                            '<div style="margin-top:8px;font-size:13px;line-height:1.45;'
-                                            "color:#333;max-height:260px;overflow-y:auto;border-top:1px solid #E0E0E0;"
-                                            'padding-top:6px;">'
-                                            '<pre style="margin:0;font-size:13px;white-space:pre-wrap;word-break:break-word;">'
-                                            f"{html.escape(details_text)}</pre></div>"
-                                        ),
-                                        layout=widgets.Layout(width="100%"),
-                                    )
-                                    children_list.append(extra)
-
-                                self.img_output.children = tuple(children_list)
-                                self._update_stats()
-
-                            schedule_after_plotly_event_loop(_update_ui)
-                        except Exception as e:
-                            image_load_err = e
-
-                            def _update_err() -> None:
-                                if self._compute_seq != seq_at_load:
-                                    return
-                                if self._selected_point_index != sel_idx:
-                                    return
-                                self._set_image_panel_idle()
-                                logger.error(
-                                    "Error displaying image for index %s: %s",
-                                    sel_idx,
-                                    image_load_err,
-                                )
-                                self._image_error_msg = (
-                                    f"⚠ Error loading image: {type(image_load_err).__name__}"
-                                )
-                                self._update_stats()
-
-                            schedule_after_plotly_event_loop(_update_err)
-
-                    threading.Thread(target=_load_and_show_image_task, daemon=True).start()
-
+                    self._apply_selected_point_highlight()
+                    self._update_image_panel()
                 finally:
                     self._click_lock.release()
 
@@ -2163,6 +2440,7 @@ class PhenoMeInteractive:
             SELECTION_OVERLAY_NAME,
             MULTI_SELECT_OVERLAY_NAME,
             HIGHLIGHT_OVERLAY_NAME,
+            GRID_THUMB_OVERLAY_NAME,
         ):
             return
 
@@ -2199,9 +2477,17 @@ class PhenoMeInteractive:
         self._multi_selected_indices = merged
 
         def _do() -> None:
+            # Any new box/lasso: drop plot inspect, clear thumbnail traceback, show grid.
+            self._selected_point_index = None
+            self._single_view_from_grid = False
+            self._grid_trace_index = None
+            if self._thumb_grid is not None:
+                self._thumb_grid.grid_focus_index = -1
             self._apply_multi_select_overlay()
+            self._apply_grid_thumb_overlay()
             self._update_selection_summary()
             self._update_stats()
+            self._update_image_panel()
             self.status_label.value = status_html(
                 f"Selected {len(self._multi_selected_indices):,} point(s)", "ok"
             )
@@ -2214,6 +2500,7 @@ class PhenoMeInteractive:
             SELECTION_OVERLAY_NAME,
             MULTI_SELECT_OVERLAY_NAME,
             HIGHLIGHT_OVERLAY_NAME,
+            GRID_THUMB_OVERLAY_NAME,
         ):
             return
         t_now = time.time()
@@ -2445,6 +2732,7 @@ class PhenoMeInteractive:
         self._apply_base_styling()
         self._apply_selected_point_overlay()
         self._apply_multi_select_overlay()
+        self._apply_grid_thumb_overlay()
         self._update_stats()
 
     def _apply_base_styling(self) -> None:
@@ -2503,7 +2791,7 @@ class PhenoMeInteractive:
                         ov.visible = True
 
     def _apply_multi_select_overlay(self) -> None:
-        """Paint the multi-selection overlay from ``_multi_selected_indices`` (2D only)."""
+        """Prune stale indices; keep multi-select stub trace empty (lasso/box uses Plotly dimming only)."""
         if self.fig_widget is None or self._cached_df is None:
             return
         ov = self._multi_select_overlay_trace()
@@ -2517,32 +2805,56 @@ class PhenoMeInteractive:
             return
 
         m = self._cached_index_to_row or {}
-        df = self._cached_df
-        x_col, y_col, _ = self._coord_columns()
-        xs: list[float] = []
-        ys: list[float] = []
-        cd: list[list[int]] = []
         kept: list[int] = []
         for idx in self._multi_selected_indices:
-            j = m.get(idx)
-            if j is None:
+            if m.get(idx) is None:
                 continue
-            row = df.iloc[j]
-            xs.append(float(row[x_col]))
-            ys.append(float(row[y_col]))
-            cd.append([int(idx)])
             kept.append(idx)
 
         # Keep list aligned with what we can actually display (strip stale ids).
         self._multi_selected_indices = kept
 
         with self.fig_widget.batch_update():
-            ov.x = xs
-            ov.y = ys
-            ov.customdata = cd
-            ov.marker.size = self._highlight_marker_size()
-            ov.marker.color = HALO_COLOR_MULTI
-            ov.visible = bool(xs)
+            ov.x = []
+            ov.y = []
+            ov.customdata = []
+            ov.visible = False
+
+    def _apply_grid_thumb_overlay(self) -> None:
+        """2D: orange ring on the thumbnail-traced point."""
+        if self.fig_widget is None or self._cached_df is None:
+            return
+        ov = self._grid_thumb_overlay_trace()
+        if ov is None:
+            return
+        x_col, y_col, z_col = self._coord_columns()
+        if z_col:
+            with self.fig_widget.batch_update():
+                ov.visible = False
+            return
+        m = self._cached_index_to_row or {}
+        df = self._cached_df
+        gidx = self._grid_trace_index
+        if gidx is not None and gidx not in m:
+            self._grid_trace_index = None
+            gidx = None
+
+        with self.fig_widget.batch_update():
+            if gidx is None:
+                ov.visible = False
+                ov.x = []
+                ov.y = []
+                ov.customdata = []
+            else:
+                row = df.iloc[m[gidx]]
+                ring_size = self._grid_thumb_select_ring_size()
+                ov.marker.size = ring_size
+                ov.marker.color = "rgba(0,0,0,0)"
+                ov.marker.line = {"color": "#f97316", "width": 3}
+                ov.x = [float(row[x_col])]
+                ov.y = [float(row[y_col])]
+                ov.customdata = [[gidx]]
+                ov.visible = True
 
     # ------------------------------------------------------------------
     # Widget callbacks
@@ -2712,6 +3024,7 @@ class PhenoMeInteractive:
 
     def _set_image_panel_idle(self) -> None:
         """Reset the click-to-inspect panel to the placeholder (no PNG)."""
+        self._grid_panel_trace_label = None
         self.img_output.children = (self._img_idle_placeholder,)
 
     def _debounce_search(self, timer_attr: str, apply_fn: Callable[[], None]) -> None:
@@ -2882,8 +3195,6 @@ class PhenoMeInteractive:
     # ------------------------------------------------------------------
     def _data_uri_html(self, label: str, filename: str, mimetype: str, payload: bytes) -> str:
         """Return a compact "click to download" HTML link backed by a base64 data URI."""
-        import base64
-
         b64 = base64.b64encode(payload).decode("ascii")
         esc_label = html.escape(label)
         esc_name = html.escape(filename)
@@ -2894,41 +3205,56 @@ class PhenoMeInteractive:
             f'font-size:11px;text-decoration:none;">⬇ {esc_label}</a>'
         )
 
-    def _on_export_html_clicked(self, _btn: Any) -> None:
-        """Save the current figure as a standalone HTML file and offer a download link."""
-        fig = self.fig_widget
-        if fig is None:
-            self.status_label.value = status_html("No figure to export", "warn")
-            return
+    def _try_trigger_download_via_ipython_js(
+        self, filename: str, mimetype: str, payload: bytes
+    ) -> bool:
+        """Trigger a browser file download in the notebook front end (reliable in Jupyter/VS Code)."""
         try:
-            buf = io.StringIO()
-            fig.write_html(buf, include_plotlyjs="cdn", full_html=True)
-            html_bytes = buf.getvalue().encode("utf-8")
-            link = self._data_uri_html(
-                "Download HTML", "phenome_embedding.html", "text/html", html_bytes
-            )
-            self._selection_download_area.value = link
-            self.status_label.value = status_html("HTML ready", "ok")
-        except Exception as e:
-            self._selection_download_area.value = ""
-            self.status_label.value = status_html(f"HTML export failed: {type(e).__name__}", "err")
+            from IPython import get_ipython
+        except Exception:
+            return False
+        if get_ipython() is None:
+            return False
+        b64 = base64.b64encode(payload).decode("ascii")
+        mt = mimetype
+        if mimetype == "text/csv" and "charset" not in mimetype:
+            mt = "text/csv;charset=utf-8"
+        js = f"""
+        (() => {{ try {{
+            const a = document.createElement("a");
+            a.href = "data:" + {json.dumps(mt)} + ";base64," + {json.dumps(b64)};
+            a.setAttribute("download", {json.dumps(filename)});
+            a.style.display = "none";
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() {{ if (a.parentNode) a.parentNode.removeChild(a); }}, 0);
+        }} catch (e) {{}} }})();
+        """
+        display(Javascript(js))
+        return True
 
     # ------------------------------------------------------------------
     # Selection panel callbacks
     # ------------------------------------------------------------------
-    def _selected_indices_as_csv_bytes(self) -> bytes:
-        """CSV bytes for the selected rows of ``_cached_df``."""
+    def _selected_rows_csv_payload(self) -> tuple[bytes, int]:
+        """Build CSV bytes and row count for the current lasso/box selection (BOM, selection order)."""
         df = self._cached_df
-        if df is None or not self._multi_selected_indices:
-            return b""
-        m = self._cached_index_to_row or {}
-        rows = [m[i] for i in self._multi_selected_indices if i in m]
-        if not rows:
-            return b""
-        sub = df.iloc[rows]
+        if df is None or not self._multi_selected_indices or "Index" not in df.columns:
+            return b"", 0
+        want = list(self._multi_selected_indices)
+        if not want:
+            return b"", 0
+        sub = df[df["Index"].isin(want)]
+        if sub.empty:
+            return b"", 0
+        order = {i: p for p, i in enumerate(want)}
+        sub = sub.copy()
+        sub["_sort_key"] = sub["Index"].map(order)
+        sub = sub.sort_values("_sort_key", kind="mergesort").drop(columns=["_sort_key"])
+        n = len(sub)
         buf = io.StringIO()
-        sub.to_csv(buf, index=False, quoting=csv.QUOTE_MINIMAL)
-        return buf.getvalue().encode("utf-8")
+        sub.to_csv(buf, index=False, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
+        return ("\ufeff" + buf.getvalue()).encode("utf-8"), n
 
     def _update_selection_summary(self) -> None:
         """Refresh the Selection accordion summary block."""
@@ -2967,23 +3293,29 @@ class PhenoMeInteractive:
         )
 
     def _on_selection_download_clicked(self, _btn: Any) -> None:
-        """Save selected rows of the embedding DataFrame as a CSV download link."""
+        """Save selected rows of the embedding DataFrame as CSV (one-click in notebook front end)."""
         if not self._multi_selected_indices or self._cached_df is None:
             self.status_label.value = status_html("No box/lasso selection", "warn")
             return
-        payload = self._selected_indices_as_csv_bytes()
-        if not payload:
+        payload, n_rows = self._selected_rows_csv_payload()
+        if not payload or n_rows == 0:
             self.status_label.value = status_html("Nothing to export", "warn")
+            return
+        if self._try_trigger_download_via_ipython_js(
+            "phenome_selected_rows.csv", "text/csv", payload
+        ):
+            self._selection_download_area.value = ""
+            self.status_label.value = status_html(f"Downloaded {n_rows:,} row(s) as CSV", "ok")
             return
         link = self._data_uri_html(
             "Download CSV",
             "phenome_selected_rows.csv",
-            "text/csv",
+            "text/csv;charset=utf-8",
             payload,
         )
         self._selection_download_area.value = link
         self.status_label.value = status_html(
-            f"CSV ready ({len(self._multi_selected_indices):,} rows)", "ok"
+            f"CSV ready ({n_rows:,} rows) — use the link below", "ok"
         )
 
     def _clear_plotly_selection_visuals(self, *, reset_dragmode: bool = True) -> None:
@@ -3025,12 +3357,17 @@ class PhenoMeInteractive:
 
         self._multi_selected_indices = []
         self._selected_point_index = None
+        self._grid_trace_index = None
+        self._single_view_from_grid = False
         self._selection_download_area.value = ""
+        if self._thumb_grid is not None:
+            self._thumb_grid.grid_focus_index = -1
 
         def _do() -> None:
             # 1. Repaint our halos to empty state.
             self._apply_multi_select_overlay()
             self._apply_selected_point_overlay()
+            self._apply_grid_thumb_overlay()
 
             # 2. Restore data trace markers (uniform or highlight) via batch_update.
             if self.fig_widget is not None:
@@ -3044,8 +3381,7 @@ class PhenoMeInteractive:
             self._clear_plotly_selection_visuals(reset_dragmode=reset_dragmode)
 
             # Reset image side-panel, since the click selection is gone.
-            if had_single:
-                self._set_image_panel_idle()
+            self._update_image_panel()
 
             self._update_selection_summary()
             self._update_stats()

@@ -28,13 +28,14 @@ DR_RANDOM_STATE = 42
 
 # Extra Plotly trace for click-to-select border (2D/3D); must match overlay click skip.
 SELECTION_OVERLAY_NAME = "_phenome_sel_overlay"
-# Extra Plotly trace for box/lasso multi-selection border (2D only).
+# Extra Plotly trace slot for box/lasso (2D only); selection drawn via Plotly dimming, not this trace.
 MULTI_SELECT_OVERLAY_NAME = "_phenome_multi_sel_overlay"
 # Extra Plotly trace for group-highlight halo (2D only).
 HIGHLIGHT_OVERLAY_NAME = "_phenome_highlight_overlay"
+# 2D only: thick orange ring for “which thumbnail” traceback (distinct from plot-click black).
+GRID_THUMB_OVERLAY_NAME = "_phenome_grid_thumb_overlay"
 
-# Halo fill colors (translucent; click-to-select uses a ring on a separate trace instead).
-HALO_COLOR_MULTI = "rgba(59, 130, 246, 0.45)"  # blue — box/lasso
+# Halo fill for group-highlight (translucent; click-to-select uses a ring on a separate trace).
 HALO_COLOR_HIGHLIGHT = "rgba(236, 72, 153, 0.40)"  # pink — group highlight
 HALO_SIZE_MULTIPLIER = 2.4  # halo diameter vs base point size
 
@@ -91,5 +92,9 @@ EMBEDDING_FIG_HEIGHT_PX = 700
 IMAGE_OVERLAY_WIDTH_PX = 500
 # Min height for the image panel (compact idle/loading; PNG expands when shown).
 IMAGE_PANEL_MIN_HEIGHT_PX = 380
+# Box/lasso multi-select: thumbnail grid (anywidget) — small PNGs, parallel decode.
+THUMBNAIL_SIZE_PX = 80
+THUMBNAIL_GRID_MAX_IMAGES = 100
+THUMBNAIL_DOWNSAMPLE = 96
 # Matplotlib figsize (inches) for overlay image; ~100 DPI matches panel width minus padding.
 IMAGE_OVERLAY_FIGSIZE: tuple[float, float] = (6.0, 6.0)
