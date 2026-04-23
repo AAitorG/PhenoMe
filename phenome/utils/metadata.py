@@ -26,6 +26,8 @@ import pandas as pd
 
 from ..metadata import DataFrameMetadata, DefaultMetadata, PathTemplateMetadata
 
+_default_meta_instance = DefaultMetadata()
+
 
 def default_metadata_from_path(path: str) -> dict[str, Any]:
     """@section Metadata helpers
@@ -53,7 +55,10 @@ def default_metadata_from_path(path: str) -> dict[str, Any]:
         >>> meta['file_path'], meta['filename']
         ('/data/image.tif', 'image')
     """
-    return DefaultMetadata().metadata_fn(path, data_dir=None)
+    return _default_meta_instance.metadata_fn(path, data_dir=None)
+
+
+default_metadata_from_path._metadata_source = _default_meta_instance  # type: ignore[attr-defined]
 
 
 def get_metadata_from_path(template: str) -> Callable[[str], dict[str, Any]]:

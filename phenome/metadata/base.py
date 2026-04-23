@@ -28,21 +28,31 @@ def _sanitize_id(raw: str) -> str:
 
 def _path_to_id_single(path: str, data_dir: str | None) -> str:
     """Generate human-readable ID from single file path."""
-    path = path.replace("\\", "/")
-    stem = os.path.splitext(os.path.basename(path))[0]
+    path_norm = str(path).replace("\\", "/")
+
     if data_dir:
         try:
-            rel = os.path.relpath(path, data_dir)
+            data_dir_norm = str(data_dir).replace("\\", "/")
+            rel = os.path.relpath(path_norm, data_dir_norm)
             rel = rel.replace("\\", "/")
-            # Remove extension from last component if present
-            parts = rel.split("/")
-            if parts:
-                parts[-1] = os.path.splitext(parts[-1])[0]
-            raw = "/".join(parts)
-            return _sanitize_id(raw)
+
+            # If relpath escapes out completely using many '../' or is absolute, skip it
+            if not rel.startswith("../") and not os.path.isabs(rel) and rel != ".":
+                parts = rel.split("/")
+                if parts:
+                    parts[-1] = os.path.splitext(parts[-1])[0]
+                raw = "/".join(parts)
+                return _sanitize_id(raw)
         except ValueError:
             pass
-    return _sanitize_id(stem)
+
+    # Fallback: OS-agnostic unique ID without exposing absolute host paths.
+    # When data_dir is not provided, we cannot definitively know where the
+    # dataset root begins. To perfectly guarantee we do not expose host path
+    # elements (which breaks cross-device checkpoints), we must fall back
+    # to using only the target file's stem.
+    fallback_stem = os.path.splitext(os.path.basename(path_norm))[0]
+    return _sanitize_id(fallback_stem)
 
 
 def _paths_to_id_multi(paths: str | list[str], data_dir: str | None) -> str:
@@ -51,9 +61,8 @@ def _paths_to_id_multi(paths: str | list[str], data_dir: str | None) -> str:
         return _path_to_id_single(paths, data_dir)
     stems = []
     for p in paths:
-        p = str(p).replace("\\", "/")
-        stem = os.path.splitext(os.path.basename(p))[0]
-        stems.append(stem)
+        id_part = _path_to_id_single(str(p), data_dir)
+        stems.append(id_part)
     stems = sorted(stems)
     composite = "|".join(stems)
     return _sanitize_id(composite)

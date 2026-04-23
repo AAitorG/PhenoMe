@@ -372,6 +372,7 @@ class PhenoMeProperties:
             save_every,
             path_alignment,
             n_jobs,
+            expected_property_keys=expected_property_keys,
         )
 
         # Finalize and return
@@ -629,6 +630,7 @@ class PhenoMeProperties:
         ],
         image_paths: list[str | list[str]],
         existing_props: list[dict],
+        expected_property_keys: set[str] | None = None,
     ) -> tuple[dict[str, int], set[str], list[tuple[int, str | list[str]]], list[str]]:
         """Move unprocessed (missing or all-NaN) entries from identifiers_with_props to paths_to_compute."""
         id_to_ckpt_idx, identifiers_with_props, paths_to_compute, identifier_list = path_alignment
@@ -638,7 +640,13 @@ class PhenoMeProperties:
                 idx = id_to_ckpt_idx.get(identifier, -1)
                 if 0 <= idx < len(existing_props):
                     prop = existing_props[idx]
-                    if self._is_property_dict_unprocessed(prop):
+
+                    # If new properties were added that aren't in this image's dict, recompute.
+                    is_missing_expected = False
+                    if expected_property_keys is not None:
+                        is_missing_expected = any(k not in prop for k in expected_property_keys)
+
+                    if self._is_property_dict_unprocessed(prop) or is_missing_expected:
                         identifiers_with_props.discard(identifier)
                         paths_to_compute_dict[i] = image_paths[i]
         return (
@@ -816,6 +824,10 @@ class PhenoMeProperties:
                     i
                     for i, prop in enumerate(filtered_props)
                     if self._is_property_dict_unprocessed(prop)
+                    or (
+                        expected_property_keys
+                        and any(k not in prop for k in expected_property_keys)
+                    )
                 ]
                 if not unprocessed_indices:
                     logger.info(
@@ -832,7 +844,7 @@ class PhenoMeProperties:
                 )
                 existing_props = ckpt.load_committed_properties()
                 path_alignment = self._refine_path_alignment_for_unprocessed(
-                    path_alignment, image_paths, existing_props
+                    path_alignment, image_paths, existing_props, expected_property_keys
                 )
                 n_to_compute = len(path_alignment[2])
                 logger.info(
@@ -851,7 +863,7 @@ class PhenoMeProperties:
                         checkpoint_path, expected_property_keys, list(existing_props)
                     )
                 path_alignment = self._refine_path_alignment_for_unprocessed(
-                    path_alignment, image_paths, existing_props
+                    path_alignment, image_paths, existing_props, expected_property_keys
                 )
                 paths_to_compute = path_alignment[2]
                 logger.info(
@@ -881,6 +893,7 @@ class PhenoMeProperties:
         ]
         | None,
         n_jobs: int = 1,
+        expected_property_keys: set[str] | None = None,
     ) -> tuple[set, dict[str, list[float]], int]:
         """Process all images and compute properties.
 
@@ -893,6 +906,7 @@ class PhenoMeProperties:
             save_every: Frequency of checkpoint commits.
             path_alignment: Optional (path_to_ckpt_idx, paths_with_props, paths_to_compute).
                 When None, processes all images. When set, processes only paths_to_compute.
+            expected_property_keys: Expected keys to pre-populate buffers with NaN for missing properties.
 
         Returns:
             Tuple of (all_property_names, feature_buffers, last_committed).
@@ -906,7 +920,7 @@ class PhenoMeProperties:
         else:
             _, _, paths_to_compute, _ = path_alignment
 
-        all_property_names: set = set()
+        all_property_names: set = set(expected_property_keys) if expected_property_keys else set()
         feature_buffers: dict[str, list[float]] = {}
         images_computed = 0
         last_committed = 0
@@ -1015,6 +1029,11 @@ class PhenoMeProperties:
                         mask_properties_computed=mask_props_done,
                     )
                     all_computed.update(computed)
+
+                if "_properties_attempted" not in feature_buffers:
+                    feature_buffers["_properties_attempted"] = [np.nan] * images_computed
+                feature_buffers["_properties_attempted"].append(1.0)
+                all_computed.add("_properties_attempted")
 
                 for pn in list(feature_buffers):
                     if pn not in all_computed:

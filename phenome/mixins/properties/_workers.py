@@ -251,4 +251,5 @@ def compute_properties_worker(
 
                     result[name] = float(value) if value is not None else np.nan
 
+    result["_properties_attempted"] = 1.0
     return (buf_idx, result)

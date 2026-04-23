@@ -15,7 +15,6 @@ from tqdm.auto import tqdm
 
 from .._logging import get_logger
 from ..metadata.base import MetadataBase
-from ..utils.metadata import default_metadata_from_path
 
 __all__ = ["FileDiscovery", "ensure_hwc", "read_image"]
 
@@ -126,24 +125,46 @@ class FileDiscovery:
         mask_extensions: list[str] | None = None,
     ) -> pd.DataFrame:
         """Discover image files from a directory (internal use only)."""
+        # Resolve actual dataset root for robust ID generation when parsing globs
+        effective_data_dir = data_dir
+        if "*" in data_dir or "?" in data_dir:
+            effective_data_dir = data_dir.split("*")[0].split("?")[0]
+            if not effective_data_dir.endswith("/"):
+                effective_data_dir = os.path.dirname(effective_data_dir)
+
         if metadata_fn is None:
-            fn: Callable[[str], dict[str, Any]] = default_metadata_from_path
+            from ..metadata.sources import DefaultMetadata
+
+            _default_meta = DefaultMetadata()
+
+            def fn(p: str) -> dict[str, Any]:
+                return _default_meta.metadata_fn(p, data_dir=effective_data_dir)
+
         elif isinstance(metadata_fn, MetadataBase):
 
             def _metadata_extractor(p: str) -> dict[str, Any]:
-                return metadata_fn.metadata_fn(p, data_dir=data_dir)
+                return metadata_fn.metadata_fn(p, data_dir=effective_data_dir)
 
             fn = _metadata_extractor
             fn.group_by = metadata_fn.group_by  # type: ignore[attr-defined]
+        elif hasattr(metadata_fn, "_metadata_source"):
+            meta_src = metadata_fn._metadata_source
+
+            def _metadata_extractor(p: str) -> dict[str, Any]:
+                return meta_src.metadata_fn(p, data_dir=effective_data_dir)
+
+            fn = _metadata_extractor
+            fn.group_by = meta_src.group_by  # type: ignore[attr-defined]
         else:
             fn = metadata_fn
 
         # MetadataBase alignment: use instance mask_dir/mask_filename_column if not passed
-        if isinstance(metadata_fn, MetadataBase):
-            if mask_dir is None and getattr(metadata_fn, "mask_dir", None):
-                mask_dir = metadata_fn.mask_dir
-            if mask_filename_column is None and getattr(metadata_fn, "mask_filename_column", None):
-                mask_filename_column = metadata_fn.mask_filename_column
+        base_meta = getattr(metadata_fn, "_metadata_source", metadata_fn)
+        if isinstance(base_meta, MetadataBase):
+            if mask_dir is None and getattr(base_meta, "mask_dir", None):
+                mask_dir = base_meta.mask_dir
+            if mask_filename_column is None and getattr(base_meta, "mask_filename_column", None):
+                mask_filename_column = base_meta.mask_filename_column
 
         # Support both directory (recursive walk) and glob pattern
         if "*" in data_dir or "?" in data_dir:
