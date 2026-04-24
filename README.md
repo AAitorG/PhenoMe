@@ -24,36 +24,74 @@ Try the no-code experience with the **[Interactive Quickstart Notebook](Notebook
 
 ---
 
-## Installation
+## 📦 Installation
 
 ```bash
 git clone https://github.com/AAitorG/PhenoMe.git
 cd PhenoMe
 ```
 
-**conda** — pick **CPU** or **GPU**:
+<details open>
+
+<summary>conda</summary>
+
+Pick **one** — **CPU** or **GPU**:
+
+<details open>
+
+<summary>CPU</summary>
 
 ```bash
 # CPU-oriented env (default Conda setup)
 conda env create -f envs/environment-cpu.yml
 conda activate phenome-cpu
 ```
+
+</details>
+
+<details open>
+
+<summary>GPU</summary>
+
 ```bash
 # GPU-oriented env
 conda env create -f envs/environment-gpu.yml
 conda activate phenome-gpu
 ```
 
-**pip** — pick **CPU** or **GPU**:
+</details>
+
+</details>
+
+<details>
+
+<summary>pip</summary>
+
+Pick **one** — **CPU** or **GPU**:
+
+<details open>
+
+<summary>CPU</summary>
 
 ```bash
 # CPU-oriented env
 pip install -r requirements.txt -e .
 ```
+
+</details>
+
+<details open>
+
+<summary>GPU</summary>
+
 ```bash
 # GPU-oriented env
 pip install -r envs/requirements-gpu.txt -e .
 ```
+
+</details>
+
+</details>
 
 > **Full instructions, verification, and troubleshooting:**
 > See the [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) guide for GPU setup details, verification commands, and first-analysis walkthroughs.
