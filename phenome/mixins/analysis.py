@@ -664,6 +664,9 @@ class PhenoMeAnalysis:
         correlation_method: Literal[
             "pearson", "spearman", "distance_correlation", "mutual_info"
         ] = "pearson",
+        plot: bool = True,
+        return_fig: bool = False,
+        figsize: tuple[int, int] = (10, 6),
     ) -> dict[str, Any]:
         """Correlate dim-reduction components with phenotypic properties.
 
@@ -674,7 +677,7 @@ class PhenoMeAnalysis:
             property_keys: Property subset when *source* is ``'properties'`` or ``'combined'``.
             filters: Optional metadata filters.
             exclude: Optional metadata exclusions (same structure as filters).
-            top_k: Number of top correlations to return in summary.
+            top_k: Number of top correlations to return in summary and per facet in the plot.
             normalize: Whether to normalize data before computing correlations (default: True).
                 - Source data (embeddings/properties): Normalized before dimensionality reduction
                   (L2 normalization for embeddings, StandardScaler for properties)
@@ -686,12 +689,31 @@ class PhenoMeAnalysis:
                   requires ``dcor`` library: ``pip install dcor``)
                 - ``'mutual_info'``: Normalized mutual information (detects any dependency,
                   normalized to [0, 1] range)
+            plot: If True (default), show an interactive Plotly faceted bar chart (one row per
+                component). If False, log a plain-text summary via the package logger instead
+                (unless *return_fig* requests a figure).
+            return_fig: If True, attach a Plotly figure under ``component_correlation_fig`` in the
+                returned dict. When ``return_fig`` is True, ``fig.show()`` is not called; use
+                ``plot=True`` with ``return_fig=False`` for the default interactive display.
+            figsize: Figure size ``(width, height)`` in inches for the Plotly layout.
 
         Returns:
             Dict with keys:
             - correlation_df: pd.DataFrame. Rows=properties, cols=components. Correlation values.
             - summary: pd.DataFrame. Columns: Component, Property, Correlation, AbsCorrelation.
             - component_names: List[str]. Column names (Component 1, Component 2, ...) for all methods.
+            - component_correlation_fig: Present when ``return_fig`` is True and a figure was built.
+
+        Examples:
+            Text-only summary (e.g. scripts / logging)::
+
+                result = pheno.compute_component_correlation(plot=False)
+
+            Save the figure without an interactive window::
+
+                result = pheno.compute_component_correlation(return_fig=True)
+                fig = result["component_correlation_fig"]
+                fig.write_html("component_corr.html")
         """
         df, _, _ = run_dimensionality_reduction(
             self,
@@ -798,11 +820,26 @@ class PhenoMeAnalysis:
                     }
                 )
 
-        return {
+        summary_df = pd.DataFrame(rows)
+        out: dict[str, Any] = {
             "correlation_df": corr,
-            "summary": pd.DataFrame(rows),
+            "summary": summary_df,
             "component_names": comp_cols,
         }
+        title = f"Component-property correlations ({method.upper()}, {correlation_method})"
+        fig = self._plot_component_correlation(  # type: ignore[attr-defined]
+            correlation_df=corr,
+            summary=summary_df,
+            component_names=comp_cols,
+            plot=plot,
+            return_fig=return_fig,
+            top_k=top_k,
+            figsize=figsize,
+            title=title,
+        )
+        if return_fig and fig is not None:
+            out["component_correlation_fig"] = fig
+        return out
 
     # ------------------------------------------------------------------
     # Cluster enrichment

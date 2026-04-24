@@ -11,6 +11,7 @@ import plotly.express as px
 from ..._logging import get_logger
 from ...core import build_metadata_columns, get_all_metadata_keys
 from ...core.pipeline_results import PhenoMeResults
+from ._component_correlation_plots import _ComponentCorrelationPlotsMixin
 from ._distance_plots import _DistancePlotsMixin
 from ._dr_plots import _DRPlotsMixin
 from ._image_display import _ImageDisplayMixin
@@ -20,14 +21,19 @@ logger = get_logger(__name__)
 
 
 class PhenoMeVisualization(
-    _DRPlotsMixin, _DistancePlotsMixin, _ImageDisplayMixin, _InterpretabilityPlotsMixin
+    _DRPlotsMixin,
+    _DistancePlotsMixin,
+    _ImageDisplayMixin,
+    _InterpretabilityPlotsMixin,
+    _ComponentCorrelationPlotsMixin,
 ):
     """
     Pipeline class providing visualization methods for PhenoMe.
 
     Composed from _DRPlotsMixin (PCA, t-SNE, UMAP, centroids), _DistancePlotsMixin
     (distance distribution, correlation plots), _ImageDisplayMixin (image display),
-    and _InterpretabilityPlotsMixin (multivariate interpretability).
+    _InterpretabilityPlotsMixin (multivariate interpretability), and
+    _ComponentCorrelationPlotsMixin (component-property correlation facets).
     """
 
     # Type hints for pipeline attributes (provided by parent class)
