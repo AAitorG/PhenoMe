@@ -63,14 +63,30 @@ def generate_distance_section(
             )
 
     try:
-        dist_results = pipeline.compute_reference_distances(
-            reference_filters=reference_filters,
-            filters=filters,
-            exclude=exclude,
-            mode="centroid",
-            source="embeddings",
-            distance_type="euclidean",
-        )
+        if color_by:
+            # Full numeric range: Plotly will autoscale; avoids a second distance computation
+            # just to set dist_range with padding.
+            dist_results = pipeline.compute_reference_distances(
+                reference_filters=reference_filters,
+                filters=filters,
+                exclude=exclude,
+                mode="centroid",
+                source="embeddings",
+                distance_type="euclidean",
+                group_by=color_by,
+                dist_range=(-float("inf"), float("inf")),
+                plot=False,
+                return_fig=True,
+            )
+        else:
+            dist_results = pipeline.compute_reference_distances(
+                reference_filters=reference_filters,
+                filters=filters,
+                exclude=exclude,
+                mode="centroid",
+                source="embeddings",
+                distance_type="euclidean",
+            )
     except (ValueError, KeyError, RuntimeError) as e:
         return (generate_info_box(f"Error computing distances: {e}", "error"), None)
 
@@ -94,16 +110,7 @@ def generate_distance_section(
 
     plot_html = ""
     try:
-        dist_min = float(np.min(valid_distances))
-        dist_max = float(np.max(valid_distances))
-        pad = (dist_max - dist_min) * 0.05 if dist_max > dist_min else 1.0
-        dist_range = (max(0.0, dist_min - pad), dist_max + pad)
-        fig = pipeline.plot_distance_distribution(
-            distance_results=dist_results,
-            group_by=color_by,
-            dist_range=dist_range,
-            return_fig=True,
-        )
+        fig = dist_results.get("figure")
         if fig is not None:
             apply_dark_theme(fig)
             fig.update_layout(width=None, height=None, autosize=True)

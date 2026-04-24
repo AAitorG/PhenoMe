@@ -328,48 +328,6 @@ Print distance summary statistics without plotting. Safe to use when enable_plot
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-_distanceplotsmixin-plot_distance_distribution">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-_distanceplotsmixin-plot_distance_distribution"><code>plot_distance_distribution</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-_DistancePlotsMixin.plot_distance_distribution(
-    self,
-    distance_results: dict,
-    group_by: str | list[str] | None = None,
-    dist_range: tuple = (0, 100),
-    figsize: tuple[int, int] = (10, 6),
-    return_fig: bool = False,
-    points: Optional[Literal['all', 'outliers', False]] = None
-) -> Any
-```
-
-</div>
-
-<div class="api-body">
-
-Plot distance distribution grouped by metadata using Plotly violin plots.
-
-**Args:**
-
-- **`distance_results`**: Dictionary containing 'distances' array
-- **`group_by`**: Metadata key(s) to group by. Single string or list (e.g. ['drug', 'time']).
-- **`dist_range`**: Tuple of (min, max) distances to include
-- **`figsize`**: Figure size (width, height)
-- **`return_fig`**: Whether to return the figure
-- **`points`**: Which points to show on the violin plot ('all', 'outliers', or False).
-  If None, auto-selects 'outliers' for large datasets (>5000 points)
-  and 'all' for smaller ones.
-
-</div>
-
-</div>
-
 <div class="api-method" role="region" aria-labelledby="api-_distanceplotsmixin-plot_property_correlations">
 
 <div class="api-method-header">

@@ -81,7 +81,6 @@ _VISUALIZATION_DEFAULTS: dict[str, tuple[str, int]] = {
     "plot_image_by_index": ("Visualization", 60),
     "image_preview_png_bytes": ("Visualization", 70),
     "print_distance_summary": ("Visualization", 80),
-    "plot_distance_distribution": ("Visualization", 90),
     "plot_property_correlations": ("Visualization", 100),
     "plot_multivariate_interpretability": ("Visualization", 110),
 }

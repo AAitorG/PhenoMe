@@ -40,7 +40,13 @@ PhenoMeDistances.compute_reference_distances(
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     mode: Literal['centroid', 'all_to_all'] = 'centroid',
     distance_type: Literal['euclidean', 'cosine'] = 'euclidean',
-    property_keys: list[str] | None = None
+    property_keys: list[str] | None = None,
+    group_by: str | list[str] | None = None,
+    dist_range: tuple[float, float] = (0.0, 100.0),
+    figsize: tuple[int, int] = (10, 6),
+    plot: bool = True,
+    return_fig: bool = False,
+    points: Literal['all', 'outliers', False] | None = None
 ) -> dict
 ```
 
@@ -65,6 +71,18 @@ Compute distances from all images to reference group.
 - **`distance_type`**: 'euclidean' (default) or 'cosine'.
 - **`property_keys`**: Optional subset of property names when *source* is ``'properties'``
   or ``'combined'``.
+- **`group_by`**: If set, run optional post-processing: violin plot and/or per-group
+  summary. Use ``None`` to return only distance arrays and metadata.
+- **`dist_range`**: When using *group_by*, keep values in this inclusive range for
+  visualization and text summaries.
+- **`figsize`**: Figure size in inches (width, height) when a Plotly figure is built.
+- **`plot`**: If True (default) and *group_by* is set, show (or return) a violin plot only,
+  without logging a per-group text summary. If False, log per-group summary statistics
+  where applicable.
+- **`return_fig`**: If True and *group_by* is set, add a Plotly ``figure`` to the
+  return dict and do not call ``fig.show()``.
+- **`points`**: Violin overlay: ``'all'``, ``'outliers'``, or False; ``None`` auto-selects
+  from dataset size.
 
 **Returns:**
 
@@ -75,6 +93,7 @@ Compute distances from all images to reference group.
   - mode: str ('centroid' or 'all_to_all')
   - source: str ('embeddings', 'properties', or 'combined')
   - distance_type: str ('euclidean' or 'cosine')
+  - figure: (optional) Plotly figure when ``return_fig=True`` and *group_by* is set
 
 **Example:**
 
@@ -83,7 +102,8 @@ Compute distances from all images to reference group.
 ...     reference_filters={'condition': 'Control'},
 ...     source='embeddings',
 ...     mode='centroid',
-...     distance_type='euclidean'
+...     distance_type='euclidean',
+...     group_by='condition',
 ... )
 >>> distances = dist_results['distances']
 ```

@@ -41,6 +41,12 @@ class PhenoMeDistances:
         mode: Literal["centroid", "all_to_all"] = "centroid",
         distance_type: Literal["euclidean", "cosine"] = "euclidean",
         property_keys: list[str] | None = None,
+        group_by: str | list[str] | None = None,
+        dist_range: tuple[float, float] = (0.0, 100.0),
+        figsize: tuple[int, int] = (10, 6),
+        plot: bool = True,
+        return_fig: bool = False,
+        points: Literal["all", "outliers", False] | None = None,
     ) -> dict:
         """Compute distances from all images to reference group.
 
@@ -58,6 +64,18 @@ class PhenoMeDistances:
             distance_type: 'euclidean' (default) or 'cosine'.
             property_keys: Optional subset of property names when *source* is ``'properties'``
                 or ``'combined'``.
+            group_by: If set, optionally visualize or print grouped statistics after
+                computing distances. Pass ``None`` to skip post-processing.
+            dist_range: When using *group_by*, keep distances in ``[min, max]`` for
+                display and summary.
+            figsize: Figure size in inches (width, height) when a plot is built.
+            plot: If True and *group_by* is set, show or return a violin plot only (no
+                per-group text summary to the logger). If False, log per-group summary
+                statistics where applicable (e.g. text-only mode, or with *return_fig*).
+            return_fig: If True and *group_by* is set, add key ``"figure"`` to the
+                return dict and do not call ``fig.show()``.
+            points: Violin plot point overlay: ``'all'``, ``'outliers'``, or ``False``;
+                ``None`` auto-selects by data size.
 
         Returns:
             Dict containing:
@@ -67,13 +85,15 @@ class PhenoMeDistances:
                 - mode: str ('centroid' or 'all_to_all')
                 - source: str ('embeddings', 'properties', or 'combined')
                 - distance_type: str ('euclidean' or 'cosine')
+                - figure: (optional) Plotly figure if ``return_fig=True`` and *group_by* is set
 
         Example:
             >>> dist_results = pipeline.compute_reference_distances(
             ...     reference_filters={'condition': 'Control'},
             ...     source='embeddings',
             ...     mode='centroid',
-            ...     distance_type='euclidean'
+            ...     distance_type='euclidean',
+            ...     group_by='condition',
             ... )
             >>> distances = dist_results['distances']
         """
@@ -177,7 +197,7 @@ class PhenoMeDistances:
                 "  Distance range: [%.4f, %.4f]", np.nanmin(distances), np.nanmax(distances)
             )
 
-        return {
+        result: dict[str, Any] = {
             "distances": distances,
             "reference_indices": ref_indices,
             "reference_filters": reference_filters,
@@ -186,6 +206,22 @@ class PhenoMeDistances:
             "source": source,
             "distance_type": distance_type,
         }
+
+        if group_by is not None:
+            # Visualization lives on ``PhenoMeVisualization`` (PhenoMe MRO)
+            fig = self._plot_distance_distribution(  # type: ignore[attr-defined]
+                result,
+                group_by=group_by,
+                dist_range=dist_range,
+                figsize=figsize,
+                plot=plot,
+                return_fig=return_fig,
+                points=points,
+            )
+            if return_fig and fig is not None:
+                result["figure"] = fig
+
+        return result
 
     # ------------------------------------------------------------------
     # Private helpers
