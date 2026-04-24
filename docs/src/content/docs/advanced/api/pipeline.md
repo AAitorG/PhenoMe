@@ -1418,8 +1418,12 @@ PhenoMeAnalysis.compute_multivariate_interpretability(
     normalize: bool = True,
     cv: int = 5,
     rf_n_estimators: int = 100,
-    seed: int | None = None
-) -> dict
+    seed: int | None = None,
+    plot: bool = True,
+    return_fig: bool = False,
+    top_k: int = 10,
+    figsize: tuple[int, int] = (10, 8),
+) -> dict[str, typing.Any]
 ```
 
 </div>
@@ -1446,6 +1450,11 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 - **`cv`**: Number of cross-validation folds (only for 'lasso').
 - **`rf_n_estimators`**: Number of trees (only for 'random_forest').
 - **`seed`**: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
+- **`plot`**: If True (default), show an interactive Plotly bar chart of top drivers. If False, log a plain-text summary via the package logger (unless only ``return_fig`` is used).
+- **`return_fig`**: If True, store the Plotly figure on the returned dict as ``interpretability_fig``. When True, ``fig.show()`` is not called.
+- **`top_k`**: Number of top drivers in the plot or text summary.
+- **`figsize`**: Figure size ``(width, height)`` for Plotly layout; each value is multiplied
+  by 100 to set width and height in layout pixels.
 
 **Returns:**
 
@@ -1457,6 +1466,7 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
   - target_component: The component name explained.
   - n_samples: Number of samples used.
   - n_features: Number of properties considered.
+  - interpretability_fig: Plotly figure when ``return_fig`` is True and a figure was built.
 
 </div>
 
@@ -1640,46 +1650,45 @@ Plot a specific image by its index.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-_interpretabilityplotsmixin-plot_multivariate_interpretability">
+<div class="api-method" role="region" aria-labelledby="api-_interpretabilityplotsmixin-_plot_multivariate_interpretability">
 
 <div class="api-method-header">
 <span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-_interpretabilityplotsmixin-plot_multivariate_interpretability"><code>plot_multivariate_interpretability</code></h4>
+<h4 class="api-method-title" id="api-_interpretabilityplotsmixin-_plot_multivariate_interpretability"><code>_plot_multivariate_interpretability</code> <span class="api-badge">internal</span></h4>
 </div>
 
 <div class="api-signature">
 
 ```python
-_InterpretabilityPlotsMixin.plot_multivariate_interpretability(
+_InterpretabilityPlotsMixin._plot_multivariate_interpretability(
     self,
     results: dict[str, typing.Any],
+    plot: bool = True,
+    return_fig: bool = False,
     top_k: int = 10,
     figsize: tuple[int, int] = (10, 8),
-    return_fig: bool = False
-) -> Any
+) -> Figure | None
 ```
 
 </div>
 
 <div class="api-body">
 
-Plot the results of multivariate interpretability (LASSO or Random Forest).
-
-Displays a horizontal bar chart showing which classical features best explain
-the target embedding dimension.
+Internal hook for multivariate interpretability display. Prefer
+[compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability)
+with ``plot`` / ``return_fig`` / ``top_k`` for the integrated workflow.
 
 **Args:**
 
-- **`results`**: Output dict from [compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability)
-  (must include ``drivers``, ``r2``, ``method``, ``target_component``,
-  ``model_type``).
-- **`top_k`**: Number of top driving features to show in the plot.
+- **`results`**: Output dict from ``compute_multivariate_interpretability``.
+- **`plot`**: Build/show a bar chart when applicable.
+- **`return_fig`**: Return the Plotly figure without ``fig.show()`` when True.
+- **`top_k`**: Number of top drivers.
 - **`figsize`**: Figure size (width, height) in pixels / 100.
-- **`return_fig`**: If True, return the plotly figure object.
 
 **Returns:**
 
-  The plotly figure object if return_fig is True, else None.
+  The Plotly figure if ``return_fig`` is True and a figure was built; otherwise ``None``.
 
 </div>
 

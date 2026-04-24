@@ -32,6 +32,7 @@ from ..core.interpretability import (
 )
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
+from .visualization._interpretability_plots import _display_multivariate_interpretability
 
 logger = get_logger(__name__)
 
@@ -290,6 +291,10 @@ class PhenoMeAnalysis:
         cv: int = 5,
         rf_n_estimators: int = 100,
         seed: int | None = None,
+        plot: bool = True,
+        return_fig: bool = False,
+        top_k: int = 10,
+        figsize: tuple[int, int] = (10, 8),
     ) -> dict[str, Any]:
         """Explain a dimensionality reduction component using LASSO or Random Forest.
 
@@ -310,6 +315,14 @@ class PhenoMeAnalysis:
             cv: Number of cross-validation folds (only for 'lasso').
             rf_n_estimators: Number of trees (only for 'random_forest').
             seed: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
+            plot: If True (default), show an interactive Plotly bar chart of top drivers.
+                If False, log a plain-text summary via the package logger instead.
+            return_fig: If True, attach a Plotly figure under ``interpretability_fig`` in the
+                returned dict. When ``return_fig`` is True, ``fig.show()`` is not called; use
+                ``plot=True`` with ``return_fig=False`` for the default interactive display.
+            top_k: Number of top drivers to show in the plot or text summary.
+            figsize: Figure size ``(width, height)`` passed through to Plotly layout; each
+                value is multiplied by 100 to set width and height in layout pixels.
 
         Returns:
             Dict with:
@@ -320,6 +333,7 @@ class PhenoMeAnalysis:
                 - target_component: The component name explained.
                 - n_samples: Number of samples used.
                 - n_features: Number of properties considered.
+                - interpretability_fig: Present when ``return_fig`` is True and a figure was built.
         """
         effective_seed = seed if seed is not None else getattr(self, "seed", None)
 
@@ -408,6 +422,17 @@ class PhenoMeAnalysis:
             results["r2"],
             len(results["drivers"]),
         )
+
+        results.pop("interpretability_fig", None)
+        fig = _display_multivariate_interpretability(
+            results,
+            plot=plot,
+            return_fig=return_fig,
+            top_k=top_k,
+            figsize=figsize,
+        )
+        if return_fig and fig is not None:
+            results["interpretability_fig"] = fig
 
         return results
 

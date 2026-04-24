@@ -100,7 +100,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `compute_clustering` | Perform clustering and store labels in ``metadata[i]['cluster']`` for each image. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_clustering) |
 | `compute_component_correlation` | Correlate dim-reduction components with phenotypic properties. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_component_correlation) |
 | `compute_embedding_property_correlations` | Compute correlations between embedding dimensions and phenotypic scalar properties. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_embedding_property_correlations) |
-| `compute_multivariate_interpretability` | Explain a dimensionality reduction component using LASSO or Random Forest. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability) |
+| `compute_multivariate_interpretability` | Explain a DR component with LASSO or Random Forest; optional Plotly plot, text summary via logger, or `interpretability_fig` when `return_fig=True`. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability) |
 | `compute_properties` | Compute per-image properties using presets and/or custom functions. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties) |
 | `compute_reference_distances` | Compute distances to a reference group; optional ``group_by`` for violin/summary. | ✅ | [Distances](/PhenoMe/advanced/api/distances/#api-phenomedistances-compute_reference_distances) |
 | `create_interactive_explorer` | Launch the interactive explorer for this pipeline's results. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_interactive_explorer) |
@@ -123,7 +123,6 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `plot_centroids` | Plot centroids of groups in reduced embedding space. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_centroids) |
 | `plot_counts` | Plot count of images grouped by metadata using Plotly. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-phenomevisualization-plot_counts) |
 | `plot_image_by_index` | Plot a specific image by its index. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-plot_image_by_index) |
-| `plot_multivariate_interpretability` | Plot the results of multivariate interpretability (LASSO or Random Forest). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_interpretabilityplotsmixin-plot_multivariate_interpretability) |
 | `plot_pca` | Plot PCA of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_pca) |
 | `plot_property_correlations` | Plot the top correlated properties as a horizontal bar chart. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_distanceplotsmixin-plot_property_correlations) |
 | `plot_tsne` | Plot t-SNE of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_tsne) |

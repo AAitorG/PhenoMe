@@ -37,6 +37,9 @@ def generate_interpretability_section(
             component=component,
             model_type=model_type,
             seed=getattr(pipeline, "seed", None),
+            plot=True,
+            return_fig=True,
+            top_k=top_k,
         )
     except (ValueError, KeyError, RuntimeError, ImportError) as e:
         return generate_info_box(f"Could not compute multivariate interpretability: {e}", "warning")
@@ -47,12 +50,7 @@ def generate_interpretability_section(
             "info",
         )
 
-    # Generate the plot using the mixin and return it as HTML
-    fig = pipeline.plot_multivariate_interpretability(
-        results,
-        top_k=top_k,
-        return_fig=True,
-    )
+    fig = results.get("interpretability_fig")
 
     if fig is None:
         return generate_info_box("Failed to generate interpretability plot.", "warning")

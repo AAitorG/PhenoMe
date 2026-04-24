@@ -364,46 +364,45 @@ Plot the top correlated properties as a horizontal bar chart.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-_interpretabilityplotsmixin-plot_multivariate_interpretability">
+<div class="api-method" role="region" aria-labelledby="api-_interpretabilityplotsmixin-_plot_multivariate_interpretability">
 
 <div class="api-method-header">
 <span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-_interpretabilityplotsmixin-plot_multivariate_interpretability"><code>plot_multivariate_interpretability</code></h4>
+<h4 class="api-method-title" id="api-_interpretabilityplotsmixin-_plot_multivariate_interpretability"><code>_plot_multivariate_interpretability</code> <span class="api-badge">internal</span></h4>
 </div>
 
 <div class="api-signature">
 
 ```python
-_InterpretabilityPlotsMixin.plot_multivariate_interpretability(
+_InterpretabilityPlotsMixin._plot_multivariate_interpretability(
     self,
     results: dict[str, typing.Any],
+    plot: bool = True,
+    return_fig: bool = False,
     top_k: int = 10,
     figsize: tuple[int, int] = (10, 8),
-    return_fig: bool = False
-) -> Any
+) -> Figure | None
 ```
 
 </div>
 
 <div class="api-body">
 
-Plot the results of multivariate interpretability (LASSO or Random Forest).
-
-Displays a horizontal bar chart showing which classical features best explain
-the target embedding dimension.
+Internal hook for multivariate interpretability display. Prefer
+[compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability)
+with ``plot`` / ``return_fig`` / ``top_k`` for the integrated workflow.
 
 **Args:**
 
-- **`results`**: Output dict from [compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability)
-  (must include ``drivers``, ``r2``, ``method``, ``target_component``,
-  ``model_type``).
-- **`top_k`**: Number of top driving features to show in the plot.
+- **`results`**: Output dict from ``compute_multivariate_interpretability``.
+- **`plot`**: Build/show a bar chart when applicable.
+- **`return_fig`**: Return the Plotly figure without ``fig.show()`` when True.
+- **`top_k`**: Number of top drivers.
 - **`figsize`**: Figure size (width, height) in pixels / 100.
-- **`return_fig`**: If True, return the plotly figure object.
 
 **Returns:**
 
-  The plotly figure object if return_fig is True, else None.
+  The Plotly figure if ``return_fig`` is True and a figure was built; otherwise ``None``.
 
 </div>
 

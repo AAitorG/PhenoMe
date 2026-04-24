@@ -1,119 +1,192 @@
 """Multivariate interpretability plot methods for PhenoMeVisualization."""
 
+from __future__ import annotations
+
 from typing import Any
 
 import pandas as pd
 import plotly.express as px
+from plotly.graph_objects import Figure
 
 from ..._logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class _InterpretabilityPlotsMixin:
-    """Mixin providing multivariate interpretability plots."""
+def _log_multivariate_interpretability_results(results: dict[str, Any], top_k: int) -> None:
+    """Log a plain-text summary of multivariate interpretability to the tool logger."""
+    if not isinstance(results, dict) or not results.get("drivers"):
+        logger.warning("No interpretability drivers to summarize.")
+        return
 
-    def plot_multivariate_interpretability(
-        self,
-        results: dict[str, Any],
-        *,
-        top_k: int = 10,
-        figsize: tuple[int, int] = (10, 8),
-        return_fig: bool = False,
-    ) -> Any:
-        """Plot the results of multivariate interpretability (LASSO or Random Forest).
+    r2 = float(results.get("r2", 0.0))
+    drivers = results["drivers"][:top_k]
 
-        Displays a horizontal bar chart showing which classical features best explain
-        the target embedding dimension.
+    logger.info("Explainability Score (R2): %.2f", r2)
+    logger.info("Top drivers:")
+    for driver in drivers:
+        logger.info("  [%+.3f] %s", float(driver["weight"]), driver["feature"])
 
-        Args:
-            results: Output dict from [compute_multivariate_interpretability](pipeline.md#api-phenomeanalysis-compute_multivariate_interpretability)
-                (must include ``drivers``, ``r2``, ``method``, ``target_component``,
-                ``model_type``).
-            top_k: Number of top driving features to show in the plot.
-            figsize: Figure size (width, height) in pixels / 100.
-            return_fig: If True, return the plotly figure object.
 
-        Returns:
-            The plotly figure object if return_fig is True, else None.
-        """
-        if not isinstance(results, dict):
-            logger.warning(
-                "plot_multivariate_interpretability: expected a dict from "
-                "compute_multivariate_interpretability, got %s.",
-                type(results).__name__,
-            )
-            return None
-
-        resolved_model_type = results.get("model_type", "lasso")
-        if resolved_model_type not in ("lasso", "random_forest"):
-            resolved_model_type = "lasso"
-
-        if not results.get("drivers"):
-            logger.warning("No interpretability results to plot.")
-            return None
-
-        r2 = results["r2"]
-        drivers = results["drivers"][:top_k]
-        target = results["target_component"]
-        dr_method = results["method"].upper()
-        model_name = "LASSO" if resolved_model_type == "lasso" else "Random Forest"
-
-        # Create DataFrame for plotting
-        df = pd.DataFrame(drivers)
-
-        if resolved_model_type == "lasso":
-            df = df.sort_values(
-                "weight", ascending=True
-            )  # Ascending for better horizontal bar display
-            # Define color based on weight sign
-            df["Color"] = df["weight"].apply(
-                lambda x: "Positive Correlation" if x > 0 else "Negative Correlation"
-            )
-            color_discrete_map = {
-                "Positive Correlation": "#ef553b",
-                "Negative Correlation": "#636efa",
-            }
-            xaxis_title = "LASSO Coefficient (Standardized)"
-        else:
-            df = df.sort_values(
-                "weight", ascending=True
-            )  # Importance is positive, sorted by magnitude
-            df["Color"] = "Feature Importance"
-            color_discrete_map = {"Feature Importance": "#10b981"}
-            xaxis_title = "Gini Importance"
-
-        title = (
-            f"Multivariate Explanation: {dr_method} {target} ({model_name})<br>"
-            f"<sup>Explainability Score (R²): {r2:.2f} | "
-            f"Top {len(df)} features shown</sup>"
+def _build_multivariate_interpretability_figure(
+    results: dict[str, Any],
+    top_k: int,
+    figsize: tuple[int, int],
+) -> Figure | None:
+    """Build a horizontal bar chart of top drivers ordered by absolute magnitude (largest at top)."""
+    if not isinstance(results, dict):
+        logger.warning(
+            "multivariate interpretability plot: expected a dict from "
+            "compute_multivariate_interpretability, got %s.",
+            type(results).__name__,
         )
+        return None
 
+    resolved_model_type = results.get("model_type", "lasso")
+    if resolved_model_type not in ("lasso", "random_forest"):
+        resolved_model_type = "lasso"
+
+    if not results.get("drivers"):
+        logger.warning("No interpretability results to plot.")
+        return None
+
+    r2 = results["r2"]
+    drivers = results["drivers"][:top_k]
+    target = results["target_component"]
+    dr_method = results["method"].upper()
+    model_name = "LASSO" if resolved_model_type == "lasso" else "Random Forest"
+
+    df = pd.DataFrame(drivers)
+    df["_abs"] = df["weight"].abs()
+    # Ascending by |weight| so the largest drivers appear at the top of the horizontal chart
+    df = df.sort_values("_abs", ascending=True)
+    df = df.drop(columns=["_abs"])
+
+    if resolved_model_type == "lasso":
+        xaxis_title = "LASSO coefficient (standardized)"
+        color_bar_title = xaxis_title
+        # Symmetric diverging scale: blue (negative) → white → red (positive). Plotly's RdBu
+        # maps low→red; RdBu_r maps low→blue so negatives (low end of range_color) are blue.
+        w_max = float(df["weight"].abs().max()) or 1e-9
         fig = px.bar(
             df,
             x="weight",
             y="feature",
             orientation="h",
-            color="Color",
-            labels={"weight": xaxis_title, "feature": "Phenotypic Property"},
-            title=title,
-            color_discrete_map=color_discrete_map,
+            color="weight",
+            color_continuous_scale="RdBu_r",
+            range_color=(-w_max, w_max),
+            labels={"weight": xaxis_title, "feature": "Phenotypic property"},
+            title=(
+                f"Multivariate interpretability: {dr_method} {target} ({model_name})<br>"
+                f"<sup>Explainability score (R²): {r2:.2f} | "
+                f"Top {len(df)} drivers by |effect|</sup>"
+            ),
+        )
+    else:
+        xaxis_title = "Gini importance"
+        color_bar_title = "Feature importance (Gini)"
+        fig = px.bar(
+            df,
+            x="weight",
+            y="feature",
+            orientation="h",
+            color="weight",
+            color_continuous_scale="Reds",
+            labels={"weight": xaxis_title, "feature": "Phenotypic property"},
+            title=(
+                f"Multivariate interpretability: {dr_method} {target} ({model_name})<br>"
+                f"<sup>Explainability score (R²): {r2:.2f} | "
+                f"Top {len(df)} drivers by |effect|</sup>"
+            ),
         )
 
-        fig.update_layout(
-            width=figsize[0] * 100 if figsize else None,
-            height=figsize[1] * 100 if figsize else None,
-            xaxis_title=xaxis_title,
-            yaxis_title=None,
-            showlegend=(resolved_model_type == "lasso"),
-            legend_title_text=None,
-            margin={"l": 20, "r": 20, "t": 80, "b": 40},
+    fig.update_layout(
+        width=figsize[0] * 100 if figsize else None,
+        height=figsize[1] * 100 if figsize else None,
+        xaxis_title=xaxis_title,
+        yaxis_title=None,
+        showlegend=False,
+        margin={"l": 20, "r": 20, "t": 80, "b": 40},
+        coloraxis_colorbar={"title": color_bar_title},
+    )
+
+    fig.add_vline(x=0, line_width=1, line_color="black")
+    return fig
+
+
+def _display_multivariate_interpretability(
+    results: dict[str, Any],
+    plot: bool = True,
+    return_fig: bool = False,
+    top_k: int = 10,
+    figsize: tuple[int, int] = (10, 8),
+) -> Figure | None:
+    """Show or return multivariate interpretability visualization; optionally log a text summary.
+
+    Mirrors the branching pattern used by :meth:`_DistancePlotsMixin._plot_distance_distribution`.
+
+    Args:
+        results: Output dict from :meth:`PhenoMeAnalysis.compute_multivariate_interpretability`.
+        plot: If True, build/show a bar chart when applicable. If False, text summary only
+            (unless *return_fig* requests a figure).
+        return_fig: If True, return the Plotly figure and do not call ``fig.show()``.
+        top_k: Number of top drivers to include.
+        figsize: Figure size (width, height); scaled for Plotly as in other mixins.
+
+    Returns:
+        The Plotly figure if one was built and *return_fig* is True; otherwise ``None``.
+    """
+    if not isinstance(results, dict):
+        logger.warning(
+            "multivariate interpretability display: expected a dict, got %s.",
+            type(results).__name__,
         )
+        return None
 
-        # Add vertical line at 0
-        fig.add_vline(x=0, line_width=1, line_color="black")
+    # Text-only, no figure
+    if not plot and not return_fig:
+        _log_multivariate_interpretability_results(results, top_k)
+        return None
 
-        if return_fig:
-            return fig
+    fig = _build_multivariate_interpretability_figure(results, top_k=top_k, figsize=figsize)
+    if fig is None:
+        return None
+
+    if not plot and return_fig:
+        _log_multivariate_interpretability_results(results, top_k)
+        return fig
+
+    if plot and return_fig:
+        return fig
+
+    if plot and not return_fig:
         fig.show()
         return None
+
+    return None
+
+
+class _InterpretabilityPlotsMixin:
+    """Mixin providing multivariate interpretability plots (internal visualization hooks)."""
+
+    def _plot_multivariate_interpretability(
+        self,
+        results: dict[str, Any],
+        plot: bool = True,
+        return_fig: bool = False,
+        top_k: int = 10,
+        figsize: tuple[int, int] = (10, 8),
+    ) -> Figure | None:
+        """Internal API: plot or summarize multivariate interpretability results.
+
+        Prefer :meth:`PhenoMeAnalysis.compute_multivariate_interpretability` with ``plot`` /
+        ``return_fig`` for the integrated workflow.
+        """
+        return _display_multivariate_interpretability(
+            results,
+            plot=plot,
+            return_fig=return_fig,
+            top_k=top_k,
+            figsize=figsize,
+        )
