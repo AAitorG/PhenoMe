@@ -67,7 +67,7 @@ _PIPELINE_DEFAULTS: dict[str, tuple[str, int]] = {
     "analyze_group_enrichment": ("Advanced analysis", 430),
     "compute_component_correlation": ("Advanced analysis", 440),
     "compute_embedding_property_correlations": ("Advanced analysis", 450),
-    "aggregate_embedding_property_correlations": ("Advanced analysis", 460),
+    "summarize_embedding_property_correlations": ("Advanced analysis", 460),
     "compute_multivariate_interpretability": ("Advanced analysis", 470),
     "generate_report": ("Reporting", 500),
 }

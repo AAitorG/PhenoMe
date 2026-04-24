@@ -18,7 +18,9 @@ Pipeline class providing visualization methods for PhenoMe.
 
 Composed from _DRPlotsMixin (PCA, t-SNE, UMAP, centroids), _DistancePlotsMixin
 (distance distribution, correlation plots), _ImageDisplayMixin (image display),
-and _InterpretabilityPlotsMixin (multivariate interpretability).
+_InterpretabilityPlotsMixin (multivariate interpretability), and
+_ComponentCorrelationPlotsMixin (component-property correlation facets), and
+_GroupEnrichmentPlotsMixin (group Z-score enrichment facets).
 
 ## Visualization
 
@@ -323,86 +325,6 @@ Print distance summary statistics without plotting. Safe to use when enable_plot
 - **`distance_results`**: Dictionary containing 'distances' array
 - **`group_by`**: Metadata key to group by
 - **`dist_range`**: Tuple of (min, max) distances to include
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-_distanceplotsmixin-plot_property_correlations">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-_distanceplotsmixin-plot_property_correlations"><code>plot_property_correlations</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-_DistancePlotsMixin.plot_property_correlations(
-    self,
-    correlation_results: dict,
-    top_k: int = 20,
-    figsize: tuple[int, int] = (10, 8),
-    title: str = 'Property Correlations with Embeddings'
-) -> Any
-```
-
-</div>
-
-<div class="api-body">
-
-Plot the top correlated properties as a horizontal bar chart.
-
-**Args:**
-
-- **`correlation_results`**: Output from compute_embedding_property_correlation()
-- **`top_k`**: Number of top properties to display
-- **`figsize`**: Figure size (width, height) in inches (converted to pixels for Plotly)
-- **`title`**: Plot title
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-_interpretabilityplotsmixin-_plot_multivariate_interpretability">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-_interpretabilityplotsmixin-_plot_multivariate_interpretability"><code>_plot_multivariate_interpretability</code> <span class="api-badge">internal</span></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-_InterpretabilityPlotsMixin._plot_multivariate_interpretability(
-    self,
-    results: dict[str, typing.Any],
-    plot: bool = True,
-    return_fig: bool = False,
-    top_k: int = 10,
-    figsize: tuple[int, int] = (10, 8),
-) -> Figure | None
-```
-
-</div>
-
-<div class="api-body">
-
-Internal hook for multivariate interpretability display. Prefer
-[compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability)
-with ``plot`` / ``return_fig`` / ``top_k`` for the integrated workflow.
-
-**Args:**
-
-- **`results`**: Output dict from ``compute_multivariate_interpretability``.
-- **`plot`**: Build/show a bar chart when applicable.
-- **`return_fig`**: Return the Plotly figure without ``fig.show()`` when True.
-- **`top_k`**: Number of top drivers.
-- **`figsize`**: Figure size (width, height) in pixels / 100.
-
-**Returns:**
-
-  The Plotly figure if ``return_fig`` is True and a figure was built; otherwise ``None``.
 
 </div>
 

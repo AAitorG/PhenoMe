@@ -37,6 +37,30 @@ from .visualization._interpretability_plots import _display_multivariate_interpr
 
 logger = get_logger(__name__)
 
+
+def _numpy_for_torch(x: np.ndarray) -> np.ndarray:
+    """Return a C-contiguous, writable array for :func:`torch.from_numpy`.
+
+    Embeddings and other pipeline arrays may be read-only views (e.g. HDF5, slices).
+    Row subsets ``data[indices]`` can also be read-only views. PyTorch requires
+    a writable buffer when sharing with NumPy.
+    """
+    x = np.ascontiguousarray(x)
+    if not x.flags.writeable:
+        x = x.copy()
+    return x
+
+
+def _index_array_for_torch(a: object) -> np.ndarray:
+    """Writable integer array for ``tensor[indices]`` and related NumPy index ops.
+
+    PyTorch may call :func:`torch.from_numpy` on advanced-index arrays. Pandas
+    :meth:`~pandas.Index.to_numpy` often returns a read-only view, which triggers
+    the same non-writable warning.
+    """
+    return np.array(a, dtype=np.intp, copy=True, order="C")
+
+
 # Supported metrics for ordering rows in the embedding-property summary.
 _ORDER_METRICS: tuple[str, ...] = ("mean_abs", "max_abs", "mean", "std")
 
@@ -527,6 +551,8 @@ class PhenoMeAnalysis:
         if data is None or len(data) == 0:
             return empty
 
+        data = _numpy_for_torch(data)
+
         n_samples = len(data)
         outlier_mask = np.zeros(n_samples, dtype=bool)
         distances = np.zeros(n_samples, dtype=np.float32)
@@ -540,7 +566,11 @@ class PhenoMeAnalysis:
             vectors: np.ndarray, vectors_t: torch.Tensor | None = None
         ) -> tuple[np.ndarray, np.ndarray, Any]:
             # Use pre-converted tensor if available, otherwise convert
-            vec_t = vectors_t if vectors_t is not None else torch.from_numpy(vectors).to(device)
+            if vectors_t is not None:
+                vec_t = vectors_t
+            else:
+                # CPU and small group slices: vectors may be a read-only view of ``data``
+                vec_t = torch.from_numpy(_numpy_for_torch(vectors)).to(device)
 
             with torch.no_grad():
                 # Compute centroid on GPU
@@ -588,6 +618,7 @@ class PhenoMeAnalysis:
         for gname, didx in groups.items():
             if len(didx) < 2:
                 continue
+            didx = _index_array_for_torch(didx)
             # Pass pre-converted tensor slice if available
             vec_t_slice = data_t[didx] if data_t is not None else None
             d, is_out, tv = _outliers_for(data[didx], vec_t_slice)
@@ -1101,6 +1132,8 @@ class PhenoMeAnalysis:
 
         device = self.device
 
+        matrix = _numpy_for_torch(matrix)
+
         # Convert entire matrix to GPU once (avoid repeated conversions per group)
         matrix_t = torch.from_numpy(matrix).to(device) if device.type != "cpu" else None
 
@@ -1117,7 +1150,7 @@ class PhenoMeAnalysis:
                 gm_t = matrix_t[mask_arr]
             else:
                 gm = matrix[mask_arr]
-                gm_t = torch.from_numpy(gm).to(device)
+                gm_t = torch.from_numpy(_numpy_for_torch(gm)).to(device)
 
             with torch.no_grad():
                 # Compute centroid on GPU
@@ -1503,7 +1536,7 @@ class PhenoMeAnalysis:
             L2-normalized embeddings (unit vectors).
         """
         device = self.device
-        data_t = torch.from_numpy(data).to(device)
+        data_t = torch.from_numpy(_numpy_for_torch(data)).to(device)
 
         with torch.no_grad():
             norms = torch.norm(data_t, dim=1, keepdim=True)

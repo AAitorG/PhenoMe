@@ -93,16 +93,15 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
-| `aggregate_embedding_property_correlations` | Aggregate pre-computed embedding-property correlations using the specified method. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-aggregate_embedding_property_correlations) |
-| `analyze_group_enrichment` | Compute z-score enrichment of properties per group (e.g. clusters). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-analyze_group_enrichment) |
+| `analyze_group_enrichment` | Compute z-score enrichment of properties per group (e.g. cluster labels). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-analyze_group_enrichment) |
 | `checkpoint_context` | Context manager that loads a checkpoint and guarantees it is closed on exit. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-checkpoint_context) |
 | `clear_temporal_data` | Remove all temporal images (metadata['source'] == 'NEW') from the session. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-clear_temporal_data) |
 | `compute_clustering` | Perform clustering and store labels in ``metadata[i]['cluster']`` for each image. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_clustering) |
 | `compute_component_correlation` | Correlate dim-reduction components with phenotypic properties. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_component_correlation) |
 | `compute_embedding_property_correlations` | Compute correlations between embedding dimensions and phenotypic scalar properties. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_embedding_property_correlations) |
-| `compute_multivariate_interpretability` | Explain a DR component with LASSO or Random Forest; optional Plotly plot, text summary via logger, or `interpretability_fig` when `return_fig=True`. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability) |
+| `compute_multivariate_interpretability` | Explain a dimensionality reduction component using LASSO or Random Forest. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability) |
 | `compute_properties` | Compute per-image properties using presets and/or custom functions. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties) |
-| `compute_reference_distances` | Compute distances to a reference group; optional ``group_by`` for violin/summary. | ✅ | [Distances](/PhenoMe/advanced/api/distances/#api-phenomedistances-compute_reference_distances) |
+| `compute_reference_distances` | Compute distances from all images to reference group. | ✅ | [Distances](/PhenoMe/advanced/api/distances/#api-phenomedistances-compute_reference_distances) |
 | `create_interactive_explorer` | Launch the interactive explorer for this pipeline's results. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_interactive_explorer) |
 | `detect_outliers` | Detect outliers based on distance to centroid. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-detect_outliers) |
 | `embedding_dim` | Return the embedding dimensionality, or 0 if unavailable. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-embedding_dim) |
@@ -124,7 +123,6 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `plot_counts` | Plot count of images grouped by metadata using Plotly. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-phenomevisualization-plot_counts) |
 | `plot_image_by_index` | Plot a specific image by its index. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-plot_image_by_index) |
 | `plot_pca` | Plot PCA of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_pca) |
-| `plot_property_correlations` | Plot the top correlated properties as a horizontal bar chart. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_distanceplotsmixin-plot_property_correlations) |
 | `plot_tsne` | Plot t-SNE of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_tsne) |
 | `plot_umap` | Plot UMAP of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_umap) |
 | `print_distance_summary` | Print distance summary statistics without plotting. Safe to use when enable_plots=False. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_distanceplotsmixin-print_distance_summary) |
@@ -135,6 +133,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `reset_properties` | Reset only the computed properties. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-reset_properties) |
 | `save_results` | Save results to HDF5 (atomic write or in-place flush). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-save_results) |
 | `set_file_df` | Set the internal file DataFrame used for processing. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-set_file_df) |
+| `summarize_embedding_property_correlations` | Summarize embedding-property correlations, optionally plot, and/or return a Plotly figure. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-summarize_embedding_property_correlations) |
 | `top_properties_different_from_reference` | For each non-reference group, return the top k properties that most differentiate it from the reference. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-top_properties_different_from_reference) |
 | `transfer_metadata_to_properties` | Transfer specified metadata columns to properties. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-transfer_metadata_to_properties) |
 

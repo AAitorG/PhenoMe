@@ -46,7 +46,7 @@ PhenoMeDistances.compute_reference_distances(
     figsize: tuple[int, int] = (10, 6),
     plot: bool = True,
     return_fig: bool = False,
-    points: Literal['all', 'outliers', False] | None = None
+    points: Optional[Literal['all', 'outliers', False]] = None
 ) -> dict
 ```
 
@@ -71,18 +71,18 @@ Compute distances from all images to reference group.
 - **`distance_type`**: 'euclidean' (default) or 'cosine'.
 - **`property_keys`**: Optional subset of property names when *source* is ``'properties'``
   or ``'combined'``.
-- **`group_by`**: If set, run optional post-processing: violin plot and/or per-group
-  summary. Use ``None`` to return only distance arrays and metadata.
-- **`dist_range`**: When using *group_by*, keep values in this inclusive range for
-  visualization and text summaries.
-- **`figsize`**: Figure size in inches (width, height) when a Plotly figure is built.
-- **`plot`**: If True (default) and *group_by* is set, show (or return) a violin plot only,
-  without logging a per-group text summary. If False, log per-group summary statistics
-  where applicable.
-- **`return_fig`**: If True and *group_by* is set, add a Plotly ``figure`` to the
+- **`group_by`**: If set, optionally visualize or print grouped statistics after
+  computing distances. Pass ``None`` to skip post-processing.
+- **`dist_range`**: When using *group_by*, keep distances in ``[min, max]`` for
+  display and summary.
+- **`figsize`**: Figure size in inches (width, height) when a plot is built.
+- **`plot`**: If True and *group_by* is set, show or return a violin plot only (no
+  per-group text summary to the logger). If False, log per-group summary
+  statistics where applicable (e.g. text-only mode, or with *return_fig*).
+- **`return_fig`**: If True and *group_by* is set, add key ``"figure"`` to the
   return dict and do not call ``fig.show()``.
-- **`points`**: Violin overlay: ``'all'``, ``'outliers'``, or False; ``None`` auto-selects
-  from dataset size.
+- **`points`**: Violin plot point overlay: ``'all'``, ``'outliers'``, or ``False``;
+  ``None`` auto-selects by data size.
 
 **Returns:**
 
@@ -93,7 +93,7 @@ Compute distances from all images to reference group.
   - mode: str ('centroid' or 'all_to_all')
   - source: str ('embeddings', 'properties', or 'combined')
   - distance_type: str ('euclidean' or 'cosine')
-  - figure: (optional) Plotly figure when ``return_fig=True`` and *group_by* is set
+  - figure: (optional) Plotly figure if ``return_fig=True`` and *group_by* is set
 
 **Example:**
 

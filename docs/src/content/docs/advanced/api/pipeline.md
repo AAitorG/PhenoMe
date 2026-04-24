@@ -1216,20 +1216,26 @@ population statistics when computing z-scores.
 
 **Args:**
 
-- **`group_col`**: Property/metadata key holding group labels.
+- **`group_col`**: Property/metadata key holding group labels (e.g. ``"cluster"``).
 - **`property_keys`**: Properties to analyse (all numeric if *None*).
 - **`filters`**: Optional metadata filters.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).
-- **`plot`**: If True (default), show an interactive Plotly faceted bar chart (one row per group).
-- **`return_fig`**: If True, include ``group_enrichment_fig`` in the returned dict (no ``fig.show()``).
-- **`top_k`**: Max properties per group in the figure and text summary (``None`` = all).
-- **`figsize`**: Figure size ``(width, height)`` in inches for Plotly.
+- **`plot`**: If True (default), show an interactive Plotly faceted bar chart (one row per
+  group). If False, log a plain-text summary via the package logger instead
+  (unless *return_fig* requests a figure).
+- **`return_fig`**: If True, include a Plotly figure under ``group_enrichment_fig`` in the
+  returned dict. When *return_fig* is True, ``fig.show()`` is not called; use
+  ``plot=True`` with ``return_fig=False`` for the default interactive display.
+- **`top_k`**: Max properties per group in the figure and in the text summary (``None`` = all).
+- **`figsize`**: Figure size ``(width, height)`` in inches for the Plotly layout.
 - **`title`**: Optional figure title.
 
 **Returns:**
 
-  Dict with ``enrichment``: pd.DataFrame with columns Group, Property, Score, Mean_Group,
-  Mean_Pop, AbsScore. Optionally ``group_enrichment_fig`` when ``return_fig`` is True.
+  Dict with keys:
+  - enrichment: pd.DataFrame. Columns: Group, Property, Score, Mean_Group, Mean_Pop,
+  AbsScore. Z-score enrichment per group-property pair.
+  - group_enrichment_fig: Present when ``return_fig`` is True and a figure was built.
 
 </div>
 
@@ -1255,7 +1261,10 @@ PhenoMeAnalysis.compute_component_correlation(
     exclude: dict[str, typing.Any] | None = None,
     top_k: int | None = None,
     normalize: bool = True,
-    correlation_method: Literal['pearson', 'spearman', 'distance_correlation', 'mutual_info'] = 'pearson'
+    correlation_method: Literal['pearson', 'spearman', 'distance_correlation', 'mutual_info'] = 'pearson',
+    plot: bool = True,
+    return_fig: bool = False,
+    figsize: tuple[int, int] = (10, 6)
 ) -> dict
 ```
 
@@ -1273,7 +1282,7 @@ Correlate dim-reduction components with phenotypic properties.
 - **`property_keys`**: Property subset when *source* is ``'properties'`` or ``'combined'``.
 - **`filters`**: Optional metadata filters.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).
-- **`top_k`**: Number of top correlations to return in summary.
+- **`top_k`**: Number of top correlations to return in summary and per facet in the plot.
 - **`normalize`**: Whether to normalize data before computing correlations (default: True).
   - Source data (embeddings/properties): Normalized before dimensionality reduction
   (L2 normalization for embeddings, StandardScaler for properties)
@@ -1285,6 +1294,13 @@ Correlate dim-reduction components with phenotypic properties.
   requires ``dcor`` library: ``pip install dcor``)
   - ``'mutual_info'``: Normalized mutual information (detects any dependency,
   normalized to [0, 1] range)
+- **`plot`**: If True (default), show an interactive Plotly faceted bar chart (one row per
+  component). If False, log a plain-text summary via the package logger instead
+  (unless *return_fig* requests a figure).
+- **`return_fig`**: If True, attach a Plotly figure under ``component_correlation_fig`` in the
+  returned dict. When ``return_fig`` is True, ``fig.show()`` is not called; use
+  ``plot=True`` with ``return_fig=False`` for the default interactive display.
+- **`figsize`**: Figure size ``(width, height)`` in inches for the Plotly layout.
 
 **Returns:**
 
@@ -1292,6 +1308,21 @@ Correlate dim-reduction components with phenotypic properties.
   - correlation_df: pd.DataFrame. Rows=properties, cols=components. Correlation values.
   - summary: pd.DataFrame. Columns: Component, Property, Correlation, AbsCorrelation.
   - component_names: List[str]. Column names (Component 1, Component 2, ...) for all methods.
+  - component_correlation_fig: Present when ``return_fig`` is True and a figure was built.
+
+**Examples:**
+
+```python
+Text-only summary (e.g. scripts / logging)::
+
+    result = pheno.compute_component_correlation(plot=False)
+
+Save the figure without an interactive window::
+
+    result = pheno.compute_component_correlation(return_fig=True)
+    fig = result["component_correlation_fig"]
+    fig.write_html("component_corr.html")
+```
 
 </div>
 
@@ -1350,21 +1381,25 @@ This is the time-consuming step that computes raw correlations for each property
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-phenomeanalysis-aggregate_embedding_property_correlations">
+<div class="api-method" role="region" aria-labelledby="api-phenomeanalysis-summarize_embedding_property_correlations">
 
 <div class="api-method-header">
 <span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeanalysis-aggregate_embedding_property_correlations"><code>aggregate_embedding_property_correlations</code></h4>
+<h4 class="api-method-title" id="api-phenomeanalysis-summarize_embedding_property_correlations"><code>summarize_embedding_property_correlations</code></h4>
 </div>
 
 <div class="api-signature">
 
 ```python
-PhenoMeAnalysis.aggregate_embedding_property_correlations(
+PhenoMeAnalysis.summarize_embedding_property_correlations(
     self,
     correlation_results: dict[str, typing.Any],
-    aggregation: str = 'mean_abs',
-    top_k: int | None = 20
+    order_by: str = 'mean_abs',
+    top_k: int | None = 20,
+    plot: bool = True,
+    return_fig: bool = False,
+    figsize: tuple[int, int] = (10, 8),
+    title: str = 'Property Correlations with Embeddings'
 ) -> dict
 ```
 
@@ -1372,36 +1407,38 @@ PhenoMeAnalysis.aggregate_embedding_property_correlations(
 
 <div class="api-body">
 
-Aggregate pre-computed embedding-property correlations using the specified method.
+Summarize embedding-property correlations, optionally plot, and/or return a Plotly figure.
 
-This is a fast operation that takes the output of compute_embedding_property_correlations
-and applies aggregation to produce summary statistics.
+Computes per-property ``mean_abs``, ``std`` (across dimensions), ``max_abs``, ``min_abs``,
+``mean``, ``sign`` (of mean raw *r*), orders rows by ``order_by``, and either shows a
+horizontal bar chart of mean |r| with std error bars or logs a plain-text table when
+``plot`` is *False*.
 
 **Args:**
 
-- **`correlation_results`**: Output dict from compute_embedding_property_correlations containing:
-  - ``correlations``: Dict mapping property names to correlation arrays
-  - ``embedding_shape``: Shape of embeddings
-  - ``n_properties``: Number of properties
-  - ``correlation_method``: Method used
-- **`aggregation`**: Aggregation method to apply. Options:
-  - ``'mean_abs'``: Mean of absolute correlations (default)
-  - ``'max_abs'``: Maximum absolute correlation
-  - ``'mean'``: Mean correlation
-  - ``'std'``: Standard deviation of correlations
-- **`top_k`**: Return only top-k properties in summary (*None* = all).
+- **`correlation_results`**: Output from :meth:`compute_embedding_property_correlations`
+  (must include ``correlations`` and ``correlation_method``).
+- **`order_by`**: Metric used to sort properties (descending):
+  ``mean_abs`` | ``max_abs`` | ``mean`` | ``std``.
+- **`top_k`**: Number of top properties listed in ``top_properties``; full sorted table
+  is always in ``summary`` (*None* = all).
+- **`plot`**: If *True* (default), show a Plotly bar chart of mean |r| with std error bars.
+- **`return_fig`**: If *True*, include the :class:`plotly.graph_objects.Figure` in the
+  result under key ``"figure"``.
+- **`figsize`**: Figure size in inches, converted to pixels for Plotly layout.
+- **`title`**: Chart title.
 
 **Returns:**
 
   Dict with:
-  - ``correlations``: Original correlations dict
-  - ``aggregated``: Dict mapping property names to aggregated values
-  - ``summary``: DataFrame with properties sorted by aggregated correlation
-  - ``top_properties``: List of top-k property names
-  - ``embedding_shape``: Shape of embeddings
-  - ``n_properties``: Number of properties
-  - ``aggregation_method``: Aggregation method used
-  - ``correlation_method``: Correlation method used
+  - ``correlations``: Original per-property correlation vectors
+  - ``summary``: Sorted DataFrame with ``property``, ``mean_abs``, ``std``,
+  ``max_abs``, ``min_abs``, ``mean``, ``sign``, etc.
+  - ``top_properties``: Top-``k`` property names
+  - ``metrics``: Per-metric dicts (including ``min_abs``) keyed by property name
+  - ``order_by`` — metric used for sorting
+  - ``correlation_method``, ``embedding_shape``, ``n_properties``
+  - ``figure``: Plotly figure if ``return_fig`` is *True*; otherwise *None*.
 
 </div>
 
@@ -1432,8 +1469,8 @@ PhenoMeAnalysis.compute_multivariate_interpretability(
     plot: bool = True,
     return_fig: bool = False,
     top_k: int = 10,
-    figsize: tuple[int, int] = (10, 8),
-) -> dict[str, typing.Any]
+    figsize: tuple[int, int] = (10, 8)
+) -> dict
 ```
 
 </div>
@@ -1460,11 +1497,14 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 - **`cv`**: Number of cross-validation folds (only for 'lasso').
 - **`rf_n_estimators`**: Number of trees (only for 'random_forest').
 - **`seed`**: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
-- **`plot`**: If True (default), show an interactive Plotly bar chart of top drivers. If False, log a plain-text summary via the package logger (unless only ``return_fig`` is used).
-- **`return_fig`**: If True, store the Plotly figure on the returned dict as ``interpretability_fig``. When True, ``fig.show()`` is not called.
-- **`top_k`**: Number of top drivers in the plot or text summary.
-- **`figsize`**: Figure size ``(width, height)`` for Plotly layout; each value is multiplied
-  by 100 to set width and height in layout pixels.
+- **`plot`**: If True (default), show an interactive Plotly bar chart of top drivers.
+  If False, log a plain-text summary via the package logger instead.
+- **`return_fig`**: If True, attach a Plotly figure under ``interpretability_fig`` in the
+  returned dict. When ``return_fig`` is True, ``fig.show()`` is not called; use
+  ``plot=True`` with ``return_fig=False`` for the default interactive display.
+- **`top_k`**: Number of top drivers to show in the plot or text summary.
+- **`figsize`**: Figure size ``(width, height)`` passed through to Plotly layout; each
+  value is multiplied by 100 to set width and height in layout pixels.
 
 **Returns:**
 
@@ -1476,7 +1516,7 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
   - target_component: The component name explained.
   - n_samples: Number of samples used.
   - n_features: Number of properties considered.
-  - interpretability_fig: Plotly figure when ``return_fig`` is True and a figure was built.
+  - interpretability_fig: Present when ``return_fig`` is True and a figure was built.
 
 </div>
 
@@ -1660,50 +1700,6 @@ Plot a specific image by its index.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-_interpretabilityplotsmixin-_plot_multivariate_interpretability">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-_interpretabilityplotsmixin-_plot_multivariate_interpretability"><code>_plot_multivariate_interpretability</code> <span class="api-badge">internal</span></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-_InterpretabilityPlotsMixin._plot_multivariate_interpretability(
-    self,
-    results: dict[str, typing.Any],
-    plot: bool = True,
-    return_fig: bool = False,
-    top_k: int = 10,
-    figsize: tuple[int, int] = (10, 8),
-) -> Figure | None
-```
-
-</div>
-
-<div class="api-body">
-
-Internal hook for multivariate interpretability display. Prefer
-[compute_multivariate_interpretability](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability)
-with ``plot`` / ``return_fig`` / ``top_k`` for the integrated workflow.
-
-**Args:**
-
-- **`results`**: Output dict from ``compute_multivariate_interpretability``.
-- **`plot`**: Build/show a bar chart when applicable.
-- **`return_fig`**: Return the Plotly figure without ``fig.show()`` when True.
-- **`top_k`**: Number of top drivers.
-- **`figsize`**: Figure size (width, height) in pixels / 100.
-
-**Returns:**
-
-  The Plotly figure if ``return_fig`` is True and a figure was built; otherwise ``None``.
-
-</div>
-
-</div>
-
 <div class="api-method" role="region" aria-labelledby="api-_drplotsmixin-plot_pca">
 
 <div class="api-method-header">
@@ -1737,42 +1733,6 @@ _DRPlotsMixin.plot_pca(
 <div class="api-body">
 
 Plot PCA of embeddings, properties, or combined features (Plotly, WebGL by default).
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-_distanceplotsmixin-plot_property_correlations">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-_distanceplotsmixin-plot_property_correlations"><code>plot_property_correlations</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-_DistancePlotsMixin.plot_property_correlations(
-    self,
-    correlation_results: dict,
-    top_k: int = 20,
-    figsize: tuple[int, int] = (10, 8),
-    title: str = 'Property Correlations with Embeddings'
-) -> Any
-```
-
-</div>
-
-<div class="api-body">
-
-Plot the top correlated properties as a horizontal bar chart.
-
-**Args:**
-
-- **`correlation_results`**: Output from compute_embedding_property_correlation()
-- **`top_k`**: Number of top properties to display
-- **`figsize`**: Figure size (width, height) in inches (converted to pixels for Plotly)
-- **`title`**: Plot title
 
 </div>
 
