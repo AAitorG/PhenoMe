@@ -28,8 +28,8 @@ def generate_correlation_section(
     pipeline = ctx.pipeline
     try:
         raw_corr = pipeline.compute_embedding_property_correlations()
-        corr_results = pipeline.aggregate_embedding_property_correlations(
-            raw_corr, aggregation="mean_abs", top_k=top_k
+        corr_results = pipeline.summarize_embedding_property_correlations(
+            raw_corr, order_by="mean_abs", top_k=top_k, plot=False, return_fig=False
         )
     except (ValueError, KeyError, RuntimeError) as e:
         return generate_info_box(f"Could not compute correlations: {e}", "warning")
@@ -38,20 +38,22 @@ def generate_correlation_section(
         return generate_info_box("No correlation data available.", "warning")
 
     summary_df = corr_results["summary"].head(top_k)
+    order_key = str(corr_results.get("order_by", "mean_abs"))
+    x_col = summary_df[order_key]
 
     fig = go.Figure(
         go.Bar(
-            x=summary_df["aggregated_correlation"].values[::-1],
+            x=x_col.values[::-1],
             y=summary_df["property"].values[::-1],
             orientation="h",
             marker_color="#10b981",
-            text=summary_df["aggregated_correlation"].round(4).values[::-1],
+            text=x_col.round(4).values[::-1],
             textposition="auto",
         )
     )
     fig.update_layout(
         title=f"Top {top_k} Features Correlated with Embeddings",
-        xaxis_title="Aggregated Correlation (mean |r|)",
+        xaxis_title=f"Correlation metric ({order_key})",
         yaxis_title="Feature",
         margin={"l": 200, "r": 40, "t": 60, "b": 40},
         height=max(400, top_k * 30),

@@ -32,9 +32,26 @@ from ..core.interpretability import (
 )
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
+from .visualization._distance_plots import _plot_property_correlations_plotly
 from .visualization._interpretability_plots import _display_multivariate_interpretability
 
 logger = get_logger(__name__)
+
+# Supported metrics for ordering rows in the embedding-property summary.
+_ORDER_METRICS: tuple[str, ...] = ("mean_abs", "max_abs", "mean", "std")
+
+
+def _mean_correlation_sign(mean: float) -> str:
+    """Label for the sign of the mean raw correlation: ``+`` / ``-`` / ``0`` / em dash (non-finite)."""
+    if not np.isfinite(mean):
+        return "-"
+    m = float(mean)
+    if m > 1e-12:
+        return "+"
+    if m < -1e-12:
+        return "-"
+    return "0"
+
 
 # Registry mapping correlation method names to PhenoMeAnalysis instance method names.
 # Simplifies dispatch and makes adding new methods straightforward.
@@ -1286,90 +1303,188 @@ class PhenoMeAnalysis:
             "correlation_method": method,
         }
 
-    def aggregate_embedding_property_correlations(
+    @staticmethod
+    def _log_embedding_property_correlation_summary(
+        summary: pd.DataFrame, order_by: str, top_k: int | None
+    ) -> None:
+        """Log a plain-text table of the top property correlation rows."""
+        want = ("property", "sign", "mean_abs", "std", "max_abs", "min_abs")
+        columns = [c for c in want if c in summary.columns]
+        if not columns or "property" not in columns:
+            logger.info("Property correlation summary is empty; nothing to log.")
+            return
+        view = summary[columns].copy()
+        if top_k is not None:
+            view = view.head(int(top_k))
+        n = len(view)
+        top_note = f" (showing {n} of {len(summary)} properties)" if n < len(summary) else ""
+        sep = "─" * 88
+        num_cols = [c for c in columns if c not in ("property", "sign")]
+
+        def _fmt_num_cell(v: object) -> str:
+            try:
+                x = float(v)
+            except (TypeError, ValueError):
+                return "—"
+            if not np.isfinite(x):
+                return "—"
+            return f"{x:.4f}"
+
+        out = view.copy()
+        for c in num_cols:
+            out[c] = out[c].map(_fmt_num_cell)
+        if "property" in out.columns and "sign" in out.columns:
+            # Pad property (first column) so there is a bit more space before sign (second column).
+            prop_w = max((len(str(x)) for x in out["property"]), default=0) + 6
+            prop_w = max(prop_w, len("property") + 4)
+            out = out.copy()
+            out["property"] = out["property"].map(lambda s: f"{s!s:<{prop_w}}")
+        block = out.to_string(index=False, col_space=2)
+        logger.info(
+            "%s\nEmbedding-property correlations  (ordered by %s)%s\n%s\n%s\n%s",
+            sep,
+            order_by,
+            top_note,
+            sep,
+            block,
+            sep,
+        )
+
+    def summarize_embedding_property_correlations(
         self,
         correlation_results: dict[str, Any],
-        aggregation: str = "mean_abs",
+        order_by: str = "mean_abs",
         top_k: int | None = 20,
+        plot: bool = True,
+        return_fig: bool = False,
+        figsize: tuple[int, int] = (10, 8),
+        title: str = "Property Correlations with Embeddings",
     ) -> dict[str, Any]:
-        """Aggregate pre-computed embedding-property correlations using the specified method.
+        """Summarize embedding-property correlations, optionally plot, and/or return a Plotly figure.
 
-        This is a fast operation that takes the output of compute_embedding_property_correlations
-        and applies aggregation to produce summary statistics.
+        Computes per-property ``mean_abs``, ``std`` (across dimensions), ``max_abs``, ``min_abs``,
+        ``mean``, ``sign`` (of mean raw *r*), orders rows by ``order_by``, and either shows a
+        horizontal bar chart of mean |r| with std error bars or logs a plain-text table when
+        ``plot`` is *False*.
 
         Args:
-            correlation_results: Output dict from compute_embedding_property_correlations containing:
-                - ``correlations``: Dict mapping property names to correlation arrays
-                - ``embedding_shape``: Shape of embeddings
-                - ``n_properties``: Number of properties
-                - ``correlation_method``: Method used
-            aggregation: Aggregation method to apply. Options:
-                - ``'mean_abs'``: Mean of absolute correlations (default)
-                - ``'max_abs'``: Maximum absolute correlation
-                - ``'mean'``: Mean correlation
-                - ``'std'``: Standard deviation of correlations
-            top_k: Return only top-k properties in summary (*None* = all).
+            correlation_results: Output from :meth:`compute_embedding_property_correlations`
+                (must include ``correlations`` and ``correlation_method``).
+            order_by: Metric used to sort properties (descending):
+                ``mean_abs`` | ``max_abs`` | ``mean`` | ``std``.
+            top_k: Number of top properties listed in ``top_properties``; full sorted table
+                is always in ``summary`` (*None* = all).
+            plot: If *True* (default), show a Plotly bar chart of mean |r| with std error bars.
+            return_fig: If *True*, include the :class:`plotly.graph_objects.Figure` in the
+                result under key ``"figure"``.
+            figsize: Figure size in inches, converted to pixels for Plotly layout.
+            title: Chart title.
 
         Returns:
             Dict with:
-                - ``correlations``: Original correlations dict
-                - ``aggregated``: Dict mapping property names to aggregated values
-                - ``summary``: DataFrame with properties sorted by aggregated correlation
-                - ``top_properties``: List of top-k property names
-                - ``embedding_shape``: Shape of embeddings
-                - ``n_properties``: Number of properties
-                - ``aggregation_method``: Aggregation method used
-                - ``correlation_method``: Correlation method used
+                - ``correlations``: Original per-property correlation vectors
+                - ``summary``: Sorted DataFrame with ``property``, ``mean_abs``, ``std``,
+                  ``max_abs``, ``min_abs``, ``mean``, ``sign``, etc.
+                - ``top_properties``: Top-``k`` property names
+                - ``metrics``: Per-metric dicts (including ``min_abs``) keyed by property name
+                - ``order_by`` — metric used for sorting
+                - ``correlation_method``, ``embedding_shape``, ``n_properties``
+                - ``figure``: Plotly figure if ``return_fig`` is *True*; otherwise *None*.
         """
-        corrs = correlation_results["correlations"]
+        if order_by not in _ORDER_METRICS:
+            raise ValueError(f"Unknown order_by: {order_by!r}; expected one of {_ORDER_METRICS}")
+        if not correlation_results or "correlations" not in correlation_results:
+            raise KeyError(
+                "correlation_results must contain 'correlations' (output of "
+                "compute_embedding_property_correlations)."
+            )
+
+        corrs: dict[str, np.ndarray] = correlation_results["correlations"]
         embedding_shape = correlation_results.get(
             "embedding_shape", correlation_results.get("cls_shape")
         )
         n_properties = correlation_results.get(
             "n_properties", correlation_results.get("n_features")
         )
-        correlation_method = correlation_results["correlation_method"]
+        correlation_method = str(correlation_results["correlation_method"])
 
-        agg_map = {
-            "mean_abs": lambda c: np.mean(np.abs(c)),
-            "max_abs": lambda c: np.max(np.abs(c)),
-            "mean": np.mean,
-            "std": np.std,
-        }
-        if aggregation not in agg_map:
-            raise ValueError(f"Unknown aggregation: {aggregation}")
-        agg_fn = agg_map[aggregation]
+        per_prop: list[dict[str, Any]] = []
+        metrics: dict[str, Any] = {m: {} for m in _ORDER_METRICS}
+        metrics["min_abs"] = {}
 
-        aggs: dict[str, float] = {}
         for pname, r in corrs.items():
             vc = r[np.isfinite(r)]
-            aggs[pname] = float(agg_fn(vc)) if len(vc) else np.nan
+            if len(vc) == 0:
+                row = {
+                    "property": pname,
+                    "mean": np.nan,
+                    "std": np.nan,
+                    "mean_abs": np.nan,
+                    "max_abs": np.nan,
+                    "min_abs": np.nan,
+                    "sign": "—",
+                }
+            else:
+                mean_v = float(np.mean(vc))
+                std_v = float(np.std(vc, ddof=0))
+                mean_abs_v = float(np.mean(np.abs(vc)))
+                max_abs_v = float(np.max(np.abs(vc)))
+                min_abs_v = float(np.min(np.abs(vc)))
+                row = {
+                    "property": pname,
+                    "mean": mean_v,
+                    "std": std_v,
+                    "mean_abs": mean_abs_v,
+                    "max_abs": max_abs_v,
+                    "min_abs": min_abs_v,
+                    "sign": _mean_correlation_sign(mean_v),
+                }
+            per_prop.append(row)
+            for name in _ORDER_METRICS:
+                metrics[name][pname] = float(row[name])
+            metrics["min_abs"][pname] = float(row["min_abs"])
 
-        summary = pd.DataFrame(
-            {"property": list(aggs.keys()), "aggregated_correlation": list(aggs.values())}
-        )
-        summary = summary.sort_values(
-            "aggregated_correlation", ascending=False, na_position="last"
-        ).reset_index(drop=True)
-        top_properties = (
-            summary.head(top_k)["property"].tolist() if top_k else summary["property"].tolist()
+        summary = pd.DataFrame(per_prop)
+        summary = summary.sort_values(order_by, ascending=False, na_position="last")
+        summary = summary.reset_index(drop=True)
+
+        top_properties: list[str] = (
+            summary.head(top_k)["property"].astype(str).tolist()
+            if top_k is not None
+            else summary["property"].astype(str).tolist()
         )
 
-        logger.info(
-            "Aggregated embedding-property correlations: aggregation=%s, top_k=%s",
-            aggregation,
-            top_k,
-        )
+        out_fig: Any = None
+        need_fig = bool(plot) or bool(return_fig)
+        if need_fig:
+            display_k = top_k if top_k is not None else len(summary)
+            plot_df = summary.head(int(display_k)).copy()
+            plot_df = plot_df.sort_values(order_by, ascending=True, na_position="last")
+            out_fig = _plot_property_correlations_plotly(
+                plot_df,
+                order_by=order_by,
+                title=title,
+                figsize=figsize,
+                correlation_method=correlation_method,
+            )
+            if plot and out_fig is not None:
+                out_fig.show()
+
+        if not plot:
+            self._log_embedding_property_correlation_summary(summary, order_by, top_k)
+
+        figure_out: Any = out_fig if (return_fig and need_fig) else None
 
         return {
             "correlations": corrs,
-            "aggregated": aggs,
             "summary": summary,
             "top_properties": top_properties,
+            "metrics": metrics,
             "embedding_shape": embedding_shape,
             "n_properties": n_properties,
-            "aggregation_method": aggregation,
+            "order_by": order_by,
             "correlation_method": correlation_method,
+            "figure": figure_out,
         }
 
     # ------------------------------------------------------------------

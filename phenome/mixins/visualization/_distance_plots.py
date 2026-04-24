@@ -2,13 +2,76 @@
 
 from typing import Any, Literal
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 from ..._logging import get_logger
 from ...core import build_metadata_columns, get_all_metadata_keys
 
 logger = get_logger(__name__)
+
+
+def _plot_property_correlations_plotly(
+    plot_df: pd.DataFrame,
+    *,
+    order_by: str,
+    title: str,
+    figsize: tuple[int, int] = (10, 8),
+    correlation_method: str | None = None,
+) -> go.Figure:
+    """Build a horizontal bar chart: mean of |r| per property with std error bars.
+
+    This is a private visualization helper; callers are typically analysis helpers or mixins.
+    """
+    if plot_df.empty or "mean_abs" not in plot_df.columns or "std" not in plot_df.columns:
+        if not plot_df.empty:
+            logger.warning(
+                "Property correlation frame must include 'mean_abs' and 'std'; cannot plot."
+            )
+        return go.Figure()
+
+    w_px, h_px = figsize[0] * 100, figsize[1] * 100
+    y_labels = plot_df["property"].astype(str).tolist()
+
+    x_vals = np.asarray(plot_df["mean_abs"].to_numpy(), dtype=float)
+    err = np.asarray(plot_df["std"].to_numpy(), dtype=float)
+    err = np.where(np.isfinite(err), err, 0.0)
+    x_vals = np.where(np.isfinite(x_vals), x_vals, np.nan)
+    method = correlation_method or "n/a"
+    # Concise description: bars = mean(|r|), error bars = SD(r), with method.
+    xaxis_title = f"mean(|r|) ± SD(r) per dimension [{method}]"
+
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                y=y_labels,
+                x=x_vals,
+                orientation="h",
+                error_x={
+                    "type": "data",
+                    "array": err,
+                    "visible": True,
+                },
+                marker_color="#3b82f6",
+            )
+        ],
+    )
+    fig.update_xaxes(
+        title_text=xaxis_title,
+        title_font={"size": 12},
+    )
+
+    order_note = f" (ordered by {order_by})"
+    fig.update_layout(
+        title=f"{title}{order_note}" if order_by else title,
+        yaxis_title="Property",
+        width=w_px,
+        height=h_px,
+        margin={"l": 200, "r": 40, "t": 60, "b": 40},
+    )
+    return fig
 
 
 class _DistancePlotsMixin:
@@ -154,55 +217,3 @@ class _DistancePlotsMixin:
             return
         df, group_col, _ = prepared
         self._log_distance_group_stats(group_col, df)
-
-    def plot_property_correlations(
-        self,
-        correlation_results: dict,
-        top_k: int = 20,
-        figsize: tuple[int, int] = (10, 8),
-        title: str = "Property Correlations with Embeddings",
-    ) -> Any:
-        """
-        Plot the top correlated properties as a horizontal bar chart.
-
-        Args:
-            correlation_results: Output from compute_embedding_property_correlation()
-            top_k: Number of top properties to display
-            figsize: Figure size (width, height) in inches (converted to pixels for Plotly)
-            title: Plot title
-        """
-        if not correlation_results or "summary" not in correlation_results:
-            logger.warning(
-                "Invalid correlation results. Run compute_embedding_property_correlation() first."
-            )
-            return
-
-        df = correlation_results["summary"]
-        # Drop entries with NaN aggregated correlations to avoid plotting invalid values
-        df = df.dropna(subset=["aggregated_correlation"])
-        if df.empty:
-            logger.warning("No correlation data to plot.")
-            return
-
-        plot_df = df.head(top_k).copy()
-        plot_df = plot_df.sort_values("aggregated_correlation", ascending=True)
-
-        fig = px.bar(
-            plot_df,
-            x="aggregated_correlation",
-            y="property",
-            orientation="h",
-            title=title,
-            labels={
-                "aggregated_correlation": f"Aggregated Correlation ({correlation_results.get('aggregation_method', 'mean_abs')})",
-                "property": "Property Name",
-            },
-        )
-
-        fig.update_layout(
-            width=figsize[0] * 100,
-            height=figsize[1] * 100,
-            xaxis_title="Correlation Strength",
-            yaxis_title="Property",
-        )
-        fig.show()
