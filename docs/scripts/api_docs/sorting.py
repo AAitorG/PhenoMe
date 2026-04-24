@@ -64,7 +64,7 @@ _PIPELINE_DEFAULTS: dict[str, tuple[str, int]] = {
     "compute_clustering": ("Advanced analysis", 400),
     "detect_outliers": ("Advanced analysis", 410),
     "find_prototypes": ("Advanced analysis", 420),
-    "analyze_cluster_enrichment": ("Advanced analysis", 430),
+    "analyze_group_enrichment": ("Advanced analysis", 430),
     "compute_component_correlation": ("Advanced analysis", 440),
     "compute_embedding_property_correlations": ("Advanced analysis", 450),
     "aggregate_embedding_property_correlations": ("Advanced analysis", 460),

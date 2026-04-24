@@ -114,7 +114,7 @@ def generate_clustering_section(
         sections_html.append(generate_info_box(f"Could not generate composition: {e}", "warning"))
 
     try:
-        enrichment_html = _generate_cluster_enrichment(pipeline, filters, exclude)
+        enrichment_html = _generate_group_enrichment(pipeline, filters, exclude)
         sections_html.append(enrichment_html)
     except (ValueError, KeyError, RuntimeError) as e:
         sections_html.append(generate_info_box(f"Could not compute enrichment: {e}", "warning"))
@@ -264,16 +264,20 @@ def _generate_cluster_composition(
     """
 
 
-def _generate_cluster_enrichment(
+def _generate_group_enrichment(
     pipeline: "PhenoMe",
     filters: dict[str, Any] | None,
     exclude: dict[str, Any] | None = None,
 ) -> str:
-    """Generate cluster enrichment analysis."""
+    """Generate group enrichment analysis (e.g. per-cluster Z-scores)."""
     try:
-        enrichment_df = pipeline.analyze_cluster_enrichment(
-            cluster_col="cluster", filters=filters, exclude=exclude
+        result = pipeline.analyze_group_enrichment(
+            group_col="cluster",
+            filters=filters,
+            exclude=exclude,
+            plot=False,
         )
+        enrichment_df = result["enrichment"]
     except (ValueError, KeyError, RuntimeError) as e:
         return generate_info_box(f"Could not compute enrichment: {e}", "warning")
 
@@ -281,11 +285,11 @@ def _generate_cluster_enrichment(
         return generate_info_box("No enrichment data available.", "warning")
 
     enrichment_items = []
-    for cluster in sorted(enrichment_df["Cluster"].unique()):
-        cluster_data = enrichment_df[enrichment_df["Cluster"] == cluster].head(5)
+    for grp in sorted(enrichment_df["Group"].unique()):
+        group_data = enrichment_df[enrichment_df["Group"] == grp].head(5)
 
         features_html = []
-        for _, row in cluster_data.iterrows():
+        for _, row in group_data.iterrows():
             direction = "High" if row["Score"] > 0 else "Low"
             color = "#10b981" if row["Score"] > 0 else "#ef4444"
             features_html.append(
@@ -295,14 +299,14 @@ def _generate_cluster_enrichment(
 
         enrichment_items.append(
             (
-                f"{generate_cluster_badge(int(cluster))} - Top Enriched Features",
+                f"{generate_cluster_badge(int(grp))} - Top Enriched Features",
                 "<br>".join(features_html) if features_html else "No significant enrichment",
             )
         )
 
     return f"""
-    <h4>Cluster Enrichment Analysis</h4>
-    <p>Properties that distinguish each cluster from the overall population (Z-score):</p>
+    <h4>Group Enrichment Analysis</h4>
+    <p>Properties that distinguish each group from the overall population (Z-score):</p>
     {generate_subsection_grid(enrichment_items)}
     """
 

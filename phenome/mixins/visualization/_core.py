@@ -14,6 +14,7 @@ from ...core.pipeline_results import PhenoMeResults
 from ._component_correlation_plots import _ComponentCorrelationPlotsMixin
 from ._distance_plots import _DistancePlotsMixin
 from ._dr_plots import _DRPlotsMixin
+from ._group_enrichment_plots import _GroupEnrichmentPlotsMixin
 from ._image_display import _ImageDisplayMixin
 from ._interpretability_plots import _InterpretabilityPlotsMixin
 
@@ -26,6 +27,7 @@ class PhenoMeVisualization(
     _ImageDisplayMixin,
     _InterpretabilityPlotsMixin,
     _ComponentCorrelationPlotsMixin,
+    _GroupEnrichmentPlotsMixin,
 ):
     """
     Pipeline class providing visualization methods for PhenoMe.
@@ -33,7 +35,8 @@ class PhenoMeVisualization(
     Composed from _DRPlotsMixin (PCA, t-SNE, UMAP, centroids), _DistancePlotsMixin
     (distance distribution, correlation plots), _ImageDisplayMixin (image display),
     _InterpretabilityPlotsMixin (multivariate interpretability), and
-    _ComponentCorrelationPlotsMixin (component-property correlation facets).
+    _ComponentCorrelationPlotsMixin (component-property correlation facets), and
+    _GroupEnrichmentPlotsMixin (group Z-score enrichment facets).
     """
 
     # Type hints for pipeline attributes (provided by parent class)

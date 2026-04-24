@@ -94,7 +94,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
 | `aggregate_embedding_property_correlations` | Aggregate pre-computed embedding-property correlations using the specified method. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-aggregate_embedding_property_correlations) |
-| `analyze_cluster_enrichment` | Compute z-score enrichment of properties per cluster. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-analyze_cluster_enrichment) |
+| `analyze_group_enrichment` | Compute z-score enrichment of properties per group (e.g. clusters). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-analyze_group_enrichment) |
 | `checkpoint_context` | Context manager that loads a checkpoint and guarantees it is closed on exit. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-checkpoint_context) |
 | `clear_temporal_data` | Remove all temporal images (metadata['source'] == 'NEW') from the session. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-clear_temporal_data) |
 | `compute_clustering` | Perform clustering and store labels in ``metadata[i]['cluster']`` for each image. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_clustering) |

@@ -1181,45 +1181,55 @@ Find images closest to each group centroid.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-phenomeanalysis-analyze_cluster_enrichment">
+<div class="api-method" role="region" aria-labelledby="api-phenomeanalysis-analyze_group_enrichment">
 
 <div class="api-method-header">
 <span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeanalysis-analyze_cluster_enrichment"><code>analyze_cluster_enrichment</code></h4>
+<h4 class="api-method-title" id="api-phenomeanalysis-analyze_group_enrichment"><code>analyze_group_enrichment</code></h4>
 </div>
 
 <div class="api-signature">
 
 ```python
-PhenoMeAnalysis.analyze_cluster_enrichment(
+PhenoMeAnalysis.analyze_group_enrichment(
     self,
-    cluster_col: str = 'cluster',
+    group_col: str = 'cluster',
     property_keys: list[str] | None = None,
     filters: dict[str, typing.Any] | None = None,
-    exclude: dict[str, typing.Any] | None = None
-) -> DataFrame
+    exclude: dict[str, typing.Any] | None = None,
+    plot: bool = True,
+    return_fig: bool = False,
+    top_k: int | None = None,
+    figsize: tuple[int, int] = (10, 6),
+    title: str | None = None
+) -> dict
 ```
 
 </div>
 
 <div class="api-body">
 
-Compute z-score enrichment of properties per cluster.
+Compute z-score enrichment of properties per group (e.g. cluster labels).
 
 Uses sample mean and sample standard deviation (ddof=1) for the
 population statistics when computing z-scores.
 
 **Args:**
 
-- **`cluster_col`**: Property/metadata key holding cluster labels.
+- **`group_col`**: Property/metadata key holding group labels.
 - **`property_keys`**: Properties to analyse (all numeric if *None*).
 - **`filters`**: Optional metadata filters.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).
+- **`plot`**: If True (default), show an interactive Plotly faceted bar chart (one row per group).
+- **`return_fig`**: If True, include ``group_enrichment_fig`` in the returned dict (no ``fig.show()``).
+- **`top_k`**: Max properties per group in the figure and text summary (``None`` = all).
+- **`figsize`**: Figure size ``(width, height)`` in inches for Plotly.
+- **`title`**: Optional figure title.
 
 **Returns:**
 
-  pd.DataFrame: Columns: Cluster, Property, Score, Mean_Cluster, Mean_Pop, AbsScore.
-  Z-score enrichment per cluster-property pair.
+  Dict with ``enrichment``: pd.DataFrame with columns Group, Property, Score, Mean_Group,
+  Mean_Pop, AbsScore. Optionally ``group_enrichment_fig`` when ``return_fig`` is True.
 
 </div>
 

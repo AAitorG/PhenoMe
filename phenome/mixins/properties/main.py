@@ -410,7 +410,7 @@ class PhenoMeProperties:
     ) -> pd.DataFrame:
         """Build DataFrame from computed properties and metadata.
 
-        Used by PhenoMeAnalysis (e.g. analyze_cluster_enrichment) and report sections.
+        Used by PhenoMeAnalysis (e.g. analyze_group_enrichment) and report sections.
 
         Args:
             property_keys: Optional list of property names to include.

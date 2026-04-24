@@ -842,41 +842,68 @@ class PhenoMeAnalysis:
         return out
 
     # ------------------------------------------------------------------
-    # Cluster enrichment
+    # Group enrichment
     # ------------------------------------------------------------------
 
-    def analyze_cluster_enrichment(
+    def analyze_group_enrichment(
         self,
-        cluster_col: str = "cluster",
+        group_col: str = "cluster",
         property_keys: list[str] | None = None,
         filters: dict[str, Any] | None = None,
         exclude: dict[str, Any] | None = None,
-    ) -> pd.DataFrame:
-        """Compute z-score enrichment of properties per cluster.
+        plot: bool = True,
+        return_fig: bool = False,
+        top_k: int | None = None,
+        figsize: tuple[int, int] = (10, 6),
+        title: str | None = None,
+    ) -> dict[str, Any]:
+        """Compute z-score enrichment of properties per group (e.g. cluster labels).
 
         Uses sample mean and sample standard deviation (ddof=1) for the
         population statistics when computing z-scores.
 
         Args:
-            cluster_col: Property/metadata key holding cluster labels.
+            group_col: Property/metadata key holding group labels (e.g. ``"cluster"``).
             property_keys: Properties to analyse (all numeric if *None*).
             filters: Optional metadata filters.
             exclude: Optional metadata exclusions (same structure as filters).
+            plot: If True (default), show an interactive Plotly faceted bar chart (one row per
+                group). If False, log a plain-text summary via the package logger instead
+                (unless *return_fig* requests a figure).
+            return_fig: If True, include a Plotly figure under ``group_enrichment_fig`` in the
+                returned dict. When *return_fig* is True, ``fig.show()`` is not called; use
+                ``plot=True`` with ``return_fig=False`` for the default interactive display.
+            top_k: Max properties per group in the figure and in the text summary (``None`` = all).
+            figsize: Figure size ``(width, height)`` in inches for the Plotly layout.
+            title: Optional figure title.
 
         Returns:
-            pd.DataFrame: Columns: Cluster, Property, Score, Mean_Cluster, Mean_Pop, AbsScore.
-                Z-score enrichment per cluster-property pair.
+            Dict with keys:
+            - enrichment: pd.DataFrame. Columns: Group, Property, Score, Mean_Group, Mean_Pop,
+              AbsScore. Z-score enrichment per group-property pair.
+            - group_enrichment_fig: Present when ``return_fig`` is True and a figure was built.
         """
         working_df = self._build_properties_dataframe()  # type: ignore[attr-defined]
+        empty_cols = ["Group", "Property", "Score", "Mean_Group", "Mean_Pop", "AbsScore"]
         if working_df.empty:
-            return pd.DataFrame()
+            out_empty: dict[str, Any] = {"enrichment": pd.DataFrame(columns=empty_cols)}
+            self._plot_group_enrichment(  # type: ignore[attr-defined]
+                enrichment_df=out_empty["enrichment"],
+                group_names=None,
+                plot=plot,
+                return_fig=return_fig,
+                top_k=top_k,
+                figsize=figsize,
+                title=title,
+            )
+            return out_empty
 
         if filters or exclude:
             indices = filter_indices(self.results, filters, exclude)
             working_df = working_df.iloc[indices]
 
-        # Resolve cluster column (case-insensitive)
-        cc = cluster_col
+        # Resolve group column (case-insensitive)
+        cc = group_col
         if cc not in working_df.columns:
             for variant in (cc.capitalize(), cc.lower()):
                 if variant in working_df.columns:
@@ -884,7 +911,7 @@ class PhenoMeAnalysis:
                     break
             else:
                 raise ValueError(
-                    f"Cluster column '{cluster_col}' not found. Columns: {list(working_df.columns)}"
+                    f"Group column '{group_col}' not found. Columns: {list(working_df.columns)}"
                 )
 
         if property_keys is None:
@@ -897,52 +924,88 @@ class PhenoMeAnalysis:
             ]
         if not property_keys:
             logger.warning("No numeric properties to analyse.")
-            return pd.DataFrame()
+            out_np: dict[str, Any] = {"enrichment": pd.DataFrame(columns=empty_cols)}
+            self._plot_group_enrichment(  # type: ignore[attr-defined]
+                enrichment_df=out_np["enrichment"],
+                group_names=None,
+                plot=plot,
+                return_fig=return_fig,
+                top_k=top_k,
+                figsize=figsize,
+                title=title,
+            )
+            return out_np
 
         working_df = working_df.dropna(subset=[cc])
         if working_df.empty:
-            logger.warning("No samples with valid cluster labels.")
-            return pd.DataFrame()
+            logger.warning("No samples with valid group labels.")
+            out_ng: dict[str, Any] = {"enrichment": pd.DataFrame(columns=empty_cols)}
+            self._plot_group_enrichment(  # type: ignore[attr-defined]
+                enrichment_df=out_ng["enrichment"],
+                group_names=None,
+                plot=plot,
+                return_fig=return_fig,
+                top_k=top_k,
+                figsize=figsize,
+                title=title,
+            )
+            return out_ng
 
         pop_mean = working_df[property_keys].mean()
         pop_std = working_df[property_keys].std()
         # Replace near-zero variance to avoid huge z-scores (exact 0 and fp noise)
         pop_std = pop_std.where(pop_std >= 1e-10, np.nan)
 
-        all_clusters = sorted(working_df[cc].unique())
-        skipped_small = sum(1 for c in all_clusters if len(working_df[working_df[cc] == c]) < 3)
+        all_groups = sorted(working_df[cc].unique())
+        skipped_small = sum(1 for g in all_groups if len(working_df[working_df[cc] == g]) < 3)
         if skipped_small > 0:
             logger.info(
-                "Skipped %d cluster(s) with < 3 samples; z-score enrichment requires at least 3.",
+                "Skipped %d group(s) with < 3 samples; z-score enrichment requires at least 3.",
                 skipped_small,
             )
 
         rows = []
-        for cluster in all_clusters:
-            cdf = working_df[working_df[cc] == cluster]
-            if len(cdf) < 3:
+        for grp in all_groups:
+            gdf = working_df[working_df[cc] == grp]
+            if len(gdf) < 3:
                 continue
-            cmean = cdf[property_keys].mean()
+            gmean = gdf[property_keys].mean()
             with np.errstate(divide="ignore", invalid="ignore"):
-                zs = (cmean - pop_mean) / pop_std
+                zs = (gmean - pop_mean) / pop_std
             for prop in property_keys:
                 s = zs[prop]
                 if pd.notna(s):
                     rows.append(
                         {
-                            "Cluster": cluster,
+                            "Group": grp,
                             "Property": prop,
                             "Score": float(s),
-                            "Mean_Cluster": float(cmean[prop]),
+                            "Mean_Group": float(gmean[prop]),
                             "Mean_Pop": float(pop_mean[prop]),
                         }
                     )
 
-        edf = pd.DataFrame(rows)
-        if not edf.empty:
+        if not rows:
+            edf = pd.DataFrame(columns=empty_cols)
+        else:
+            edf = pd.DataFrame(rows)
             edf["AbsScore"] = edf["Score"].abs()
-            edf = edf.sort_values(["Cluster", "AbsScore"], ascending=[True, False])
-        return edf
+            edf = edf.sort_values(["Group", "AbsScore"], ascending=[True, False])
+
+        out: dict[str, Any] = {"enrichment": edf}
+        fig_title = title or "Group enrichment (Z-scores)"
+        fig = self._plot_group_enrichment(  # type: ignore[attr-defined]
+            enrichment_df=edf,
+            group_names=None,
+            plot=plot,
+            return_fig=return_fig,
+            top_k=top_k,
+            figsize=figsize,
+            title=fig_title,
+        )
+        if return_fig and fig is not None:
+            out["group_enrichment_fig"] = fig
+        return out
 
     # ------------------------------------------------------------------
     # Prototypes
