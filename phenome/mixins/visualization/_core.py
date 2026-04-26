@@ -43,7 +43,7 @@ class PhenoMeVisualization(
     mean: tuple
     std: tuple
     results: PhenoMeResults
-    test_transforms: object | None
+    image_transforms: object | None
     device: object
 
     def create_interactive_explorer(

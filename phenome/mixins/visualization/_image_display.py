@@ -23,7 +23,7 @@ class _ImageDisplayMixin:
     mean: tuple
     std: tuple
     results: Any
-    test_transforms: Any | None
+    image_transforms: Any | None
 
     def _colorize_multichannel(self, img: np.ndarray) -> np.ndarray:
         """Assign colors to each channel and merge into RGB (FIJI-style overlay)."""
@@ -222,12 +222,12 @@ class _ImageDisplayMixin:
         if preprocessing_fn is not None:
             img = preprocessing_fn(img)
 
-        test_transforms = getattr(self, "test_transforms", None)
-        if apply_transforms and test_transforms is not None:
+        image_transforms = getattr(self, "image_transforms", None)
+        if apply_transforms and image_transforms is not None:
             from torchvision import transforms
 
             t_list = []
-            for t in test_transforms.transforms:
+            for t in image_transforms.transforms:
                 if not isinstance(t, transforms.Normalize):
                     t_list.append(t)
             if use_custom_channels and channels is not None:
@@ -243,8 +243,8 @@ class _ImageDisplayMixin:
                 if img.ndim == 3 and img.shape[0] < img.shape[2]:
                     img = img.transpose(1, 2, 0)
         else:
-            if test_transforms is None and apply_transforms:
-                logger.warning("test_transforms not found, showing raw image.")
+            if image_transforms is None and apply_transforms:
+                logger.warning("image_transforms not found, showing raw image.")
             if use_custom_channels and channels is not None:
                 selected = sorted([channels] if isinstance(channels, int) else list(channels))
                 img = img[..., selected]
@@ -361,7 +361,7 @@ class _ImageDisplayMixin:
             figsize: Figure size
             title_fields: Optional list of field names to display in title
             show_extra_info: If True, prints detailed information after plotting
-            apply_transforms: If True, apply pipeline test_transforms
+            apply_transforms: If True, apply pipeline image_transforms
             downsample: If not None, approximate desired size (in pixels) for the
                 longest image edge when downsampling. The final image size may
                 differ slightly due to integer stepping. If None, no downsampling.

@@ -1691,7 +1691,7 @@ Plot a specific image by its index.
 - **`figsize`**: Figure size
 - **`title_fields`**: Optional list of field names to display in title
 - **`show_extra_info`**: If True, prints detailed information after plotting
-- **`apply_transforms`**: If True, apply pipeline test_transforms
+- **`apply_transforms`**: If True, apply pipeline image_transforms
 - **`downsample`**: If not None, approximate desired size (in pixels) for the
   longest image edge when downsampling. The final image size may
   differ slightly due to integer stepping. If None, no downsampling.

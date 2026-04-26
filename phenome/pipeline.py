@@ -115,8 +115,9 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         self.preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None = None
         self._processing_params: dict[str, Any] | None = None
 
-        # Transforms applied during embedding extraction; used by visualization (e.g. show_image).
-        self.test_transforms: Any | None = None
+        # PyTorch transforms on images before the model (resize, pad, normalize, custom Compose, etc.);
+        # shared by the embedding dataloader and visualization (e.g. show_image).
+        self.image_transforms: Any | None = None
 
         # When a checkpoint path is active, this holds the open CheckpointManager.
         # results.embeddings is None (lazy sentinel) and embeddings are loaded on demand.
@@ -169,7 +170,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         self.reset_properties(verbose=False)
         self.preprocessing_fn = None
         self._processing_params = None
-        self.test_transforms = None
+        self.image_transforms = None
         self._metadata_config = None
         if clear_file_df:
             self._file_df = None
@@ -443,7 +444,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
             return
 
         cur_t = custom_transformations or self._build_transforms(resize_size, pad_size)
-        self.test_transforms = cur_t
+        self.image_transforms = cur_t
 
         dl = self._create_dataloader(
             filtered_data,
@@ -1328,11 +1329,11 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         )
 
     def _build_transforms(self, resize_size: int | None, pad_size: int | None = None) -> Any:
-        """Build torchvision transform pipeline for image preprocessing."""
-        self.test_transforms = self._transform_builder.build(
+        """Build torchvision Compose applied to each image before the model forward pass."""
+        self.image_transforms = self._transform_builder.build(
             resize_size=resize_size, pad_size=pad_size
         )
-        return self.test_transforms
+        return self.image_transforms
 
     def _validate_process_images_inputs(self, file_df: pd.DataFrame) -> None:
         """Validate inputs for process_images method."""

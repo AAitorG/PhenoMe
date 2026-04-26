@@ -28,7 +28,7 @@ class PhenoMeProtocol(Protocol):
     device: Any
     mean: tuple
     std: tuple
-    test_transforms: Any | None
+    image_transforms: Any | None
     preprocessing_fn: Any | None
     _processing_params: dict[str, Any] | None
     seed: int | None
