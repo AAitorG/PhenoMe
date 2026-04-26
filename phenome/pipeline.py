@@ -404,6 +404,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         Populates self.results with embeddings, img_path, metadata. Properties remain
         empty until compute_properties() is called.
         """
+
         file_df = self._require_file_df("process_images")
         self._validate_process_images_inputs(file_df)
         filtered_data, cur_params, _final_data_dir = self._prepare_for_process_images(

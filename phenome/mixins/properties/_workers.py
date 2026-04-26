@@ -180,10 +180,17 @@ def compute_properties_worker(
     property_functions: dict[str, list[Callable]],
     any_requires_image: bool,
     any_requires_mask: bool,
-) -> tuple[int, dict[str, float]]:
-    """Worker for parallel property computation. Returns dict of {prop_name: value}.
+) -> tuple[int, dict[str, float], dict[str, float]]:
+    """Worker for parallel property computation (module-level, picklable).
 
-    Module-level to avoid pickling the pipeline instance.
+    Returns
+    -------
+    buf_idx
+        Local buffer index in the current batch.
+    result
+        Phenotypic scalars {prop_name: value}.
+    internal
+        Per-row checkpoint state (e.g. ``_properties_attempted``), stored in HDF5 ``/internal``.
     """
     img_stack, mask_stack = _load_image_and_mask_stacks(
         img_path, mask_path, any_requires_image, any_requires_mask, property_functions
@@ -251,5 +258,5 @@ def compute_properties_worker(
 
                     result[name] = float(value) if value is not None else np.nan
 
-    result["_properties_attempted"] = 1.0
-    return (buf_idx, result)
+    internal = {"_properties_attempted": 1.0}
+    return (buf_idx, result, internal)

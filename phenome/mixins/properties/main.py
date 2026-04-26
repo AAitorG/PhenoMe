@@ -363,16 +363,18 @@ class PhenoMeProperties:
             return _build_properties_dataframe_fn(self.results)
 
         # Process images (path_alignment is None when no checkpoint)
-        all_property_names, feature_buffers, last_committed = self._process_all_images(
-            image_paths,
-            mask_paths,
-            property_functions,
-            ckpt,
-            checkpoint_path,
-            save_every,
-            path_alignment,
-            n_jobs,
-            expected_property_keys=expected_property_keys,
+        all_property_names, feature_buffers, last_committed, internal_buffer = (
+            self._process_all_images(
+                image_paths,
+                mask_paths,
+                property_functions,
+                ckpt,
+                checkpoint_path,
+                save_every,
+                path_alignment,
+                n_jobs,
+                expected_property_keys=expected_property_keys,
+            )
         )
 
         # Finalize and return
@@ -385,6 +387,7 @@ class PhenoMeProperties:
             checkpoint_path,
             image_paths,
             lazy=lazy_checkpoint,
+            internal_buffer=internal_buffer,
         )
 
         self.results.properties = full_props
@@ -631,6 +634,7 @@ class PhenoMeProperties:
         image_paths: list[str | list[str]],
         existing_props: list[dict],
         expected_property_keys: set[str] | None = None,
+        existing_internal: list[dict] | None = None,
     ) -> tuple[dict[str, int], set[str], list[tuple[int, str | list[str]]], list[str]]:
         """Move unprocessed (missing or all-NaN) entries from identifiers_with_props to paths_to_compute."""
         id_to_ckpt_idx, identifiers_with_props, paths_to_compute, identifier_list = path_alignment
@@ -640,13 +644,18 @@ class PhenoMeProperties:
                 idx = id_to_ckpt_idx.get(identifier, -1)
                 if 0 <= idx < len(existing_props):
                     prop = existing_props[idx]
+                    int_row = (
+                        existing_internal[idx]
+                        if existing_internal and 0 <= idx < len(existing_internal)
+                        else None
+                    )
 
                     # If new properties were added that aren't in this image's dict, recompute.
                     is_missing_expected = False
                     if expected_property_keys is not None:
                         is_missing_expected = any(k not in prop for k in expected_property_keys)
 
-                    if self._is_property_dict_unprocessed(prop) or is_missing_expected:
+                    if self._is_property_dict_unprocessed(prop, int_row) or is_missing_expected:
                         identifiers_with_props.discard(identifier)
                         paths_to_compute_dict[i] = image_paths[i]
         return (
@@ -657,11 +666,19 @@ class PhenoMeProperties:
         )
 
     @staticmethod
-    def _is_property_dict_unprocessed(prop: dict) -> bool:
+    def _is_property_dict_unprocessed(prop: dict, internal: dict | None = None) -> bool:
         """Return True if property dict is empty or all values are NaN/None (unprocessed).
 
-        Used to detect checkpoint entries that need recomputation.
+        Used to detect checkpoint entries that need recomputation. If *internal* contains
+        ``_properties_attempted`` with a non-NaN value, the run was already attempted
+        (e.g. all phenotypic values NaN) and is not considered unprocessed.
         """
+        if internal:
+            w = internal.get("_properties_attempted", np.nan)
+            if isinstance(w, (float, int, np.floating, np.integer)) and not (
+                isinstance(w, (float, np.floating)) and bool(np.isnan(float(w)))
+            ):
+                return False
         if not prop:
             return True
         for v in prop.values():
@@ -792,12 +809,14 @@ class PhenoMeProperties:
             if n_already >= n_with_emb > 0:
                 loaded = ckpt.load_committed_results()
                 all_props = loaded.properties
+                all_internal = ckpt.load_internal_all()
                 if expected_property_keys:
                     self._warn_checkpoint_missing_requested_keys(
                         checkpoint_path, expected_property_keys, list(all_props)
                     )
                 # Filter properties by metadata (portable) or path (fallback)
                 filtered_props = []
+                filtered_internal: list[dict] = []
                 try:
                     id_to_idx = {}
                     for i, meta in enumerate(ckpt_metadata):
@@ -808,22 +827,32 @@ class PhenoMeProperties:
                         idx = id_to_idx.get(key, -1)
                         if 0 <= idx < len(all_props):
                             filtered_props.append(all_props[idx])
+                            filtered_internal.append(
+                                all_internal[idx] if 0 <= idx < len(all_internal) else {}
+                            )
                         else:
                             filtered_props.append({})
+                            filtered_internal.append({})
                 except ValueError:
                     path_to_idx = {p: i for i, p in enumerate(ckpt_paths)}
                     for p in image_paths:
                         idx = path_to_idx.get(_primary_path(p), -1)
                         if 0 <= idx < len(all_props):
                             filtered_props.append(all_props[idx])
+                            filtered_internal.append(
+                                all_internal[idx] if 0 <= idx < len(all_internal) else {}
+                            )
                         else:
                             filtered_props.append({})
+                            filtered_internal.append({})
 
                 # Check for missing images (no match in checkpoint) or unprocessed (NaN) entries
                 unprocessed_indices = [
                     i
                     for i, prop in enumerate(filtered_props)
-                    if self._is_property_dict_unprocessed(prop)
+                    if self._is_property_dict_unprocessed(
+                        prop, filtered_internal[i] if i < len(filtered_internal) else None
+                    )
                     or (
                         expected_property_keys
                         and any(k not in prop for k in expected_property_keys)
@@ -843,8 +872,13 @@ class PhenoMeProperties:
                     image_paths, image_metadata, ckpt_paths, ckpt_metadata, n_already
                 )
                 existing_props = ckpt.load_committed_properties()
+                existing_int = ckpt.load_internal_all()
                 path_alignment = self._refine_path_alignment_for_unprocessed(
-                    path_alignment, image_paths, existing_props, expected_property_keys
+                    path_alignment,
+                    image_paths,
+                    existing_props,
+                    expected_property_keys,
+                    existing_internal=existing_int,
                 )
                 n_to_compute = len(path_alignment[2])
                 logger.info(
@@ -858,12 +892,17 @@ class PhenoMeProperties:
                     image_paths, image_metadata, ckpt_paths, ckpt_metadata, n_already
                 )
                 existing_props = ckpt.load_committed_properties()
+                existing_int = ckpt.load_internal_all()
                 if expected_property_keys:
                     self._warn_checkpoint_missing_requested_keys(
                         checkpoint_path, expected_property_keys, list(existing_props)
                     )
                 path_alignment = self._refine_path_alignment_for_unprocessed(
-                    path_alignment, image_paths, existing_props, expected_property_keys
+                    path_alignment,
+                    image_paths,
+                    existing_props,
+                    expected_property_keys,
+                    existing_internal=existing_int,
                 )
                 paths_to_compute = path_alignment[2]
                 logger.info(
@@ -894,7 +933,7 @@ class PhenoMeProperties:
         | None,
         n_jobs: int = 1,
         expected_property_keys: set[str] | None = None,
-    ) -> tuple[set, dict[str, list[float]], int]:
+    ) -> tuple[set, dict[str, list[float]], int, list[dict[str, Any]]]:
         """Process all images and compute properties.
 
         Args:
@@ -909,7 +948,9 @@ class PhenoMeProperties:
             expected_property_keys: Expected keys to pre-populate buffers with NaN for missing properties.
 
         Returns:
-            Tuple of (all_property_names, feature_buffers, last_committed).
+            Tuple of (all_property_names, feature_buffers, last_committed, internal_buffer).
+            *internal_buffer* has one entry per image processed in *paths_to_compute* order
+            (checkpoint state for HDF5 ``/internal``).
         """
         any_requires_image = any(r in ("image", "both", "any") for r in property_functions)
         any_requires_mask = any(r in ("mask", "both", "any") for r in property_functions)
@@ -922,6 +963,7 @@ class PhenoMeProperties:
 
         all_property_names: set = set(expected_property_keys) if expected_property_keys else set()
         feature_buffers: dict[str, list[float]] = {}
+        internal_buffer: list[dict[str, Any]] = []
         images_computed = 0
         last_committed = 0
         # Only commit incrementally when computing all images; partial resume
@@ -968,23 +1010,27 @@ class PhenoMeProperties:
                     )
                     results.sort(key=lambda x: x[0])
                     batch_prop_names = set()
-                    for _, props_dict in results:
+                    for _, props_dict, _ in results:
                         batch_prop_names.update(props_dict.keys())
                     all_property_names.update(batch_prop_names)
 
-                    for buf_idx, props_dict in results:
+                    for buf_idx, props_dict, _ in results:
                         for pn in all_property_names:
                             val = props_dict.get(pn, np.nan)
                             if pn not in feature_buffers:
                                 feature_buffers[pn] = [np.nan] * buf_idx
                             feature_buffers[pn].append(val)
+                    for _, _props, int_d in results:
+                        internal_buffer.append(dict(int_d))
                     images_computed = batch_end
                     if use_ckpt_incremental and ckpt is not None:
                         new_dicts = self._feature_buffers_to_dicts(
                             feature_buffers, all_property_names, last_committed, images_computed
                         )
                         if new_dicts:
+                            int_slice = internal_buffer[last_committed:images_computed]
                             ckpt.buffer_properties(new_dicts)
+                            ckpt.buffer_internal(int_slice)
                             ckpt.commit_properties()
                         last_committed = images_computed
                     pbar.update(batch_end - batch_start)
@@ -1030,10 +1076,7 @@ class PhenoMeProperties:
                     )
                     all_computed.update(computed)
 
-                if "_properties_attempted" not in feature_buffers:
-                    feature_buffers["_properties_attempted"] = [np.nan] * images_computed
-                feature_buffers["_properties_attempted"].append(1.0)
-                all_computed.add("_properties_attempted")
+                internal_buffer.append({"_properties_attempted": 1.0})
 
                 for pn in list(feature_buffers):
                     if pn not in all_computed:
@@ -1047,11 +1090,13 @@ class PhenoMeProperties:
                         feature_buffers, all_property_names, last_committed, images_computed
                     )
                     if new_dicts:
+                        int_slice = internal_buffer[last_committed:images_computed]
                         ckpt.buffer_properties(new_dicts)
+                        ckpt.buffer_internal(int_slice)
                         ckpt.commit_properties()
                     last_committed = images_computed
 
-        return all_property_names, feature_buffers, last_committed
+        return all_property_names, feature_buffers, last_committed, internal_buffer
 
     def _finalize_properties_computation(
         self,
@@ -1066,6 +1111,7 @@ class PhenoMeProperties:
         checkpoint_path: str | None,
         image_paths: list[str | list[str]],
         lazy: bool = True,
+        internal_buffer: list[dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         """Finalize property computation and handle checkpoint commit.
 
@@ -1083,16 +1129,20 @@ class PhenoMeProperties:
             checkpoint_path: Path to checkpoint file or None.
             image_paths: Full list of image paths (order for full_props).
             lazy: If True, keep the checkpoint file open.
+            internal_buffer: Per computed row internal checkpoint state (``/internal``), same
+                order as *new_props* from feature buffers.
 
         Returns:
             List of property dictionaries for all images, in image_paths order.
         """
         from ...io import CheckpointManager
 
+        ib = internal_buffer or []
         images_computed = max((len(buf) for buf in feature_buffers.values()), default=0)
         new_props = self._feature_buffers_to_dicts(
             feature_buffers, all_property_names, 0, images_computed
         )
+        full_internal: list[dict[str, Any]] = []
 
         if (
             path_alignment is not None
@@ -1103,6 +1153,7 @@ class PhenoMeProperties:
                 path_alignment
             )
             existing_props = ckpt.load_committed_properties()
+            existing_internal = ckpt.load_internal_all()
             img_idx_to_new_idx = {img_idx: i for i, (img_idx, _) in enumerate(paths_to_compute)}
 
             # Merge: checkpoint data first (identifiers_with_props), then newly computed.
@@ -1124,19 +1175,31 @@ class PhenoMeProperties:
                         prop = dict(existing_props[idx]) if existing_props[idx] else {}
                     else:
                         prop = {}
+                    if 0 <= idx < len(existing_internal):
+                        int_row = dict(existing_internal[idx]) if existing_internal[idx] else {}
+                    else:
+                        int_row = {}
                 else:
                     new_idx = img_idx_to_new_idx.get(i, -1)
                     if 0 <= new_idx < len(new_props):
                         prop = dict(new_props[new_idx]) if new_props[new_idx] else {}
                     else:
                         prop = {}
+                    if 0 <= new_idx < len(ib):
+                        int_row = dict(ib[new_idx]) if ib[new_idx] else {}
+                    else:
+                        int_row = {}
 
                 for key in all_keys:
                     if key not in prop:
                         prop[key] = np.nan
                 full_props.append(optimize_property_types(prop))
+                full_internal.append(int_row)
         else:
             full_props = new_props
+            full_internal = [dict(d) for d in ib[: len(new_props)]] if ib else []
+            while len(full_internal) < len(full_props):
+                full_internal.append({})
 
         # Checkpoint persistence: only when image_paths matches checkpoint (no filter)
         ckpt_created_this_run = False
@@ -1195,7 +1258,11 @@ class PhenoMeProperties:
                             feature_buffers, all_property_names, last_committed, images_computed
                         )
                         if remaining:
+                            rem_int = ib[last_committed:images_computed]
+                            if len(rem_int) != len(remaining):
+                                rem_int = [{} for _ in remaining]
                             ckpt.buffer_properties(remaining)
+                            ckpt.buffer_internal(rem_int)
                             n_total = ckpt.commit_properties()
                             logger.info(
                                 "Checkpoint: saved %d properties to %s", n_total, checkpoint_path
@@ -1204,6 +1271,10 @@ class PhenoMeProperties:
                         # Partial resume: replace entire properties (clear + write full)
                         ckpt.clear_properties()
                         ckpt.buffer_properties(full_props)
+                        if full_internal and len(full_internal) == len(full_props):
+                            ckpt.buffer_internal(full_internal)
+                        elif not full_internal and full_props:
+                            ckpt.buffer_internal([{} for _ in full_props])
                         n_total = ckpt.commit_properties()
                         logger.info(
                             "Checkpoint: saved %d properties (replaced) to %s",

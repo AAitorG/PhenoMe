@@ -121,12 +121,14 @@ def append_metadata_group(
                 chunks=(_PROP_CHUNK,),
             )
             ds.resize(n_old, axis=0)
-            if n_old > 0:
-                ds[:n_old] = [""] * n_old
         else:
             ds = cast(h5py.Dataset, grp[key])
 
+        cur_size = ds.shape[0]
         ds.resize(n_new_total, axis=0)
+        if cur_size < n_old:
+            ds[cur_size:n_old] = [""] * (n_old - cur_size)
+
         ds[n_old:n_new_total] = col
 
     for key in sorted(grp):
@@ -224,15 +226,18 @@ def append_properties_group(
                 chunks=(_PROP_CHUNK,),
                 compression="gzip",
                 compression_opts=_GZIP_LEVEL,
+                fillvalue=np.nan,
             )
             ds.resize(n_old, axis=0)
-            if n_old > 0:
-                fill = np.full(n_old, np.nan, dtype=np.float32)
-                ds[:n_old] = fill
         else:
             ds = cast(h5py.Dataset, grp[key])
 
+        cur_size = ds.shape[0]
         ds.resize(n_new_total, axis=0)
+        if cur_size < n_old:
+            fill = np.full(n_old - cur_size, np.nan, dtype=np.float32)
+            ds[cur_size:n_old] = fill
+
         ds[n_old:n_new_total] = col
 
     for key in sorted(grp):
@@ -275,6 +280,7 @@ def write_properties_group(
             chunks=(_PROP_CHUNK,),
             compression="gzip",
             compression_opts=_GZIP_LEVEL,
+            fillvalue=np.nan,
         )
 
 
@@ -291,6 +297,35 @@ def read_properties_group(
         for i, v in enumerate(values):
             result[i][key] = float(v)
     return result
+
+
+def append_internal_group(
+    f: h5py.File,
+    group_name: str,
+    internal_dicts: list[dict[str, Any]],
+    n_old: int,
+    n_new_total: int,
+) -> None:
+    """Append internal tracking dicts to a columnar float32 group (same layout as /properties)."""
+    append_properties_group(f, group_name, internal_dicts, n_old, n_new_total)
+
+
+def write_internal_group(
+    f: h5py.File,
+    group_name: str,
+    internal_dicts: list[dict[str, Any]],
+    n: int,
+) -> None:
+    """Write a complete internal group (one row per image, same as write_properties_group)."""
+    write_properties_group(f, group_name, internal_dicts, n)
+
+
+def read_internal_group(
+    grp: h5py.Group,
+    n: int,
+) -> list[dict[str, Any]]:
+    """Read a columnar internal group back into a list of dicts (same as properties)."""
+    return read_properties_group(grp, n)
 
 
 def truncate_group_datasets(grp: h5py.Group, n: int) -> None:

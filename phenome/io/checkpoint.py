@@ -16,15 +16,18 @@ import numpy as np
 from ..core.pipeline_results import PhenoMeResults
 from ._checkpoint_ops import (
     append_2d_vlen_dataset,
+    append_internal_group,
     append_metadata_group,
     append_properties_group,
     append_vlen_dataset,
     decode,
     decode_list,
+    read_internal_group,
     read_metadata_group,
     read_properties_group,
     truncate_group_datasets,
     write_2d_vlen,
+    write_internal_group,
     write_metadata_group,
     write_properties_group,
 )
@@ -37,6 +40,10 @@ CHECKPOINT_FORMAT_VERSION = "2.0"  # Version written to new checkpoints
 CHECKPOINT_SUPPORTED_VERSIONS = frozenset(
     {"2.0"}
 )  # Versions that can be loaded; add older (e.g. "2.1") for backward compat
+
+# Internal checkpoint state (e.g. property-run attempted) — not phenotypic; stored in /internal
+_INTERNAL_GROUP_NAME = "internal"
+_INTERNAL_PROPERTY_TRACKING_KEYS: frozenset[str] = frozenset({"_properties_attempted"})
 
 _CHUNK_ROWS = 128  # HDF5 chunk size (rows) for embeddings
 _GZIP_LEVEL = 4  # compression level (1-9)
@@ -55,6 +62,32 @@ _METADATA_EXCLUDE_KEYS = frozenset({"mask_path"})
 def _is_checkpoint_version_supported(version: str) -> bool:
     """Return True if the given checkpoint version can be loaded."""
     return version in CHECKPOINT_SUPPORTED_VERSIONS
+
+
+def _merge_property_and_internal_rows(
+    raw_props: list[dict[str, Any]],
+    internal_rows: list[dict[str, Any]] | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Move :data:`_INTERNAL_PROPERTY_TRACKING_KEYS` from property rows to internal (mutates raw_props)."""
+    n = len(raw_props)
+    if internal_rows is None:
+        internal: list[dict[str, Any]] = [{} for _ in range(n)]
+    else:
+        internal = [dict(d) for d in internal_rows[:n]]
+    while len(internal) < n:
+        internal.append({})
+    for row_i in range(n):
+        for k in _INTERNAL_PROPERTY_TRACKING_KEYS:
+            if k in raw_props[row_i]:
+                v_int = internal[row_i].get(k, np.nan)
+                prefer = k not in internal[row_i] or (
+                    isinstance(v_int, (float, np.floating)) and bool(np.isnan(float(v_int)))
+                )
+                if prefer:
+                    internal[row_i][k] = raw_props[row_i].pop(k)
+                else:
+                    del raw_props[row_i][k]
+    return raw_props, internal[:n]
 
 
 def _normalize_path_for_storage(path: str) -> str:
@@ -136,6 +169,8 @@ class CheckpointManager:
         {key}                (N,)    vlen UTF-8 or float32 — one dataset per metadata key
     /properties/
         {name}               (N,)    float32     — one dataset per property name
+    /internal/
+        {name}               (N,)    float32     — checkpoint control (not phenotypic), same N as /properties
     /config/                                    — processing parameters (typed attributes)
         channel_mode         str  attribute
         resize_size          str  attribute  ("none" when absent)
@@ -209,6 +244,12 @@ class CheckpointManager:
         self._n_committed_props_ram: int = 0
         self._is_multichannel_ram: bool = False
         self._processing_params_ram: dict[str, Any] | None = None
+        # Non-lazy: per-row internal dicts (aligned with n_committed_props), not in PhenoMeResults
+        self._ram_internal: list[dict[str, Any]] | None = None
+        # Lazy read cache for (clean_properties, internal_rows)
+        self._merged_props_internal_cache: (
+            tuple[list[dict[str, Any]], list[dict[str, Any]]] | None
+        ) = None
 
         # In-memory buffers (flushed on commit)
         self._buf_paths: list[str] = []
@@ -216,6 +257,7 @@ class CheckpointManager:
         self._buf_meta: list[dict[str, Any]] = []
         self._buf_embeddings: list[np.ndarray] = []
         self._buf_props: list[dict[str, Any]] = []
+        self._buf_internal: list[dict[str, Any]] = []
 
         if os.path.isfile(path):
             if self.detect_format(path) != "hdf5":
@@ -410,6 +452,73 @@ class CheckpointManager:
             return []
         return read_metadata_group(cast(h5py.Group, self._file["metadata"]), n)
 
+    def _invalidate_merged_props_cache(self) -> None:
+        self._merged_props_internal_cache = None
+
+    def _read_merged_property_internal(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Return (phenotypic property dicts, per-row internal dicts); migrate legacy keys.
+
+        Old checkpoints stored :data:`_INTERNAL_PROPERTY_TRACKING_KEYS` inside ``/properties``;
+        those are moved into the internal list on read. Results never contain internal keys.
+        """
+        if self._merged_props_internal_cache is not None:
+            return self._merged_props_internal_cache
+
+        n = self.n_committed_props
+        if n == 0:
+            self._merged_props_internal_cache = ([], [])
+            return self._merged_props_internal_cache
+
+        if not self.lazy and self._ram_data is not None:
+            raw = [dict(p) for p in self._ram_data.properties[:n]]
+            if self._ram_internal is not None:
+                internal = [dict(p) for p in self._ram_internal[:n]]
+            else:
+                internal = [{} for _ in range(n)]
+            while len(internal) < n:
+                internal.append({})
+            self._merged_props_internal_cache = (raw, internal[:n])
+            return self._merged_props_internal_cache
+
+        if self._file is None or "properties" not in self._file:
+            self._merged_props_internal_cache = ([], [])
+            return self._merged_props_internal_cache
+
+        f = self._file
+        raw = read_properties_group(cast(h5py.Group, f["properties"]), n)
+        if _INTERNAL_GROUP_NAME in f and bool(
+            list(cast(h5py.Group, f[_INTERNAL_GROUP_NAME]).keys())
+        ):
+            int_from_file: list[dict[str, Any]] | None = read_internal_group(
+                cast(h5py.Group, f[_INTERNAL_GROUP_NAME]), n
+            )
+        else:
+            int_from_file = None
+        raw, internal = _merge_property_and_internal_rows(raw, int_from_file)
+        self._merged_props_internal_cache = (raw, internal)
+        return self._merged_props_internal_cache
+
+    @property
+    def n_committed_internal(self) -> int:
+        """Rows with internal tracking data; same as ``n_committed_props`` when using /internal."""
+        return self.n_committed_props
+
+    def buffer_internal(self, internal_dicts: list[dict[str, Any]]) -> None:
+        """Buffer per-row internal dicts; must match the next :meth:`buffer_properties` batch size."""
+        self._buf_internal.extend(d if isinstance(d, dict) else {} for d in internal_dicts)
+
+    def commit_internal(self) -> int:
+        """Internal rows are written by :meth:`commit_properties` together with properties.
+
+        Returns current ``n_committed_props`` (internal uses the same row count).
+        """
+        if self._buf_internal and not self._buf_props:
+            raise ValueError(
+                "buffer_internal() was used without a matching buffer_properties() batch. "
+                "Call buffer_properties() then buffer_internal() of the same length, then commit_properties()."
+            )
+        return self.n_committed_props
+
     # ------------------------------------------------------------------
     # Property management
     # ------------------------------------------------------------------
@@ -427,13 +536,20 @@ class CheckpointManager:
             props_grp = cast(h5py.Group, f["properties"])
             for name in list(props_grp.keys()):
                 cast(h5py.Dataset, props_grp[name]).resize(0, axis=0)
+        if _INTERNAL_GROUP_NAME in f:
+            int_grp = cast(h5py.Group, f[_INTERNAL_GROUP_NAME])
+            for name in list(int_grp.keys()):
+                cast(h5py.Dataset, int_grp[name]).resize(0, axis=0)
         f.attrs["n_committed_props"] = 0
         self._buf_props.clear()
+        self._buf_internal.clear()
+        self._invalidate_merged_props_cache()
         f.flush()
 
         if not self.lazy and self._ram_data is not None:
             self._ram_data.properties = [{} for _ in range(self._ram_data.n_images)]
             self._n_committed_props_ram = 0
+            self._ram_internal = [{} for _ in range(self._ram_data.n_images)]
 
         if opened_here:
             f.close()
@@ -687,6 +803,13 @@ class CheckpointManager:
         n_total = n_old + n_new
 
         append_properties_group(f, "properties", self._buf_props, n_old, n_total)
+        if self._buf_internal:
+            if len(self._buf_internal) != n_new:
+                raise ValueError(
+                    f"buffer_internal() row count ({len(self._buf_internal)}) must match "
+                    f"buffer_properties() row count ({n_new}) for this commit."
+                )
+            append_internal_group(f, _INTERNAL_GROUP_NAME, self._buf_internal, n_old, n_total)
 
         f.flush()
         f.attrs["n_committed_props"] = n_total
@@ -696,6 +819,8 @@ class CheckpointManager:
             self._update_ram_from_buffers(properties=True)
 
         self._buf_props.clear()
+        self._buf_internal.clear()
+        self._invalidate_merged_props_cache()
 
         if opened_here:
             f.close()
@@ -817,11 +942,22 @@ class CheckpointManager:
             Length n_committed_props.  Empty list when no properties stored.
         """
         if not self.lazy and self._ram_data is not None:
-            return self._ram_data.properties[: self._n_committed_props_ram]
+            return [dict(p) for p in self._ram_data.properties[: self._n_committed_props_ram]]
         n = self.n_committed_props
-        if self._file is None or n == 0 or "properties" not in self._file:
+        if n == 0 or self._file is None or "properties" not in self._file:
             return []
-        return read_properties_group(cast(h5py.Group, self._file["properties"]), n)
+        props, _ = self._read_merged_property_internal()
+        return props
+
+    def load_internal_all(self) -> list[dict[str, Any]]:
+        """Load per-row internal checkpoint state (e.g. property-attempt flags). Same length as properties."""
+        n = self.n_committed_props
+        if n == 0:
+            return []
+        if not self.lazy and self._ram_data is not None and self._ram_internal is not None:
+            return [dict(p) for p in self._ram_internal[:n]]
+        _, internal = self._read_merged_property_internal()
+        return internal
 
     def load_committed_properties(self) -> list[dict[str, Any]]:
         """Load only the committed properties (avoids loading embeddings/paths).
@@ -863,12 +999,13 @@ class CheckpointManager:
         if "embeddings" in f and n > 0:
             embeddings = np.array(cast(h5py.Dataset, f["embeddings"])[:n], dtype=np.float32)
 
-        properties: list[dict[str, Any]] = []
-        if "properties" in f and n_prop > 0:
-            properties = read_properties_group(cast(h5py.Group, f["properties"]), n_prop)
-        # Pad to match n
+        properties, internal = self._read_merged_property_internal()
         if len(properties) < n:
             properties.extend([{} for _ in range(n - len(properties))])
+        if len(internal) < n:
+            internal.extend([{} for _ in range(n - len(internal))])
+        # Parallel to properties padding; n_committed is authoritative row count
+        self._ram_internal = internal
 
         return PhenoMeResults(
             img_path=paths,
@@ -916,6 +1053,11 @@ class CheckpointManager:
         """Flush any remaining buffers and close the HDF5 file."""
         if self._buf_paths:
             self.commit_embeddings()
+        if self._buf_internal and not self._buf_props:
+            raise ValueError(
+                "Uncommitted buffer_internal without a matching property buffer. "
+                "Call buffer_properties() and buffer_internal() with the same row count, then commit."
+            )
         if self._buf_props:
             self.commit_properties()
         if self._file is not None:
@@ -939,6 +1081,7 @@ class CheckpointManager:
             self._buf_channels.clear()
             self._buf_meta.clear()
             self._buf_props.clear()
+            self._buf_internal.clear()
             if self._file is not None:
                 self._file.close()
                 self._file = None
@@ -1097,9 +1240,21 @@ class CheckpointManager:
                 if metadata:
                     write_metadata_group(f, "metadata", metadata, n)
 
-                # Properties (columnar)
+                # Properties (columnar) + /internal (legacy keys lifted from property dicts)
                 if props:
-                    write_properties_group(f, "properties", props, n)
+                    clean_props: list[dict[str, Any]] = []
+                    internal_for_write: list[dict[str, Any]] = []
+                    for p in props:
+                        pd = dict(p) if isinstance(p, dict) else {}
+                        int_d: dict[str, Any] = {}
+                        for k in _INTERNAL_PROPERTY_TRACKING_KEYS:
+                            if k in pd:
+                                int_d[k] = pd.pop(k)
+                        clean_props.append(pd)
+                        internal_for_write.append(int_d)
+                    write_properties_group(f, "properties", clean_props, n)
+                    if any(int_d for int_d in internal_for_write):
+                        write_internal_group(f, _INTERNAL_GROUP_NAME, internal_for_write, n)
                     f.attrs["n_committed_props"] = n
                 else:
                     f.attrs["n_committed_props"] = 0
@@ -1217,11 +1372,20 @@ class CheckpointManager:
                 if stored_dim > 0 and ds.shape[1] != stored_dim:
                     raise ValueError("embedding_dim attribute does not match dataset shape.")
 
-            # Properties
+            # Properties (migrate internal keys from legacy /properties storage)
             properties: list[dict[str, Any]] = []
             if "properties" in f and n_prop > 0:
                 actual_prop = min(n_prop, n)
-                properties = read_properties_group(cast(h5py.Group, f["properties"]), actual_prop)
+                raw = read_properties_group(cast(h5py.Group, f["properties"]), actual_prop)
+                if _INTERNAL_GROUP_NAME in f and list(
+                    cast(h5py.Group, f[_INTERNAL_GROUP_NAME]).keys()
+                ):
+                    int_h5 = read_internal_group(
+                        cast(h5py.Group, f[_INTERNAL_GROUP_NAME]), actual_prop
+                    )
+                else:
+                    int_h5 = None
+                properties, _ = _merge_property_and_internal_rows(raw, int_h5)
             if len(properties) < n:
                 properties.extend([{} for _ in range(n - len(properties))])
 
@@ -1328,6 +1492,8 @@ class CheckpointManager:
 
         if "properties" in f:
             truncate_group_datasets(cast(h5py.Group, f["properties"]), n_prop)
+        if _INTERNAL_GROUP_NAME in f:
+            truncate_group_datasets(cast(h5py.Group, f[_INTERNAL_GROUP_NAME]), n_prop)
 
         f.flush()
 
@@ -1337,6 +1503,9 @@ class CheckpointManager:
             self._ram_data = PhenoMeResults()
 
         if embeddings:
+            if any(ch is not None for ch in self._buf_channels):
+                self._is_multichannel_ram = True
+
             # Merge paths, metadata and embeddings
             new_paths: list[Any] = []
             for i, p in enumerate(self._buf_paths):
@@ -1384,3 +1553,16 @@ class CheckpointManager:
                 )
             self._ram_data.properties[start:end] = self._buf_props
             self._n_committed_props_ram = end
+            if self._ram_internal is None:
+                self._ram_internal = [
+                    {}
+                    for _ in range(max(len(self._ram_data.properties), self._n_committed_props_ram))
+                ]
+            while len(self._ram_internal) < end:
+                self._ram_internal.append({})
+            for k in range(len(self._buf_props)):
+                if self._buf_internal and k < len(self._buf_internal):
+                    self._ram_internal[start + k] = dict(self._buf_internal[k])
+                else:
+                    self._ram_internal[start + k] = {}
+            self._invalidate_merged_props_cache()
