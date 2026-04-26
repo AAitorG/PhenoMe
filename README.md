@@ -1,7 +1,7 @@
 # PhenoMe
 
 <p align="center">
-  <img src="docs/src/assets/Logo.png" alt="PhenoMe logo" width="360"/>
+  <img src="docs/assets/logo.png" alt="PhenoMe logo" width="360"/>
 </p>
 
 A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping analysis using deep learning embeddings (**visual fingerprints**) and extracted image properties.

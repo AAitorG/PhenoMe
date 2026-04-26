@@ -72,6 +72,8 @@ instance/
 docs/dist/
 docs/.astro/
 docs/node_modules/
+# Mirrored from docs/assets/ by npm run sync-assets (bundler imports + MDX paths)
+docs/src/assets/**
 
 # NOTE: docs/src/content/docs/reference/api/*.md ARE tracked in git
 # These are auto-generated from Python docstrings by generate_api_docs.py

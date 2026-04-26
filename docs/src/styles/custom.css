@@ -30,6 +30,15 @@ html[data-theme="dark"] {
   --api-badge-class-fg: #2dd4bf;
 }
 
+/* Header logo: horizontal wordmark is dark-on-transparent; lift contrast on dark UI */
+html[data-theme="dark"] a.site-title img {
+  background-color: rgba(248, 250, 252, 0.2);
+  border-radius: 2rem;
+  padding: 0.0rem 0.15rem;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
 /* -----------------------------------------------------------------------------
    API method cards
    ----------------------------------------------------------------------------- */

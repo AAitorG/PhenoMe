@@ -54,7 +54,7 @@ def _write_stub(reason: str) -> None:
         f"{reason}\n\n"
         "Fix: use Python matching `requires-python` in the repo root `pyproject.toml`, "
         "install project dependencies (`pip install -e .` from the repo root is recommended), "
-        "then run `npm run prebuild` in `docs/`.\n"
+        "then run `npm run build` in `docs/` (or `npm run dev`).\n"
     )
     for fname, (ttl, desc) in stub_pages.items():
         text = (

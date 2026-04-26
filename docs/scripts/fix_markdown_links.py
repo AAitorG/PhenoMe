@@ -14,8 +14,8 @@ Responsibilities:
    Problems are printed as warnings; they are non-fatal so the fix step
    can still run in CI.
 
-Run from the repo root or ``docs/``. Invoked by ``npm run prebuild``
-before the generated API docs are assembled.
+Run from the repo root or ``docs/``. Invoked by ``npm run build``/``npm run dev``
+before ``astro`` runs.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from pathlib import Path
 _DOCS_CONTENT = Path(__file__).resolve().parents[1] / "src" / "content" / "docs"
 _REPO = "https://github.com/AAitorG/PhenoMe/blob/main"
 _NB = f"{_REPO}/Notebooks/tutorials"
-_LOGO_FILE = "Logo.png"
+_LOGO_FILE = "logo.png"
 
 # Deployment base path for GitHub Pages; kept only for raw HTML ``src``
 # attributes that bypass Starlight's base-prefixing logic.

@@ -40,7 +40,7 @@ npm install
 npm run build
 ```
 
-`npm run build` runs `python3 scripts/generate_api_docs.py` first, then `astro build`. Output is written to `docs/dist/`. Preview locally:
+`npm run build` runs `sync-assets`, then `generate_api_docs.py`, then `fix-links`, then `astro build`. Output is written to `docs/dist/`. Preview locally:
 
 ```bash
 npm run preview

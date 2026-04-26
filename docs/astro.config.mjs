@@ -11,6 +11,7 @@ const NOTEBOOKS = "https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutori
 export default defineConfig({
   site,
   base,
+  publicDir: "./assets",
   trailingSlash: "always",
   redirects: {
     [`${base}guides/property-reference/`]: `${base}concepts/property-interpretation/`,
@@ -28,11 +29,11 @@ export default defineConfig({
       description:
         "Dataset-agnostic phenotyping with deep learning embeddings (Python package: phenome).",
       logo: {
-        src: "./src/assets/Logo.png",
+        src: "./src/assets/logo_horizontal.png",
         alt: "PhenoMe",
         replacesTitle: true,
       },
-      favicon: "/favicon.png",
+      favicon: "/logo_minimal.png",
       // Starlight 0.31 accepts the object form below. When upgrading to
       // >= 0.32, migrate to the array form: [{ icon: 'github', label: 'GitHub', href: '...' }].
       social: {

@@ -2,7 +2,7 @@
 
 This package replaces the monolithic ``generate_api_docs.py``. The public
 entry point is :func:`api_docs.site.build`, invoked from the thin
-``generate_api_docs.py`` delegator so the ``npm run prebuild`` contract is
+``generate_api_docs.py`` delegator so the ``npm run build``/``dev`` contract is
 preserved.
 
 Modules:

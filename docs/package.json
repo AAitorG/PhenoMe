@@ -8,12 +8,10 @@
     "npm": ">=9.6.5"
   },
   "scripts": {
-    "sync-assets": "mkdir -p src/assets public",
+    "sync-assets": "rm -rf src/assets && mkdir -p src/assets && cp -a assets/. src/assets/",
     "fix-links": "python3 scripts/fix_markdown_links.py",
-    "predev": "npm run sync-assets && python3 scripts/generate_api_docs.py && npm run fix-links",
-    "dev": "astro dev",
-    "prebuild": "npm run sync-assets && python3 scripts/generate_api_docs.py && npm run fix-links",
-    "build": "astro build",
+    "dev": "npm run sync-assets && python3 scripts/generate_api_docs.py && npm run fix-links && astro dev",
+    "build": "npm run sync-assets && python3 scripts/generate_api_docs.py && npm run fix-links && astro build",
     "preview": "astro preview"
   },
   "dependencies": {

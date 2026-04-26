@@ -1,5 +1,5 @@
 ---
-title: "Frequently asked questions"
+title: "FAQ"
 description: Grouped answers to the most common PhenoMe questions - install, data, compute, results, and extension.
 ---
 

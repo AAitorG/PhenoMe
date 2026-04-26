@@ -2,7 +2,7 @@
 """Thin entry point for the modular :mod:`api_docs` package.
 
 Run from the repo root or ``docs/``; this script is invoked by
-``npm run prebuild``/``predev`` in ``docs/package.json``. All logic now
+``npm run build``/``npm run dev`` in ``docs/package.json``. All logic now
 lives in :mod:`docs.scripts.api_docs`.
 """
 
