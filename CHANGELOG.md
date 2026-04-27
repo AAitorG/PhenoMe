@@ -36,7 +36,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- HDF5 checkpoint protocol v2.0 (DATABASE_PROTOCOL.md)
 - Lazy embedding loading for large datasets
 - Temporal images support (process_temporal_images)
 - Plugin registries for properties, metadata extractors, report sections

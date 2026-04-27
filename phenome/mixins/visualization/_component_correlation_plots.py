@@ -110,7 +110,17 @@ def _build_component_correlation_figure(
             "showscale": show_scale,
         }
         if show_scale:
-            marker["colorbar"] = {"title": "Correlation", "tickformat": ".2f"}
+            # Anchor in full-figure paper coords so the bar spans the entire plot height
+            # (not just the bottom subplot's trace box).
+            marker["colorbar"] = {
+                "title": "Correlation",
+                "tickformat": ".2f",
+                "yref": "paper",
+                "y": 0.5,
+                "yanchor": "middle",
+                "len": 1.0,
+                "lenmode": "fraction",
+            }
         fig.add_trace(
             go.Bar(
                 x=s_display.values,
@@ -141,12 +151,14 @@ def _build_component_correlation_figure(
     title_gutter_px = 34
     # Room for |xshift| plus a little pad for the rotated word; cap avoids huge figures.
     margin_l = min(520, max(88, tick_label_reserve_px + title_gutter_px + 14))
+    # Extra right margin so a full-height paper-anchored colorbar is not clipped
+    margin_r = max(40, 36 + 14 * n_comp)
 
     fig.update_layout(
         title=title or "Component-property correlations",
         width=width_px,
         height=height_px,
-        margin={"l": margin_l, "r": 24, "t": 80 if title else 60, "b": 56},
+        margin={"l": margin_l, "r": margin_r, "t": 80 if title else 60, "b": 56},
         showlegend=False,
     )
     # Manual horizontal space: automargin fights a stable slot for the shared y-title.

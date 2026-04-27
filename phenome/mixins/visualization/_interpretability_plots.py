@@ -63,8 +63,8 @@ def _build_multivariate_interpretability_figure(
     df = df.drop(columns=["_abs"])
 
     if resolved_model_type == "lasso":
-        xaxis_title = "LASSO coefficient (standardized)"
-        color_bar_title = xaxis_title
+        xaxis_title = "LASSO coefficient (standarized)"
+        color_bar_title = "LASSO<br>coefficient<br>(standarized)"
         # Symmetric diverging scale: blue (negative) → white → red (positive). Plotly's RdBu
         # maps low→red; RdBu_r maps low→blue so negatives (low end of range_color) are blue.
         w_max = float(df["weight"].abs().max()) or 1e-9

@@ -8,6 +8,12 @@ A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping
 
 ---
 
+### 🗺️ Navigation
+
+[**✨ Features**](#-features) | [**🚀 Quick Start**](#-quick-start) | [**📦 Installation**](#-installation) | [**📖 Documentation**](#-documentation)
+
+---
+
 ## ✨ Features
 
 - **Model Agnostic**: Extract embeddings using DINOv2 or any custom PyTorch vision model.
@@ -100,7 +106,7 @@ pip install -r envs/requirements-gpu.txt -e .
 
 ## 📖 Documentation
 
-**Explore the [Documentation](https://AAitorG.github.io/PhenoMe/)** for detailed guides, API references, and tutorials.
+**Explore the [Full Documentation](https://AAitorG.github.io/PhenoMe/)** for detailed guides, API references, and tutorials.
 
 ### New users (install → data → notebooks)
 

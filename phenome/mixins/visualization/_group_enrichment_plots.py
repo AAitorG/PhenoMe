@@ -117,8 +117,9 @@ def _build_group_enrichment_figure(
         return None
 
     n_grp = len(active)
-    # Tighter row gaps than default faceting; spacing scales down slightly with many groups.
-    vertical_spacing = min(0.05, 0.02 + 0.012 * max(1, 4 / n_grp))
+    # Gaps between facet rows: must clear x-axis tick labels of row r from subplot title of
+    # row r+1 (tight values cause overlap). Cap so many groups still fit on one figure.
+    vertical_spacing = min(0.14, 0.085 + 0.022 * max(1, 4 / n_grp))
     fig = make_subplots(
         rows=n_grp,
         cols=1,
@@ -153,7 +154,9 @@ def _build_group_enrichment_figure(
 
     width_px = int(figsize[0] * 100)
     row_px = max(160, 26 * max(len(s) for s in prepared) + 50)
-    height_px = max(280, int(row_px * n_grp + 80))
+    # Extra height for larger vertical_spacing + title/tick padding so bar rows are not squashed.
+    inter_row_pad = 32 * max(0, n_grp - 1)
+    height_px = max(300, int(row_px * n_grp + 100 + inter_row_pad))
 
     max_label_chars = max(
         (len(str(lbl)) for s in prepared for lbl in s.index.astype(str)),
@@ -168,7 +171,7 @@ def _build_group_enrichment_figure(
         title=title or "Group enrichment (Z-scores)",
         width=width_px,
         height=height_px,
-        margin={"l": margin_l, "r": 24, "t": 80 if title else 60, "b": 56},
+        margin={"l": margin_l, "r": 24, "t": 80 if title else 60, "b": 64},
         showlegend=False,
     )
     fig.update_yaxes(automargin=False)
