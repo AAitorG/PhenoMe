@@ -64,7 +64,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
 
     Main class for phenotyping analysis using deep learning embeddings.
 
-    Provides: compute_properties, filter_properties_by_group; compute_clustering,
+    Provides: compute_properties, property_stats_by_group; compute_clustering,
     detect_outliers, find_prototypes; compute_reference_distances; plot_pca,
     plot_tsne, plot_umap, and related methods.
 

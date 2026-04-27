@@ -19,13 +19,13 @@ def parse_grouped_stats_dataframe(
 ) -> tuple[list[str], dict[str, list[str]]]:
     """Parse a grouped property stats DataFrame into grouping columns and property stats.
 
-    Expects DataFrame from filter_properties_by_group() with columns like:
+    Expects DataFrame from property_stats_by_group() with columns like:
     - Grouping cols (e.g. drug, time)
     - N (count)
     - prop_mean, prop_std, prop_min, prop_max for each property
 
     Args:
-        df: Aggregated DataFrame from filter_properties_by_group().
+        df: Aggregated DataFrame from property_stats_by_group().
 
     Returns:
         Tuple of (grouping_cols, property_stats):

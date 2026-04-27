@@ -5,7 +5,7 @@ visualization, and interactive capabilities. See the top-level
 `phenome` module for usage.
 
 Public API:
-    - PhenoMeProperties: compute_properties, filter_properties_by_group, etc.
+    - PhenoMeProperties: compute_properties, property_stats_by_group, etc.
     - PhenoMeDistances: compute_reference_distances
     - PhenoMeAnalysis: compute_clustering, detect_outliers, find_prototypes
     - PhenoMeVisualization: plot_pca, plot_tsne, plot_umap

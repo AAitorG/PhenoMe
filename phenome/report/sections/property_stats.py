@@ -47,7 +47,7 @@ def generate_property_stats_section(
             group_by = metadata_keys[:1] if metadata_keys else None
 
         if group_by:
-            filtered_df = pipeline.filter_properties_by_group(group_by=group_by)
+            filtered_df = pipeline.property_stats_by_group(group_by=group_by, print_table=False)
         else:
             stats = {}
             for prop in property_keys[:10]:

@@ -316,6 +316,8 @@ Version configuration (Constants section):
     {key}                (N,)    vlen UTF-8 or float32 — one dataset per metadata key
 /properties/
     {name}               (N,)    float32     — one dataset per property name
+/internal/
+    {name}               (N,)    float32     — checkpoint control (not phenotypic), same N as /properties
 /config/                                    — processing parameters (typed attributes)
     channel_mode         str  attribute
     resize_size          str  attribute  ("none" when absent)
@@ -388,6 +390,32 @@ Add a batch of embeddings to the in-memory buffer.
   ``List[str]`` (multi-channel).
 - **`metadata_dicts`** (`list of dict`):
   Length B.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-buffer_internal">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-buffer_internal"><code>buffer_internal</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.buffer_internal(
+    self,
+    internal_dicts: 'list[dict[str, Any]]'
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Buffer per-row internal dicts; must match the next :meth:`buffer_properties` batch size.
 
 </div>
 
@@ -521,6 +549,33 @@ Flush embedding + path + metadata buffer to HDF5 atomically.
 
 - **`int`**:
   Total n_committed after this commit.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-commit_internal">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-commit_internal"><code>commit_internal</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.commit_internal(
+    self
+) -> int
+```
+
+</div>
+
+<div class="api-body">
+
+Internal rows are written by :meth:`commit_properties` together with properties.
+
+Returns current ``n_committed_props`` (internal uses the same row count).
 
 </div>
 
@@ -874,6 +929,31 @@ Paths are resolved to absolute when _storage_root is stored in the file.
 
 </div>
 
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-load_internal_all">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-load_internal_all"><code>load_internal_all</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.load_internal_all(
+    self
+) -> list[dict[str, Any]]
+```
+
+</div>
+
+<div class="api-body">
+
+Load per-row internal checkpoint state (e.g. property-attempt flags). Same length as properties.
+
+</div>
+
+</div>
+
 <div class="api-method" role="region" aria-labelledby="api-checkpointmanager-load_metadata_and_paths">
 
 <div class="api-method-header">
@@ -949,6 +1029,23 @@ Load all committed property dicts.
 <div class="api-body">
 
 Rows committed for paths + embeddings + metadata.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-n_committed_internal">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--property">Property</span>
+<h4 class="api-method-title" id="api-checkpointmanager-n_committed_internal"><code>n_committed_internal</code></h4>
+</div>
+
+<p><em>Property on <code>CheckpointManager</code></em></p>
+
+<div class="api-body">
+
+Rows with internal tracking data; same as ``n_committed_props`` when using /internal.
 
 </div>
 

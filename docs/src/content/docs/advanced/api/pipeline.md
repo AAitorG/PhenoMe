@@ -18,7 +18,7 @@ This page is rebuilt from docstrings in [`phenome.pipeline`](https://github.com/
 
 Main class for phenotyping analysis using deep learning embeddings.
 
-Provides: compute_properties, filter_properties_by_group; compute_clustering,
+Provides: compute_properties, property_stats_by_group; compute_clustering,
 detect_outliers, find_prototypes; compute_reference_distances; plot_pca,
 plot_tsne, plot_umap, and related methods.
 
@@ -867,20 +867,24 @@ supported.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-phenomeproperties-filter_properties_by_group">
+<div class="api-method" role="region" aria-labelledby="api-phenomeproperties-property_stats_by_group">
 
 <div class="api-method-header">
 <span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeproperties-filter_properties_by_group"><code>filter_properties_by_group</code></h4>
+<h4 class="api-method-title" id="api-phenomeproperties-property_stats_by_group"><code>property_stats_by_group</code></h4>
 </div>
 
 <div class="api-signature">
 
 ```python
-PhenoMeProperties.filter_properties_by_group(
+PhenoMeProperties.property_stats_by_group(
     self,
     group_by: list[str] | None = None,
-    properties: list[str] | None = None
+    properties: list[str] | None = None,
+    print_table: bool = True,
+    print_properties: list[str] | None = None,
+    group_column_width_max: int = 25,
+    content_col_width_max: int = 25
 ) -> DataFrame
 ```
 
@@ -888,7 +892,7 @@ PhenoMeProperties.filter_properties_by_group(
 
 <div class="api-body">
 
-Group property DataFrame and compute per-group statistics.
+Group properties, compute per-group statistics, and optionally print a table.
 
 Uses `_build_properties_dataframe` from computed
 ``results.properties`` and metadata (same source as
@@ -897,7 +901,11 @@ Uses `_build_properties_dataframe` from computed
 **Args:**
 
 - **`group_by`**: Metadata columns to group by. If None, auto-selects first 2.
-- **`properties`**: Property columns to include. If None, auto-detects numeric.
+- **`properties`**: Property columns to include in aggregation. If None, auto-detects numeric.
+- **`print_table`**: If True, log a formatted mean±std table.
+- **`print_properties`**: Subset of properties to show in the table. If None, shows all.
+- **`group_column_width_max`**: Maximum width for each grouping column when printing.
+- **`content_col_width_max`**: Maximum width for each property statistic column when printing.
 
 **Returns:**
 
@@ -907,40 +915,6 @@ Uses `_build_properties_dataframe` from computed
 
 - **`TypeError`**: If group_by/properties are invalid types.
 - **`ValueError`**: If group_by keys are not in DataFrame columns.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeproperties-print_property_stats_by_group">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeproperties-print_property_stats_by_group"><code>print_property_stats_by_group</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMeProperties.print_property_stats_by_group(
-    self,
-    df: pandas.DataFrame,
-    properties: list[str] | None = None,
-    column_width: int = 20
-) -> None
-```
-
-</div>
-
-<div class="api-body">
-
-Print formatted table of grouped property statistics.
-
-**Args:**
-
-- **`df`**: Aggregated DataFrame from filter_properties_by_group().
-- **`properties`**: Property names to print. If None, prints all.
-- **`column_width`**: Column width for each property column.
 
 </div>
 
@@ -964,7 +938,9 @@ PhenoMeProperties.top_properties_different_from_reference(
     properties: list[str] | None = None,
     metric: Literal['cohens_d', 'mean_diff'] = 'cohens_d',
     print_output: bool = True,
-    column_width: int = 20
+    group_column_width_max: int = 25,
+    top_property_col_width_max: int = 25,
+    top_effect_col_width_min: int = 12
 ) -> DataFrame
 ```
 
@@ -979,22 +955,25 @@ is from the reference. Both higher and lower values count as "different" (uses |
 
 Cohen's d formula (pooled): d = (mean_group - mean_ref) / s_pooled, where
 s_pooled = sqrt([(n_ref-1)*std_ref² + (n_other-1)*std_other²] / (n_ref + n_other - 2)).
-Requires sample std (ddof=1) from filter_properties_by_group.
+Requires sample std (ddof=1) from property_stats_by_group.
 
 **Args:**
 
-- **`df`**: Aggregated DataFrame from filter_properties_by_group().
+- **`df`**: Aggregated DataFrame from property_stats_by_group().
 - **`reference_group`**: Dict mapping grouping column names to values (e.g. &#123;"drug": "Control", "time": "60_min"&#125;).
 - **`k`**: Number of top properties per group.
 - **`properties`**: Property names to consider. If None, uses all in DataFrame.
 - **`metric`**: 'cohens_d' (effect size) or 'mean_diff' (absolute mean difference).
 - **`print_output`**: If True, pretty-print the results.
-- **`column_width`**: Column width for property, effect size, and mean diff columns.
+- **`group_column_width_max`**: Maximum width for each grouping column in the printed table.
+- **`top_property_col_width_max`**: Max width for the property name column in the printed table.
+- **`top_effect_col_width_min`**: Min width for Cohen's d and mean diff columns when printing.
 
 **Returns:**
 
-  DataFrame with columns: grouping cols, property, effect_size, mean_diff, ref_mean,
-  group_mean, rank. One row per (group, property) for top-k only.
+  DataFrame with columns: grouping cols, property, effect_size (Cohen's d when
+  ``metric='cohens_d'``), mean_diff, ref_mean, group_mean, rank. One row per
+  (group, property) for top-k only.
 
 </div>
 

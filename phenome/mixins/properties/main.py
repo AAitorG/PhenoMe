@@ -27,6 +27,7 @@ from ...utils.path_utils import primary_path as _primary_path
 from ...utils.property_factories import get_preset_property_functions
 from ._paths import build_file_df_lookup, resolve_image_paths, resolve_mask_paths
 from ._report import build_properties_dataframe as _build_properties_dataframe_fn
+from ._report import parse_grouped_stats_dataframe as _parse_grouped_stats_dataframe_fn
 from ._workers import (
     _determine_channel_range,
     _load_image_and_mask_stacks,
@@ -35,13 +36,10 @@ from ._workers import (
     compute_properties_worker,
 )
 from .grouping import (
-    filter_properties_by_group as _filter_properties_by_group_fn,
-)
-from .grouping import (
-    print_property_stats_by_group as _print_property_stats_by_group_fn,
-)
-from .grouping import (
     print_top_properties_vs_reference as _print_top_properties_vs_reference_fn,
+)
+from .grouping import (
+    property_stats_by_group as _property_stats_by_group_fn,
 )
 from .grouping import (
     top_properties_different_from_reference as _top_properties_different_from_reference_fn,
@@ -127,12 +125,17 @@ class PhenoMeProperties:
     # Grouping & statistics
     # ------------------------------------------------------------------
 
-    def filter_properties_by_group(
+    def property_stats_by_group(
         self,
         group_by: list[str] | None = None,
         properties: list[str] | None = None,
+        *,
+        print_table: bool = True,
+        print_properties: list[str] | None = None,
+        group_column_width_max: int = 25,
+        content_col_width_max: int = 25,
     ) -> pd.DataFrame:
-        """Group property DataFrame and compute per-group statistics.
+        """Group properties, compute per-group statistics, and optionally print a table.
 
         Uses `_build_properties_dataframe` from computed
         ``results.properties`` and metadata (same source as
@@ -140,7 +143,11 @@ class PhenoMeProperties:
 
         Args:
             group_by: Metadata columns to group by. If None, auto-selects first 2.
-            properties: Property columns to include. If None, auto-detects numeric.
+            properties: Property columns to include in aggregation. If None, auto-detects numeric.
+            print_table: If True, log a formatted mean±std table.
+            print_properties: Subset of properties to show in the table. If None, shows all.
+            group_column_width_max: Maximum width for each grouping column when printing.
+            content_col_width_max: Maximum width for each property statistic column when printing.
 
         Returns:
             Aggregated DataFrame with mean/std/min/max per property per group.
@@ -150,29 +157,14 @@ class PhenoMeProperties:
             ValueError: If group_by keys are not in DataFrame columns.
         """
         df = self._build_properties_dataframe()
-        return _filter_properties_by_group_fn(df, group_by=group_by, properties=properties)
-
-    # ------------------------------------------------------------------
-    # Pretty-print
-    # ------------------------------------------------------------------
-
-    def print_property_stats_by_group(
-        self,
-        df: pd.DataFrame,
-        properties: list[str] | None = None,
-        column_width: int = 20,
-    ) -> None:
-        """Print formatted table of grouped property statistics.
-
-        Args:
-            df: Aggregated DataFrame from filter_properties_by_group().
-            properties: Property names to print. If None, prints all.
-            column_width: Column width for each property column.
-        """
-        _print_property_stats_by_group_fn(
+        return _property_stats_by_group_fn(
             df,
+            group_by=group_by,
             properties=properties,
-            column_width=column_width,
+            print_table=print_table,
+            print_properties=print_properties,
+            group_column_width_max=group_column_width_max,
+            content_col_width_max=content_col_width_max,
             available_property_keys=self.get_available_property_keys(),
         )
 
@@ -184,7 +176,9 @@ class PhenoMeProperties:
         properties: list[str] | None = None,
         metric: Literal["cohens_d", "mean_diff"] = "cohens_d",
         print_output: bool = True,
-        column_width: int = 20,
+        group_column_width_max: int = 25,
+        top_property_col_width_max: int = 25,
+        top_effect_col_width_min: int = 12,
     ) -> pd.DataFrame:
         """For each non-reference group, return the top k properties that most differentiate it from the reference.
 
@@ -193,20 +187,23 @@ class PhenoMeProperties:
 
         Cohen's d formula (pooled): d = (mean_group - mean_ref) / s_pooled, where
         s_pooled = sqrt([(n_ref-1)*std_ref² + (n_other-1)*std_other²] / (n_ref + n_other - 2)).
-        Requires sample std (ddof=1) from filter_properties_by_group.
+        Requires sample std (ddof=1) from property_stats_by_group.
 
         Args:
-            df: Aggregated DataFrame from filter_properties_by_group().
+            df: Aggregated DataFrame from property_stats_by_group().
             reference_group: Dict mapping grouping column names to values (e.g. {"drug": "Control", "time": "60_min"}).
             k: Number of top properties per group.
             properties: Property names to consider. If None, uses all in DataFrame.
             metric: 'cohens_d' (effect size) or 'mean_diff' (absolute mean difference).
             print_output: If True, pretty-print the results.
-            column_width: Column width for property, effect size, and mean diff columns.
+            group_column_width_max: Maximum width for each grouping column in the printed table.
+            top_property_col_width_max: Max width for the property name column in the printed table.
+            top_effect_col_width_min: Min width for Cohen's d and mean diff columns when printing.
 
         Returns:
-            DataFrame with columns: grouping cols, property, effect_size, mean_diff, ref_mean,
-            group_mean, rank. One row per (group, property) for top-k only.
+            DataFrame with columns: grouping cols, property, effect_size (Cohen's d when
+            ``metric='cohens_d'``), mean_diff, ref_mean, group_mean, rank. One row per
+            (group, property) for top-k only.
         """
         result_df = _top_properties_different_from_reference_fn(
             df,
@@ -219,11 +216,16 @@ class PhenoMeProperties:
         if result_df.empty and print_output:
             logger.warning("DataFrame is empty or no valid comparisons.")
         elif not result_df.empty and print_output:
-            from ._report import parse_grouped_stats_dataframe
-
-            grouping_cols, _ = parse_grouped_stats_dataframe(df)
+            grouping_cols, _ = _parse_grouped_stats_dataframe_fn(df)
             _print_top_properties_vs_reference_fn(
-                result_df, grouping_cols, reference_group, k, column_width
+                result_df,
+                grouping_cols,
+                reference_group,
+                k,
+                group_column_width_max=group_column_width_max,
+                metric=metric,
+                top_property_col_width_max=top_property_col_width_max,
+                top_effect_col_width_min=top_effect_col_width_min,
             )
         return result_df
 

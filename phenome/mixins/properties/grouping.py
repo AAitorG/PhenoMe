@@ -1,8 +1,8 @@
 """
 Grouping and statistics for property DataFrames.
 
-Provides filter_properties_by_group, print_property_stats_by_group, and
-top_properties_different_from_reference. Used by PhenoMeProperties.
+Provides property_stats_by_group, top_properties_different_from_reference, and
+print_top_properties_vs_reference. Used by PhenoMeProperties.
 """
 
 from typing import Any
@@ -11,6 +11,14 @@ import numpy as np
 import pandas as pd
 
 from ..._logging import get_logger
+from ._grouping_table import (
+    _fit_width,
+    _group_col_width_need,
+    _metric_labels,
+    _print_grouped_property_table,
+    _top_eff_md_strings,
+    _trunc_center,
+)
 from ._report import (
     compute_property_statistics,
     parse_grouped_stats_dataframe,
@@ -19,12 +27,18 @@ from ._report import (
 logger = get_logger(__name__)
 
 
-def filter_properties_by_group(
+def property_stats_by_group(
     df: pd.DataFrame,
     group_by: list[str] | None = None,
     properties: list[str] | None = None,
+    *,
+    print_table: bool = True,
+    print_properties: list[str] | None = None,
+    group_column_width_max: int = 25,
+    content_col_width_max: int = 25,
+    available_property_keys: list[str] | None = None,
 ) -> pd.DataFrame:
-    """Group property DataFrame and compute per-group statistics.
+    """Group property DataFrame, compute per-group statistics, and optionally print a table.
 
     DataFrames from [find_files](pipeline.md#api-phenome-find_files) and
     [compute_properties](pipeline.md#api-phenomeproperties-compute_properties) use lowercase column
@@ -35,7 +49,13 @@ def filter_properties_by_group(
     Args:
         df: DataFrame with properties and metadata.
         group_by: Metadata columns to group by. If None, auto-selects first 2.
-        properties: Property columns to include. If None, auto-detects numeric.
+        properties: Property columns to include in aggregation. If None, auto-detects numeric.
+        print_table: If True, log a formatted mean±std table (after aggregating).
+        print_properties: Subset of properties to show in the table. If None, shows all
+            aggregated properties. (Aggregation still follows ``properties``.)
+        group_column_width_max: Maximum width for each grouping column when printing.
+        content_col_width_max: Maximum width for each property statistic column when printing.
+        available_property_keys: Optional list for validation warnings when printing.
 
     Returns:
         Aggregated DataFrame with mean/std/min/max per property per group.
@@ -43,6 +63,14 @@ def filter_properties_by_group(
     if not isinstance(df, pd.DataFrame):
         raise TypeError(f"df must be a pandas DataFrame, got: {type(df)}")
     if df.empty:
+        if print_table:
+            _print_grouped_property_table(
+                df,
+                print_properties=print_properties,
+                group_column_width_max=group_column_width_max,
+                content_col_width_max=content_col_width_max,
+                available_property_keys=available_property_keys,
+            )
         return df
     if group_by is not None and not isinstance(group_by, list):
         raise TypeError(f"group_by must be a list or None, got: {type(group_by)}")
@@ -67,7 +95,16 @@ def filter_properties_by_group(
 
     if not properties:
         logger.warning("No property columns found in DataFrame.")
-        return pd.DataFrame()
+        out = pd.DataFrame()
+        if print_table:
+            _print_grouped_property_table(
+                out,
+                print_properties=print_properties,
+                group_column_width_max=group_column_width_max,
+                content_col_width_max=content_col_width_max,
+                available_property_keys=available_property_keys,
+            )
+        return out
 
     metadata_cols_list = [
         col for col in df.columns if col not in properties and col not in {"img_name", "img_path"}
@@ -85,106 +122,30 @@ def filter_properties_by_group(
     if not group_cols:
         stats = compute_property_statistics(df, properties)
         stats["N"] = len(df)
-        return pd.DataFrame([stats])
-
-    grouped = df.groupby(group_cols, sort=False)
-    rows = []
-    for group_key, group_df in grouped:
-        gv = (
-            dict(zip(group_cols, group_key, strict=False))
-            if isinstance(group_key, tuple)
-            else {group_cols[0]: group_key}
-        )
-        row = {**gv, "N": len(group_df)}
-        row.update(compute_property_statistics(group_df, properties))
-        rows.append(row)
-    return pd.DataFrame(rows)
-
-
-def print_property_stats_by_group(
-    df: pd.DataFrame,
-    properties: list[str] | None = None,
-    column_width: int = 20,
-    available_property_keys: list[str] | None = None,
-) -> None:
-    """Print formatted table of grouped property statistics.
-
-    Args:
-        df: Aggregated DataFrame from filter_properties_by_group().
-        properties: Property names to print. If None, prints all.
-        column_width: Column width for each property column.
-        available_property_keys: Optional list for validation warnings.
-    """
-    if df.empty:
-        logger.info("DataFrame is empty. Nothing to print.")
-        return
-
-    grouping_cols, property_stats = parse_grouped_stats_dataframe(df)
-
-    if not property_stats:
-        logger.info("No property statistics found in DataFrame.")
-        logger.info("%s", df)
-        return
-
-    prop_names = sorted(property_stats.keys())
-    if properties is not None:
-        invalid = [p for p in properties if p not in prop_names]
-        if invalid and available_property_keys is not None:
-            logger.warning(
-                "Properties not in DataFrame: %s. Available: %s",
-                invalid,
-                available_property_keys,
+        out = pd.DataFrame([stats])
+    else:
+        grouped = df.groupby(group_cols, sort=False)
+        rows = []
+        for group_key, group_df in grouped:
+            gv = (
+                dict(zip(group_cols, group_key, strict=False))
+                if isinstance(group_key, tuple)
+                else {group_cols[0]: group_key}
             )
-        prop_names = [p for p in prop_names if p in properties]
+            row = {**gv, "N": len(group_df)}
+            row.update(compute_property_statistics(group_df, properties))
+            rows.append(row)
+        out = pd.DataFrame(rows)
 
-    if not prop_names:
-        logger.info("No properties to print.")
-        return
-
-    gw, nw, pw, sep = 25, 8, column_width, 3
-    tw = len(grouping_cols) * gw + nw + len(prop_names) * (sep + pw)
-
-    logger.info("\n%s", "=" * tw)
-    label = " AND ".join(grouping_cols).upper() if grouping_cols else "ALL IMAGES"
-    logger.info("%s", f"PROPERTY STATISTICS BY {label}".center(tw))
-    logger.info("%s", "=" * tw)
-
-    parts = [f"{c.capitalize():^{gw}}" for c in grouping_cols]
-    parts.append(f"{'N':^{nw}}")
-    for pn in prop_names:
-        max_len = pw - 8
-        lbl = (
-            f"{pn[: max_len - 3]}... (\u03bc\u00b1\u03c3)"
-            if len(pn) > max_len
-            else f"{pn} (\u03bc\u00b1\u03c3)"
+    if print_table:
+        _print_grouped_property_table(
+            out,
+            print_properties=print_properties,
+            group_column_width_max=group_column_width_max,
+            content_col_width_max=content_col_width_max,
+            available_property_keys=available_property_keys,
         )
-        parts.append(f" | {lbl:^{pw}}")
-    logger.info("%s", "".join(parts))
-    logger.info("%s", "-" * tw)
-
-    for _, row in df.iterrows():
-        rp = []
-        for c in grouping_cols:
-            val = str(row.get(c, ""))
-            if len(val) > gw:
-                val = val[: gw - 3] + "..."
-            rp.append(f"{val:^{gw}}")
-        rp.append(f"{int(row.get('N', 0)):^{nw}}")
-        for pn in prop_names:
-            mc, sc = f"{pn}_mean", f"{pn}_std"
-            if mc in df.columns and sc in df.columns:
-                mv, sv = row.get(mc), row.get(sc)
-                if pd.notna(mv) and pd.notna(sv):
-                    s = f"{mv:.2f}\u00b1{sv:.2f}"
-                    if len(s) > pw:
-                        s = s[: pw - 3] + "..."
-                    rp.append(f" | {s:^{pw}}")
-                else:
-                    rp.append(f" | {'N/A':^{pw}}")
-            else:
-                rp.append(f" | {'N/A':^{pw}}")
-        logger.info("%s", "".join(rp))
-    logger.info("%s", "=" * tw)
+    return out
 
 
 def top_properties_different_from_reference(
@@ -198,8 +159,9 @@ def top_properties_different_from_reference(
     """Compute top k properties that differentiate each group from the reference.
 
     Returns:
-        DataFrame with grouping cols, property, effect_size, mean_diff, ref_mean,
-        group_mean, rank.
+        DataFrame with grouping cols, property, effect_size (Cohen's d if
+        ``metric == 'cohens_d'``, else signed mean difference used for ranking),
+        mean_diff, ref_mean, group_mean, rank.
     """
     if df.empty:
         return pd.DataFrame()
@@ -222,6 +184,8 @@ def top_properties_different_from_reference(
 
     if not prop_names:
         return pd.DataFrame()
+    if k < 0:
+        raise ValueError(f"k must be non-negative, got {k}")
 
     for col in reference_group:
         if col not in df.columns:
@@ -312,46 +276,82 @@ def print_top_properties_vs_reference(
     grouping_cols: list[str],
     reference_group: dict[str, Any],
     k: int,
-    column_width: int = 20,
+    metric: str = "cohens_d",
+    group_column_width_max: int = 25,
+    top_property_col_width_max: int = 25,
+    top_effect_col_width_min: int = 12,
 ) -> None:
-    """Pretty-print top properties different from reference."""
-    ref_str = ", ".join(f"{k}={v}" for k, v in reference_group.items())
-    gw, rw, pw, sep = 25, 6, column_width, 3
-    tw = len(grouping_cols) * gw + rw + 3 * (sep + pw)
+    """Pretty-print top properties different from reference.
+
+    Args:
+        result_df: Output from :func:`top_properties_different_from_reference`.
+        grouping_cols: Grouping column names in ``result_df``.
+        reference_group: Reference group used for the comparison.
+        k: Value of *k* passed to the top-k computation (for table title).
+        metric: ``cohens_d`` or ``mean_diff`` (affects effect column label).
+        group_column_width_max: Maximum width for each grouping column.
+        top_property_col_width_max: Max width for the property name column; caps effect/diff
+            column width in the min() step below.
+        top_effect_col_width_min: Min width for Cohen's d / mean diff numeric columns (after
+            _fit_width).
+    """
+    ref_str = ", ".join(f"{gk}={gv}" for gk, gv in reference_group.items())
+    metric_banner, effect_col_header = _metric_labels(metric)
+    sep = 3
+    gw = _fit_width(_group_col_width_need(result_df, grouping_cols), group_column_width_max, 8)
+    r_lens = [len(str(int(r.get("rank", 0)))) for _, r in result_df.iterrows()]
+    rw = _fit_width(max([len("Rank"), *r_lens]), 8, 4)
+    pw_prop_need = max(
+        len("Property"),
+        *(len(str(r.get("property", ""))) for _, r in result_df.iterrows()),
+    )
+    pw_prop = _fit_width(pw_prop_need, top_property_col_width_max, 6)
+    num_hdr = max(len(effect_col_header), len("Mean Diff"))
+    pw_num_need = num_hdr
+    for _, r in result_df.iterrows():
+        es, ms = _top_eff_md_strings(r)
+        pw_num_need = max(pw_num_need, len(es), len(ms))
+    pw_num = min(
+        _fit_width(
+            pw_num_need,
+            20,
+            top_effect_col_width_min,
+        ),
+        top_property_col_width_max,
+    )
+    tw = len(grouping_cols) * gw + rw + (sep + pw_prop) + 2 * (sep + pw_num)
+    blank_g = f"{'':^{gw}}"
 
     logger.info("\n%s", "=" * tw)
     logger.info("%s", f"TOP {k} PROPERTIES DIFFERENT FROM REFERENCE: {ref_str}".center(tw))
+    logger.info("%s", metric_banner.center(tw))
+    logger.info("%s", "=" * tw)
+    parts = [f"{c.capitalize():^{gw}}" for c in grouping_cols] + [
+        f"{'Rank':^{rw}}",
+        f" | {'Property':^{pw_prop}}",
+        f" | {_trunc_center(effect_col_header, pw_num)}",
+        f" | {_trunc_center('Mean Diff', pw_num)}",
+    ]
+    logger.info("%s", "".join(parts))
     logger.info("%s", "=" * tw)
 
-    parts = [f"{c.capitalize():^{gw}}" for c in grouping_cols]
-    parts.append(f"{'Rank':^{rw}}")
-    parts.append(f" | {'Property':^{pw}}")
-    parts.append(f" | {'Effect Size':^{pw}}")
-    parts.append(f" | {'Mean Diff':^{pw}}")
-    logger.info("%s", "".join(parts))
-    logger.info("%s", "-" * tw)
+    for _, sub in result_df.groupby(grouping_cols, sort=False):
+        for _, row in sub.iterrows():
+            rnk = int(row.get("rank", 0))
+            gcells = (
+                [blank_g] * len(grouping_cols)
+                if rnk > 1
+                else [_trunc_center(str(row.get(c, "")), gw) for c in grouping_cols]
+            )
+            es, ms = _top_eff_md_strings(row)
+            rp = [
+                *gcells,
+                f"{rnk:^{rw}}",
+                f" | {_trunc_center(str(row.get('property', '')), pw_prop)}",
+                f" | {_trunc_center(es, pw_num)}",
+                f" | {_trunc_center(ms, pw_num)}",
+            ]
+            logger.info("%s", "".join(rp))
+        logger.info("%s", "-" * tw)
 
-    for _, row in result_df.iterrows():
-        rp = []
-        for c in grouping_cols:
-            val = str(row.get(c, ""))
-            if len(val) > gw:
-                val = val[: gw - 3] + "..."
-            rp.append(f"{val:^{gw}}")
-        rp.append(f"{int(row.get('rank', 0)):^{rw}}")
-        prop = str(row.get("property", ""))
-        if len(prop) > pw:
-            prop = prop[: pw - 3] + "..."
-        rp.append(f" | {prop:^{pw}}")
-        eff = row.get("effect_size", np.nan)
-        md = row.get("mean_diff", np.nan)
-        eff_s = f"{eff:.3f}" if pd.notna(eff) else "N/A"
-        md_s = f"{md:.3f}" if pd.notna(md) else "N/A"
-        if len(eff_s) > pw:
-            eff_s = eff_s[: pw - 3] + "..."
-        if len(md_s) > pw:
-            md_s = md_s[: pw - 3] + "..."
-        rp.append(f" | {eff_s:^{pw}}")
-        rp.append(f" | {md_s:^{pw}}")
-        logger.info("%s", "".join(rp))
     logger.info("%s", "=" * tw)

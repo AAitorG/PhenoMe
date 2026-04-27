@@ -107,7 +107,6 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `embedding_dim` | Return the embedding dimensionality, or 0 if unavailable. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-embedding_dim) |
 | `export_dataset_table` | Export the dataset as a table (CSV, Parquet, or Excel). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-export_dataset_table) |
 | `export_experiment_config` | Export experiment configuration for reproducibility. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-export_experiment_config) |
-| `filter_properties_by_group` | Group property DataFrame and compute per-group statistics. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-filter_properties_by_group) |
 | `find_files` | Discover image and mask files from directories, cache internally, and return file_df. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files) |
 | `find_prototypes` | Find images closest to each group centroid. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-find_prototypes) |
 | `generate_report` | Generate a comprehensive standalone HTML report from phenotyping results. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-generate_report) |
@@ -126,9 +125,9 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `plot_tsne` | Plot t-SNE of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_tsne) |
 | `plot_umap` | Plot UMAP of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_umap) |
 | `print_distance_summary` | Print distance summary statistics without plotting. Safe to use when enable_plots=False. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_distanceplotsmixin-print_distance_summary) |
-| `print_property_stats_by_group` | Print formatted table of grouped property statistics. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-print_property_stats_by_group) |
 | `process_images` | Process images through the model and store embeddings. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-process_images) |
 | `process_temporal_images` | Process new images in-memory (temporary) and append to the current session. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-process_temporal_images) |
+| `property_stats_by_group` | Group properties, compute per-group statistics, and optionally print a table. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-property_stats_by_group) |
 | `reset` | Reset all stored data to a clean state. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-reset) |
 | `reset_properties` | Reset only the computed properties. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-reset_properties) |
 | `save_results` | Save results to HDF5 (atomic write or in-place flush). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-save_results) |
