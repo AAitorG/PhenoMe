@@ -20,6 +20,8 @@ SEARCH_DEBOUNCE_SEC = 0.25
 CLICK_DEBOUNCE_SEC = 0.15
 # Reproducible subsample when downsampling in ``_compute_embedding``.
 DR_RANDOM_STATE = 42
+# Max dataset rows sampled when judging Color-by metadata/property cardinality
+INTERACTIVE_COLOR_SCAN_MAX_INDICES = 3000
 
 
 # ---------------------------------------------------------------------------

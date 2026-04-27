@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Interactive explorer: Color-by dropdown now evaluates metadata/property cardinality across the full dataset (or a seeded random sample when very large), fixing columns such as `new_labels` omitted when classes were ordered so variability appeared only after the old fixed prefix window.
 - Environment: Simplified `environment-gpu.yml` to use standard backends; `pykeops` is now optional for extreme-scale datasets.
 - `prepare_embedding_dataframe` unions property keys across rows (not only row 0)
 - TorchDR→CPU fallback only on likely GPU/transient failures; `ValueError` always propagates; integer `random_state` for TorchDR PCA/TSNE/UMAP

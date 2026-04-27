@@ -35,6 +35,7 @@ from ...core import (
     run_dimensionality_reduction,
 )
 from ...plotly_display import apply_figurewidget_display_config
+from ._color_options import _build_informative_color_columns
 from ._constants import (
     CLICK_DEBOUNCE_SEC,
     CONTINUOUS_SCALES,
@@ -1019,56 +1020,17 @@ class PhenoMeInteractive:
             self.color_dropdown.options = []
             return
 
-        cols: list[str] = []
-        cols.extend(get_all_metadata_keys(self.pheno.results))
+        prev_color = self.color_dropdown.value
+        prop_keys: list[str] = []
         if hasattr(self.pheno, "get_available_property_keys"):
-            cols.extend(self.pheno.get_available_property_keys())
-        cols = sorted(set(cols))
+            prop_keys = self.pheno.get_available_property_keys()
 
-        # Filter out non-informative columns (all NaNs, all same, or unique per row).
-        informative_cols = []
-        results = self.pheno.results
-        n_total = results.n_images
-
-        for col in cols:
-            vals = []
-            is_meta = col in get_all_metadata_keys(results)
-            if is_meta:
-                for i in range(min(n_total, 1000)):
-                    meta = results.metadata[i]
-                    if isinstance(meta, dict):
-                        v = get_metadata_value_from_dict(meta, col)
-                        if v is not None:
-                            vals.append(v)
-            else:
-                for i in range(min(n_total, 1000)):
-                    props = results.properties[i]
-                    if isinstance(props, dict):
-                        v = props.get(col)
-                        if v is not None and not (
-                            isinstance(v, (float, np.floating)) and np.isnan(v)
-                        ):
-                            vals.append(v)
-
-            if not vals:
-                continue
-
-            unique_vals = set(vals)
-            if len(unique_vals) <= 1:
-                continue
-
-            # Unique-per-row id-like columns (id, filename, path) are not informative for colouring.
-            if (
-                len(unique_vals) > n_total * 0.9
-                and n_total > 10
-                and col.lower() in ("id", "filename", "file_path", "path", "index")
-            ):
-                continue
-
-            informative_cols.append(col)
-
-        cols = sorted(informative_cols)
+        cols = _build_informative_color_columns(self.pheno.results, prop_keys)
         self.color_dropdown.options = cols
+
+        if cols and prev_color and prev_color in cols:
+            self.color_dropdown.value = prev_color
+            return
 
         for default in ["drug", "cluster", "treatment", "condition", "time"]:
             if default in cols:
@@ -1398,6 +1360,7 @@ class PhenoMeInteractive:
         # Refresh highlight options now that we have a new DataFrame
         self._update_highlight_key_options()
         self._update_highlight_value_options()
+        self._update_color_options()
 
         self._refresh_index_row_map()
         self._compute_seq += 1
