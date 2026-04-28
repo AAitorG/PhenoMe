@@ -1,6 +1,6 @@
 ---
-title: "Path templates"
-description: Extract metadata from folder structure using get_metadata_from_path templates.
+title: "Using folder names"
+description: Identify images and add labels based on your folder structure.
 sidebar:
   order: 1
 ---
@@ -8,7 +8,7 @@ sidebar:
 import { FileTree } from '@astrojs/starlight/components';
 
 When folders encode your experiment (for example
-`/data/DrugA/24h/img01.tif`), a **path template** tells PhenoMe what each
+`/data/DrugA/24h/img01.tif`), you can use a **folder pattern** to tell PhenoMe what each
 folder represents.
 
 ## Simplest case: folders by treatment
@@ -30,9 +30,9 @@ metadata_fn = get_metadata_from_path(".../(condition)/(filename).*")
 pheno.find_files("data", metadata_fn=metadata_fn)
 ```
 
-## Template rules
+## Pattern rules
 
-A template matches a file path from right to left. You choose the names of
+A pattern matches a file path from right to left. You choose the names of
 the tokens in parentheses—they become the column names in your results.
 
 | Token | Meaning |
@@ -63,7 +63,7 @@ metadata_fn = get_metadata_from_path(
 | `.../(drug)/img.tif` | Hardcoded filename; matches one file. | `.../(drug)/(filename).*` |
 | `(drug)/(drug)/(filename)` | Duplicate key `drug`. | `(plate)/(drug)/(filename).*` |
 
-## When path templates are not enough
+## When folder patterns are not enough
 
 Switch to a custom function (see
 [Advanced patterns](/PhenoMe/guides/experiment-details/advanced-patterns/)) when:
@@ -74,6 +74,7 @@ Switch to a custom function (see
 
 ## See also
 
-- [CSV lookup](/PhenoMe/guides/experiment-details/csv-lookup/) - link labels stored in a spreadsheet.
+- [Notebook 02: Loading & Inspection](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb) - runnable example of using folder patterns.
+- [Using a CSV or spreadsheet](/PhenoMe/guides/experiment-details/csv-lookup/) - link labels stored in a spreadsheet.
 - [Advanced patterns](/PhenoMe/guides/experiment-details/advanced-patterns/) - regex, nested structures,
   `MetadataBase`.

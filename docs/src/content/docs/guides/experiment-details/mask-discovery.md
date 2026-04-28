@@ -1,6 +1,6 @@
 ---
-title: "Mask discovery"
-description: Automatic matching of segmentation masks to images for property computation.
+title: "Finding masks"
+description: Automatically match masks to your images to measure physical traits like shape and size.
 sidebar:
   order: 3
 ---
@@ -10,7 +10,7 @@ attach mask paths automatically via the `mask_dir` parameter. The
 returned DataFrame includes a `mask_path` column used by
 `compute_properties` for mask-based features.
 
-## Default behaviour (mirrored directory structure)
+## Default behaviour (mirrored folder structure)
 
 Masks are matched by the same relative path and filename under
 `mask_dir`. For example:
@@ -61,6 +61,6 @@ automatically if you omit them from `pheno.find_files` - see
 
 ## See also
 
-- [Property interpretation](/PhenoMe/concepts/property-interpretation/) - which properties
+- [Understanding properties](/PhenoMe/concepts/property-interpretation/) - which physical traits
   depend on masks.
-- [Data setup](/PhenoMe/guides/data-setup/) - file-layout guidance.
+- [Preparing your data](/PhenoMe/guides/data-setup/) - file-layout guidance.

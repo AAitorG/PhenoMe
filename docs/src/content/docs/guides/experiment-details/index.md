@@ -1,6 +1,6 @@
 ---
-title: "Experiment details (metadata)"
-description: How to describe the experimental context of each image so PhenoMe can group, filter, and compare results.
+title: "Adding experiment info (metadata)"
+description: How to describe the context of each image so PhenoMe can group, filter, and compare results.
 sidebar:
   order: 0
 ---
@@ -17,19 +17,19 @@ covers each option.
 
 | You have... | Read next |
 |-------------|-----------|
-| Folders that tell the story (`drug/time/img.tif`) | [Path templates](/PhenoMe/guides/experiment-details/path-templates/) |
-| A CSV or spreadsheet of labels | [CSV lookup](/PhenoMe/guides/experiment-details/csv-lookup/) |
-| Masks in a separate folder | [Mask discovery](/PhenoMe/guides/experiment-details/mask-discovery/) |
+| Folders that tell the story (`drug/time/img.tif`) | [Using folder names](/PhenoMe/guides/experiment-details/path-templates/) |
+| A CSV or spreadsheet of labels | [Using a CSV or spreadsheet](/PhenoMe/guides/experiment-details/csv-lookup/) |
+| Masks in a separate folder | [Finding masks](/PhenoMe/guides/experiment-details/mask-discovery/) |
 | Regex, nested directories, or object-oriented configuration | [Advanced patterns](/PhenoMe/guides/experiment-details/advanced-patterns/) |
 
-## Why metadata matters
+## Why this info matters
 
 - **Filtering**: "show me only images treated with Drug A".
 - **Grouping**: "colour the plot by drug concentration".
 - **Comparing**: "measure how far the Drug A group is from the Control
   group".
 
-## Minimal example
+## Quick example
 
 ```python
 from phenome import PhenoMe, get_metadata_from_path
@@ -52,7 +52,7 @@ Every metadata function must return a dict containing at least
 return {"file_path": path, "condition": "Control"}
 ```
 
-### Handle edge cases
+### Handle messy filenames
 
 Be defensive when parsing messy filenames:
 
@@ -71,7 +71,7 @@ Choose `condition` or `treatment`, `concentration` or `conc`, and stick
 with it across all your experiments. Downstream filtering is
 **case-sensitive**.
 
-### Validate before processing
+### Check before starting
 
 Test the function on a handful of paths first:
 

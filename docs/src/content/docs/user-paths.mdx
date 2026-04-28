@@ -13,7 +13,7 @@ path and follow it in order** - jumping around tends to leave gaps.
 ## Path A - First day
 
 :::note[Goal]
-Run something today and understand the big picture. Target audience:
+Start using PhenoMe today and understand the basic concepts. Target audience:
 **newcomers** with no prior PhenoMe experience.
 :::
 
@@ -21,30 +21,30 @@ Run something today and understand the big picture. Target audience:
 1. [Getting started](/PhenoMe/getting-started/) - install, verify `import phenome`, CPU/GPU note.
 2. [Notebook 01 - Interactive quickstart](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb) - widgets, toy or your data.
 3. [FAQ - installation](/PhenoMe/faq/#installation-and-setup) - common blockers.
-4. Optional: [Core concepts](/PhenoMe/concepts/) - vocabulary for embeddings, metadata, and results when you want the full picture (not required to run analyses).
+4. Optional: [Core concepts](/PhenoMe/concepts/) - understand terms like visual fingerprints, metadata, and results.
 </Steps>
 
 ## Path B - Your own dataset
 
 :::note[Goal]
-Reproducible workflow on real images with sensible metadata. Target
+Run a reliable analysis on your own images using experimental info (metadata). Target
 audience: **scientists / analysts** moving from a toy run to their own data.
 :::
 
 <Steps>
 1. [Getting started](/PhenoMe/getting-started/) - environment locked in.
-2. [Data setup](/PhenoMe/guides/data-setup/) - decide if you need metadata; path templates vs CSV.
-3. [Notebook 02 - Inspect images](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb) - quality checks.
+2. [Preparing your data](/PhenoMe/guides/data-setup/) - decide if you need labels; folder patterns vs spreadsheets.
+3. [Notebook 02 - Load and inspect images](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb) - quality checks.
 4. [Notebook 03 - Core workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb) - embeddings, properties, plots.
-5. [Select properties — Presets](/PhenoMe/guides/select-properties/presets/) — choose a `property_preset` (column meanings: [Property interpretation](/PhenoMe/concepts/property-interpretation/)).
+5. [Select properties — Presets](/PhenoMe/guides/select-properties/presets/) — choose a `property_preset` (column meanings: [Understanding properties](/PhenoMe/concepts/property-interpretation/)).
 6. [Workflows](/PhenoMe/workflows/) or [Examples gallery](/PhenoMe/examples/) - match your study design.
-7. Optional: [Notebook 04 - Metadata](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb).
+7. Optional: [Notebook 04 - Adding labels](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb).
 </Steps>
 
 ## Path C - Reporting and communication
 
 :::note[Goal]
-Explain results to collaborators. Target audience: **PIs, reviewers,
+Communicate and share your results with collaborators. Target audience: **PIs, reviewers,
 authors** of a paper or slide deck.
 :::
 
@@ -73,14 +73,13 @@ Safe changes in the codebase and up-to-date API docs. Target audience:
 ## Path E - Interpretability and exploration
 
 :::note[Goal]
-DR plots, correlations, explainability. Target audience: **scientists
-doing hypothesis generation** on embedding spaces.
+Visualize patterns, find links between features, and explain AI results. Target audience: **scientists looking for biological patterns in their data.**
 :::
 
 <Steps>
 1. [Notebook 05 - Exploratory analysis](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb).
-2. [Embeddings interpretability](/PhenoMe/concepts/embeddings-interpretability/).
-3. [Glossary](/PhenoMe/glossary/) - embedding, correlation engine, channel mode.
+2. [Explaining AI results](/PhenoMe/concepts/embeddings-interpretability/).
+3. [Glossary](/PhenoMe/glossary/) - terminology overview (visual fingerprints, linking AI to biology, etc.).
 </Steps>
 
 ## Doc vs notebook: where to look
@@ -88,6 +87,6 @@ doing hypothesis generation** on embedding spaces.
 | Topic | Read first | Practice in |
 |-------|------------|-------------|
 | Install | [Getting started](/PhenoMe/getting-started/) | Notebook 01 (Colab cell if needed) |
-| Metadata | [Data setup](/PhenoMe/guides/data-setup/) | Notebook 04 |
+| Metadata | [Preparing your data](/PhenoMe/guides/data-setup/) | Notebook 02 & 04 |
 | Full pipeline | [Getting started, step 3](/PhenoMe/getting-started/#3-your-first-analysis) | Notebook 03 |
 | Plugins | [Extending](/PhenoMe/guides/extending/) | Notebook 06 |

@@ -28,8 +28,8 @@ In Vision Transformers (ViTs), a special token whose output represents a summary
 ### Correlation coefficient (r)
 A number between -1 and 1 measuring how two variables move together. Positive r: both increase together. Negative r: one increases as the other decreases. Near 0: little linear relationship. Used to link embedding dimensions to classical properties for interpretability.
 
-### Dimensionality reduction (DR)
-Projecting high-dimensional embeddings (e.g., 768D) into 2D or 3D for visualization. Methods: PCA, t-SNE, UMAP.
+### Dimensionality reduction (visualizing patterns)
+Reducing complex high-dimensional information (like 768 numbers describing an image) into simpler representations (2 or 3 numbers) so we can plot them on a map. Methods: PCA, t-SNE, UMAP.
 
 ### DINOv2
 A self-supervised vision model by Meta AI. Learns visual features without labels. Default example model in the pipeline.
@@ -95,7 +95,7 @@ Using a pre-trained model without training or fine-tuning on your data. DINOv2 a
 
 ## See also
 
-- **Embeddings and metadata** - [Core concepts](/PhenoMe/concepts/), [Data setup](/PhenoMe/guides/data-setup/)
+- **Visual fingerprints and labels** - [Core concepts](/PhenoMe/concepts/), [Preparing your data](/PhenoMe/guides/data-setup/)
 - **Channel / split mode** - [Concepts — channel modes](/PhenoMe/concepts/channel-modes/)
 - **Checkpoints and HDF5** - [HDF5 protocol](/PhenoMe/advanced/database_protocol/), [Best practices](/PhenoMe/guides/best-practices/)
-- **Correlations and explainability** - [Embeddings interpretability](/PhenoMe/concepts/embeddings-interpretability/)
+- **Linking AI to biology** - [Explaining AI results](/PhenoMe/concepts/embeddings-interpretability/)

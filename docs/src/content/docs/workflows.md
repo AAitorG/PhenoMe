@@ -1,6 +1,6 @@
 ---
 title: "Common workflows"
-description: High-level overview of the phenotyping tasks PhenoMe supports, with links to the canonical notebook for each one.
+description: Simple overview of what you can do with PhenoMe, with links to the best tutorial for each task.
 sidebar:
   order: 5
 ---
@@ -13,7 +13,7 @@ This page keeps only a short summary and pointers.
 ## 1. Basic analysis
 
 The standard end-to-end workflow - from loading images and extracting
-visual fingerprints to computing distances and generating reports - is
+visual fingerprints (AI descriptions) to comparing images and generating reports - is
 covered in the core tutorial.
 
 - **Tutorial:** [03 - Core phenotyping workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb)
@@ -21,35 +21,30 @@ covered in the core tutorial.
 ## 2. Drug screening and time-course
 
 Analysing the effects of different drug treatments or mapping changes
-over time requires robust metadata extraction. Whether your data is
+over time requires using experimental info (metadata). Whether your data is
 organised hierarchically (`{drug}/{concentration}/{image}.tif`) or
 encoded in filenames (`Treated_24h`), you can handle it through the
 metadata pipeline.
 
-- **Tutorial:** [04 - Advanced metadata handling](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)
-- **Guide:** [Experiment details (metadata)](/PhenoMe/guides/experiment-details/)
+- **Tutorial:** [04 - Adding labels (metadata)](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)
+- **Guide:** [Adding experiment info (metadata)](/PhenoMe/guides/experiment-details/)
 
-## 3. Property-based and explainability analysis
+## 3. Property-based analysis and explaining results
 
-To connect abstract AI patterns to real biology, compute classical
-physical properties (area, eccentricity, intensity) and correlate them
-with your embeddings.
+To connect abstract AI patterns to real biology, compute classical physical properties (like area, brightness, and texture) and link them to your visual fingerprints.
 
-- **Tutorial:** [05 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
-- **Guide:** [Property interpretation](/PhenoMe/concepts/property-interpretation/), [Embeddings interpretability](/PhenoMe/concepts/embeddings-interpretability/)
+- **Tutorial:** [05 - Finding patterns and explaining results](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
+- **Guide:** [Understanding properties](/PhenoMe/concepts/property-interpretation/), [Explaining AI results](/PhenoMe/concepts/embeddings-interpretability/)
 
-## 4. Subpopulations and outlier detection
+## 4. Finding groups and outliers
 
-Discover hidden functional states (clusters) within a single condition
-or find anomalous cells dynamically via clustering and distance
-thresholds.
+Discover hidden groups of images (clusters) within a single condition or find unusual cells (outliers) using clustering and similarity checks.
 
-- **Tutorial:** [05 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
+- **Tutorial:** [05 - Finding patterns and explaining results](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
 
-## 5. Temporal images (in-memory exploration)
+## 5. Temporal images (testing new data quickly)
 
-To test how **new** images map onto your pre-calculated PCA / t-SNE
-spaces without reprocessing a checkpoint, use temporal processing.
+To see how **new** images fit into your existing pattern visualizations (PCA/t-SNE) without starting over, use temporal processing.
 
 ```python
 pheno.process_temporal_images(
@@ -64,8 +59,7 @@ pheno.clear_temporal_data()
 
 ## 6. Batch processing large datasets
 
-For datasets that do not fit in memory, enable checkpointing so
-embeddings are written to disk as they are computed.
+For very large datasets, use "checkpointing" so results are saved to disk as they are calculated.
 
 ```python
 pheno.process_images(
@@ -83,8 +77,8 @@ for memory sizing.
 | Topic | Where |
 |-------|-------|
 | Installation and quick start | [Getting started](/PhenoMe/getting-started/) |
-| Folder structure and metadata | [Data setup](/PhenoMe/guides/data-setup/), [Experiment details](/PhenoMe/guides/experiment-details/) |
-| Embeddings, channels, results | [Core concepts](/PhenoMe/concepts/) |
+| Folder structure and metadata | [Preparing your data](/PhenoMe/guides/data-setup/), [Adding experiment info](/PhenoMe/guides/experiment-details/) |
+| Visual fingerprints, channel modes, and results | [Core concepts](/PhenoMe/concepts/) |
 | Full API reference | [API & data formats](/PhenoMe/advanced/), [Pipeline API](/PhenoMe/advanced/api/pipeline/) |
-| Property presets and custom functions | [Select properties](/PhenoMe/guides/select-properties/), [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
+| Property sets and custom functions | [Select properties](/PhenoMe/guides/select-properties/), [Understanding properties](/PhenoMe/concepts/property-interpretation/) |
 | Reproducibility and optimization | [Best practices](/PhenoMe/guides/best-practices/) |

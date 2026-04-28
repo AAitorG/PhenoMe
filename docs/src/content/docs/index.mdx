@@ -1,6 +1,6 @@
 ---
 title: "PhenoMe"
-description: Model and dataset agnostic phenotyping with deep learning embeddings. Python package - phenome.
+description: Flexible phenotyping (identifying biological traits) for any dataset using deep learning visual fingerprints. Python package - phenome.
 template: splash
 head:
   - tag: title
@@ -31,14 +31,9 @@ import { Card, CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
 
 **PhenoMe** is a reproducible phenotyping pipeline built around three ideas:
 
-- **Embeddings as the common representation.** Any vision model that exposes
-  features can be plugged in; all downstream analyses
-  work on the resulting vectors.
-- **Metadata as the experimental context.** Tell the pipeline about conditions, doses, time points, plates,
-  and wells.
-- **Classical properties to keep results interpretable.** Shape, intensity,
-  texture, and quality metrics are computed alongside the embeddings and
-  can be correlated back into them.
+- **Embeddings as the common representation.** Any vision model that can describe images can be plugged in; all downstream analyses work on the resulting digital descriptions (vectors).
+- **Metadata (experimental context) as the extra info about your images.** Tell the pipeline about conditions, doses, time points, plates, and wells.
+- **Classical properties to keep results easy to understand.** Shape, intensity, texture, and quality metrics are computed alongside the embeddings and can be linked back to them to explain what the AI sees.
 
 ## How it fits together
 
@@ -47,16 +42,16 @@ import { Card, CardGrid, LinkCard, Badge } from '@astrojs/starlight/components';
 PhenoMe follows a modular 4-step workflow:
 
 1.  **Discover** — Identifies your raw microscopy images and masks.
-2.  **Embeddings** (A) — Handles preprocessing and batched inference through a vision model to extract **visual fingerprints**.
-3.  **Properties** (B) — Extracts explainable **classical features** (intensity, shape, texture) in parallel.
-4.  **Analyze** (C) — Merges both branches for distance quantification, dimensionality reduction (PCA/UMAP), interactive plotting, and reporting.
+2.  **Embeddings** (A) — Handles preprocessing and runs the vision model to extract **visual fingerprints** (digital descriptions of each image).
+3.  **Properties** (B) — Extracts explainable **classical features** (like size, brightness, and texture).
+4.  **Analyze** (C) — Merges both branches for comparing images, visualizing patterns (PCA/t-SNE/UMAP), interactive plotting, and reporting.
 
 The same four steps underpin every workflow. Everything else (interactive exploration, extension hooks, etc.) plugs into that backbone.
 
 ## Choose your path
 
 Pick the card that matches you best. Each path ends at the same core idea:
-install, point at data, run notebooks or code, interpret results.
+install, point at data, run notebooks or code, and understand your results.
 
 <CardGrid stagger>
   <Card title="New to PhenoMe or Python" icon="rocket">
@@ -67,9 +62,9 @@ install, point at data, run notebooks or code, interpret results.
   </Card>
 
   <Card title="Ready to Use Your Own Images" icon="document">
-    Clean data, compute embeddings, and plot results.
-    - [Data setup](/PhenoMe/guides/data-setup/)
-    - [02 Inspect images](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb)
+    Clean and organize data, then plot results.
+    - [Preparing your data](/PhenoMe/guides/data-setup/)
+    - [02 Load and inspect images](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb)
     - [03 Core workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb)
   </Card>
 
@@ -81,17 +76,17 @@ install, point at data, run notebooks or code, interpret results.
   </Card>
 
   <Card title="Advanced Concepts" icon="magnifier">
-    Deepen your understanding of embeddings and interpretability.
+    Deepen your understanding of embeddings and how to explain AI results.
     - [Core concepts](/PhenoMe/concepts/)
-    - [04 Advanced metadata](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)
-    - [05 Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
+    - [04 Adding complex labels](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_advanced_metadata_handling.ipynb)
+    - [05 Finding patterns and explaining results](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb)
   </Card>
 </CardGrid>
 
 ## Essential guides and references
 
 <CardGrid>
-  <LinkCard title="Property interpretation" description="How to read each built-in classical feature; preset bundles live under Select properties." href={`${import.meta.env.BASE_URL}concepts/property-interpretation/`} />
+  <LinkCard title="Understanding properties" description="How to read each built-in classical feature; preset bundles live under Select properties." href={`${import.meta.env.BASE_URL}concepts/property-interpretation/`} />
   <LinkCard title="Function location" description="Find where a symbol lives in the codebase." href={`${import.meta.env.BASE_URL}function-location-guide/`} />
   <LinkCard title="Report API" description="generate_report() parameters and HTML report output." href={`${import.meta.env.BASE_URL}advanced/api/report/`} />
   <LinkCard title="Examples gallery" description="Match your study design to a known pattern." href={`${import.meta.env.BASE_URL}examples/`} />

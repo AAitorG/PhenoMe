@@ -11,7 +11,7 @@ Common questions grouped by topic.
 
 ### Do I need to train a model?
 
-No. PhenoMe is **zero-shot**: it uses pre-trained models like DINOv2 out-of-the-box. You point the pipeline at your images and run. No training, fine-tuning, or manual annotation is required.
+No. PhenoMe is **zero-shot**: it uses pre-trained AI models like DINOv2 out-of-the-box. You point the pipeline at your images and run. No training, fine-tuning, or manual annotation is required.
 
 ### Do I need a GPU?
 
@@ -25,7 +25,7 @@ A GPU is **strongly recommended** for reasonable speed. The pipeline works on CP
 
 ### I get a `[KeOps] Warning : CUDA libraries not found or could not be loaded; Switching to CPU only` error, what should I do?
 
-This happens if `pykeops` is installed but cannot find your system's CUDA toolkit or compiler. In most cases, you can ignore this: PhenoMe will automatically fall back to standard PyTorch or Scikit-Learn backends for dimensionality reduction (PCA, t-SNE, UMAP), which is fast enough for most datasets.
+This happens if `pykeops` is installed but cannot find your system's CUDA toolkit or compiler. In most cases, you can ignore this: PhenoMe will automatically fall back to standard PyTorch or Scikit-Learn backends for visualizing patterns (using PCA, t-SNE, or UMAP), which is fast enough for most datasets.
 
 If you are working with very large datasets (e.g., >100,000 images) and need the memory efficiency of KeOps, ensure you have a functional C++ compiler and that your `CUDA_HOME` environment variable is set. For standard usage, you can safely ignore the warning or simply uninstall `pykeops`.
 
@@ -42,8 +42,8 @@ See the verification steps in [Getting started — Installation](/PhenoMe/gettin
 
 ### Do I need masks?
 
-- **For embeddings**: No. Embeddings are extracted directly from images.
-- **For classical properties**: Depends on the preset. The `intensity` preset works on images only (no masks). Presets like `basic`, `regionprops`, and `full` require masks for shape-based features. See [Property interpretation](/PhenoMe/concepts/property-interpretation/).
+- **For embeddings**: No. These are extracted directly from images.
+- **For classical properties**: Depends on the preset. The `intensity` preset works on images only (no masks). Presets like `basic`, `regionprops`, and `full` require masks for shape-based features. See [Understanding properties](/PhenoMe/concepts/property-interpretation/).
 
 ### How long does processing take?
 
@@ -64,11 +64,11 @@ The pipeline is flexible:
 - **Flat**: All images in one folder. Use `pheno.find_files("path/to/images")`.
 - **By condition**: `data/Control/img1.tif`, `data/Drug1/img1.tif`. Use a **path template** (`get_metadata_from_path`) or custom `metadata_fn`.
 
-See [Data setup](/PhenoMe/guides/data-setup/) and [Experiment details](/PhenoMe/guides/experiment-details/).
+See [Preparing your data](/PhenoMe/guides/data-setup/) and [Adding experiment info](/PhenoMe/guides/experiment-details/).
 
 ### I use a CSV for metadata—why don’t my CSV row count and `file_df` row count match?
 
-`find_files` first scans your images folder, then matches those images to your CSV. **Only the overlap is used:** image files must exist in **both** the folder and the CSV to be processed. Extra rows in your CSV are ignored, and images without a CSV row are skipped by default. See [Experiment details - CSV lookup](/PhenoMe/guides/experiment-details/csv-lookup/).
+`find_files` first scans your images folder, then matches those images to your CSV. **Only the overlap is used:** image files must exist in **both** the folder and the CSV to be processed. Extra rows in your CSV are ignored, and images without a CSV row are skipped by default. See [Adding experiment info — Using a spreadsheet](/PhenoMe/guides/experiment-details/csv-lookup/).
 
 ### My filter returns no images. Why?
 
@@ -101,15 +101,15 @@ See [Best practices - performance](/PhenoMe/guides/best-practices/performance/#g
 
 ### Results differ between runs. Why?
 
-t-SNE and UMAP are stochastic. For reproducibility, set `seed=42` when creating the pipeline: `PhenoMe(seed=42)`. Also use `use_gpu_for_dr=False` if you need exact match with CPU sklearn/umap-learn. For large datasets on GPU, install `pykeops` to avoid OOM. See [Best practices - reproducibility](/PhenoMe/guides/best-practices/reproducibility/) and [Best practices - performance](/PhenoMe/guides/best-practices/performance/).
+t-SNE and UMAP have random elements (they are stochastic). For reproducibility, set `seed=42` when creating the pipeline: `PhenoMe(seed=42)`. Also use `use_gpu_for_dr=False` if you need exact match with CPU sklearn/umap-learn. For large datasets on GPU, install `pykeops` to avoid OOM. See [Best practices - reproducibility](/PhenoMe/guides/best-practices/reproducibility/) and [Best practices - performance](/PhenoMe/guides/best-practices/performance/).
 
 ---
 
 ## Results and interpretation
 
-### What is the "correlation engine" and how do I use it?
+### What is the "correlation engine" (linking AI to biology) and how do I use it?
 
-The correlation engine links embedding dimensions (or PCA/UMAP components) to classical properties. It answers: "What morphological feature does this axis encode?" For example, PC1 might correlate with eccentricity (r=0.88), suggesting elongation drives the separation. See [Embeddings interpretability](/PhenoMe/concepts/embeddings-interpretability/).
+The correlation engine links the abstract AI descriptions to classical physical properties (like size or shape). It answers: "What physical trait does this AI pattern represent?" For example, a certain axis might represent how elongated a cell is. See [Explaining AI results](/PhenoMe/concepts/embeddings-interpretability/).
 
 ### How do I choose channel mode (split vs combined)?
 
@@ -127,7 +127,7 @@ See [Core concepts — channel modes](/PhenoMe/concepts/channel-modes/).
 | Masks, shape only       | `regionprops`     |
 | Masks, full analysis    | `full` or `full_extended` |
 
-See [Property interpretation — choosing properties](/PhenoMe/concepts/property-interpretation/#choosing-properties).
+See [Understanding properties — choosing properties](/PhenoMe/concepts/property-interpretation/#choosing-properties).
 
 ---
 

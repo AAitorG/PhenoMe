@@ -122,7 +122,7 @@ More in the [FAQ - installation](/PhenoMe/faq/#installation-and-setup).
 
 </details>
 
-## 3. Your first analysis
+## 3. Run your first analysis
 
 The snippet below runs the full pipeline on a folder of images. You can run
 this in a **Python script** or a **Jupyter Notebook** cell.
@@ -133,9 +133,9 @@ If you prefer a guided walkthrough with interactive widgets, start with
 :::
 
 <Steps>
-1. **Setup & initialization**
+1. **Set up and start**
 
-   Load a vision model (DINOv2 by default) and create the pipeline.
+   Load an AI vision model (DINOv2 by default) and create the pipeline.
 
    ```python
    import torch
@@ -148,15 +148,14 @@ If you prefer a guided walkthrough with interactive widgets, start with
 
 2. **Find and inspect images**
 
-   A flat folder is fine. For grouped experiments (conditions, drugs,
-   time points) add metadata via [path templates or CSV](/PhenoMe/guides/experiment-details/).
+   A simple folder is fine. For grouped experiments (conditions, drugs,
+   time points) add labels via [folder patterns or spreadsheets](/PhenoMe/guides/experiment-details/).
 
    ```python
    pheno.find_files("path/to/your/images")
-   inspect_df = pheno.inspect_data()
    ```
 
-3. **Extract visual fingerprints and properties**
+3. **Extract visual fingerprints (AI descriptions) and classical properties**
 
    ```python
    pheno.process_images(wrapper)
@@ -164,18 +163,18 @@ If you prefer a guided walkthrough with interactive widgets, start with
    ```
 
    <Aside type="tip">
-   Use `property_preset="intensity"` if you do not have masks. See the
-   [Property interpretation](/PhenoMe/concepts/property-interpretation/) for details.
+   Use `property_preset="intensity"` if you do not have masks. See
+   [Understanding properties](/PhenoMe/concepts/property-interpretation/) for details.
    </Aside>
 
-4. **Visualize**
+4. **Visualize your results**
 
    ```python
    pheno.plot_pca(color_by="condition")
    ```
 
    Replace `condition` with any metadata column present on your
-   `file_df`. Use `pheno.get_available_metadata_keys()` to list them.
+   spreadsheet of your images (`file_df`). Use `pheno.get_available_metadata_keys()` to list them.
 </Steps>
 
 ## What's next?
@@ -190,8 +189,8 @@ guide, reference, or notebook - no duplicates of the quickstart above.
     href={`${import.meta.env.BASE_URL}user-paths/`}
   />
   <LinkCard
-    title="Bring your own data"
-    description="Organize folders, attach metadata via path templates or CSV, and discover masks."
+    title="Preparing your data"
+    description="Organize folders, add labels via folder patterns or spreadsheets, and find masks."
     href={`${import.meta.env.BASE_URL}guides/data-setup/`}
   />
   <LinkCard
@@ -200,8 +199,8 @@ guide, reference, or notebook - no duplicates of the quickstart above.
     href={`${import.meta.env.BASE_URL}workflows/`}
   />
   <LinkCard
-    title="Property interpretation"
-    description="Understand built-in classical features; for preset bundles, see Select properties."
+    title="Understanding properties"
+    description="Learn about the physical traits like size and shape that PhenoMe measures."
     href={`${import.meta.env.BASE_URL}concepts/property-interpretation/`}
   />
   <LinkCard

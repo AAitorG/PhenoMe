@@ -1,12 +1,12 @@
 ---
-title: "CSV lookup"
-description: Join image files to metadata stored in a CSV or spreadsheet using make_dataframe_metadata_fn.
+title: "Using a CSV or spreadsheet"
+description: Connect image files to labels stored in a CSV or spreadsheet.
 sidebar:
   order: 2
 ---
 
 
-## How CSV lookup works
+## How it works
 
 `pheno.find_files` first scans your image folder, then looks each file up
 in your CSV. **Only the overlap is used:**
@@ -19,7 +19,7 @@ in your CSV. **Only the overlap is used:**
 To keep images that fail lookup (with empty labels), pass
 `on_missing_metadata="keep"` to `find_files`.
 
-## Your CSV might look like
+## Example CSV format
 
 ```csv
 filename,drug,concentration_uM,time
@@ -47,7 +47,7 @@ metadata_fn = make_dataframe_metadata_fn(
 file_df = pheno.find_files("images/", metadata_fn=metadata_fn)
 ```
 
-## Multi-channel (one file per channel)
+## Multiple files per image (multi-channel)
 
 When each channel is stored in a different file, pass a **list** of
 column names in channel order. The dataframe must have one row per
@@ -76,7 +76,7 @@ file_df = pheno.find_files("images/", metadata_fn=metadata_fn)
 `find_files` groups discovered files by sample and sets `file_path` to a
 list of paths in channel order.
 
-## Fallback: manual metadata function
+## Custom lookup logic
 
 If you need different keys or custom logic (for example `image_id`
 instead of `filename`), write your own lookup:
@@ -105,9 +105,10 @@ def metadata_from_csv(path: str) -> dict:
 
 ## See also
 
-- [Path templates](/PhenoMe/guides/experiment-details/path-templates/) - skip the CSV if folders
-  already encode the metadata.
-- [Mask discovery](/PhenoMe/guides/experiment-details/mask-discovery/) - attach segmentation masks via
+- [Notebook 02: Loading & Inspection](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb) - runnable example of CSV lookup.
+- [Using folder names](/PhenoMe/guides/experiment-details/path-templates/) - skip the CSV if folders
+  already encode the info.
+- [Finding masks](/PhenoMe/guides/experiment-details/mask-discovery/) - attach segmentation masks via
   the same CSV.
 - [Advanced patterns](/PhenoMe/guides/experiment-details/advanced-patterns/) - `MetadataBase` objects
   that centralise filename, mask, and key configuration.
