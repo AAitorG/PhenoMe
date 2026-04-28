@@ -10,7 +10,7 @@ A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping
 
 ### 🗺️ Navigation
 
-[**✨ Features**](#-features) | [**🚀 Quick Start**](#-quick-start) | [**📦 Installation**](#-installation) | [**📖 Documentation**](#-documentation)
+[**✨ Features**](#-features) | [**🚀 Quick Start**](#-quick-start) | [**📦 Installation**](#-installation) | [**📖 Documentation**](https://AAitorG.github.io/PhenoMe/) | [**📜 Citation**](#citation)
 
 ---
 
@@ -55,7 +55,7 @@ conda activate phenome-cpu
 
 </details>
 
-<details open>
+<details>
 
 <summary>GPU</summary>
 
@@ -115,6 +115,7 @@ pip install -r envs/requirements-gpu.txt -e .
 | 1. Install | [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) |
 | 2. Set up your data | [Data setup](https://AAitorG.github.io/PhenoMe/guides/data-setup/) · [Experiment details](https://AAitorG.github.io/PhenoMe/guides/experiment-details/) |
 | 3. Tutorials | [Notebooks/tutorials/](Notebooks/tutorials/) (start with **01**, then **02**–**03**) · [Learning paths](https://AAitorG.github.io/PhenoMe/user-paths/) |
+| 4. Use-case examples & reproducibility | [Notebooks/examples/](Notebooks/examples/) (public datasets · `PHENOME_*` paths · manuscript figures) |
 
 **Concepts and examples:** [Core concepts](https://AAitorG.github.io/PhenoMe/concepts/) · [Workflows](https://AAitorG.github.io/PhenoMe/workflows/) · [Examples](https://AAitorG.github.io/PhenoMe/examples/) · [FAQ](https://AAitorG.github.io/PhenoMe/faq/) · [Glossary](https://AAitorG.github.io/PhenoMe/glossary/)
 
