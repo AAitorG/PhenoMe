@@ -117,9 +117,14 @@ def _build_group_enrichment_figure(
         return None
 
     n_grp = len(active)
-    # Gaps between facet rows: must clear x-axis tick labels of row r from subplot title of
-    # row r+1 (tight values cause overlap). Cap so many groups still fit on one figure.
-    vertical_spacing = min(0.14, 0.085 + 0.022 * max(1, 4 / n_grp))
+    max_bars = max(len(s) for s in prepared)
+    row_px = max(160, 26 * max_bars + 50)
+    gap_px = 80
+    margin_t = 80 if title else 60
+    margin_b = 64
+    top_bottom_px = margin_t + margin_b
+    height_px = max(300, int(row_px * n_grp + gap_px * max(0, n_grp - 1) + top_bottom_px))
+    vertical_spacing = (gap_px / height_px) if n_grp > 1 else 0.02
     fig = make_subplots(
         rows=n_grp,
         cols=1,
@@ -153,10 +158,6 @@ def _build_group_enrichment_figure(
         )
 
     width_px = int(figsize[0] * 100)
-    row_px = max(160, 26 * max(len(s) for s in prepared) + 50)
-    # Extra height for larger vertical_spacing + title/tick padding so bar rows are not squashed.
-    inter_row_pad = 32 * max(0, n_grp - 1)
-    height_px = max(300, int(row_px * n_grp + 100 + inter_row_pad))
 
     max_label_chars = max(
         (len(str(lbl)) for s in prepared for lbl in s.index.astype(str)),

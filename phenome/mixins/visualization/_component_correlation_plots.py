@@ -92,11 +92,19 @@ def _build_component_correlation_figure(
     w_max = w_max or 1e-9
 
     n_comp = len(active)
+    max_bars = max(len(s) for s in prepared)
+    row_px = max(160, 26 * max_bars + 50)
+    gap_px = 40
+    margin_t = 80 if title else 60
+    margin_b = 56
+    top_bottom_px = margin_t + margin_b
+    height_px = max(280, int(row_px * n_comp + gap_px * max(0, n_comp - 1) + top_bottom_px))
+    vertical_spacing = (gap_px / height_px) if n_comp > 1 else 0.02
     fig = make_subplots(
         rows=n_comp,
         cols=1,
         subplot_titles=active,
-        vertical_spacing=min(0.14, 0.05 + 0.03 * max(1, 4 / n_comp)),
+        vertical_spacing=vertical_spacing,
         shared_xaxes=True,
     )
 
@@ -135,8 +143,6 @@ def _build_component_correlation_figure(
         )
 
     width_px = int(figsize[0] * 100)
-    row_px = max(160, 26 * max(len(s) for s in prepared) + 50)
-    height_px = max(280, int(row_px * n_comp + 80))
 
     # Reserve left space from longest category label; fractional paper x does not track label
     # width, so we size margin in px and place the shared title with xshift in px.
