@@ -16,6 +16,8 @@ from tqdm.auto import tqdm
 
 from ..._logging import get_logger
 from ...core import metadata_to_stable_key, optimize_property_types
+from ...io import CheckpointManager, align_by_metadata
+from ...io.checkpoint_alignment import _canonical_path, _union_prop_keys_sample
 from ...utils.path_utils import primary_path as _primary_path
 from ...utils.property_factories import get_preset_property_functions
 from ._paths import build_file_df_lookup, resolve_image_paths, resolve_mask_paths
@@ -162,6 +164,45 @@ def infer_expected_property_keys(
         img0, mask0, any_requires_image, any_requires_mask, property_functions
     )
     return collect_property_names_for_stacks(img_stack, mask_stack, property_functions)
+
+
+def checkpoint_rows_align_for_property_save(
+    image_paths: list[str | list[str]],
+    image_metadata: list[dict[str, Any]],
+    ckpt_paths: list[str],
+    ckpt_metadata: list[dict[str, Any]],
+) -> bool:
+    """Return True if checkpoint rows correspond to the current session (exact match or prefix).
+
+    HDF5 properties must stay row-aligned with ``embeddings`` / ``img_path``. Session paths
+    often differ from stored paths (relative vs absolute, storage-root rebase), while each
+    row still refers to the same sample — detect via metadata stable keys when possible,
+    then canonical primary-path comparison.
+    """
+    n_ckpt = len(ckpt_paths)
+    if n_ckpt > len(image_paths):
+        return False
+
+    if len(image_metadata) >= n_ckpt and len(ckpt_metadata) >= n_ckpt:
+        meta_aligned = True
+        for i in range(n_ckpt):
+            im = image_metadata[i] if isinstance(image_metadata[i], dict) else {}
+            cm = ckpt_metadata[i] if isinstance(ckpt_metadata[i], dict) else {}
+            try:
+                if metadata_to_stable_key(im) != metadata_to_stable_key(cm):
+                    meta_aligned = False
+                    break
+            except ValueError:
+                meta_aligned = False
+                break
+        if meta_aligned:
+            return True
+
+    primary_paths = [_primary_path(p) for p in image_paths[:n_ckpt]]
+    return all(
+        _canonical_path(str(a)) == _canonical_path(str(b))
+        for a, b in zip(primary_paths, ckpt_paths, strict=True)
+    )
 
 
 def warn_checkpoint_missing_requested_keys(
@@ -374,8 +415,6 @@ def setup_properties_checkpoint_resume(
     tuple[dict[str, int], set[str], list[tuple[int, str | list[str]]], list[str]] | None,
 ]:
     """Setup checkpoint resume for properties computation."""
-    from ...io import CheckpointManager, align_by_metadata
-
     if checkpoint_path is None or not os.path.isfile(checkpoint_path):
         return None, 0, None
 
@@ -390,7 +429,11 @@ def setup_properties_checkpoint_resume(
     n_with_emb = ckpt.n_committed
     if image_paths is None:
         image_paths = list(results.img_path)
-    image_metadata = list(results.metadata) or [{} for _ in range(len(image_paths))]
+    image_metadata = (
+        list(results.metadata)
+        if results.metadata is not None
+        else [{} for _ in range(len(image_paths))]
+    )
     ckpt_paths = ckpt.get_committed_paths_list()
     ckpt_metadata = ckpt.get_committed_metadata_list()
 
@@ -423,9 +466,10 @@ def setup_properties_checkpoint_resume(
                         filtered_props.append({})
                         filtered_internal.append({})
             except ValueError:
-                path_to_idx = {p: i for i, p in enumerate(ckpt_paths)}
+                path_to_idx = {_canonical_path(p): i for i, p in enumerate(ckpt_paths)}
                 for p in image_paths:
-                    idx = path_to_idx.get(_primary_path(p), -1)
+                    cp = _canonical_path(p)
+                    idx = path_to_idx.get(cp, -1)
                     if 0 <= idx < len(all_props):
                         filtered_props.append(all_props[idx])
                         filtered_internal.append(
@@ -444,16 +488,39 @@ def setup_properties_checkpoint_resume(
                 or (expected_property_keys and any(k not in prop for k in expected_property_keys))
             ]
             if not unprocessed_indices:
-                logger.info("Checkpoint: loaded %d properties from %s", n_with_emb, checkpoint_path)
+                n_total = len(image_paths)
+                n_prop = (
+                    len(expected_property_keys)
+                    if expected_property_keys
+                    else (
+                        len(filtered_props[0].keys())
+                        if filtered_props and isinstance(filtered_props[0], dict)
+                        else 0
+                    )
+                )
+                logger.info(
+                    "Properties: %d/%d matched in checkpoint (%d columns).",
+                    n_total,
+                    n_total,
+                    n_prop,
+                )
                 results.properties = filtered_props
                 ckpt.close()
                 return None, n_already, None
 
+            # Calculate initial alignment before refinement for better logging
             path_alignment = align_by_metadata(
                 image_paths, image_metadata, ckpt_paths, ckpt_metadata, n_already, _primary_path
             )
+            n_total = len(image_paths)
+
             existing_props = ckpt.load_committed_properties()
             existing_int = ckpt.load_internal_all()
+
+            # Count properties in checkpoint
+            n_props_in_ckpt = len(_union_prop_keys_sample(existing_props))
+
+            # Refine alignment (this modifies path_alignment[1] set)
             path_alignment = refine_path_alignment_for_unprocessed(
                 path_alignment,
                 image_paths,
@@ -461,24 +528,41 @@ def setup_properties_checkpoint_resume(
                 expected_property_keys,
                 existing_internal=existing_int,
             )
-            n_to_compute = len(path_alignment[2])
-            logger.info(
-                "Checkpoint: %d missing or unprocessed (NaN), computing %d remaining.",
-                len(unprocessed_indices),
-                n_to_compute,
-            )
+
+            n_fully_matched = len(path_alignment[1])
+            n_to_compute = n_total - n_fully_matched
+
+            if n_fully_matched > 0:
+                logger.info(
+                    "Properties: %d/%d matched in checkpoint (%d columns). Computing %d remaining.",
+                    n_fully_matched,
+                    n_total,
+                    n_props_in_ckpt,
+                    n_to_compute,
+                )
+            else:
+                logger.info("Properties: 0/%d matched in checkpoint. Computing all.", n_total)
+
             return ckpt, n_already, path_alignment
 
         elif n_already > 0:
+            # Calculate initial alignment before refinement for better logging
             path_alignment = align_by_metadata(
                 image_paths, image_metadata, ckpt_paths, ckpt_metadata, n_already, _primary_path
             )
+            n_total = len(image_paths)
+
             existing_props = ckpt.load_committed_properties()
             existing_int = ckpt.load_internal_all()
             if expected_property_keys:
                 warn_checkpoint_missing_requested_keys(
                     checkpoint_path, expected_property_keys, list(existing_props)
                 )
+
+            # Count properties in checkpoint
+            n_props_in_ckpt = len(_union_prop_keys_sample(existing_props))
+
+            # Refine alignment (this modifies path_alignment[1] set)
             path_alignment = refine_path_alignment_for_unprocessed(
                 path_alignment,
                 image_paths,
@@ -486,12 +570,21 @@ def setup_properties_checkpoint_resume(
                 expected_property_keys,
                 existing_internal=existing_int,
             )
-            paths_to_compute = path_alignment[2]
-            logger.info(
-                "Checkpoint: loaded %d properties, computing remaining %d.",
-                n_already,
-                len(paths_to_compute),
-            )
+
+            n_fully_matched = len(path_alignment[1])
+            n_to_compute = n_total - n_fully_matched
+
+            if n_fully_matched > 0:
+                logger.info(
+                    "Properties: %d/%d matched in checkpoint (%d columns). Computing %d remaining.",
+                    n_fully_matched,
+                    n_total,
+                    n_props_in_ckpt,
+                    n_to_compute,
+                )
+            else:
+                logger.info("Properties: 0/%d matched in checkpoint. Computing all.", n_total)
+
             return ckpt, n_already, path_alignment
 
         path_alignment = align_by_metadata(
@@ -672,8 +765,6 @@ def finalize_properties_computation(
     internal_buffer: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Finalize property computation and handle checkpoint commit."""
-    from ...io import CheckpointManager
-
     ib = internal_buffer or []
     images_computed = max((len(buf) for buf in feature_buffers.values()), default=0)
     new_props = feature_buffers_to_dicts(feature_buffers, all_property_names, 0, images_computed)
@@ -695,7 +786,7 @@ def finalize_properties_computation(
             identifier = (
                 identifier_list[i]
                 if i < len(identifier_list)
-                else _primary_path(image_paths[i] if i < len(image_paths) else "")
+                else _canonical_path(image_paths[i] if i < len(image_paths) else "")
             )
             if identifier in identifiers_with_props:
                 idx = id_to_ckpt_idx.get(identifier, -1)
@@ -717,6 +808,25 @@ def finalize_properties_computation(
                     int_row = dict(ib[new_idx]) if ib[new_idx] else {}
                 else:
                     int_row = {}
+
+                # If this sample was in the checkpoint but needed recomputation (e.g. missing columns),
+                # merge the old properties so we don't lose them if the new run only computed a subset
+                # of properties or failed to compute some.
+                if identifier in id_to_ckpt_idx:
+                    old_idx = id_to_ckpt_idx[identifier]
+                    if 0 <= old_idx < len(existing_props):
+                        old_p = existing_props[old_idx]
+                        if isinstance(old_p, dict):
+                            for k, v in old_p.items():
+                                # Fill missing or NaN values from checkpoint
+                                if k not in prop or (
+                                    isinstance(prop[k], (float, np.floating)) and np.isnan(prop[k])
+                                ):
+                                    prop[k] = v
+                    if not int_row and 0 <= old_idx < len(existing_internal):
+                        int_row = (
+                            dict(existing_internal[old_idx]) if existing_internal[old_idx] else {}
+                        )
 
             for key in all_keys:
                 if key not in prop:
@@ -748,7 +858,11 @@ def finalize_properties_computation(
             )
 
             img_paths_list = list(results.img_path)
-            metadata_list = list(results.metadata) or [{} for _ in img_paths_list]
+            metadata_list = (
+                list(results.metadata)
+                if results.metadata is not None
+                else [{} for _ in img_paths_list]
+            )
 
             if emb_dim is not None:
                 ckpt.buffer_embeddings(eager_emb, img_paths_list, metadata_list)
@@ -760,17 +874,33 @@ def finalize_properties_computation(
 
         if ckpt is not None:
             ckpt_paths = ckpt.get_committed_paths_list()
-
-            def _norm_paths(paths: list[str]) -> list[str]:
-                return [os.path.normpath(p) for p in paths]
-
-            primary_paths = [_primary_path(p) for p in image_paths]
-            paths_match = len(image_paths) == len(ckpt_paths) and (
-                _norm_paths(primary_paths) == _norm_paths(ckpt_paths) or ckpt_created_this_run
+            ckpt_metadata_list = ckpt.get_committed_metadata_list()
+            session_metadata = (
+                list(results.metadata)
+                if results.metadata is not None
+                else [{} for _ in range(len(image_paths))]
+            )
+            paths_match = ckpt_created_this_run or checkpoint_rows_align_for_property_save(
+                image_paths,
+                session_metadata,
+                ckpt_paths,
+                ckpt_metadata_list,
             )
             have_full_props = len(full_props) == len(image_paths)
 
             if paths_match and have_full_props:
+                # If the checkpoint is a compatible prefix of the session, we MUST
+                # extend it with the missing session paths/metadata first, so that
+                # committing properties (which are aligned to image_paths) doesn't
+                # create misaligned datasets.
+                if len(image_paths) > len(ckpt_paths):
+                    n_old = len(ckpt_paths)
+                    missing_paths = image_paths[n_old:]
+                    missing_meta = session_metadata[n_old:]
+                    ckpt.buffer_paths_and_metadata(missing_paths, missing_meta)
+                    ckpt.commit_embeddings()
+                    logger.info("Checkpoint: extended with %d new samples.", len(missing_paths))
+
                 if path_alignment is None:
                     images_computed = max((len(buf) for buf in feature_buffers.values()), default=0)
                     remaining = feature_buffers_to_dicts(
@@ -783,9 +913,7 @@ def finalize_properties_computation(
                         ckpt.buffer_properties(remaining)
                         ckpt.buffer_internal(rem_int)
                         n_total = ckpt.commit_properties()
-                        logger.info(
-                            "Checkpoint: saved %d properties to %s", n_total, checkpoint_path
-                        )
+                        logger.info("Checkpoint: saved %d properties.", n_total)
                 else:
                     ckpt.clear_properties()
                     ckpt.buffer_properties(full_props)
@@ -795,15 +923,14 @@ def finalize_properties_computation(
                         ckpt.buffer_internal([{} for _ in full_props])
                     n_total = ckpt.commit_properties()
                     logger.info(
-                        "Checkpoint: saved %d properties (replaced) to %s",
+                        "Checkpoint: saved %d properties (refreshed).",
                         n_total,
-                        checkpoint_path,
                     )
             else:
                 if not paths_match:
                     logger.warning(
-                        "Skipping checkpoint persistence: image_paths do not match "
-                        "checkpoint paths (different resolution or count)."
+                        "Skipping checkpoint persistence: current images do not align with "
+                        "checkpoint rows (different count or sample order/metadata vs paths)."
                     )
                 else:
                     logger.warning(

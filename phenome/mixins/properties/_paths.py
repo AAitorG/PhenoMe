@@ -137,7 +137,7 @@ def resolve_mask_paths(
         if any(m is not None for m in pre_resolved):
             n_found = sum(1 for m in pre_resolved if m is not None)
             logger.info(
-                "Using pre-resolved mask_path (file_df/metadata): %d/%d images.",
+                "Masks: %d/%d images.",
                 n_found,
                 len(image_paths),
             )
@@ -157,7 +157,7 @@ def resolve_mask_paths(
     if not needs_resolution:
         n_found = sum(1 for m in result if m is not None)
         logger.info(
-            "Using pre-resolved mask_path from metadata: %d/%d images.",
+            "Masks: %d/%d found.",
             n_found,
             len(image_paths),
         )
@@ -206,7 +206,7 @@ def resolve_mask_paths(
             result[i] = explicit_resolved[i]
         n_found = sum(1 for m in result if m is not None)
         logger.info(
-            "Matched masks: %d/%d images (%d missing).",
+            "Masks: %d/%d images matched (%d missing).",
             n_found,
             len(image_paths),
             len(image_paths) - n_found,
@@ -252,7 +252,7 @@ def resolve_mask_paths(
         result[i] = result_list[i]
     n_found = sum(1 for m in result if m is not None)
     logger.info(
-        "Matched masks for %d/%d images (%d missing).",
+        "Masks: %d/%d images matched (%d missing).",
         n_found,
         len(image_paths),
         len(image_paths) - n_found,

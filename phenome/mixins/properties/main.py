@@ -328,8 +328,7 @@ class PhenoMeProperties:
             and getattr(self, "_db", None) is not None
         ):
             logger.info(
-                "Provided checkpoint_path %s does not exist, but an active "
-                "database is present. Copying it to preserve existing embeddings.",
+                "Checkpoint not found. Initializing %s from active database to preserve embeddings.",
                 checkpoint_path,
             )
             self.save_results(path=checkpoint_path)

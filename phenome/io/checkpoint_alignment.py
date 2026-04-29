@@ -5,6 +5,7 @@ Used by both the embedding pipeline and the properties mixin to determine
 which items are already in a checkpoint and which need processing.
 """
 
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -12,6 +13,26 @@ from .._logging import get_logger
 from ..core import metadata_to_stable_key
 
 logger = get_logger(__name__)
+
+
+def _canonical_path(p: Any) -> str:
+    """Normalize path for checkpoint comparison (realpath, normpath, normcase)."""
+    s = str(p[0] if isinstance(p, (list, tuple)) else p)
+    try:
+        return os.path.normcase(os.path.normpath(os.path.realpath(s)))
+    except OSError:
+        return os.path.normcase(os.path.normpath(s))
+
+
+def _union_prop_keys_sample(existing_props: list[Any], max_rows: int = 10) -> set[str]:
+    """Union of property keys seen in the first rows (used for resume/logging)."""
+    keys: set[str] = set()
+    if not existing_props:
+        return keys
+    for p in existing_props[:max_rows]:
+        if isinstance(p, dict):
+            keys.update(p.keys())
+    return keys
 
 
 def get_already_committed_metadata_keys(
@@ -114,21 +135,23 @@ def compute_path_alignment(
     """
     path_to_ckpt_idx: dict[str, int] = {}
     for i, p in enumerate(ckpt_paths):
-        if p in path_to_ckpt_idx:
+        cp = _canonical_path(p)
+        if cp in path_to_ckpt_idx:
             logger.warning(
-                "Duplicate checkpoint path representation %r: keeping index %d, ignoring %d.",
+                "Duplicate checkpoint path representation %r (canonical %r): keeping index %d, ignoring %d.",
                 p,
-                path_to_ckpt_idx[p],
+                cp,
+                path_to_ckpt_idx[cp],
                 i,
             )
         else:
-            path_to_ckpt_idx[p] = i
-    primary_list = [path_repr_fn(p) for p in image_paths]
+            path_to_ckpt_idx[cp] = i
+    primary_list = [_canonical_path(p) for p in image_paths]
     paths_with_data: set[str] = {
         pp for pp in primary_list if pp in path_to_ckpt_idx and path_to_ckpt_idx[pp] < n_committed
     }
     paths_to_compute: list[tuple[int, str | list[str]]] = [
-        (i, p) for i, p in enumerate(image_paths) if path_repr_fn(p) not in paths_with_data
+        (i, p) for i, p in enumerate(image_paths) if _canonical_path(p) not in paths_with_data
     ]
     return path_to_ckpt_idx, paths_with_data, paths_to_compute, primary_list
 
@@ -194,7 +217,7 @@ def compute_metadata_alignment(
                 "Metadata lacks atomic identifiers. "
                 "Falling back to path-based matching (not portable).",
             )
-            return compute_path_alignment(image_paths, ckpt_paths, n_committed, path_repr_fn)
+            return compute_path_alignment(image_paths, ckpt_paths, n_committed, _canonical_path)
 
     return meta_key_to_ckpt_idx, identifiers_with_data, paths_to_compute, identifier_list
 
@@ -242,8 +265,8 @@ def merge_metadata_from_current_run(
                 by_key[key] = meta
             except ValueError:
                 pass
-        path_repr = path_repr_fn(d.get("file_path", ""))
-        by_path[path_repr] = meta if isinstance(meta, dict) else {}
+        cp = _canonical_path(d.get("file_path", ""))
+        by_path[cp] = meta if isinstance(meta, dict) else {}
 
     merged: list[dict[str, Any]] = []
     for i in range(n):
@@ -255,8 +278,8 @@ def merge_metadata_from_current_run(
         except ValueError:
             pass
         if current_meta is None and i < len(ckpt_paths):
-            path_repr = path_repr_fn(ckpt_paths[i])
-            current_meta = by_path.get(path_repr)
+            cp = _canonical_path(ckpt_paths[i])
+            current_meta = by_path.get(cp)
         if current_meta is None:
             current_meta = {}
         # Checkpoint base, then overlay current so new columns and updates are kept
@@ -306,8 +329,8 @@ def rebase_paths_from_current_run(
                 by_key[key] = d
             except ValueError:
                 pass
-        path_repr = path_repr_fn(d.get("file_path", ""))
-        by_path[path_repr] = d
+        cp = _canonical_path(d.get("file_path", ""))
+        by_path[cp] = d
 
     result: list[Any] = []
     for i in range(n):
@@ -319,8 +342,8 @@ def rebase_paths_from_current_run(
         except ValueError:
             pass
         if current_item is None and i < len(ckpt_paths):
-            path_repr = path_repr_fn(ckpt_paths[i])
-            current_item = by_path.get(path_repr)
+            cp = _canonical_path(ckpt_paths[i])
+            current_item = by_path.get(cp)
         if current_item is not None:
             fpath = current_item.get("file_path")
             if fpath is not None:

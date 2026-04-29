@@ -757,7 +757,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                     self._db._file.flush()
                 logger.info("Results already on disk at %s (flushed).", db_path)
                 return
-            logger.info("Copying HDF5 database from %s to %s …", db_path, target_path)
+            logger.debug("Copying HDF5 database from %s to %s …", db_path, target_path)
             import shutil
 
             was_open = self._db._file is not None
@@ -777,7 +777,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
             if was_open:
                 self._db._ensure_open()
 
-            logger.info("Results copied to %s", target_path)
+            logger.info("Results saved to %s", target_path)
             return
 
         if self.results.n_images == 0:
