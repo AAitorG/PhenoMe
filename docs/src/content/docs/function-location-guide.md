@@ -185,6 +185,8 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
+| `align_by_metadata` | Compute metadata-based alignment for checkpoint resume. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `align_by_paths` | Compute path-based alignment for properties checkpoint resume. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `CheckpointManager` | Crash-safe incremental checkpoint backed by a single HDF5 file. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#checkpointmanager) · [HDF5 Protocol](/PhenoMe/advanced/database_protocol/) |
 | `ensure_hwc` | Ensure image is in (H, W, C) format. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/#ensure_hwc) |
 | `FileDiscovery` | Finds image files and extracts metadata from directories. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#file-discovery--filediscovery) · [HDF5 Protocol](/PhenoMe/advanced/database_protocol/) |

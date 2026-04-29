@@ -350,7 +350,9 @@ class _ImageDisplayMixin:
         show_extra_info: bool = True,
         apply_transforms: bool = True,
         downsample: int | None = 720,
-    ) -> None:
+        ax: Any = None,
+        return_fig: bool = False,
+    ) -> Any:
         """
         Plot a specific image by its index.
 
@@ -365,6 +367,8 @@ class _ImageDisplayMixin:
             downsample: If not None, approximate desired size (in pixels) for the
                 longest image edge when downsampling. The final image size may
                 differ slightly due to integer stepping. If None, no downsampling.
+            ax: Optional matplotlib axes to plot on. If provided, a new figure is not created.
+            return_fig: If True, returns the matplotlib figure object.
         """
         display_img, title, was_downsampled, all_info, metadata, img_name, img_path = (
             self._load_image_display_data(
@@ -377,27 +381,36 @@ class _ImageDisplayMixin:
             )
         )
 
-        _fig, ax = plt.subplots(1, 1, figsize=figsize)
+        fig = None
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=figsize)
+
         ax.imshow(display_img, interpolation="nearest")
         # If image was downsampled for visualization, hide axes for a cleaner look.
-        ax.axis("off" if was_downsampled else "on")
+        ax.axis("off" if (was_downsampled or ax is not None) else "on")
         ax.set_title(title, fontsize=9)
-        plt.tight_layout()
-        # Use IPython display when available: ``plt.show()`` then immediate ``plt.close()``
-        # often drops the figure in notebooks/VS Code, and ``plt.show()`` does not reliably
-        # target a nested ``ipywidgets.Output`` (e.g. interactive click-to-inspect).
-        try:
-            from IPython import get_ipython
-            from IPython.display import display as ipy_display_fig
-        except ImportError:
-            ipython_shell = None
-        else:
-            ipython_shell = get_ipython()
-        if ipython_shell is not None:
-            ipy_display_fig(_fig)
-        else:
-            plt.show()
-        plt.close(_fig)
+
+        if fig is not None:
+            fig.tight_layout()
+            # Use IPython display when available: ``plt.show()`` then immediate ``plt.close()``
+            # often drops the figure in notebooks/VS Code, and ``plt.show()`` does not reliably
+            # target a nested ``ipywidgets.Output`` (e.g. interactive click-to-inspect).
+            try:
+                from IPython import get_ipython
+                from IPython.display import display as ipy_display_fig
+            except ImportError:
+                ipython_shell = None
+            else:
+                ipython_shell = get_ipython()
+
+            if not return_fig:
+                if ipython_shell is not None:
+                    ipy_display_fig(fig)
+                else:
+                    plt.show()
+                plt.close(fig)
 
         if show_extra_info:
             self._print_image_details(idx, all_info, metadata, img_name, img_path)
+
+        return fig if return_fig else None

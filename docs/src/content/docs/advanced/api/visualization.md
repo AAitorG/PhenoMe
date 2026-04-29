@@ -16,11 +16,19 @@ This page is rebuilt from docstrings in [`phenome.mixins.visualization._core`](h
 
 Pipeline class providing visualization methods for PhenoMe.
 
-Composed from _DRPlotsMixin (PCA, t-SNE, UMAP, centroids), _DistancePlotsMixin
-(distance distribution, correlation plots), _ImageDisplayMixin (image display),
-_InterpretabilityPlotsMixin (multivariate interpretability), and
-_ComponentCorrelationPlotsMixin (component-property correlation facets), and
-_GroupEnrichmentPlotsMixin (group Z-score enrichment facets).
+**Module Breakdown:**
+- `_dr_plots.py`: Dimensionality reduction visualizations (PCA, t-SNE, UMAP) and centroid plots.
+- `_distance_plots.py`: Distance distributions, reference comparison plots, and property correlations.
+- `_image_display.py`: Raw and transformed image visualization with channel-wise controls.
+- `_interpretability_plots.py`: Visualizing feature importance and drivers for embedding axes.
+- `_component_correlation_plots.py`: Faceted plots of correlations between embeddings and properties.
+- `_group_enrichment_plots.py`: Faceted Z-score enrichment plots for metadata groups.
+- `_helpers.py`: Shared utilities for Plotly and Matplotlib layout/styling.
+
+**Interdependencies:**
+The following private plot functions are intended for use by `PhenoMeAnalysis`:
+- `_plot_property_correlations_plotly` (from `_distance_plots.py`): Used for embedding-property correlation analysis.
+- `_display_multivariate_interpretability` (from `_interpretability_plots.py`): Used for explaining embedding axes.
 
 ## Visualization
 
@@ -225,8 +233,10 @@ _ImageDisplayMixin.plot_image_by_index(
     title_fields: list[str] | None = None,
     show_extra_info: bool = True,
     apply_transforms: bool = True,
-    downsample: int | None = 720
-) -> None
+    downsample: int | None = 720,
+    ax: Any = None,
+    return_fig: bool = False
+) -> Any
 ```
 
 </div>
@@ -247,6 +257,8 @@ Plot a specific image by its index.
 - **`downsample`**: If not None, approximate desired size (in pixels) for the
   longest image edge when downsampling. The final image size may
   differ slightly due to integer stepping. If None, no downsampling.
+- **`ax`**: Optional matplotlib axes to plot on. If provided, a new figure is not created.
+- **`return_fig`**: If True, returns the matplotlib figure object.
 
 </div>
 

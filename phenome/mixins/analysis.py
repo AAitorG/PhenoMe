@@ -457,6 +457,7 @@ class PhenoMeAnalysis:
         property_keys: list[str] | None = None,
         normalize: bool = True,
         drop_outliers: bool = False,
+        plot: bool = True,
     ) -> dict[str, Any]:
         """Detect outliers based on distance to centroid.
 
@@ -474,6 +475,10 @@ class PhenoMeAnalysis:
             normalize: Whether to normalize data before outlier detection (default: True).
                 For embeddings, uses L2 normalization. For properties, uses StandardScaler.
             drop_outliers: If True, remove detected outliers from self.results (default: False).
+            plot: If True (default), shows one matplotlib figure per group: subplots for
+                detected outliers and a figure title naming the group (``Group: …``).
+                Images are shown without pipeline ``image_transforms`` (same as
+                ``apply_transforms=False`` for display).
 
         Returns:
             Dict with keys:
@@ -612,6 +617,63 @@ class PhenoMeAnalysis:
             else:
                 row["threshold"] = thresholds.get("all", 0)
             summary_rows.append(row)
+
+        if plot and outlier_indices:
+            import matplotlib.pyplot as plt
+
+            # Group outliers by group name
+            outliers_by_group: dict[str, list[int]] = {}
+            for row in summary_rows:
+                gname = str(row.get("group", "All"))
+                if gname not in outliers_by_group:
+                    outliers_by_group[gname] = []
+                outliers_by_group[gname].append(row["idx"])
+
+            for group_name, indices in outliers_by_group.items():
+                if not indices:
+                    continue
+                n = len(indices)
+                ncols = min(5, n)
+                nrows = (n + ncols - 1) // ncols
+                fig_w = min(4.0 * ncols, 22)
+                fig_h = max(3.4 * nrows + 1.0, 3.8)
+                fig, axes = plt.subplots(
+                    nrows,
+                    ncols,
+                    figsize=(fig_w, fig_h),
+                    gridspec_kw={"wspace": 0.04, "hspace": 0.10},
+                )
+                if nrows == 1 and ncols == 1:
+                    ax_flat = np.array([axes])
+                else:
+                    ax_flat = np.asarray(axes).ravel()
+
+                for j, idx in enumerate(indices):
+                    self.plot_image_by_index(  # type: ignore[attr-defined]
+                        idx,
+                        ax=ax_flat[j],
+                        apply_transforms=False,
+                        downsample=720,
+                        show_extra_info=False,
+                    )
+
+                for j in range(n, len(ax_flat)):
+                    ax_flat[j].set_visible(False)
+
+                fig.suptitle(f"Group: {group_name} outliers", fontsize=13, fontweight="bold")
+                fig.tight_layout(pad=0.15, rect=[0, 0, 1, 0.95])
+                try:
+                    from IPython import get_ipython
+                    from IPython.display import display as ipy_display_fig
+                except ImportError:
+                    ipython_shell = None
+                else:
+                    ipython_shell = get_ipython()
+                if ipython_shell is not None:
+                    ipy_display_fig(fig)
+                else:
+                    plt.show()
+                plt.close(fig)
 
         n_total = len(self.results.img_path)
         full_dists = _helpers.map_to_full(distances, valid_indices, n_total)
@@ -1034,6 +1096,7 @@ class PhenoMeAnalysis:
         exclude: dict[str, Any] | None = None,
         metric: str = "euclidean",
         normalize: bool = True,
+        plot: bool = True,
     ) -> dict[str, list[int]]:
         """Find images closest to each group centroid.
 
@@ -1047,6 +1110,10 @@ class PhenoMeAnalysis:
             metric: ``'euclidean'`` or ``'cosine'``.
             normalize: Whether to normalize data before finding prototypes (default: True).
                 For embeddings, uses L2 normalization. For properties, uses StandardScaler.
+            plot: If True (default), shows one matplotlib figure per group: subplots for
+                that group's prototypes and a figure title naming the group (``Group: …``).
+                Images are shown without pipeline ``image_transforms`` (same as
+                ``apply_transforms=False`` for display).
 
         Returns:
             Dict[str, List[int]]: Group name (or "All") -> list of global image indices (prototypes).
@@ -1139,6 +1206,55 @@ class PhenoMeAnalysis:
 
             name = str(grp) if grp is not None else "All"
             out[name] = [gi[i] for i in top]
+        if plot:
+            import matplotlib.pyplot as plt
+
+            for group_name, indices in out.items():
+                if not indices:
+                    continue
+                n = len(indices)
+                ncols = min(5, n)
+                nrows = (n + ncols - 1) // ncols
+                fig_w = min(4.0 * ncols, 22)
+                fig_h = max(3.4 * nrows + 1.0, 3.8)
+                fig, axes = plt.subplots(
+                    nrows,
+                    ncols,
+                    figsize=(fig_w, fig_h),
+                    gridspec_kw={"wspace": 0.04, "hspace": 0.10},
+                )
+                if nrows == 1 and ncols == 1:
+                    ax_flat = np.array([axes])
+                else:
+                    ax_flat = np.asarray(axes).ravel()
+
+                for j, idx in enumerate(indices):
+                    self.plot_image_by_index(  # type: ignore[attr-defined]
+                        idx,
+                        ax=ax_flat[j],
+                        apply_transforms=False,
+                        downsample=720,
+                        show_extra_info=False,
+                    )
+
+                for j in range(n, len(ax_flat)):
+                    ax_flat[j].set_visible(False)
+
+                fig.suptitle(f"Cluster {group_name} prototypes", fontsize=13, fontweight="bold")
+                fig.tight_layout(pad=0.15, rect=[0, 0, 1, 0.95])
+                try:
+                    from IPython import get_ipython
+                    from IPython.display import display as ipy_display_fig
+                except ImportError:
+                    ipython_shell = None
+                else:
+                    ipython_shell = get_ipython()
+                if ipython_shell is not None:
+                    ipy_display_fig(fig)
+                else:
+                    plt.show()
+                plt.close(fig)
+
         return out
 
     # ------------------------------------------------------------------

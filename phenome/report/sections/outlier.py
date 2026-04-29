@@ -61,6 +61,7 @@ def generate_outlier_section(
             filters=filters,
             exclude=exclude,
             group_by=group_by,
+            plot=False,
         )
         outlier_indices = outlier_results.get("outlier_indices", [])
         summary_df = outlier_results.get("summary", pd.DataFrame())

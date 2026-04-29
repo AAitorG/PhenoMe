@@ -29,12 +29,14 @@ class _InteractiveExplorerProtocol(Protocol):
         idx: int,
         distance_results: dict | None = None,
         channels: Any | None = None,
-        figsize: tuple[float, float] = (5.0, 5.0),
+        figsize: tuple[float, float] = (6.0, 6.0),
         title_fields: list[str] | None = None,
         show_extra_info: bool = True,
         apply_transforms: bool = True,
         downsample: int | None = None,
-    ) -> None:
+        ax: Any | None = None,
+        return_fig: bool = False,
+    ) -> Any:
         """Display the image for result index ``idx`` in the notebook."""
         ...
 

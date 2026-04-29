@@ -173,6 +173,7 @@ def _generate_outlier_images(
             group_by=group_by,
             filters=filters,
             exclude=exclude,
+            plot=False,
         )
     except (ValueError, KeyError, RuntimeError) as e:
         logger.debug("Outlier detection failed for gallery: %s", e)

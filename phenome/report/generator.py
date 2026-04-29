@@ -498,6 +498,7 @@ def generate_report(
             group_by=opts.get("outlier_group_by"),
             filters=opts.get("filters"),
             exclude=opts.get("exclude"),
+            plot=False,
         )
 
     sections, nav_items = _build_sections(ctx)

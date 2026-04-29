@@ -325,6 +325,7 @@ def _generate_prototype_images(
             n_prototypes=n_prototypes,
             filters=filters,
             exclude=exclude,
+            plot=False,
         )
     except (ValueError, KeyError, RuntimeError) as e:
         return generate_info_box(f"Could not find prototypes: {e}", "warning")

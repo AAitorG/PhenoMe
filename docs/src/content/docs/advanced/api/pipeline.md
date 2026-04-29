@@ -1069,7 +1069,8 @@ PhenoMeAnalysis.detect_outliers(
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
     normalize: bool = True,
-    drop_outliers: bool = False
+    drop_outliers: bool = False,
+    plot: bool = True
 ) -> dict
 ```
 
@@ -1094,6 +1095,10 @@ Detect outliers based on distance to centroid.
 - **`normalize`**: Whether to normalize data before outlier detection (default: True).
   For embeddings, uses L2 normalization. For properties, uses StandardScaler.
 - **`drop_outliers`**: If True, remove detected outliers from self.results (default: False).
+- **`plot`**: If True (default), shows one matplotlib figure per group: subplots for
+  detected outliers and a figure title naming the group (``Group: …``).
+  Images are shown without pipeline ``image_transforms`` (same as
+  ``apply_transforms=False`` for display).
 
 **Returns:**
 
@@ -1128,7 +1133,8 @@ PhenoMeAnalysis.find_prototypes(
     filters: dict[str, typing.Any] | None = None,
     exclude: dict[str, typing.Any] | None = None,
     metric: str = 'euclidean',
-    normalize: bool = True
+    normalize: bool = True,
+    plot: bool = True
 ) -> dict
 ```
 
@@ -1149,6 +1155,10 @@ Find images closest to each group centroid.
 - **`metric`**: ``'euclidean'`` or ``'cosine'``.
 - **`normalize`**: Whether to normalize data before finding prototypes (default: True).
   For embeddings, uses L2 normalization. For properties, uses StandardScaler.
+- **`plot`**: If True (default), shows one matplotlib figure per group: subplots for
+  that group's prototypes and a figure title naming the group (``Group: …``).
+  Images are shown without pipeline ``image_transforms`` (same as
+  ``apply_transforms=False`` for display).
 
 **Returns:**
 
@@ -1388,8 +1398,8 @@ Summarize embedding-property correlations, optionally plot, and/or return a Plot
 
 Computes per-property ``mean_abs``, ``std`` (across dimensions), ``max_abs``, ``min_abs``,
 ``mean``, ``sign`` (of mean raw *r*), orders rows by ``order_by``, and either shows a
-horizontal bar chart of mean |r| with std error bars or logs a plain-text table when
-``plot`` is *False*.
+horizontal violin plot of the distribution of |r| across dimensions per property or logs
+a plain-text table when ``plot`` is *False*.
 
 **Args:**
 
@@ -1397,9 +1407,11 @@ horizontal bar chart of mean |r| with std error bars or logs a plain-text table 
   (must include ``correlations`` and ``correlation_method``).
 - **`order_by`**: Metric used to sort properties (descending):
   ``mean_abs`` | ``max_abs`` | ``mean`` | ``std``.
-- **`top_k`**: Number of top properties listed in ``top_properties``; full sorted table
-  is always in ``summary`` (*None* = all).
-- **`plot`**: If *True* (default), show a Plotly bar chart of mean |r| with std error bars.
+- **`top_k`**: Number of top properties shown in the plot and listed in ``top_properties``;
+  full sorted table is always in ``summary`` (*None* = all).
+- **`plot`**: If *True* (default), show a Plotly violin plot of |r| per dimension for the top
+  ``top_k`` properties by ``order_by`` (*None* = all). Highest metric at the **top**
+  of the y-axis.
 - **`return_fig`**: If *True*, include the :class:`plotly.graph_objects.Figure` in the
   result under key ``"figure"``.
 - **`figsize`**: Figure size in inches, converted to pixels for Plotly layout.
@@ -1650,8 +1662,10 @@ _ImageDisplayMixin.plot_image_by_index(
     title_fields: list[str] | None = None,
     show_extra_info: bool = True,
     apply_transforms: bool = True,
-    downsample: int | None = 720
-) -> None
+    downsample: int | None = 720,
+    ax: Any = None,
+    return_fig: bool = False
+) -> Any
 ```
 
 </div>
@@ -1672,6 +1686,8 @@ Plot a specific image by its index.
 - **`downsample`**: If not None, approximate desired size (in pixels) for the
   longest image edge when downsampling. The final image size may
   differ slightly due to integer stepping. If None, no downsampling.
+- **`ax`**: Optional matplotlib axes to plot on. If provided, a new figure is not created.
+- **`return_fig`**: If True, returns the matplotlib figure object.
 
 </div>
 
