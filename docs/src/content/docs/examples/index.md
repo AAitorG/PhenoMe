@@ -4,6 +4,18 @@ title: "Examples gallery"
 
 Short **patterns** that map common studies to PhenoMe docs and notebooks. Use them as templates, then adapt paths and column names.
 
+Full notebooks live under **[`Notebooks/examples/`](https://github.com/AAitorG/PhenoMe/tree/main/Notebooks/examples)** on GitHub.
+
+These walkthroughs are **use-case** examples on public datasets: they show realistic pipelines you can adapt, and they double as **paper reproducibility** notebooks—see the **Paper reproducibility** block in each file (set `PHENOME_*` paths and checkpoints locally). They are **not** formal benchmark competitions or timing leaderboards.
+
+| Notebook | Use case / dataset |
+|----------|-------------------|
+| [`bbbc014_two_cell_lines.ipynb`](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/examples/bbbc014_two_cell_lines.ipynb) | [BBBC014](https://bbbc.broadinstitute.org/BBBC014) — two lines, dose response |
+| [`bbbc021_compound_screen.ipynb`](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/examples/bbbc021_compound_screen.ipynb) | [BBBC021](https://bbbc.broadinstitute.org/BBBC021) — compound / MoA morphological screen |
+| [`hpa_subcellular_phenotypes.ipynb`](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/examples/hpa_subcellular_phenotypes.ipynb) | FoV phenotyping patterned on the [Human Protein Atlas](https://www.proteinatlas.org/) resource |
+| [`cellcognition_time_lapse.ipynb`](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/examples/cellcognition_time_lapse.ipynb) | Segmented time-lapse / cell-cycle classes |
+| [`ecoli_drug_timecourse.ipynb`](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/examples/ecoli_drug_timecourse.ipynb) | *E. coli* CLSM — drug × time screen |
+
 ---
 
 ## Drug or compound screening
