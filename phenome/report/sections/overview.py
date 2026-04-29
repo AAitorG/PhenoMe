@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from ..components import generate_info_box
+from .._components import generate_info_box
 from ..helpers import safe_html
 
 

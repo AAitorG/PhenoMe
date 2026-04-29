@@ -13,8 +13,8 @@ import torch
 from scipy.stats import spearmanr
 from sklearn.feature_selection import mutual_info_regression
 
-from .._logging import get_logger
-from ..utils.device import get_default_device
+from ..._logging import get_logger
+from ...utils.device import get_default_device
 
 logger = get_logger(__name__)
 

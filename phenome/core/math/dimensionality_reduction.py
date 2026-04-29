@@ -32,10 +32,10 @@ try:
 except ImportError:
     _KEOPS_AVAILABLE = False
 
-from .._logging import get_logger
+from ..._logging import get_logger
+from ..results_export import prepare_embedding_dataframe
+from ..results_metadata import filter_indices
 from .combined_features import build_combined_features
-from .results_export import prepare_embedding_dataframe
-from .results_metadata import filter_indices
 
 logger = get_logger(__name__)
 

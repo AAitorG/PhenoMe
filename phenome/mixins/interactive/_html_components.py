@@ -1,20 +1,94 @@
-"""HTML builders for status chips, stats bar, and embedding/image placeholders."""
+"""HTML components, layout constants, and anywidget primitives for the interactive explorer.
+
+Consolidates UI fragments, pixel sizes, and the thumbnail grid widget into a
+single module for better navigability.
+"""
 
 from __future__ import annotations
 
 import html
+
+import anywidget
+import traitlets as t
+
+# ---------------------------------------------------------------------------
+# Timing / debounce
+# ---------------------------------------------------------------------------
+DEFER_UI_SEC = 0.1
+SEARCH_DEBOUNCE_SEC = 0.25
+CLICK_DEBOUNCE_SEC = 0.15
+DR_RANDOM_STATE = 42
+INTERACTIVE_COLOR_SCAN_MAX_INDICES = 3000
+
+
+# ---------------------------------------------------------------------------
+# Trace / plot primitives
+# ---------------------------------------------------------------------------
+SELECTION_OVERLAY_NAME = "_phenome_sel_overlay"
+MULTI_SELECT_OVERLAY_NAME = "_phenome_multi_sel_overlay"
+HIGHLIGHT_OVERLAY_NAME = "_phenome_highlight_overlay"
+GRID_THUMB_OVERLAY_NAME = "_phenome_grid_thumb_overlay"
+
+HALO_COLOR_HIGHLIGHT = "rgba(236, 72, 153, 0.40)"  # pink — group highlight
+HALO_SIZE_MULTIPLIER = 2.4  # halo diameter vs base point size
+
+
+# ---------------------------------------------------------------------------
+# Color scales (continuous)
+# ---------------------------------------------------------------------------
+CONTINUOUS_SCALES = [
+    "Viridis",
+    "Plasma",
+    "Inferno",
+    "Magma",
+    "Cividis",
+    "RdYlBu",
+    "Coolwarm",
+    "Spectral",
+    "RdBu",
+    "BrBG",
+    "Blues",
+    "Greens",
+    "Reds",
+    "Purples",
+    "YlOrRd",
+]
+
+
+# ---------------------------------------------------------------------------
+# Shared layout tokens
+# ---------------------------------------------------------------------------
+INTERACTIVE_VALUES_H = 168
+INTERACTIVE_SEARCH_W_PX = 240
+INTERACTIVE_VALUES_W_PX = 320
+INTERACTIVE_APPEAR_COL_W_PX = 300
+INTERACTIVE_FIELD_MAX_W_PX = 600
+
+INTERACTIVE_SECTION_SEP_HTML = (
+    '<div style="height:1px;background:#DDE1E6;margin:2px 0 0 0;width:100%;"></div>'
+)
+INTERACTIVE_DESC_STYLE = {"description_width": "70px"}
+HIGHLIGHT_DISCRETE_INT_MAX_UNIQUES = 512
+
+
+# ---------------------------------------------------------------------------
+# Figure pixel sizing
+# ---------------------------------------------------------------------------
+EMBEDDING_FIG_WIDTH_PX = 800
+EMBEDDING_FIG_HEIGHT_PX = 700
+IMAGE_OVERLAY_WIDTH_PX = 500
+IMAGE_PANEL_MIN_HEIGHT_PX = 380
+THUMBNAIL_SIZE_PX = 80
+THUMBNAIL_GRID_MAX_IMAGES = 100
+THUMBNAIL_DOWNSAMPLE = 96
+IMAGE_OVERLAY_FIGSIZE: tuple[float, float] = (6.0, 6.0)
 
 
 # ---------------------------------------------------------------------------
 # Status chip and stats bar
 # ---------------------------------------------------------------------------
 def status_html(msg: str, level: str = "info") -> str:
-    """Return styled HTML for the single-line status label.
-
-    Args:
-        msg: Status message text.
-        level: One of ``"info"``, ``"ok"``, ``"warn"``, ``"err"``.
-    """
+    """Return styled HTML for the single-line status label."""
     msg_safe = html.escape(str(msg))
     icons = {"info": "&#x2139;", "ok": "✓", "warn": "⚠", "err": "✕"}
     bg = {"info": "#EBF5FB", "ok": "#EAFAF1", "warn": "#FEF9E7", "err": "#FDEDEC"}
@@ -40,7 +114,7 @@ def stats_bar_html(
     *,
     n_multi_selected: int = 0,
 ) -> str:
-    """HTML for the live stats bar (totals / highlighted / selected / multi-selected)."""
+    """HTML for the live stats bar."""
     sel = "—" if selected is None else html.escape(str(selected))
     err_span = (
         f'<span style="flex-basis:100%;color:#e74c3c;font-weight:600;">'
@@ -78,7 +152,7 @@ def stats_bar_html(
 # Embedding placeholders
 # ---------------------------------------------------------------------------
 def embedding_placeholder_idle(w_px: int, h_px: int) -> str:
-    """Full-size empty state for the embedding slot (matches figure dimensions)."""
+    """Full-size empty state for the embedding slot."""
     wh = f"{w_px}px"
     hh = f"{h_px}px"
     return (
@@ -101,7 +175,7 @@ def embedding_placeholder_idle(w_px: int, h_px: int) -> str:
 
 
 def embedding_placeholder_computing(w_px: int, h_px: int) -> str:
-    """Full-size state shown while DR runs (replaces idle or previous figure)."""
+    """Full-size state shown while DR runs."""
     wh = f"{w_px}px"
     hh = f"{h_px}px"
     return (
@@ -166,3 +240,93 @@ def image_panel_loading(w_px: int, min_h_px: int) -> str:
         "</div>"
         "</div>"
     )
+
+
+# ---------------------------------------------------------------------------
+# Thumbnail Grid AnyWidget
+# ---------------------------------------------------------------------------
+_ESM = r"""
+function render(view) {
+  const el = view.el;
+  const model = view.model;
+  const wrap = document.createElement("div");
+  wrap.style.display = "flex";
+  wrap.style.flexWrap = "wrap";
+  wrap.style.alignContent = "flex-start";
+  wrap.style.gap = "4px";
+  wrap.style.maxHeight = "min(60vh, 620px)";
+  wrap.style.overflowY = "auto";
+  wrap.style.overflowX = "hidden";
+  wrap.style.width = "100%";
+  el.appendChild(wrap);
+
+  function paint() {
+    const b64s = model.get("images_b64");
+    const idxs = model.get("indices");
+    const sz = model.get("thumb_size_px");
+    const focus = model.get("grid_focus_index");
+    wrap.innerHTML = "";
+    for (let i = 0; i < b64s.length; i++) {
+      const img = document.createElement("img");
+      img.src = "data:image/png;base64," + b64s[i];
+      img.width = sz;
+      img.height = sz;
+      img.style.objectFit = "contain";
+      img.style.cursor = "pointer";
+      img.style.boxSizing = "border-box";
+      const ix = idxs[i];
+      const isFocus = focus === ix;
+      img.style.border = isFocus
+        ? "3px solid #f97316"
+        : "1px solid #ccc";
+      img.style.boxShadow = isFocus ? "0 0 0 1px rgba(249, 115, 22, 0.35)" : "none";
+      img.style.borderRadius = "3px";
+      const DBL = 280;
+      let clickTimer = null;
+      img.addEventListener("click", () => {
+        if (clickTimer) {
+          clearTimeout(clickTimer);
+        }
+        clickTimer = setTimeout(() => {
+          clickTimer = null;
+          model.set("thumb_strike_index", ix);
+          model.set("thumb_strike", model.get("thumb_strike") + 1);
+          model.save_changes();
+        }, DBL);
+      });
+      img.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        if (clickTimer) {
+          clearTimeout(clickTimer);
+          clickTimer = null;
+        }
+        model.set("thumb_dbl_strike_index", ix);
+        model.set("thumb_dbl_strike", model.get("thumb_dbl_strike") + 1);
+        model.save_changes();
+      });
+      wrap.appendChild(img);
+    }
+  }
+
+  paint();
+  model.on("change:images_b64", paint);
+  model.on("change:indices", paint);
+  model.on("change:thumb_size_px", paint);
+  model.on("change:grid_focus_index", paint);
+}
+export default { render };
+"""
+
+
+class ThumbnailGrid(anywidget.AnyWidget):
+    """Renders a scrollable pack of small PNGs."""
+
+    _esm = _ESM
+    images_b64 = t.List(t.Unicode(), default_value=[]).tag(sync=True)
+    indices = t.List(t.Integer(), default_value=[]).tag(sync=True)
+    thumb_size_px = t.CInt(default_value=THUMBNAIL_SIZE_PX).tag(sync=True)
+    thumb_strike = t.CInt(0).tag(sync=True)
+    thumb_strike_index = t.CInt(-1).tag(sync=True)
+    thumb_dbl_strike = t.CInt(0).tag(sync=True)
+    thumb_dbl_strike_index = t.CInt(-1).tag(sync=True)
+    grid_focus_index = t.CInt(-1).tag(sync=True)

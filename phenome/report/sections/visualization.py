@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from ..._logging import get_logger
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
-from ..components import generate_info_box, generate_plot_container
+from .._components import generate_info_box, generate_plot_container
 from ..helpers import apply_dark_theme, plotly_to_html_fragment
 
 if TYPE_CHECKING:

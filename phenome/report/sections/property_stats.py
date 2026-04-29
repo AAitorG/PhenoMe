@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from ..components import generate_collapsible, generate_feature_tags, generate_info_box
+from .._components import generate_collapsible, generate_feature_tags, generate_info_box
 
 if TYPE_CHECKING:
     from ..context import ReportContext

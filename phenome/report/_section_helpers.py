@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from ..._logging import get_logger
-from ...io import read_image
-from ..helpers import image_to_base64, safe_html
+from .._logging import get_logger
+from ..io import read_image
+from .helpers import image_to_base64, safe_html
 
 if TYPE_CHECKING:
-    from ...pipeline import PhenoMe
+    from ..pipeline import PhenoMe
 
 logger = get_logger(__name__)
 

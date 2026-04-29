@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from ...core import filter_indices
-from ..components import generate_info_box, generate_subsection_grid
+from .._components import generate_info_box, generate_subsection_grid
 from ..helpers import safe_html
 
 if TYPE_CHECKING:

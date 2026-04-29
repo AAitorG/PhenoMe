@@ -1,36 +1,21 @@
 """Core utilities for the phenotyping pipeline.
 
-Provides results metadata, validation, export, dimensionality reduction, and
-correlation algorithms. See the top-level `phenome` module for
-usage and quick start.
-
-Public API:
-    - PhenoMeResults: Container for embeddings, metadata, properties.
-    - build_combined_features: Concatenate embeddings + properties with normalization.
-    - filter_indices: Filter image indices by metadata.
-    - run_dimensionality_reduction: PCA, t-SNE, UMAP on embeddings or properties.
-    - compute_pearson_correlation, compute_spearman_correlation, compute_distance_correlation
-    - build_export_dataframe, build_metadata_columns, validate_results
+Provides results metadata, validation, export, data models, and re-exports
+mathematical algorithms from the `math` subpackage.
 """
 
-from .combined_features import build_combined_features
-from .correlation import (
+from .math import (
+    build_combined_features,
     clean_correlation_inputs,
     compute_distance_correlation,
     compute_entropy,
+    compute_lasso_interpretability,
     compute_mutual_info,
     compute_pearson_correlation,
+    compute_rf_interpretability,
     compute_spearman_correlation,
-)
-from .dimensionality_reduction import (
     run_dimensionality_reduction,
     run_dimensionality_reduction_matrix,
-)
-
-# Load interpretability before correlation (correlation imports utils, which can nest into core).
-from .interpretability import (
-    compute_lasso_interpretability,
-    compute_rf_interpretability,
 )
 from .pipeline_results import PhenoMeResults
 from .property_utils import metadata_to_stable_key, optimize_property_types

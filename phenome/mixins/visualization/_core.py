@@ -32,11 +32,19 @@ class PhenoMeVisualization(
     """
     Pipeline class providing visualization methods for PhenoMe.
 
-    Composed from _DRPlotsMixin (PCA, t-SNE, UMAP, centroids), _DistancePlotsMixin
-    (distance distribution, correlation plots), _ImageDisplayMixin (image display),
-    _InterpretabilityPlotsMixin (multivariate interpretability), and
-    _ComponentCorrelationPlotsMixin (component-property correlation facets), and
-    _GroupEnrichmentPlotsMixin (group Z-score enrichment facets).
+    **Module Breakdown:**
+    - `_dr_plots.py`: Dimensionality reduction visualizations (PCA, t-SNE, UMAP) and centroid plots.
+    - `_distance_plots.py`: Distance distributions, reference comparison plots, and property correlations.
+    - `_image_display.py`: Raw and transformed image visualization with channel-wise controls.
+    - `_interpretability_plots.py`: Visualizing feature importance and drivers for embedding axes.
+    - `_component_correlation_plots.py`: Faceted plots of correlations between embeddings and properties.
+    - `_group_enrichment_plots.py`: Faceted Z-score enrichment plots for metadata groups.
+    - `_helpers.py`: Shared utilities for Plotly and Matplotlib layout/styling.
+
+    **Interdependencies:**
+    The following private plot functions are intended for use by `PhenoMeAnalysis`:
+    - `_plot_property_correlations_plotly` (from `_distance_plots.py`): Used for embedding-property correlation analysis.
+    - `_display_multivariate_interpretability` (from `_interpretability_plots.py`): Used for explaining embedding axes.
     """
 
     # Type hints for pipeline attributes (provided by parent class)

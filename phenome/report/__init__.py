@@ -9,6 +9,13 @@ Public API:
     - ReportConfig: Configuration dataclass for report options.
     - ReportContext: Internal context used by section generators.
 
+Internal Implementation:
+    - _components: Reusable HTML fragments and component generators.
+    - _section_helpers: Shared utilities for report section implementations.
+    - helpers: Public report utility functions.
+    - styles: CSS fragments for the HTML report.
+    - scripts: JS fragments for the HTML report.
+
 Basic usage:
     from phenome.report import generate_report
 

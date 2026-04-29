@@ -10,7 +10,7 @@ from sklearn.decomposition import PCA
 
 from ...core import get_metadata_value_from_dict
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
-from ..components import (
+from .._components import (
     generate_cluster_badge,
     generate_image_gallery,
     generate_info_box,
@@ -18,8 +18,8 @@ from ..components import (
     generate_subsection_grid,
     generate_table,
 )
+from .._section_helpers import load_image_data
 from ..helpers import apply_dark_theme, plotly_to_html_fragment
-from ._helpers import load_image_data
 
 if TYPE_CHECKING:
     from ...pipeline import PhenoMe

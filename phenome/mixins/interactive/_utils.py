@@ -1,7 +1,7 @@
-"""Pure utility helpers for the interactive explorer.
+"""Utility helpers and color option discovery for the interactive explorer.
 
-These helpers have no ``PhenoMeInteractive`` dependency and can be imported
-anywhere inside the ``interactive`` subpackage.
+Consolidates Pure utility functions and Color-by dropdown discovery logic
+to reduce module fragmentation.
 """
 
 from __future__ import annotations
@@ -14,17 +14,19 @@ from typing import Any
 import numpy as np
 import plotly.graph_objects as go
 
-from ._constants import DEFER_UI_SEC
+from ...core import get_all_metadata_keys, get_metadata_value_from_dict
+from ._html_components import (
+    DEFER_UI_SEC,
+    DR_RANDOM_STATE,
+    INTERACTIVE_COLOR_SCAN_MAX_INDICES,
+)
 
 
 # ---------------------------------------------------------------------------
 # Time formatting
 # ---------------------------------------------------------------------------
 def format_elapsed_time(seconds: float) -> str:
-    """Format elapsed seconds for status labels (adds m/h as duration grows).
-
-    Uses tenths under 10s for responsiveness; then whole seconds; then ``Xm Ys`` / ``Xh Ym Zs``.
-    """
+    """Format elapsed seconds for status labels."""
     if seconds < 0:
         seconds = 0.0
     if seconds < 10:
@@ -43,21 +45,7 @@ def format_elapsed_time(seconds: float) -> str:
 # Event loop scheduling
 # ---------------------------------------------------------------------------
 def schedule_after_plotly_event_loop(fn: Callable[[], None]) -> None:
-    """Run ``fn`` after the current stack unwinds when an asyncio loop exists.
-
-    Plotly ``FigureWidget`` click handlers run inside traitlets / widget plumbing;
-    updating the same widget tree, ``Output``, and matplotlib immediately can
-    re-enter and freeze Jupyter or the VS Code / Cursor notebook UI. Deferring
-    one tick avoids that without delaying visible feedback noticeably.
-
-    The same applies to **ipywidgets** ``observe`` callbacks (dropdowns, sliders):
-    rebuilding a ``FigureWidget`` or large ``batch_update`` synchronously while
-    the widget frontend is still finishing the interaction can block the UI and
-    prevent selecting other notebook cells until the sync completes.
-
-    In VS Code / Cursor, a short delay is more reliable than ``call_soon`` for
-    ensuring the frontend has finished processing the original interaction.
-    """
+    """Run ``fn`` after the current stack unwinds when an asyncio loop exists."""
     try:
         loop = asyncio.get_running_loop()
         if loop.is_running():
@@ -65,9 +53,6 @@ def schedule_after_plotly_event_loop(fn: Callable[[], None]) -> None:
         else:
             fn()
     except RuntimeError:
-        # No loop running, but we might be in a thread that wants to update UI.
-        # Fallback to a thread-based deferral so callers always get a best-effort
-        # delay equivalent to the asyncio path.
         threading.Timer(DEFER_UI_SEC, fn).start()
 
 
@@ -75,14 +60,7 @@ def schedule_after_plotly_event_loop(fn: Callable[[], None]) -> None:
 # FigureWidget safety
 # ---------------------------------------------------------------------------
 def figurewidget_safe_figure(fig: go.Figure) -> go.Figure:
-    """Return a figure whose data/layout use JSON-native types (lists, floats).
-
-    ``plotly.express`` leaves NumPy arrays on traces; ``FigureWidget`` state sync
-    in Plotly's ``basewidget`` uses ``if not value`` on nested props, which
-    raises on multi-element arrays. Converting known trace fields to Python lists
-    avoids a full ``pio.to_json`` / ``from_json`` round-trip (very slow on large
-    point clouds) while fixing widget sync.
-    """
+    """Return a figure whose data/layout use JSON-native types (lists, floats)."""
     out = go.Figure(fig)
     for tr in out.data:
         for attr in ("x", "y", "z", "customdata", "text", "hovertext", "ids"):
@@ -171,7 +149,7 @@ def apply_hoverlabels_matching_markers(
     colorscale_name: str,
     fallback_uniform: str,
 ) -> None:
-    """Set trace hoverlabel colors to match marker colors (per-point bgcolor supported by Plotly)."""
+    """Set trace hoverlabel colors to match marker colors."""
     for tr in fig.data:
         ttype = getattr(tr, "type", "")
         if ttype not in ("scatter", "scattergl", "scatter3d"):
@@ -203,5 +181,67 @@ def raw_index_from_customdata_row(cd: Any) -> int:
         v = cd
     try:
         return int(v)
-    except (TypeError, ValueError):
+    except (ValueError, TypeError):
         return -1
+
+
+# ---------------------------------------------------------------------------
+# Color scan helpers
+# ---------------------------------------------------------------------------
+def indices_for_color_scan(n_total: int, *, seed: int = DR_RANDOM_STATE) -> np.ndarray:
+    """Return image indices spanning the dataset for Color-by dropdown informativeness."""
+    if n_total <= 0:
+        return np.array([], dtype=np.int64)
+    cap = INTERACTIVE_COLOR_SCAN_MAX_INDICES
+    if n_total <= cap:
+        return np.arange(n_total, dtype=np.int64)
+    rng = np.random.default_rng(seed)
+    return rng.choice(n_total, size=cap, replace=False)
+
+
+def build_informative_color_columns(results: Any, property_keys: list[str]) -> list[str]:
+    """Compute metadata/property columns eligible for the explorer Color-by dropdown."""
+    meta_keys_list = get_all_metadata_keys(results)
+    meta_keys_set = frozenset(meta_keys_list)
+    cols = sorted(set(meta_keys_list).union(property_keys))
+    informative_cols: list[str] = []
+    n_total = results.n_images
+    scan_ix = indices_for_color_scan(n_total)
+
+    for col in cols:
+        vals: list[Any] = []
+        is_meta = col in meta_keys_set
+        if is_meta:
+            for i in scan_ix:
+                ii = int(i)
+                meta = results.metadata[ii]
+                if isinstance(meta, dict):
+                    v = get_metadata_value_from_dict(meta, col)
+                    if v is not None:
+                        vals.append(v)
+        else:
+            for i in scan_ix:
+                ii = int(i)
+                props = results.properties[ii]
+                if isinstance(props, dict):
+                    v = props.get(col)
+                    if v is not None and not (isinstance(v, (float, np.floating)) and np.isnan(v)):
+                        vals.append(v)
+
+        if not vals:
+            continue
+
+        unique_vals = set(vals)
+        if len(unique_vals) <= 1:
+            continue
+
+        if (
+            len(unique_vals) > n_total * 0.9
+            and n_total > 10
+            and col.lower() in ("id", "filename", "file_path", "path", "index")
+        ):
+            continue
+
+        informative_cols.append(col)
+
+    return sorted(informative_cols)

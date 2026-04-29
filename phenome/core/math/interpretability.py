@@ -11,7 +11,7 @@ from sklearn.metrics import r2_score
 from sklearn.model_selection import cross_val_predict
 from sklearn.preprocessing import StandardScaler
 
-from .._logging import get_logger
+from ..._logging import get_logger
 
 logger = get_logger(__name__)
 

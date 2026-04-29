@@ -14,6 +14,12 @@ Public API:
 
 For property factories (create_regionprops_function, etc.), import from
 phenome or phenome.utils.
+
+Mixin Composition Strategy:
+    PhenoMe follows a mixin-based architecture where the main pipeline class
+    inherits from specialized feature layers. Each mixin module is organized
+    to keep the public API thin by delegating heavy orchestration and
+    auxiliary logic to internal modules (e.g., `_compute.py`, `_helpers.py`).
 """
 
 from .analysis import PhenoMeAnalysis

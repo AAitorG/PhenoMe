@@ -7,7 +7,7 @@ with balanced normalization. Used by dimensionality reduction, analysis, and dis
 
 import numpy as np
 
-from .protocols import PhenoMeProtocol
+from ..protocols import PhenoMeProtocol
 
 
 def build_combined_features(

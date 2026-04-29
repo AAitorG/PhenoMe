@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from ..._logging import get_logger
-from ..components import generate_image_gallery, generate_info_box
-from ._helpers import load_image_data
+from .._components import generate_image_gallery, generate_info_box
+from .._section_helpers import load_image_data
 
 if TYPE_CHECKING:
     from ...pipeline import PhenoMe

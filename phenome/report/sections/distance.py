@@ -6,7 +6,7 @@ import numpy as np
 
 from ...core import get_all_metadata_keys, get_metadata_value_from_dict
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
-from ..components import generate_info_box, generate_plot_container
+from .._components import generate_info_box, generate_plot_container
 from ..helpers import apply_dark_theme, plotly_to_html_fragment
 
 if TYPE_CHECKING:

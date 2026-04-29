@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from ...core import build_export_dataframe
-from ..components import generate_collapsible, generate_feature_tags, generate_info_box
+from .._components import generate_collapsible, generate_feature_tags, generate_info_box
 from ..helpers import safe_html, truncate_path
 
 if TYPE_CHECKING:

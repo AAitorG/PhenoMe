@@ -18,63 +18,23 @@ from ..core import (
     build_combined_features,
     build_metadata_columns,
     compute_distance_correlation,
+    compute_lasso_interpretability,
     compute_mutual_info,
     compute_pearson_correlation,
+    compute_rf_interpretability,
     compute_spearman_correlation,
     filter_indices,
     get_metadata_value_from_dict,
     run_dimensionality_reduction,
     run_dimensionality_reduction_matrix,
 )
-from ..core.interpretability import (
-    compute_lasso_interpretability,
-    compute_rf_interpretability,
-)
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
+from . import _helpers
 from .visualization._distance_plots import _plot_property_correlations_plotly
 from .visualization._interpretability_plots import _display_multivariate_interpretability
 
 logger = get_logger(__name__)
-
-
-def _numpy_for_torch(x: np.ndarray) -> np.ndarray:
-    """Return a C-contiguous, writable array for :func:`torch.from_numpy`.
-
-    Embeddings and other pipeline arrays may be read-only views (e.g. HDF5, slices).
-    Row subsets ``data[indices]`` can also be read-only views. PyTorch requires
-    a writable buffer when sharing with NumPy.
-    """
-    x = np.ascontiguousarray(x)
-    if not x.flags.writeable:
-        x = x.copy()
-    return x
-
-
-def _index_array_for_torch(a: object) -> np.ndarray:
-    """Writable integer array for ``tensor[indices]`` and related NumPy index ops.
-
-    PyTorch may call :func:`torch.from_numpy` on advanced-index arrays. Pandas
-    :meth:`~pandas.Index.to_numpy` often returns a read-only view, which triggers
-    the same non-writable warning.
-    """
-    return np.array(a, dtype=np.intp, copy=True, order="C")
-
-
-# Supported metrics for ordering rows in the embedding-property summary.
-_ORDER_METRICS: tuple[str, ...] = ("mean_abs", "max_abs", "mean", "std")
-
-
-def _mean_correlation_sign(mean: float) -> str:
-    """Label for the sign of the mean raw correlation: ``+`` / ``-`` / ``0`` / em dash (non-finite)."""
-    if not np.isfinite(mean):
-        return "-"
-    m = float(mean)
-    if m > 1e-12:
-        return "+"
-    if m < -1e-12:
-        return "-"
-    return "0"
 
 
 # Registry mapping correlation method names to PhenoMeAnalysis instance method names.
@@ -103,6 +63,11 @@ class PhenoMeAnalysis:
 
     results: PhenoMeResults
     device: torch.device
+
+    # Interdependencies:
+    # This mixin depends on visualization helpers for:
+    # - _plot_property_correlations_plotly (from .visualization._distance_plots)
+    # - _display_multivariate_interpretability (from .visualization._interpretability_plots)
 
     # ------------------------------------------------------------------
     # Clustering
@@ -259,7 +224,7 @@ class PhenoMeAnalysis:
             )
 
         # Map cluster labels back to full image set (NaN for filtered-out images)
-        full_labels = self._map_to_full(labels, valid_indices, n_total)
+        full_labels = _helpers.map_to_full(labels, valid_indices, n_total)
 
         n_actual_clusters = int(np.nanmax(labels)) + 1 if np.any(~np.isnan(labels)) else 0
         silhouette_score_val: float | None = None
@@ -551,7 +516,7 @@ class PhenoMeAnalysis:
         if data is None or len(data) == 0:
             return empty
 
-        data = _numpy_for_torch(data)
+        data = _helpers.numpy_for_torch(data)
 
         n_samples = len(data)
         outlier_mask = np.zeros(n_samples, dtype=bool)
@@ -570,7 +535,7 @@ class PhenoMeAnalysis:
                 vec_t = vectors_t
             else:
                 # CPU and small group slices: vectors may be a read-only view of ``data``
-                vec_t = torch.from_numpy(_numpy_for_torch(vectors)).to(device)
+                vec_t = torch.from_numpy(_helpers.numpy_for_torch(vectors)).to(device)
 
             with torch.no_grad():
                 # Compute centroid on GPU
@@ -618,7 +583,7 @@ class PhenoMeAnalysis:
         for gname, didx in groups.items():
             if len(didx) < 2:
                 continue
-            didx = _index_array_for_torch(didx)
+            didx = _helpers.index_array_for_torch(didx)
             # Pass pre-converted tensor slice if available
             vec_t_slice = data_t[didx] if data_t is not None else None
             d, is_out, tv = _outliers_for(data[didx], vec_t_slice)
@@ -649,7 +614,7 @@ class PhenoMeAnalysis:
             summary_rows.append(row)
 
         n_total = len(self.results.img_path)
-        full_dists = self._map_to_full(distances, valid_indices, n_total)
+        full_dists = _helpers.map_to_full(distances, valid_indices, n_total)
 
         # Remove outliers from results if requested
         if drop_outliers and outlier_indices:
@@ -1132,7 +1097,7 @@ class PhenoMeAnalysis:
 
         device = self.device
 
-        matrix = _numpy_for_torch(matrix)
+        matrix = _helpers.numpy_for_torch(matrix)
 
         # Convert entire matrix to GPU once (avoid repeated conversions per group)
         matrix_t = torch.from_numpy(matrix).to(device) if device.type != "cpu" else None
@@ -1150,7 +1115,7 @@ class PhenoMeAnalysis:
                 gm_t = matrix_t[mask_arr]
             else:
                 gm = matrix[mask_arr]
-                gm_t = torch.from_numpy(_numpy_for_torch(gm)).to(device)
+                gm_t = torch.from_numpy(_helpers.numpy_for_torch(gm)).to(device)
 
             with torch.no_grad():
                 # Compute centroid on GPU
@@ -1424,8 +1389,10 @@ class PhenoMeAnalysis:
                 - ``correlation_method``, ``embedding_shape``, ``n_properties``
                 - ``figure``: Plotly figure if ``return_fig`` is *True*; otherwise *None*.
         """
-        if order_by not in _ORDER_METRICS:
-            raise ValueError(f"Unknown order_by: {order_by!r}; expected one of {_ORDER_METRICS}")
+        if order_by not in _helpers.ORDER_METRICS:
+            raise ValueError(
+                f"Unknown order_by: {order_by!r}; expected one of {_helpers.ORDER_METRICS}"
+            )
         if not correlation_results or "correlations" not in correlation_results:
             raise KeyError(
                 "correlation_results must contain 'correlations' (output of "
@@ -1442,7 +1409,7 @@ class PhenoMeAnalysis:
         correlation_method = str(correlation_results["correlation_method"])
 
         per_prop: list[dict[str, Any]] = []
-        metrics: dict[str, Any] = {m: {} for m in _ORDER_METRICS}
+        metrics: dict[str, Any] = {m: {} for m in _helpers.ORDER_METRICS}
         metrics["min_abs"] = {}
 
         for pname, r in corrs.items():
@@ -1470,10 +1437,10 @@ class PhenoMeAnalysis:
                     "mean_abs": mean_abs_v,
                     "max_abs": max_abs_v,
                     "min_abs": min_abs_v,
-                    "sign": _mean_correlation_sign(mean_v),
+                    "sign": _helpers.mean_correlation_sign(mean_v),
                 }
             per_prop.append(row)
-            for name in _ORDER_METRICS:
+            for name in _helpers.ORDER_METRICS:
                 metrics[name][pname] = float(row[name])
             metrics["min_abs"][pname] = float(row["min_abs"])
 
@@ -1536,7 +1503,7 @@ class PhenoMeAnalysis:
             L2-normalized embeddings (unit vectors).
         """
         device = self.device
-        data_t = torch.from_numpy(_numpy_for_torch(data)).to(device)
+        data_t = torch.from_numpy(_helpers.numpy_for_torch(data)).to(device)
 
         with torch.no_grad():
             norms = torch.norm(data_t, dim=1, keepdim=True)
@@ -1660,23 +1627,3 @@ class PhenoMeAnalysis:
         raise ValueError(
             f"Unknown source '{source}', expected 'embeddings', 'properties', or 'combined'."
         )
-
-    # ------------------------------------------------------------------
-    # Map-back helper
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _map_to_full(values: np.ndarray, valid_indices: list[int], n_total: int) -> np.ndarray:
-        """Map values for valid_indices into a full-length NaN array.
-
-        Args:
-            values: np.ndarray shape (len(valid_indices),).
-            valid_indices: List[int]. Global indices where values apply.
-            n_total: Total number of images.
-
-        Returns:
-            np.ndarray shape (n_total,), dtype float32. NaN where not in valid_indices.
-        """
-        full = np.full(n_total, np.nan, dtype=np.float32)
-        full[np.asarray(valid_indices, dtype=np.int64)] = values.astype(np.float32)
-        return full

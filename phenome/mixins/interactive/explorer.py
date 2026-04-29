@@ -35,8 +35,7 @@ from ...core import (
     run_dimensionality_reduction,
 )
 from ...plotly_display import apply_figurewidget_display_config
-from ._color_options import _build_informative_color_columns
-from ._constants import (
+from ._html_components import (
     CLICK_DEBOUNCE_SEC,
     CONTINUOUS_SCALES,
     DR_RANDOM_STATE,
@@ -62,8 +61,7 @@ from ._constants import (
     THUMBNAIL_DOWNSAMPLE,
     THUMBNAIL_GRID_MAX_IMAGES,
     THUMBNAIL_SIZE_PX,
-)
-from ._html import (
+    ThumbnailGrid,
     embedding_placeholder_computing,
     embedding_placeholder_idle,
     image_panel_idle,
@@ -72,9 +70,9 @@ from ._html import (
     status_html,
 )
 from ._protocol import _InteractiveExplorerProtocol
-from ._thumbnail_grid import ThumbnailGrid
 from ._utils import (
     apply_hoverlabels_matching_markers,
+    build_informative_color_columns,
     figurewidget_safe_figure,
     format_elapsed_time,
     raw_index_from_customdata_row,
@@ -1025,7 +1023,7 @@ class PhenoMeInteractive:
         if hasattr(self.pheno, "get_available_property_keys"):
             prop_keys = self.pheno.get_available_property_keys()
 
-        cols = _build_informative_color_columns(self.pheno.results, prop_keys)
+        cols = build_informative_color_columns(self.pheno.results, prop_keys)
         self.color_dropdown.options = cols
 
         if cols and prev_color and prev_color in cols:

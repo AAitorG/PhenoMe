@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from .._logging import get_logger
-from .components import generate_navigation, generate_stats_cards
+from ._components import generate_navigation, generate_stats_cards
 from .context import ReportContext
 from .helpers import get_plotly_bundle, safe_html
 from .scripts import REPORT_JS
