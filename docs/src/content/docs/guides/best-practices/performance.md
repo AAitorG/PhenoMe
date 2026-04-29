@@ -119,10 +119,10 @@ pheno.process_images(
 
 ```python
 pheno.process_images(wrapper, checkpoint_path="results/run.h5")
-pheno.save_results(output_dir="results")
+pheno.save_results("results.h5")
 
 pheno.find_files("path/to/images")
-pheno.load_results("results/phenome_results.h5")
+pheno.load_results("results.h5")
 ```
 
 ## Troubleshooting

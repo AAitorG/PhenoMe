@@ -26,6 +26,7 @@ Under the HDF5 root **`/`**:
 - **`/embeddings`:** `(N, D)` float32 feature matrix.
 - **`/metadata/`:** one column-dataset per metadata key (e.g. drug, time, id).
 - **`/properties/`:** one column-dataset per computed property (e.g. area, mean intensity).
+- **`/internal/`:** one column-dataset per internal tracking flag (e.g. `_properties_attempted`).
 - **`/config`:** group with **attributes only** (`channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `channels`); no full filesystem paths.
 
 ## 1. File structure
@@ -41,7 +42,7 @@ The HDF5 file is organised into groups and datasets. All core data
 | `/img_path_channels` | `string` (vlen) | 2D dataset `(N, C)` for multi-channel image paths. Only exists if `is_multichannel` is true. |
 | `/embeddings` | `float32` | Shape `(N, D)`. High-dimensional feature vectors. |
 
-### Columnar Metadata and Properties
+### Columnar Metadata, Properties and Internal
 
 Unlike older versions that used JSON blobs, v2.0 stores metadata and properties as **individual datasets** within groups. Each dataset represents a single "column".
 
@@ -49,6 +50,7 @@ Unlike older versions that used JSON blobs, v2.0 stores metadata and properties 
 | :--- | :--- |
 | `/metadata/` | Group containing one dataset per metadata key (e.g. `/metadata/drug`, `/metadata/time`). |
 | `/properties/` | Group containing one dataset per computed property key (e.g. `/properties/area`). |
+| `/internal/` | Group containing internal tracking flags (e.g. `/internal/_properties_attempted`). Same alignment as `/properties/`. |
 
 ### Processing Configuration
 
@@ -62,7 +64,7 @@ Unlike older versions that used JSON blobs, v2.0 stores metadata and properties 
 
 To ensure checkpoints work on any machine:
 1.  **POSIX paths**: All paths in `/img_path` and `/img_path_channels` use forward slashes (`/`), regardless of the platform where the file was created.
-2.  **Relative storage**: Paths are always stored relative to the dataset root (implicit in the protocol).
+2.  **Relative storage**: Paths are always stored relative to the dataset root.
 3.  **Resolution**: Call `find_files` first, then `load_results`. The pipeline resolves paths automatically.
 
 ---
@@ -75,11 +77,19 @@ The pipeline uses attributes to track file state and versioning.
 
 | Attribute | Type | Description |
 | :--- | :--- | :--- |
-| `version` | `str` | Format version (current: `"2.0"`). Paths are always stored as POSIX relative. |
+| `version` | `str` | Format version (current: `"2.0"`). |
 | `n_committed` | `int` | Number of valid rows for embeddings, paths, and metadata. |
-| `n_committed_props` | `int` | Number of valid rows for properties. |
+| `n_committed_props` | `int` | Number of valid rows for properties and internal tracking. |
 | `embedding_dim` | `int` | Dimensionality `D` of the vectors. |
 | `is_multichannel` | `bool` | Whether the dataset uses multiple files per image. |
+
+### Internal Tracking Flags
+
+The `/internal/` group stores flags that help the pipeline resume interrupted runs. These are not considered phenotypic data and are filtered out of `PhenoMeResults`.
+
+| Flag | Type | Description |
+| :--- | :--- | :--- |
+| `_properties_attempted` | `float32` | Set to `1.0` if property computation was attempted for this row. Helps distinguish between "not yet computed" and "computed but all NaNs". |
 
 ### Config Attributes
 
@@ -92,18 +102,23 @@ The pipeline uses attributes to track file state and versioning.
 ```python
 import h5py
 import os
+import numpy as np
 
 def load_pipeline_data(checkpoint_path):
     with h5py.File(checkpoint_path, "r") as f:
         n = f.attrs["n_committed"]
+        n_prop = f.attrs.get("n_committed_props", 0)
+
         # Load embeddings (Lazy loading recommended for large N)
         embeddings = f["embeddings"][:n]
+
         # Load paths (stored as POSIX relative; resolve using _storage_root if present)
         rel_paths = [p.decode("utf-8") if isinstance(p, bytes) else str(p) for p in f["img_path"][:n]]
         root = f.attrs.get("_storage_root")
         if root:
             root = root.decode("utf-8") if isinstance(root, bytes) else str(root)
         abs_paths = [os.path.join(root, p) for p in rel_paths] if root else rel_paths
+
         # Load Metadata (Columnar)
         metadata = []
         meta_grp = f["metadata"]
@@ -113,7 +128,16 @@ def load_pipeline_data(checkpoint_path):
                 val = meta_grp[key][i]
                 row[key] = val.decode("utf-8") if isinstance(val, bytes) else val
             metadata.append(row)
-    return abs_paths, metadata, embeddings
+
+        # Load Properties (Columnar)
+        properties = []
+        if "properties" in f:
+            prop_grp = f["properties"]
+            for i in range(n_prop):
+                row = {key: prop_grp[key][i] for key in prop_grp.keys()}
+                properties.append(row)
+
+    return abs_paths, metadata, embeddings, properties
 ```
 
 ---
@@ -137,9 +161,10 @@ When a checkpoint is active, `get_embeddings()` reads only the requested rows fr
 | **img_path** | Image file paths, stored **relatively** for portability |
 | **metadata** | Per-image metadata, **columnar format** (`/metadata/`) |
 | **properties** | Computed scalar properties, **columnar format** (`/properties/`) |
+| **internal** | Internal tracking flags, **columnar format** (`/internal/`) |
 | **config** | Non-path pipeline settings only. Full paths (e.g. `data_dir`) are **never** stored. |
 | **version** | Checkpoint format version (`"2.0"`) |
 
 ### Loading Results
 
-Call `find_files` first, then `load_results(filename)`. The pipeline uses the file list from `find_files` to resolve paths so the checkpoint works on any machine.
+Call `find_files` first, then `load_results(path)` (for example the `.h5` file path or a directory containing `phenome_results.h5`). The pipeline uses the file list from `find_files` to resolve paths so the checkpoint works on any machine.

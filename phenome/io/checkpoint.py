@@ -1115,6 +1115,7 @@ class CheckpointManager:
         compression: str = "gzip",
         compression_level: int = _GZIP_LEVEL,
         processing_params: dict[str, Any] | None = None,
+        internal: list[dict[str, Any]] | None = None,
     ) -> None:
         """Atomically write a full results object to an HDF5 file.
 
@@ -1131,6 +1132,11 @@ class CheckpointManager:
             Passed to h5py for the embeddings dataset.
         processing_params : dict or None
             Written to the ``/config`` group when provided.
+        internal : list of dict, optional
+            Per-row internal checkpoint state (e.g. attempted flags).
+            If not provided, and *results.properties* contains keys in
+            :data:`_INTERNAL_PROPERTY_TRACKING_KEYS`, they are moved to
+            ``/internal``.
         """
         # Normalise: accept both PhenoMeResults and legacy dict
         if hasattr(results, "img_path"):
@@ -1244,9 +1250,11 @@ class CheckpointManager:
                 if props:
                     clean_props: list[dict[str, Any]] = []
                     internal_for_write: list[dict[str, Any]] = []
-                    for p in props:
+                    for i, p in enumerate(props):
                         pd = dict(p) if isinstance(p, dict) else {}
                         int_d: dict[str, Any] = {}
+                        if internal and i < len(internal):
+                            int_d.update(internal[i])
                         for k in _INTERNAL_PROPERTY_TRACKING_KEYS:
                             if k in pd:
                                 int_d[k] = pd.pop(k)

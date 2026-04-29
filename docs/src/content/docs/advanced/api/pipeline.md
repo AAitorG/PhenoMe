@@ -565,8 +565,7 @@ Transfer specified metadata columns to properties.
 ```python
 PhenoMe.save_results(
     self,
-    output_dir: str | None = None,
-    filename: str | None = None,
+    path: str | None = None,
     compression: str = 'gzip'
 ) -> None
 ```
@@ -589,8 +588,7 @@ to save seed, use_gpu_for_dr, reference_filters, and model name
 
 **Args:**
 
-- **`output_dir`**: Directory (creates if needed). Ignored when *filename* given.
-- **`filename`**: Explicit output path.
+- **`path`**: Explicit output path.
 - **`compression`**: HDF5 compression algorithm (used only for new files).
 
 </div>
@@ -609,7 +607,7 @@ to save seed, use_gpu_for_dr, reference_filters, and model name
 ```python
 PhenoMe.load_results(
     self,
-    filename: str,
+    path: str | None = None,
     lazy_checkpoint: bool = True
 ) -> None
 ```
@@ -630,7 +628,7 @@ machine. Call find_files or set_file_df first.
 
 **Args:**
 
-- **`filename`**: Path to .h5 or .hdf5 file.
+- **`path`**: Path to .h5 or .hdf5 file.
 - **`lazy_checkpoint`**: If True (default), keep the checkpoint file open.
   If False, load all data into RAM and close the file.
 
@@ -658,7 +656,7 @@ machine. Call find_files or set_file_df first.
 ```python
 PhenoMe.checkpoint_context(
     self,
-    path: str,
+    path: str | None = None,
     lazy_checkpoint: bool = True
 ) -> Generator
 ```

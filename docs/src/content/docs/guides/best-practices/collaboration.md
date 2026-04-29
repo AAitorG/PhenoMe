@@ -10,7 +10,7 @@ sidebar:
 Generate a self-contained bundle:
 
 ```python
-pheno.save_results(output_dir="experiment_2026_01")
+pheno.save_results("experiment_2026_01.h5")
 
 pheno.generate_report(
     output_path="experiment_2026_01/report.html",

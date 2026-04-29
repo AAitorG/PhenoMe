@@ -1154,7 +1154,8 @@ CheckpointManager.write_results_to_hdf5(
     path: 'str',
     compression: 'str' = 'gzip',
     compression_level: 'int' = 4,
-    processing_params: 'dict[str, Any] | None' = None
+    processing_params: 'dict[str, Any] | None' = None,
+    internal: 'list[dict[str, Any]] | None' = None
 ) -> None
 ```
 
@@ -1177,6 +1178,11 @@ Uses a temporary file + ``os.replace`` for crash safety.
   Passed to h5py for the embeddings dataset.
 - **`processing_params`** (`dict or None`):
   Written to the ``/config`` group when provided.
+- **`internal`** (`list of dict, optional`):
+  Per-row internal checkpoint state (e.g. attempted flags).
+  If not provided, and *results.properties* contains keys in
+  :data:`_INTERNAL_PROPERTY_TRACKING_KEYS`, they are moved to
+  ``/internal``.
 
 </div>
 

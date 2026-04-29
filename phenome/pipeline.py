@@ -22,6 +22,7 @@ from .core import (
     validate_results,
 )
 from .io import CheckpointManager, FileDiscovery
+from .io._path_utils import _resolve_results_hdf5_path
 from .io.checkpoint_alignment import (
     filter_items_not_in_checkpoint,
     get_already_committed_metadata_keys,
@@ -123,6 +124,8 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         # results.embeddings is None (lazy sentinel) and embeddings are loaded on demand.
         self._db: CheckpointManager | None = None
         self._db_indices: np.ndarray | None = None
+        # Non-lazy: per-row internal dicts (aligned with results.properties), not in PhenoMeResults
+        self._ram_internal: list[dict[str, Any]] | None = None
 
         # Temporal (in-memory only) embeddings appended via process_temporal_images().
         # When _db is open, temporal rows live here; results indices >= _temporal_start_idx.
@@ -163,6 +166,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                 logger.debug("Error closing checkpoint on reset: %s", e)
             self._db = None
         self._db_indices = None
+        self._ram_internal = None
         self._emb_buffer = []
         self._temporal_embeddings = None
         self._temporal_start_idx = 0
@@ -705,8 +709,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
 
     def save_results(
         self,
-        output_dir: str | None = None,
-        filename: str | None = None,
+        path: str | None = None,
         compression: str = "gzip",
     ) -> None:
         """Save results to HDF5 (atomic write or in-place flush).
@@ -722,25 +725,29 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         (not stored in the checkpoint).
 
         Args:
-            output_dir: Directory (creates if needed). Ignored when *filename* given.
-            filename: Explicit output path.
+            path: Explicit output path.
             compression: HDF5 compression algorithm (used only for new files).
         """
-        target_path: str | None = None
-        if filename is not None:
-            parent = os.path.dirname(filename)
-            if parent:
-                os.makedirs(parent, exist_ok=True)
-            _, ext = os.path.splitext(filename)
-            target_path = filename if ext.lower() in (".h5", ".hdf5") else filename + ".h5"
-        elif output_dir is not None:
-            os.makedirs(output_dir, exist_ok=True)
-            target_path = os.path.join(output_dir, "phenome_results.h5")
-        else:
-            raise ValueError("Provide output_dir or filename.")
+        target_path = _resolve_results_hdf5_path(path)
+
+        parent = os.path.dirname(target_path) or "."
+        os.makedirs(parent, exist_ok=True)
 
         if self._db is not None:
             db_path = os.path.abspath(self._db.path)
+
+            # Sync in-memory properties to DB buffers if missing from disk.
+            # This ensures that properties computed in-memory (e.g. without passing
+            # checkpoint_path to compute_properties) are included in the saved file.
+            if self.results.has_properties:
+                n_db = self._db.n_committed_props + self._db.properties_buffered
+                if n_db < self.results.n_images:
+                    to_buffer = self.results.properties[n_db:]
+                    self._db.buffer_properties(to_buffer)
+                    if self._ram_internal and len(self._ram_internal) >= self.results.n_images:
+                        to_buffer_int = self._ram_internal[n_db:]
+                        self._db.buffer_internal(to_buffer_int)
+
             if os.path.abspath(target_path) == db_path:
                 if self._db.embeddings_buffered:
                     self._db.commit_embeddings()
@@ -753,9 +760,23 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
             logger.info("Copying HDF5 database from %s to %s …", db_path, target_path)
             import shutil
 
+            was_open = self._db._file is not None
             if self._db._file is not None:
                 self._db._file.flush()
+                self._db._file.close()
+                self._db._file = None
+
             shutil.copy2(db_path, target_path)
+            self._db.path = target_path
+
+            if self._db.embeddings_buffered:
+                self._db.commit_embeddings()
+            if self._db.properties_buffered:
+                self._db.commit_properties()
+
+            if was_open:
+                self._db._ensure_open()
+
             logger.info("Results copied to %s", target_path)
             return
 
@@ -772,6 +793,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
             target_path,
             compression=compression,
             processing_params=self._processing_params,
+            internal=self._ram_internal,
         )
         logger.info("Results saved to %s", target_path)
 
@@ -924,7 +946,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
 
     def load_results(
         self,
-        filename: str,
+        path: str | None = None,
         lazy_checkpoint: bool = True,
     ) -> None:
         """Load and use an existing results/checkpoint file.
@@ -938,7 +960,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         machine. Call find_files or set_file_df first.
 
         Args:
-            filename: Path to .h5 or .hdf5 file.
+            path: Path to .h5 or .hdf5 file.
             lazy_checkpoint: If True (default), keep the checkpoint file open.
                 If False, load all data into RAM and close the file.
 
@@ -949,6 +971,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
             ConcurrentCheckpointAccessError: If the checkpoint is already open in
                 another notebook or process (only one instance can access it at a time).
         """
+        filename = _resolve_results_hdf5_path(path)
         if not os.path.isfile(filename):
             raise FileNotFoundError(f"Results file not found: {filename}")
 
@@ -1024,12 +1047,13 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         n_emb = ckpt.n_committed
         emb_dim = ckpt.embedding_dim
         if n_emb > 0 and emb_dim:
-            emb_str = f", {emb_dim}-dim embeddings (lazy, on disk)"
+            loc = "lazy, on disk" if ckpt.lazy else "in RAM"
+            emb_str = f", {emb_dim}-dim embeddings ({loc})"
         else:
             emb_str = ", no embeddings"
 
         logger.info(
-            "Loaded %d images from %s (%s)%s. Content: %d metadata keys %s, %d properties %s.",
+            "Loaded %d images from %s (%s)%s.\nContent: %d metadata keys %s, %d properties %s.",
             n_img,
             filename,
             fmt,
@@ -1043,7 +1067,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
     @contextmanager
     def checkpoint_context(
         self,
-        path: str,
+        path: str | None = None,
         lazy_checkpoint: bool = True,
     ) -> Generator[Any, None, None]:
         """Context manager that loads a checkpoint and guarantees it is closed on exit.
@@ -1179,7 +1203,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                             if os.path.isfile(common):
                                 common = os.path.dirname(common)
                             final_data_dir = common
-                            logger.info("Inferred data_dir from file_df: %s", final_data_dir)
+                            logger.debug("Inferred data_dir from file_df: %s", final_data_dir)
             except (ValueError, OSError):
                 pass
 
@@ -1386,7 +1410,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                     excluded_list = excluded if isinstance(excluded, list) else [excluded]
                     exclude_mask = exclude_mask & fdf[col].isin(excluded_list)
             fdf = fdf[~exclude_mask]
-        logger.info("Processing %d images after filtering.", len(fdf))
+        logger.debug("Processing %d images after filtering.", len(fdf))
         return fdf
 
     def _prepare_filtered_data(self, fdf: pd.DataFrame) -> list[dict[str, Any]]:
@@ -1494,8 +1518,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                 )
                 n_skipped = n_before - len(filtered_data)
                 logger.info(
-                    "Checkpoint: %d embedding rows in file, %d input rows skipped "
-                    "(already committed), %d to process.",
+                    "Found %d committed images; skipping %d (already in checkpoint), %d to process.",
                     ckpt.n_committed,
                     n_skipped,
                     len(filtered_data),
@@ -1521,8 +1544,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                 )
                 n_skipped = n_before - len(filtered_data)
                 logger.info(
-                    "Checkpoint: %d embedding rows in file, %d input rows skipped "
-                    "(already committed), %d to process.",
+                    "Found %d committed images; skipping %d (already in checkpoint), %d to process.",
                     ckpt.n_committed,
                     n_skipped,
                     len(filtered_data),
@@ -1543,8 +1565,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         use_ckpt = checkpoint_path is not None
 
         if use_ckpt and ckpt is not None:
-            n_committed = ckpt.commit_embeddings()
-            logger.info("Checkpoint: saved %d embeddings to %s", n_committed, checkpoint_path)
+            ckpt.commit_embeddings()
             self._setup_lazy_results(
                 ckpt,
                 requested_paths=requested_paths,
@@ -1599,6 +1620,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                 paths, metadata, current_requested_data, _path_repr
             )
         properties = ckpt.load_properties_all()
+        internal = ckpt.load_internal_all()
 
         h5_indices = np.arange(len(paths), dtype=np.int64)
 
@@ -1623,6 +1645,8 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
                 h5_indices = h5_indices[indices]
                 if properties:
                     properties = [properties[i] for i in indices if i < len(properties)]
+                if internal:
+                    internal = [internal[i] for i in indices if i < len(internal)]
 
         # When file_df was provided, replace checkpoint paths with file_df paths
         # so results.img_path points to valid files on this machine.
@@ -1637,6 +1661,9 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
 
         if len(properties) < len(paths):
             properties = properties + [{} for _ in range(len(paths) - len(properties))]
+        if internal and len(internal) < len(paths):
+            internal = internal + [{} for _ in range(len(paths) - len(internal))]
+        self._ram_internal = internal
 
         self.results = PhenoMeResults(
             img_path=paths,
@@ -1646,7 +1673,7 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         )
         validate_results(self.results)
         logger.info(
-            "Lazy DB: %d images backed by %s (embeddings on disk).",
+            "Pipeline ready: %d images available (lazy loading from %s).",
             len(paths),
             ckpt.path,
         )

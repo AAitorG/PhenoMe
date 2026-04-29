@@ -57,7 +57,7 @@ checkpoint:
 - `model name` (for example `dinov2_vitb14_reg`).
 
 ```python
-pheno.save_results(output_dir="results/")
+pheno.save_results("results.h5")
 
 pheno.export_experiment_config(
     "results/config.json",
@@ -67,7 +67,7 @@ pheno.export_experiment_config(
 ```
 
 When loading: call `find_files` first, then
-`pheno.load_results("results/phenome_results.h5")`. The framework restores
+`pheno.load_results("results.h5")`. The framework restores
 configuration and resolves paths automatically.
 
 ## Version control
@@ -89,7 +89,7 @@ metadata, properties, and processing params in one place - no need to
 save them separately.
 
 ```python
-pheno.save_results(output_dir="results/")
+pheno.save_results("results.h5")
 
 df = pheno.compute_properties(property_preset="basic")
 df.to_csv("results/properties.csv", index=False)

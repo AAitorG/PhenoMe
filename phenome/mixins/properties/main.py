@@ -17,6 +17,7 @@ from tqdm.auto import tqdm
 from ..._logging import get_logger
 from ...core import metadata_to_stable_key, optimize_property_types
 from ...core.pipeline_results import PhenoMeResults
+from ...io import CheckpointManager
 from ...io.checkpoint_alignment import (
     compute_metadata_alignment as _compute_metadata_alignment_fn,
 )
@@ -63,12 +64,23 @@ class PhenoMeProperties:
     Expected attributes from the parent class:
         - self.results: PhenoMeResults with img_path, metadata, properties, embeddings
         - self._processing_params: Optional[Dict[str, Any]]
+        - self._db: Optional[CheckpointManager]
+        - self._ram_internal: Optional[List[Dict[str, Any]]]
     """
 
     # Type hints for pipeline attributes (provided by parent class)
     results: PhenoMeResults
     _processing_params: dict[str, Any] | None
     _property_norm_cache: dict[str, Any] | None
+    _db: CheckpointManager | None
+
+    def save_results(
+        self,
+        path: str | None = None,
+        compression: str = "gzip",
+    ) -> None:
+        """Persist results HDF5; real implementation lives on ``PhenoMe``."""
+        ...
 
     # ------------------------------------------------------------------
     # Public API
@@ -325,6 +337,20 @@ class PhenoMeProperties:
                 "force_update=True has no effect without checkpoint_path; "
                 "properties are computed in memory only.",
             )
+
+        if (
+            checkpoint_path
+            and not os.path.isfile(checkpoint_path)
+            and getattr(self, "_db", None) is not None
+        ):
+            logger.info(
+                "Provided checkpoint_path %s does not exist, but an active "
+                "database is present. Copying it to preserve existing embeddings.",
+                checkpoint_path,
+            )
+            # Need to disable force_update effect during copy, the clear_properties
+            # will happen correctly right after we save it.
+            self.save_results(path=checkpoint_path)
 
         if force_update and checkpoint_path:
             if os.path.isfile(checkpoint_path):
@@ -794,10 +820,15 @@ class PhenoMeProperties:
         if checkpoint_path is None or not os.path.isfile(checkpoint_path):
             return None, 0, None
 
-        try:
-            ckpt = CheckpointManager(checkpoint_path, lazy=lazy)
-        except Exception:
-            raise
+        if self._db is not None and os.path.abspath(self._db.path) == os.path.abspath(
+            checkpoint_path
+        ):
+            ckpt = self._db
+        else:
+            try:
+                ckpt = CheckpointManager(checkpoint_path, lazy=lazy)
+            except Exception:
+                raise
 
         n_already = ckpt.n_committed_props
         n_with_emb = ckpt.n_committed
@@ -1203,6 +1234,10 @@ class PhenoMeProperties:
             while len(full_internal) < len(full_props):
                 full_internal.append({})
 
+        self.results.properties = full_props
+        if hasattr(self, "_ram_internal"):
+            self._ram_internal = full_internal
+
         # Checkpoint persistence: only when image_paths matches checkpoint (no filter)
         ckpt_created_this_run = False
         if checkpoint_path is not None:
@@ -1296,7 +1331,9 @@ class PhenoMeProperties:
                             len(full_props),
                             len(image_paths),
                         )
-                ckpt.close()
+                # Only close if it's NOT our managed database
+                if self._db is None or self._db is not ckpt:
+                    ckpt.close()
 
         return full_props
 
