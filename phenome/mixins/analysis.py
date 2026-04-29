@@ -1362,17 +1362,19 @@ class PhenoMeAnalysis:
 
         Computes per-property ``mean_abs``, ``std`` (across dimensions), ``max_abs``, ``min_abs``,
         ``mean``, ``sign`` (of mean raw *r*), orders rows by ``order_by``, and either shows a
-        horizontal bar chart of mean |r| with std error bars or logs a plain-text table when
-        ``plot`` is *False*.
+        horizontal violin plot of the distribution of |r| across dimensions per property or logs
+        a plain-text table when ``plot`` is *False*.
 
         Args:
             correlation_results: Output from :meth:`compute_embedding_property_correlations`
                 (must include ``correlations`` and ``correlation_method``).
             order_by: Metric used to sort properties (descending):
                 ``mean_abs`` | ``max_abs`` | ``mean`` | ``std``.
-            top_k: Number of top properties listed in ``top_properties``; full sorted table
-                is always in ``summary`` (*None* = all).
-            plot: If *True* (default), show a Plotly bar chart of mean |r| with std error bars.
+            top_k: Number of top properties shown in the plot and listed in ``top_properties``;
+                full sorted table is always in ``summary`` (*None* = all).
+            plot: If *True* (default), show a Plotly violin plot of |r| per dimension for the top
+                ``top_k`` properties by ``order_by`` (*None* = all). Highest metric at the **top**
+                of the y-axis.
             return_fig: If *True*, include the :class:`plotly.graph_objects.Figure` in the
                 result under key ``"figure"``.
             figsize: Figure size in inches, converted to pixels for Plotly layout.
@@ -1459,9 +1461,12 @@ class PhenoMeAnalysis:
         if need_fig:
             display_k = top_k if top_k is not None else len(summary)
             plot_df = summary.head(int(display_k)).copy()
-            plot_df = plot_df.sort_values(order_by, ascending=True, na_position="last")
+            # Plotly reverses categorical ``category_orders`` when mapping to y-axis positions for
+            # horizontal violins; sort descending here so strongest ``order_by`` ends up at the top.
+            plot_df = plot_df.sort_values(order_by, ascending=False, na_position="last")
             out_fig = _plot_property_correlations_plotly(
                 plot_df,
+                correlations=corrs,
                 order_by=order_by,
                 title=title,
                 figsize=figsize,

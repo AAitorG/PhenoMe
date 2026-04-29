@@ -364,6 +364,7 @@ class PhenoMeProperties:
             expected_property_keys=expected_property_keys,
         )
         if ckpt is None and n_already > 0:
+            self._property_norm_cache = None
             self._warn_if_nan_properties(
                 property_keys=sorted(expected_property_keys) if expected_property_keys else None,
                 count_missing_key_as_nan=not bool(expected_property_keys),

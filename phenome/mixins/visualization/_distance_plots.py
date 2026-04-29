@@ -16,61 +16,85 @@ logger = get_logger(__name__)
 def _plot_property_correlations_plotly(
     plot_df: pd.DataFrame,
     *,
+    correlations: dict[str, np.ndarray],
     order_by: str,
     title: str,
     figsize: tuple[int, int] = (10, 8),
     correlation_method: str | None = None,
 ) -> go.Figure:
-    """Build a horizontal bar chart: mean of |r| per property with std error bars.
+    """Build horizontal violin plots: distribution of |r| across dimensions per property.
 
     This is a private visualization helper; callers are typically analysis helpers or mixins.
     """
-    if plot_df.empty or "mean_abs" not in plot_df.columns or "std" not in plot_df.columns:
-        if not plot_df.empty:
+    if plot_df.empty or not correlations:
+        if not plot_df.empty and not correlations:
             logger.warning(
-                "Property correlation frame must include 'mean_abs' and 'std'; cannot plot."
+                "Property correlation plot needs non-empty correlations dict; cannot plot."
             )
         return go.Figure()
 
-    w_px, h_px = figsize[0] * 100, figsize[1] * 100
-    y_labels = plot_df["property"].astype(str).tolist()
+    rows: list[dict[str, Any]] = []
+    y_ordered: list[str] = []
+    for pname in plot_df["property"].astype(str):
+        r = correlations.get(pname)
+        if r is None:
+            continue
+        vc = r[np.isfinite(r)]
+        if len(vc) == 0:
+            continue
+        y_ordered.append(pname)
+        for v in np.abs(vc):
+            rows.append({"property": pname, "abs_correlation": float(v)})
 
-    x_vals = np.asarray(plot_df["mean_abs"].to_numpy(), dtype=float)
-    err = np.asarray(plot_df["std"].to_numpy(), dtype=float)
-    err = np.where(np.isfinite(err), err, 0.0)
-    x_vals = np.where(np.isfinite(x_vals), x_vals, np.nan)
+    if not rows:
+        logger.warning("No finite correlation values to plot.")
+        return go.Figure()
+
+    long_df = pd.DataFrame(rows)
     method = correlation_method or "n/a"
-    # Concise description: bars = mean(|r|), error bars = SD(r), with method.
-    xaxis_title = f"mean(|r|) ± SD(r) per dimension [{method}]"
+    xaxis_title = f"Distribution of |r| across dimensions [{method}]"
 
-    fig = go.Figure(
-        data=[
-            go.Bar(
-                y=y_labels,
-                x=x_vals,
-                orientation="h",
-                error_x={
-                    "type": "data",
-                    "array": err,
-                    "visible": True,
-                },
-                marker_color="#3b82f6",
-            )
-        ],
+    fig = px.violin(
+        long_df,
+        x="abs_correlation",
+        y="property",
+        color="property",
+        orientation="h",
+        box=True,
+        points=False,
+        category_orders={"property": y_ordered},
     )
-    fig.update_xaxes(
-        title_text=xaxis_title,
-        title_font={"size": 12},
+    # Violin: light semi-transparent blue
+    # Box: white fill with dark border for contrast
+    fig.update_traces(
+        fillcolor="rgba(219, 234, 254, 0.6)",  # Light blue, semi-transparent
+        line={"color": "#1e40af"},  # Dark blue outline
+        opacity=1.0,
+        showlegend=False,
+    )
+    # Box plot styling for better contrast
+    fig.for_each_trace(
+        lambda t: t.update(
+            marker={"color": "#1e40af", "size": 4},
+            meanline={"color": "#0369a1", "width": 2},
+            box={
+                "fillcolor": "rgba(255, 255, 255, 0.8)",
+                "line": {"color": "#1e40af", "width": 1.5},
+            },
+        )
     )
 
+    w_px, h_px = figsize[0] * 100, figsize[1] * 100
     order_note = f" (ordered by {order_by})"
     fig.update_layout(
         title=f"{title}{order_note}" if order_by else title,
+        xaxis_title=xaxis_title,
         yaxis_title="Property",
         width=w_px,
         height=h_px,
         margin={"l": 200, "r": 40, "t": 60, "b": 40},
     )
+    fig.update_xaxes(title_font={"size": 12})
     return fig
 
 
