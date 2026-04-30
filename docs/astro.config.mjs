@@ -34,11 +34,13 @@ export default defineConfig({
         replacesTitle: true,
       },
       favicon: "/logo_minimal.png",
-      // Starlight 0.31 accepts the object form below. When upgrading to
-      // >= 0.32, migrate to the array form: [{ icon: 'github', label: 'GitHub', href: '...' }].
-      social: {
-        github: "https://github.com/AAitorG/PhenoMe",
-      },
+      social: [
+        {
+          icon: "github",
+          label: "GitHub",
+          href: "https://github.com/AAitorG/PhenoMe",
+        },
+      ],
       customCss: ["./src/styles/custom.css"],
       sidebar: [
         { label: "Home", link: "/" },
