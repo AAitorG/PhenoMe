@@ -13,6 +13,7 @@ from typing import Any, Literal, cast
 import h5py
 import numpy as np
 
+from ..core.batch_correction import BatchCorrectionStats, MethodName
 from ..core.pipeline_results import PhenoMeResults
 from ._checkpoint_ops import (
     append_2d_vlen_dataset,
@@ -171,6 +172,13 @@ class CheckpointManager:
         {name}               (N,)    float32     — one dataset per property name
     /internal/
         {name}               (N,)    float32     — checkpoint control (not phenotypic), same N as /properties
+    /batch_correction/                          — optional; batch / plate correction stats
+        (attrs)              method, batch_metadata_key, source, written_at
+        batch_{hash}/        group per batch_id (hash of UTF-8 batch_id)
+            (attrs)          batch_id, n_controls
+            mean             (D,) float32
+            whiten_mat       (D, D) float32   — sphering
+            std              (D,) float32     — z-score
     /config/                                    — processing parameters (typed attributes)
         channel_mode         str  attribute
         resize_size          str  attribute  ("none" when absent)
@@ -880,6 +888,115 @@ class CheckpointManager:
 
         raw = np.array(emb_ds[sorted_idx], dtype=np.float32)
         return raw[inv_order]
+
+    def write_embeddings_rows(self, h5_row_indices: np.ndarray, data: np.ndarray) -> None:
+        """In-place write of embedding rows identified by HDF5 row indices.
+
+        Only rows within the committed range may be written. Flushes the file
+        after updating. For non-lazy checkpoints, updates the in-RAM embedding
+        array instead.
+
+        Parameters
+        ----------
+        h5_row_indices : np.ndarray
+            1-D int64 indices into ``/embeddings`` (0-based, ``< n_committed``).
+        data : np.ndarray
+            ``float32`` array of shape ``(len(h5_row_indices), D)`` aligned with
+            *h5_row_indices*.
+        """
+        if not self.lazy and self._ram_data is not None:
+            if self._ram_data.embeddings is None:
+                raise RuntimeError("No embeddings array in RAM checkpoint.")
+            idx = np.asarray(h5_row_indices, dtype=np.int64)
+            self._ram_data.embeddings[idx] = np.asarray(data, dtype=np.float32)
+            return
+
+        self._ensure_open("a")
+        f = self._file
+        assert f is not None
+        if "embeddings" not in f:
+            raise RuntimeError("No embeddings dataset in this checkpoint.")
+        emb_ds = cast(h5py.Dataset, f["embeddings"])
+        n_emb = min(self.n_committed, int(emb_ds.shape[0]))
+        idx = np.asarray(h5_row_indices, dtype=np.int64)
+        arr = np.asarray(data, dtype=np.float32)
+        if idx.shape[0] != arr.shape[0]:
+            raise ValueError("h5_row_indices and data must have the same length.")
+        if idx.size and (idx.min() < 0 or idx.max() >= n_emb):
+            raise IndexError(
+                f"h5_row_indices out of committed range [0, {n_emb - 1}]: "
+                f"min={int(idx.min())}, max={int(idx.max())}"
+            )
+        sort_order = np.argsort(idx)
+        sorted_idx = idx[sort_order]
+        sorted_data = arr[sort_order]
+        emb_ds[sorted_idx] = sorted_data
+        f.flush()
+
+    def clone_to_new_file(self, new_path: str) -> CheckpointManager:
+        """Create a full copy of the current checkpoint at *new_path* and return a new manager.
+
+        If the current manager is lazy, the file is copied on disk. If it is in RAM,
+        the RAM data is written to the new path.
+
+        Parameters
+        ----------
+        new_path : str
+            Path for the new HDF5 file.
+
+        Returns
+        -------
+        CheckpointManager
+            A new manager instance pointing to the cloned file.
+        """
+        import shutil
+
+        if not self.lazy and self._ram_data is not None:
+            self.write_results_to_hdf5(
+                self._ram_data,
+                new_path,
+                processing_params=self._processing_params_ram,
+                internal=self._ram_internal,
+            )
+        else:
+            self.close()  # Ensure all buffers are flushed before copying
+            shutil.copy2(self.path, new_path)
+
+        return CheckpointManager(
+            new_path,
+            embedding_dim=self.embedding_dim,
+            lazy=self.lazy,
+        )
+
+    def save_batch_correction_state(
+        self,
+        stats_by_batch: dict[str, BatchCorrectionStats],
+        *,
+        method: MethodName,
+        batch_metadata_key: str,
+        source: str,
+    ) -> None:
+        """Persist batch-correction statistics under ``/batch_correction``."""
+        from .batch_correction_ops import write_batch_correction_group
+
+        self._ensure_open("a")
+        assert self._file is not None
+        write_batch_correction_group(
+            self._file,
+            stats_by_batch,
+            method=method,
+            batch_metadata_key=batch_metadata_key,
+            source=source,
+        )
+        self._file.flush()
+
+    def load_batch_correction_state(self) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        """Load ``/batch_correction`` if present; otherwise ``None``."""
+        from .batch_correction_ops import read_batch_correction_group
+
+        self._ensure_open("a")
+        assert self._file is not None
+        return read_batch_correction_group(self._file)
 
     def load_metadata_and_paths(self) -> tuple[list[Any], list[dict[str, Any]]]:
         """Load all committed paths and metadata dicts.

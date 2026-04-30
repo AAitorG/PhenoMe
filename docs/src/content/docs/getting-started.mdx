@@ -163,8 +163,7 @@ If you prefer a guided walkthrough with interactive widgets, start with
    ```
 
    <Aside type="tip">
-   Use `property_preset="intensity"` if you do not have masks. See
-   [Understanding properties](/PhenoMe/concepts/property-interpretation/) for details.
+   If your data has plate effects, you can run `pheno.correct_batches(batch_metadata_key="plate_id", control_filters={"condition": "Control"})` here.
    </Aside>
 
 4. **Visualize your results**

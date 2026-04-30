@@ -15,8 +15,7 @@ Common choices:
 
 - **DINOv2** (default): self-supervised vision transformer by Meta AI.
 - **CLIP**: vision-language models.
-- **MAE**: masked autoencoders.
-- **Custom models**: any model exposing a `forward_features()` method.
+- **Custom models**: any model can be used with the [Vision model wrappers](/PhenoMe/advanced/api/model-wrapper/).
 
 DINOv2 transfers well to diverse microscopy images without training or fine-tuning, which is why it is the default.
 
@@ -42,4 +41,4 @@ Use `get_embeddings()` for lazy-safe access. For full HDF5 storage details, see 
 
 ## Temporal images (in-memory)
 
-Use `process_temporal_images()` to add new images **temporarily** to an existing analysis without re-running `process_images`. Temporal images are kept in memory only (not persisted to checkpoint) and are tagged with `metadata['source'] = 'NEW'`. Call `clear_temporal_data()` to remove them. See [Temporal images](/PhenoMe/workflows/#5-temporal-images-in-memory-exploration).
+Use `process_temporal_images()` to add new images **temporarily** to an existing analysis without re-running `process_images`. Temporal images are kept in memory only (not persisted to checkpoint) and are tagged with `metadata['source'] = 'NEW'`. Call `clear_temporal_data()` to remove them. See [Temporal images](/PhenoMe/workflows/#5-temporal-images-testing-new-data-quickly).

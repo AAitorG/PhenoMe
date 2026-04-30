@@ -19,8 +19,8 @@ This page is rebuilt from docstrings in [`phenome.pipeline`](https://github.com/
 Main class for phenotyping analysis using deep learning embeddings.
 
 Provides: compute_properties, property_stats_by_group; compute_clustering,
-detect_outliers, find_prototypes; compute_reference_distances; plot_pca,
-plot_tsne, plot_umap, and related methods.
+detect_outliers, find_prototypes; compute_reference_distances; correct_batches;
+plot_pca, plot_tsne, plot_umap, and related methods.
 
 **Embedding lifecycle:**
 
@@ -979,6 +979,70 @@ Requires sample std (ddof=1) from property_stats_by_group.
 
 
 ### Advanced analysis
+
+<div class="api-method" role="region" aria-labelledby="api-phenomebatchcorrection-correct_batches">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenomebatchcorrection-correct_batches"><code>correct_batches</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMeBatchCorrection.correct_batches(
+    self,
+    batch_metadata_key: 'str',
+    method: 'MethodName' = 'sphering',
+    source: 'SourceName' = 'embeddings',
+    property_keys: 'list[str] | None' = None,
+    control_filters: 'dict[str, Any] | None' = None,
+    inplace: 'bool' = True,
+    checkpoint_path: 'str | None' = None,
+    chunk_size: 'int' = 4096,
+    force: 'bool' = False,
+    ridge_multiplier: 'float' = 0.001,
+    min_controls: 'int' = 2
+) -> dict[str, Any]
+```
+
+</div>
+
+<div class="api-body">
+
+Correct plate-to-plate variation using control wells per batch.
+
+Call after :meth:`process_images` (and optionally after ``compute_properties`` when
+``source='properties'``). For lazy checkpoints, embeddings are read and rewritten
+in chunks of *chunk_size* rows.
+
+**Args:**
+
+- **`batch_metadata_key`**: Metadata column for batch / plate id (case-insensitive).
+- **`method`**: ``"sphering"`` (default) or ``"zscore"``.
+- **`source`**: ``"embeddings"`` or ``"properties"``.
+- **`property_keys`**: Property names to correct when ``source='properties'``.
+  If None, uses all keys from :meth:`get_available_property_keys`.
+- **`control_filters`**: Same semantics as ``filter_indices`` filters (required).
+- **`inplace`**: If True, updates ``results.embeddings`` or ``results.properties`` in place.
+- **`checkpoint_path`**: Optional path to save corrected results to a new file.
+  - If ``None`` (default): Correction is applied in RAM (eager) or to the
+  current open checkpoint (lazy). If in lazy mode, the checkpoint is
+  modified in-place.
+  - If ``str``: The current checkpoint (if any) is cloned to this new path before
+  correction. Original data remains untouched.
+- **`chunk_size`**: Rows per chunk for embedding I/O and property scatter.
+- **`force`**: If True, allow re-applying correction after a previous run in this session.
+- **`ridge_multiplier`**: Covariance ridge strength for sphering (see :func:`compute_batch_stats`).
+- **`min_controls`**: Minimum control wells required per batch.
+
+**Returns:**
+
+  Dict with batch stats summary (``batches``, ``controls_per_batch``, ``method``, …).
+
+</div>
+
+</div>
 
 <div class="api-method" role="region" aria-labelledby="api-phenomeanalysis-compute_clustering">
 

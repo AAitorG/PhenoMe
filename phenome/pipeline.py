@@ -33,6 +33,7 @@ from .io.checkpoint_alignment import (
 from .metadata.base import MetadataBase
 from .mixins import (
     PhenoMeAnalysis,
+    PhenoMeBatchCorrection,
     PhenoMeDistances,
     PhenoMeProperties,
     PhenoMeVisualization,
@@ -59,15 +60,21 @@ def _effective_num_workers(num_workers: int) -> int:
     return num_workers
 
 
-class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisualization):
+class PhenoMe(
+    PhenoMeProperties,
+    PhenoMeAnalysis,
+    PhenoMeDistances,
+    PhenoMeVisualization,
+    PhenoMeBatchCorrection,
+):
     """@section Overview
     @order 0
 
     Main class for phenotyping analysis using deep learning embeddings.
 
     Provides: compute_properties, property_stats_by_group; compute_clustering,
-    detect_outliers, find_prototypes; compute_reference_distances; plot_pca,
-    plot_tsne, plot_umap, and related methods.
+    detect_outliers, find_prototypes; compute_reference_distances; correct_batches;
+    plot_pca, plot_tsne, plot_umap, and related methods.
 
     **Embedding lifecycle:**
 
@@ -147,6 +154,9 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
         self._file_discovery = FileDiscovery()
         self._transform_builder = TransformBuilder(mean=self.mean, std=self.std)
 
+        self._batch_correction_applied: bool = False
+        self._batch_correction_last_info: dict[str, Any] | None = None
+
     # ------------------------------------------------------------------
     # Reset
     # ------------------------------------------------------------------
@@ -181,6 +191,9 @@ class PhenoMe(PhenoMeProperties, PhenoMeAnalysis, PhenoMeDistances, PhenoMeVisua
             self._image_path_col = None
             self._channel_path_cols = None
             self._mask_path_col = None
+        self._batch_correction_applied = False
+        self._batch_correction_last_info = None
+
         if verbose:
             logger.info("Reset: All stored data cleared.")
 

@@ -6,6 +6,7 @@ visualization, and interactive capabilities. See the top-level
 
 Public API:
     - PhenoMeProperties: compute_properties, property_stats_by_group, etc.
+    - PhenoMeBatchCorrection: correct_batches (plate / batch correction)
     - PhenoMeDistances: compute_reference_distances
     - PhenoMeAnalysis: compute_clustering, detect_outliers, find_prototypes
     - PhenoMeVisualization: plot_pca, plot_tsne, plot_umap
@@ -23,6 +24,7 @@ Mixin Composition Strategy:
 """
 
 from .analysis import PhenoMeAnalysis
+from .batch_correction import PhenoMeBatchCorrection
 from .dataset import PhenoMeDataset, collate_fn
 from .distances import PhenoMeDistances
 from .embedding_extractor import EmbeddingExtractor
@@ -33,6 +35,7 @@ from .visualization import PhenoMeVisualization
 __all__ = [
     "EmbeddingExtractor",
     "PhenoMeAnalysis",
+    "PhenoMeBatchCorrection",
     "PhenoMeDataset",
     "PhenoMeDistances",
     "PhenoMeInteractive",

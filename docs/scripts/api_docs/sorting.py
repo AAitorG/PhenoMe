@@ -60,6 +60,7 @@ _PIPELINE_DEFAULTS: dict[str, tuple[str, int]] = {
     "compute_properties": ("Properties", 300),
     "property_stats_by_group": ("Properties", 310),
     "top_properties_different_from_reference": ("Properties", 320),
+    "correct_batches": ("Advanced analysis", 350),
     "compute_clustering": ("Advanced analysis", 400),
     "detect_outliers": ("Advanced analysis", 410),
     "find_prototypes": ("Advanced analysis", 420),

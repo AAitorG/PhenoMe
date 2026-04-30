@@ -318,6 +318,13 @@ Version configuration (Constants section):
     {name}               (N,)    float32     — one dataset per property name
 /internal/
     {name}               (N,)    float32     — checkpoint control (not phenotypic), same N as /properties
+/batch_correction/                          — optional; batch / plate correction stats
+    (attrs)              method, batch_metadata_key, source, written_at
+    batch_{hash}/        group per batch_id (hash of UTF-8 batch_id)
+        (attrs)          batch_id, n_controls
+        mean             (D,) float32
+        whiten_mat       (D, D) float32   — sphering
+        std              (D,) float32     — z-score
 /config/                                    — processing parameters (typed attributes)
     channel_mode         str  attribute
     resize_size          str  attribute  ("none" when absent)
@@ -494,6 +501,45 @@ CheckpointManager.clear_properties(
 <div class="api-body">
 
 Truncate all property datasets to 0 and reset n_committed_props.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-clone_to_new_file">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-clone_to_new_file"><code>clone_to_new_file</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.clone_to_new_file(
+    self,
+    new_path: 'str'
+) -> CheckpointManager
+```
+
+</div>
+
+<div class="api-body">
+
+Create a full copy of the current checkpoint at *new_path* and return a new manager.
+
+If the current manager is lazy, the file is copied on disk. If it is in RAM,
+the RAM data is written to the new path.
+
+**Parameters:**
+
+- **`new_path`** (`str`):
+  Path for the new HDF5 file.
+
+**Returns:**
+
+- **`CheckpointManager`**:
+  A new manager instance pointing to the cloned file.
 
 </div>
 
@@ -784,6 +830,31 @@ Return processing parameters from ``/config`` group, or None.
 <div class="api-body">
 
 Whether the checkpoint stores separate paths per channel.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-load_batch_correction_state">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-load_batch_correction_state"><code>load_batch_correction_state</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.load_batch_correction_state(
+    self
+) -> tuple[dict[str, Any], dict[str, Any]] | None
+```
+
+</div>
+
+<div class="api-body">
+
+Load ``/batch_correction`` if present; otherwise ``None``.
 
 </div>
 
@@ -1085,6 +1156,35 @@ Number of property dicts in the write buffer.
 
 </div>
 
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-save_batch_correction_state">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-save_batch_correction_state"><code>save_batch_correction_state</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.save_batch_correction_state(
+    self,
+    stats_by_batch: 'dict[str, BatchCorrectionStats]',
+    method: 'MethodName',
+    batch_metadata_key: 'str',
+    source: 'str'
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Persist batch-correction statistics under ``/batch_correction``.
+
+</div>
+
+</div>
+
 <div class="api-method" role="region" aria-labelledby="api-checkpointmanager-set_processing_params">
 
 <div class="api-method-header">
@@ -1134,6 +1234,45 @@ CheckpointManager.validate_processing_params(
 Compare *current_params* against stored params.
 
 Returns list of ``(key, stored_value, current_value)`` for mismatches.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-write_embeddings_rows">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-write_embeddings_rows"><code>write_embeddings_rows</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.write_embeddings_rows(
+    self,
+    h5_row_indices: 'np.ndarray',
+    data: 'np.ndarray'
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+In-place write of embedding rows identified by HDF5 row indices.
+
+Only rows within the committed range may be written. Flushes the file
+after updating. For non-lazy checkpoints, updates the in-RAM embedding
+array instead.
+
+**Parameters:**
+
+- **`h5_row_indices`** (`np.ndarray`):
+  1-D int64 indices into ``/embeddings`` (0-based, ``< n_committed``).
+- **`data`** (`np.ndarray`):
+  ``float32`` array of shape ``(len(h5_row_indices), D)`` aligned with
+  *h5_row_indices*.
 
 </div>
 

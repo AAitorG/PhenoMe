@@ -69,6 +69,20 @@ pheno.process_images(
 )
 ```
 
+## 7. Plate / Batch correction
+
+If your data comes from multiple plates or batches, you can correct for technical variation (plate effects) using control wells.
+
+```python
+# Correct embeddings using 'Control' wells in each 'Plate'
+pheno.correct_batches(
+    batch_metadata_key="Plate",
+    control_filters={"condition": "Control"},
+    method="sphering",  # or "zscore"
+    source="embeddings", # or "properties"
+)
+```
+
 See [Best practices - performance](/PhenoMe/guides/best-practices/performance/)
 for memory sizing.
 

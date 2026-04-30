@@ -102,6 +102,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `compute_multivariate_interpretability` | Explain a dimensionality reduction component using LASSO or Random Forest. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_multivariate_interpretability) |
 | `compute_properties` | Compute per-image properties using presets and/or custom functions. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties) |
 | `compute_reference_distances` | Compute distances from all images to reference group. | ✅ | [Distances](/PhenoMe/advanced/api/distances/#api-phenomedistances-compute_reference_distances) |
+| `correct_batches` | Correct plate-to-plate variation using control wells per batch. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomebatchcorrection-correct_batches) |
 | `create_interactive_explorer` | Launch the interactive explorer for this pipeline's results. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_interactive_explorer) |
 | `detect_outliers` | Detect outliers based on distance to centroid. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-detect_outliers) |
 | `embedding_dim` | Return the embedding dimensionality, or 0 if unavailable. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-embedding_dim) |
@@ -263,6 +264,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `create_interactive_explorer` | Launch an interactive explorer for phenotyping results in Jupyter. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_interactive_explorer) |
 | `EmbeddingExtractor` | Extracts embeddings from images using a ModelWrapper and DataLoader. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeAnalysis` | Pipeline providing analysis methods for PhenoMe. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_clustering) |
+| `PhenoMeBatchCorrection` | Mixin: ``correct_batches()`` for plate / batch effects. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeDataset` | Dataset for loading and preprocessing images for phenotyping analysis. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeDistances` | Provides distance computation methods for PhenoMe. | 🔒 | [Distances](/PhenoMe/advanced/api/distances/#api-phenomedistances-compute_reference_distances) |
 | `PhenoMeInteractive` | High-performance interactive explorer for PhenoMe results. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#class-phenomeinteractive) |

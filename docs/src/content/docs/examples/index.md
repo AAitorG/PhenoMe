@@ -43,7 +43,7 @@ These walkthroughs are **use-case** examples on public datasets: they show reali
 **Goal:** Simple two-group comparison without a full screen.
 
 - **Metadata:** Parent folder per group or a minimal CSV with `condition`.
-- **Quick path:** [Getting started](/PhenoMe/getting-started/#3-your-first-analysis) and `plot_pca(color_by='condition')`.
+- **Quick path:** [Getting started](/PhenoMe/getting-started/#3-run-your-first-analysis) and `plot_pca(color_by='condition')`.
 
 ---
 
