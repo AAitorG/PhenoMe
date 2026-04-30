@@ -1025,12 +1025,13 @@ in chunks of *chunk_size* rows.
   If None, uses all keys from :meth:`get_available_property_keys`.
 - **`control_filters`**: Same semantics as ``filter_indices`` filters (required).
 - **`inplace`**: If True, updates ``results.embeddings`` or ``results.properties`` in place.
-- **`checkpoint_path`**: Optional path to save corrected results to a new file.
-  - If ``None`` (default): Correction is applied in RAM (eager) or to the
-  current open checkpoint (lazy). If in lazy mode, the checkpoint is
-  modified in-place.
-  - If ``str``: The current checkpoint (if any) is cloned to this new path before
-  correction. Original data remains untouched.
+- **`checkpoint_path`**: If set, persist batch-correction metadata and/or export results.
+  - If ``None`` (default): Corrections still apply (RAM or an already-open lazy
+  checkpoint), but nothing new is written for persistence—no ``/batch_correction``
+  stats on disk and no new HDF5 via :meth:`save_results`.
+  - If ``str``: With an open checkpoint, it is cloned to this path first; stats are
+  saved under ``/batch_correction`` when a DB is active; in eager mode (no DB),
+  results are saved to this path after correction.
 - **`chunk_size`**: Rows per chunk for embedding I/O and property scatter.
 - **`force`**: If True, allow re-applying correction after a previous run in this session.
 - **`ridge_multiplier`**: Covariance ridge strength for sphering (see :func:`compute_batch_stats`).
