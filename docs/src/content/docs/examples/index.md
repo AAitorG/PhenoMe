@@ -23,7 +23,7 @@ These walkthroughs are **use-case** examples on public datasets: they show reali
 **Goal:** Compare treatments and doses; color plots and reports by compound and concentration.
 
 - **Metadata:** CSV with `filename`, `compound`, `concentration_uM`, optional `plate`, `well`. See [Experiment details — CSV lookup](/PhenoMe/guides/experiment-details/csv-lookup/).
-- **Workflow:** [Notebook 03 — Core workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb) then [Notebook 05](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_exploratory_analysis_and_explainability.ipynb).
+- **Workflow:** [Notebook 03 — Core workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb) then [Notebook 04](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb).
 - **Distances / references:** [Distances API](/PhenoMe/advanced/api/distances/), [Workflows](/PhenoMe/workflows/).
 
 ---
@@ -47,12 +47,12 @@ These walkthroughs are **use-case** examples on public datasets: they show reali
 
 ---
 
-## Custom vision model (not DINOv2)
+## Custom vision model and preprocessing
 
-**Goal:** Swap backbone while keeping the same pipeline.
+**Goal:** Swap backbone while keeping the same pipeline, and apply custom image transformations.
 
 - **Docs:** [Model wrapper](/PhenoMe/advanced/api/model-wrapper/), [Extending](/PhenoMe/guides/extending/).
-- **Notebook:** [06 — Extending plugins](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_extending_phenome_plugins.ipynb).
+- **Notebook:** [06 — Custom model and preprocessing](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_custom_model_and_preprocessing.ipynb).
 
 ---
 
@@ -61,7 +61,7 @@ These walkthroughs are **use-case** examples on public datasets: they show reali
 **Goal:** Add biologically meaningful measurements beyond presets.
 
 - **Docs:** [Select properties](/PhenoMe/guides/select-properties/), [Property interpretation](/PhenoMe/concepts/property-interpretation/).
-- **Notebook:** [06 — Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_extending_phenome_plugins.ipynb).
+- **Notebook:** [05 — Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_extending_phenome_plugins.ipynb).
 
 ---
 

@@ -139,4 +139,4 @@ See [Understanding properties — choosing properties](/PhenoMe/concepts/propert
 
 ### Where do I add custom models, properties, or plugins?
 
-See [Extending PhenoMe](/PhenoMe/guides/extending/), [Select properties](/PhenoMe/guides/select-properties/), [Plugins](/PhenoMe/guides/plugins/), and notebook [06 - Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_extending_phenome_plugins.ipynb).
+See [Extending PhenoMe](/PhenoMe/guides/extending/), [Select properties](/PhenoMe/guides/select-properties/), [Plugins](/PhenoMe/guides/plugins/), and notebook [05 - Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_extending_phenome_plugins.ipynb).

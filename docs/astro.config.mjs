@@ -105,9 +105,8 @@ export default defineConfig({
             { label: "01 Interactive quickstart", link: `${NOTEBOOKS}/01_interactive_quickstart.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
             { label: "02 Inspect your images", link: `${NOTEBOOKS}/02_inspect_your_images.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
             { label: "03 Core phenotyping workflow", link: `${NOTEBOOKS}/03_core_phenotyping_workflow.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
-            { label: "04 Advanced metadata handling", link: `${NOTEBOOKS}/04_advanced_metadata_handling.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
-            { label: "05 Exploratory & explainability", link: `${NOTEBOOKS}/05_exploratory_analysis_and_explainability.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
-            { label: "06 Extending with plugins", link: `${NOTEBOOKS}/06_extending_phenome_plugins.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+            { label: "04 Exploratory & explainability", link: `${NOTEBOOKS}/04_exploratory_analysis_and_explainability.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+            { label: "05 Extending with plugins", link: `${NOTEBOOKS}/05_extending_phenome_plugins.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
             {
               label: "Examples",
               collapsed: true,
