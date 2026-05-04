@@ -86,6 +86,9 @@ logger = get_logger(__name__)
 
 class PhenoMeInteractive:
     """
+    @section Visualization
+    @order 9
+
     High-performance interactive explorer for PhenoMe results.
 
     Optimized for large datasets using WebGL and efficient data handling.

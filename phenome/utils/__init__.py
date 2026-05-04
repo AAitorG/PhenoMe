@@ -1,15 +1,45 @@
-"""Utility modules for the phenotyping pipeline.
+"""
+@section Utilities
 
-Provides model wrappers, metadata helpers, property factories, and device utilities.
-See the top-level `phenome` module for usage.
+Utility modules for model wrappers, metadata extraction, property factories, and device management.
 
-Public API:
-    - load_dinov2_model: Load DINOv2 as a DinoV2ModelWrapper.
-    - ModelWrapper, DinoV2ModelWrapper: Base and DINOv2-specific wrappers.
-    - default_metadata_from_path, get_metadata_from_path, make_dataframe_metadata_fn
-    - create_regionprops_function, create_intensity_function, create_texture_function, ...
-    - get_default_device, set_determinism
-    - TransformBuilder, PadToSize, TypeMaxNorm
+This package provides reusable components for building and extending phenotyping pipelines.
+
+**Model wrapping:**
+- `ModelWrapper`: Base class for custom embedding models. Override `_get_embeddings()` to use
+  any pretrained model.
+- `DinoV2ModelWrapper`: Wrapper for DINOv2 models (ViT-B/14, ViT-L/14, etc.).
+- `load_dinov2_model`: Convenience function to load a DINOv2 model.
+
+**Metadata extraction:**
+- `default_metadata_from_path`: Extract metadata from simple file paths.
+- `get_metadata_from_path`: Advanced path-based metadata extraction.
+- `make_dataframe_metadata_fn`: Create metadata extractor from a DataFrame.
+
+**Property factories (create custom cell/object properties):**
+- `create_regionprops_function`: Morphological properties (area, eccentricity, solidity, etc.).
+- `create_intensity_function`: Intensity statistics (mean, std, quantiles).
+- `create_masked_intensity_function`: Intensity in masked regions.
+- `create_texture_function`: Texture features (Haralick, LBP, etc.).
+- `create_concentric_ring_function`: Ring-based intensity features.
+- `create_blur_effect_function`: Blur/focus metrics.
+- `create_entropy_function`: Entropy and information metrics.
+- `get_preset_property_functions`: List all available preset properties.
+
+**Image transforms:**
+- `TransformBuilder`: Compose PyTorch transforms (resize, pad, normalize).
+- `PadToSize`: Pad image to specified size.
+- `TypeMaxNorm`: Normalize by dtype max value.
+- `normalize_by_dtype_max`: Normalize array by dtype maximum.
+- `scale_minmax`: Min-max scaling.
+
+**Device management:**
+- `get_default_device`: Get current device (CPU or GPU).
+- `set_determinism`: Enable deterministic behavior (seeds, etc.).
+
+**See Also:**
+For metadata configuration objects, see `phenome.metadata`.
+For plugin registration, see `phenome.plugins.register_property()`.
 """
 
 from ..metadata import (

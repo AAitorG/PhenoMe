@@ -40,7 +40,11 @@ logger = get_logger(__name__)
 
 
 class PhenoMeProperties:
-    """Pipeline providing property computation and reporting for PhenoMe.
+    """
+    @section Analysis
+    @order 4
+
+    Pipeline providing property computation and reporting for PhenoMe.
 
     Expected attributes from the parent class:
         - self.results: PhenoMeResults with img_path, metadata, properties, embeddings

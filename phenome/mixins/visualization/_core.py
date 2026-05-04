@@ -30,6 +30,9 @@ class PhenoMeVisualization(
     _GroupEnrichmentPlotsMixin,
 ):
     """
+    @section Visualization
+    @order 8
+
     Pipeline class providing visualization methods for PhenoMe.
 
     **Module Breakdown:**

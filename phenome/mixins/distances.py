@@ -21,6 +21,9 @@ _DISTANCE_BATCH_SIZE = 512  # Process in batches to manage GPU memory
 
 class PhenoMeDistances:
     """
+    @section Analysis
+    @order 6
+
     Provides distance computation methods for PhenoMe.
 
     Expects the following attributes from the pipeline:

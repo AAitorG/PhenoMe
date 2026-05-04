@@ -1,29 +1,60 @@
-"""PhenoMe report generation.
+"""
+@section Report Generation
 
-Generates comprehensive, interactive standalone HTML reports from phenotyping results.
-Provides modular report generation with customizable sections. See the top-level
-`phenome` module for the main pipeline.
+HTML report generation for phenotyping analysis results.
 
-Public API:
-    - generate_report: Generate HTML report from processed pipeline.
-    - ReportConfig: Configuration dataclass for report options.
-    - ReportContext: Internal context used by section generators.
+This package generates comprehensive, interactive, standalone HTML reports from phenotyping
+pipeline results. Reports include embedding visualizations, property distributions, clustering
+results, outlier detection, and customizable sections.
 
-Internal Implementation:
-    - _components: Reusable HTML fragments and component generators.
-    - _section_helpers: Shared utilities for report section implementations.
-    - helpers: Public report utility functions.
-    - styles: CSS fragments for the HTML report.
-    - scripts: JS fragments for the HTML report.
+**Public API:**
+- `generate_report`: Generate HTML report from a `PhenoMe` pipeline object.
+- `ReportConfig`: Configuration dataclass for report generation options.
+- `ReportContext`: Internal context object passed to section generators.
 
-Basic usage:
-    from phenome.report import generate_report
+**Report contents:**
+- Summary statistics (n_images, n_properties, etc.)
+- Embedding visualizations (PCA, t-SNE, UMAP if computed)
+- Property distributions (histograms, violin plots)
+- Clustering results (cluster sizes, assignments)
+- Outlier detection results
+- Statistical analysis (correlations, mutual information)
+- Interactive tables and downloadable CSV exports
 
-    generate_report(
-        pipeline=pheno,
-        output_path="report.html",
-        title="PhenoMe Analysis Report"
-    )
+**Internal modules:**
+- `_components`: Reusable HTML fragments and component generators.
+- `_section_helpers`: Shared utilities for section implementations.
+- `helpers`: Public report utility functions.
+- `styles`: CSS fragments for styling.
+- `scripts`: JavaScript fragments for interactivity.
+
+**Example: Generate report**
+
+```python
+from phenome import PhenoMe
+from phenome.report import generate_report
+
+pm = PhenoMe()
+pm.find_files("images/")
+pm.process_images(model)
+pm.compute_properties(properties)
+pm.compute_clustering()
+pm.compute_pca()
+
+# Generate report
+generate_report(
+    pipeline=pm,
+    output_path="phenome_report.html",
+    title="My Phenotyping Analysis",
+    include_embeddings=True,
+    include_properties=True,
+    include_clustering=True
+)
+```
+
+**See Also:**
+For main pipeline orchestration, see `phenome.PhenoMe`.
+For plugin registration, see `phenome.plugins.register_report_section()`.
 """
 
 from .context import ReportContext

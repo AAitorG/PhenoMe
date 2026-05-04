@@ -1,26 +1,59 @@
-"""Pipeline mixins for PhenoMe.
+"""
+@section Mixins
 
-Provides dataset, embedding extraction, properties, distances, analysis,
-visualization, and interactive capabilities. See the top-level
-`phenome` module for usage.
+Pipeline mixins for composable phenotyping functionality.
 
-Public API:
-    - PhenoMeProperties: compute_properties, property_stats_by_group, etc.
-    - PhenoMeBatchCorrection: correct_batches (plate / batch correction)
-    - PhenoMeDistances: compute_reference_distances
-    - PhenoMeAnalysis: compute_clustering, detect_outliers, find_prototypes
-    - PhenoMeVisualization: plot_pca, plot_tsne, plot_umap
-    - PhenoMeInteractive, create_interactive_explorer: Interactive Jupyter explorer
-    - PhenoMeDataset, collate_fn: Dataset for embedding extraction
+PhenoMe uses a mixin-based architecture where the main orchestration class (`PhenoMe`)
+inherits from specialized feature-layer mixins. Each mixin encapsulates a specific
+capability and is organized to keep the public API thin by delegating heavy logic
+to internal modules (e.g., `_compute.py`, `_helpers.py`).
 
-For property factories (create_regionprops_function, etc.), import from
-phenome or phenome.utils.
+**Mixin classes:**
+- `PhenoMeProperties`: Compute cell/object morphological and intensity properties.
+- `PhenoMeAnalysis`: Statistical analysis (clustering, outlier detection, prototype selection).
+- `PhenoMeDistances`: Compute reference distances and prototype distances.
+- `PhenoMeVisualization`: Plotting and visualization (PCA, t-SNE, UMAP, heatmaps).
+- `PhenoMeBatchCorrection`: Correct batch effects.
+- `PhenoMeInteractive`: Interactive Jupyter explorer for results.
 
-Mixin Composition Strategy:
-    PhenoMe follows a mixin-based architecture where the main pipeline class
-    inherits from specialized feature layers. Each mixin module is organized
-    to keep the public API thin by delegating heavy orchestration and
-    auxiliary logic to internal modules (e.g., `_compute.py`, `_helpers.py`).
+**Supporting classes:**
+- `PhenoMeDataset`: PyTorch Dataset for image batching and embedding extraction.
+- `EmbeddingExtractor`: Utility for orchestrating embedding extraction.
+- `collate_fn`: Custom collate function for DataLoader.
+
+**Composition in PhenoMe:**
+
+```python
+class PhenoMe(
+    PhenoMeProperties,
+    PhenoMeAnalysis,
+    PhenoMeDistances,
+    PhenoMeVisualization,
+    PhenoMeBatchCorrection,
+):
+    # Inherits all mixin methods
+    pass
+```
+
+Each mixin provides related methods as a logical group:
+- `PhenoMeProperties`: `compute_properties()`, `property_stats_by_group()`, etc.
+- `PhenoMeAnalysis`: `compute_clustering()`, `detect_outliers()`, `find_prototypes()`, etc.
+- `PhenoMeDistances`: `compute_reference_distances()`, etc.
+- `PhenoMeVisualization`: `plot_pca()`, `plot_tsne()`, `plot_umap()`, etc.
+- `PhenoMeBatchCorrection`: `correct_batches()`, etc.
+- `PhenoMeInteractive`: `create_interactive_explorer()`, etc.
+
+**Internal organization:**
+Most mixin modules follow this structure:
+- `mixin_class.py`: Public mixin class with main methods.
+- `_compute.py`: Heavy computation logic (non-public).
+- `_helpers.py`: Helper functions (non-public).
+
+This keeps the public namespace clean and makes internal implementation details easy to refactor.
+
+**See Also:**
+For architectural overview, see `phenome/ARCHITECTURE.md`.
+For property factories and custom properties, see `phenome.plugins` and `phenome.utils`.
 """
 
 from .analysis import PhenoMeAnalysis

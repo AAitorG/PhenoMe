@@ -356,23 +356,74 @@ class PhenoMe(
         mask_filename_column: str | None = None,
         mask_extensions: list[str] | None = None,
     ) -> pd.DataFrame:
-        """Discover image and mask files from directories, cache internally, and return file_df.
+        """Discover image and mask files from directories, extract metadata, and cache internally.
 
-        Recursively scans image_dir (and optionally mask_dir) for image files,
-        extracts metadata, resolves mask paths, and stores the result as the
-        internal file_df used by process_images, compute_properties, and inspect_data.
+        Recursively scans `image_dir` for image files and optionally aligns them with masks
+        from `mask_dir`. Extracts per-file metadata using `metadata_fn` and stores the result
+        as the internal file DataFrame used by `process_images()`, `compute_properties()`,
+        and `inspect_data()`.
 
         Args:
-            image_dir: Root directory or glob pattern for image files.
-            mask_dir: Root directory for mask files (adds mask_path column).
-            extensions: File-extension filter (e.g. [".tif", ".png"]).
-            metadata_fn: Per-file metadata extractor.
-            on_missing_metadata: 'keep' or 'drop' files with missing metadata.
-            mask_filename_column: Metadata column for custom mask filename.
-            mask_extensions: Extensions to try when exact mask path fails.
+            image_dir (str): Root directory or glob pattern for image files. Scanned recursively.
+                Example: "path/to/images/" or "path/to/**/*.tif".
+            mask_dir (str or None): Root directory for corresponding mask files. If provided,
+                adds a 'mask_path' column to the output DataFrame. Default: None (no masks).
+            extensions (list of str or None): File extensions to include (e.g., [".tif", ".png", ".jpg"]).
+                If None, defaults to common image formats. Default: None.
+            metadata_fn (callable, MetadataBase, or None): Function or object to extract metadata
+                from file paths. Signature: `fn(file_path: str) -> dict[str, Any]`.
+                Examples:
+                - `DefaultMetadata()`: Simple metadata.
+                - `PathTemplateMetadata(template="...")`: Extract from path pattern.
+                - `lambda p: {'batch': p.split('/')[-2]}`: Custom function.
+                If None, no metadata extracted. Default: None.
+            on_missing_metadata (str): How to handle files with missing metadata. One of:
+                - 'drop': Remove rows with incomplete metadata.
+                - 'keep': Include rows with NaN metadata.
+                Default: 'drop'.
+            mask_filename_column (str or None): Metadata column name used to locate mask files.
+                If set, masks are located using this column value. Useful for custom mask naming.
+                Default: None (standard alignment logic).
+            mask_extensions (list of str or None): Extensions to try when exact mask filename
+                fails (e.g., [".png", ".tif"]). Default: None (exact filename required).
 
         Returns:
-            DataFrame with file_path, mask_path (when mask_dir set), and metadata.
+            pd.DataFrame: File discovery DataFrame with columns:
+                - 'file_path': (str or list of str) Image file path(s).
+                - 'mask_path': (str, if mask_dir set) Corresponding mask path.
+                - Metadata columns: Custom columns from `metadata_fn` if provided.
+                Shape: (N, 2+M) where N is number of images, M is metadata columns.
+
+        Raises:
+            FileNotFoundError: If `image_dir` does not exist.
+            ValueError: If all files are dropped due to `on_missing_metadata='drop'`.
+            RuntimeError: If metadata extraction fails or masks cannot be resolved.
+
+        Example:
+            Discover images with metadata:
+
+            >>> pm = PhenoMe()
+            >>> df = pm.find_files(
+            ...     "data/images/",
+            ...     metadata_fn=PathTemplateMetadata(template="batch_{batch}/sample_{id}"),
+            ...     extensions=[".tif", ".png"]
+            ... )
+            >>> print(df.shape)
+            (150, 4)  # 150 images, 4 columns: file_path, batch, id, [others]
+
+            With masks:
+
+            >>> df = pm.find_files(
+            ...     image_dir="data/images/",
+            ...     mask_dir="data/masks/",
+            ...     extensions=[".tif"]
+            ... )
+            >>> print(df.columns)
+            Index(['file_path', 'mask_path'], dtype='object')
+
+        See Also:
+            `set_file_df`: Manually provide a file DataFrame.
+            `process_images`: Process discovered images.
         """
         if isinstance(metadata_fn, MetadataBase):
             self._metadata_config = metadata_fn
@@ -415,11 +466,91 @@ class PhenoMe(
         save_every: int = 5,
         lazy_checkpoint: bool = True,
     ) -> None:
-        """Process images through the model and store embeddings.
+        """Extract embeddings from images using a pretrained or custom model.
 
-        Uses the internally stored file_df (set via set_file_df or find_files).
-        Populates self.results with embeddings, img_path, metadata. Properties remain
-        empty until compute_properties() is called.
+        Reads images from the file DataFrame (set via `find_files()` or `set_file_df()`),
+        processes them through the model in batches, and stores embeddings and metadata
+        in `self.results`. Supports filtering, channel selection, custom preprocessing,
+        and checkpointing for resumable processing.
+
+        **Embedding storage:**
+        - Eager (default): Embeddings stored in `results.embeddings` (ndarray).
+        - Lazy (with checkpoint): Embeddings stored in HDF5; `results.embeddings` is None
+          and embeddings are loaded on-demand via `get_embeddings()`.
+        - Temporal (incremental): New images added to existing checkpoint via
+          `process_temporal_images()`.
+
+        Args:
+            model_wrapper (ModelWrapper): Model instance (e.g., from `load_dinov2_model()`).
+                Must implement `_get_embeddings(images: ndarray) -> (B, D)`.
+            batch_size (int): Batch size for processing. Default: 32. Larger batches are
+                faster but use more GPU memory.
+            num_workers (int): Number of loader processes. In Jupyter, automatically
+                reduced to 0 to avoid multiprocessing issues. Default: 4.
+            filters (dict or None): Include only rows matching criteria.
+                Format: `{column: [value1, value2, ...]}`. Default: None (no filtering).
+            exclude (dict or None): Exclude rows matching criteria. Same format as `filters`.
+                Default: None.
+            channel_mode (str): How to handle multi-channel images. One of:
+                - 'split': Process each channel separately (default).
+                - 'combined': Process all channels as RGB or grayscale.
+            channels (list of int or None): Specific channel indices to use. If None,
+                uses all available. Default: None.
+            preprocessing_fn (callable or None): Custom preprocessing function applied
+                to each image before the model. Signature: `fn(image: ndarray) -> ndarray`.
+                Example: normalization, contrast adjustment, etc. Default: None.
+            custom_transformations (transforms object or None): PyTorch transforms to apply
+                before the model (e.g., resize, normalize). If None, defaults are used
+                based on `resize_size` and `pad_size`. Default: None.
+            append (bool): If True, append to existing embeddings in `results.embeddings`.
+                If False (default), replace. Default: False.
+            resize_size (int or None): Image resize dimension (square). Default: 224.
+                Set to None to skip resizing.
+            pad_size (int or None): Padding size (square). Default: None (no padding).
+            checkpoint_path (str or None): HDF5 file path for lazy storage and resumable
+                processing. If file exists, processing resumes from last checkpoint.
+                If None, embeddings stored in-memory. Default: None.
+            force_rgb (bool): If True, convert grayscale to RGB before model. Default: True.
+            save_every (int): Save checkpoint every N batches (when using checkpoint_path).
+                Default: 5.
+            lazy_checkpoint (bool): If True and checkpoint_path is set, enable lazy
+                loading (embeddings not kept in-memory). If False, load all embeddings
+                after processing. Default: True.
+
+        Returns:
+            None. Modifies `self.results` in-place with embeddings, metadata, and paths.
+
+        Raises:
+            FileNotFoundError: If file_df not set (call `find_files()` or `set_file_df()` first).
+            ValueError: If filters/exclude reference non-existent columns or produce no data.
+            RuntimeError: If model inference fails or checkpoint is corrupted.
+            IOError: If checkpoint file cannot be created or read.
+
+        Example:
+            Process images with DINOv2 model:
+
+            >>> from phenome import PhenoMe, load_dinov2_model
+            >>> pm = PhenoMe(device="cuda")
+            >>> pm.find_files("images/")
+            >>> model = load_dinov2_model("dinov2_vitb14")
+            >>> pm.process_images(model, batch_size=64, resize_size=224)
+            >>> print(pm.results.embeddings.shape)
+            (1000, 768)
+
+            With filtering and checkpoint:
+
+            >>> pm.process_images(
+            ...     model,
+            ...     filters={"batch": ["batch_1", "batch_2"]},
+            ...     checkpoint_path="embeddings.h5",
+            ...     lazy_checkpoint=True
+            ... )
+
+        See Also:
+            `find_files`: Discover and organize image files.
+            `process_temporal_images`: Incrementally add images to existing checkpoint.
+            `get_embeddings`: Retrieve embeddings (handles lazy loading).
+            `compute_properties`: Extract morphological properties from embeddings.
         """
 
         file_df = self._require_file_df("process_images")

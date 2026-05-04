@@ -26,7 +26,11 @@ SourceName = Literal["embeddings", "properties"]
 
 
 class PhenoMeBatchCorrection:
-    """Mixin: ``correct_batches()`` for plate / batch effects.
+    """
+    @section Analysis
+    @order 7
+
+    Mixin: ``correct_batches()`` for plate / batch effects.
 
     Expects ``self.results``, ``self.get_embeddings``, ``self._db``,
     ``self._db_indices``, ``self._temporal_start_idx``, ``self._temporal_embeddings``,

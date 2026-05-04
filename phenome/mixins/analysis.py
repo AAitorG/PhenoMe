@@ -48,7 +48,11 @@ _CORRELATION_METHOD_REGISTRY: dict[str, str] = {
 
 
 class PhenoMeAnalysis:
-    """Pipeline providing analysis methods for PhenoMe.
+    """
+    @section Analysis
+    @order 5
+
+    Pipeline providing analysis methods for PhenoMe.
 
     Implements PhenoMeProtocol. Expected attributes from the parent:
         - self.results: PhenoMeResults

@@ -16,7 +16,11 @@ logger = get_logger(__name__)
 
 
 class EmbeddingExtractor:
-    """Extracts embeddings from images using a ModelWrapper and DataLoader.
+    """
+    @section I/O & Discovery
+    @order 15
+
+    Extracts embeddings from images using a ModelWrapper and DataLoader.
 
     Handles both combined mode (single embedding per image) and split mode
     (concatenate embeddings from each channel).

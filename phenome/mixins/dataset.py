@@ -16,7 +16,11 @@ logger = get_logger(__name__)
 
 
 class PhenoMeDataset(Dataset):
-    """Dataset for loading and preprocessing images for phenotyping analysis.
+    """
+    @section I/O & Discovery
+    @order 16
+
+    Dataset for loading and preprocessing images for phenotyping analysis.
 
     Args:
         file_list: List of dicts with 'file_path' and 'metadata' keys.
