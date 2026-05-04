@@ -14,18 +14,43 @@ This page is rebuilt from docstrings in [`phenome.metadata`](https://github.com/
 
 **See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/)
 
-Metadata handling for the phenotyping pipeline.
+@section Metadata
 
-Provides an object-oriented API for metadata extraction with configurable
-column mappings, auto-generated unique IDs, and mask path resolution. See
-``phenome.utils.metadata`` for functional helpers.
+Metadata handling for extensible and configurable file discovery.
 
-Public API:
+This package provides an object-oriented API for extracting and managing metadata
+from file paths, DataFrames, and custom sources. Metadata is extracted alongside
+images during file discovery and used to organize results, group analysis, and
+annotate visualizations.
 
-- ``MetadataBase``: Abstract base for metadata extractors.
-- ``DefaultMetadata``: Minimal extractor (``file_path``, ``filename``, ``id``).
-- ``PathTemplateMetadata``: Extract from path templates with capture groups.
-- ``DataFrameMetadata``: Look up metadata from a DataFrame.
+**Metadata extractors (classes):**
+- `MetadataBase`: Abstract base class for custom metadata extractors.
+- `DefaultMetadata`: Minimal extractor (file path, filename, auto-generated ID).
+- `PathTemplateMetadata`: Extract metadata by matching file paths against regex patterns.
+- `DataFrameMetadata`: Look up metadata from a DataFrame indexed by file path.
+
+**Quick start:**
+
+```python
+from phenome import PhenoMe, PathTemplateMetadata
+
+# Extract batch and sample ID from paths like: batch_1/sample_42.tif
+metadata_fn = PathTemplateMetadata(template=r"batch_(?P<batch>\d+)/sample_(?P<sample_id>\d+)")
+
+pm = PhenoMe()
+df = pm.find_files("images/", metadata_fn=metadata_fn)
+print(df.columns)  # ['file_path', 'batch', 'sample_id']
+```
+
+**Functional helpers:**
+For functional metadata extraction, see `phenome.utils.metadata`:
+- `default_metadata_from_path`: Simple functional wrapper.
+- `get_metadata_from_path`: Advanced functional wrapper.
+- `make_dataframe_metadata_fn`: Create extractor from DataFrame.
+
+**See Also:**
+For factory functions and presets, see `phenome.utils.property_factories`.
+For metadata utilities in math operations, see `phenome.core.results_metadata`.
 
 ## `MetadataBase`
 
