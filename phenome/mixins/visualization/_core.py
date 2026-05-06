@@ -78,8 +78,16 @@ class PhenoMeVisualization(
             hover_features=hover_features,
         )
 
-    def plot_counts(self, group_by: list[str] | None = None, return_fig: bool = False) -> Any:
-        """Plot count of images grouped by metadata using Plotly."""
+    def plot_counts(
+        self, group_by: list[str] | None = None, return_fig: bool = False, plot: bool = True
+    ) -> Any:
+        """Plot count of images grouped by metadata using Plotly.
+
+        Args:
+            group_by: List of metadata keys to group by.
+            return_fig: If True, return the Plotly figure instead of displaying it.
+            plot: If True (default), create and display a Plotly plot. If False, print results as text.
+        """
         if not group_by:
             available = get_all_metadata_keys(self.results)
             raise ValueError(f"'group_by' must be non-empty. Available: {', '.join(available)}")
@@ -87,6 +95,52 @@ class PhenoMeVisualization(
         group_by_cap = [k.capitalize() for k in group_by]
         df = pd.DataFrame(build_metadata_columns(self.results, capitalize=True, keys=group_by_cap))
         counts = df.groupby(group_by_cap, observed=True).size().reset_index(name="Count")
+
+        if not plot:
+            total = counts["Count"].sum()
+            if total == 0:
+                print(f"\nNo images found for grouping: {', '.join(group_by_cap)}\n")
+                return None
+
+            max_count = counts["Count"].max()
+            counts_display = counts.copy()
+
+            # Add percentage and a simple text-based bar chart
+            counts_display["%"] = (counts_display["Count"] / total * 100).round(1).astype(str) + "%"
+            counts_display["Distribution"] = counts_display["Count"].apply(
+                lambda x: "█" * int(x / max_count * 20)
+            )
+
+            # Calculate optimal column widths with extra spacing
+            cols = list(counts_display.columns)
+            widths = {}
+            for col in cols:
+                data_max = counts_display[col].astype(str).str.len().max()
+                widths[col] = max(len(col), data_max) + 4  # 4 spaces between columns
+
+            total_width = sum(widths.values())
+            title = f"IMAGE COUNTS: {', '.join(group_by_cap).upper()}"
+
+            # Print formatted table
+            print(f"\n{'=' * total_width}")
+            print(title.center(total_width))
+            print(f"{'=' * total_width}")
+
+            # Header
+            header = "".join([col.ljust(widths[col]) for col in cols])
+            print(header)
+            print("-" * total_width)
+
+            # Data rows
+            for _, row in counts_display.iterrows():
+                row_str = "".join([str(row[col]).ljust(widths[col]) for col in cols])
+                print(row_str)
+
+            print("-" * total_width)
+            footer = f"TOTAL IMAGES: {total:,}"
+            print(footer.center(total_width))
+            print(f"{'=' * total_width}\n")
+            return None
 
         if len(group_by) == 1:
             fig = px.bar(
