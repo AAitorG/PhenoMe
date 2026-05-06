@@ -1336,7 +1336,7 @@ Detect outliers based on distance to centroid.
 ```python
 PhenoMeAnalysis.find_prototypes(
     self,
-    cluster_col: str | None = 'cluster',
+    cluster_col: str | list[str] | None = 'cluster',
     n_prototypes: int = 5,
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
@@ -1356,7 +1356,10 @@ Find images closest to each group centroid.
 
 **Args:**
 
-- **`cluster_col`**: Property/metadata key for grouping (one group if *None*).
+- **`cluster_col`**: Property/metadata key(s) for grouping. Can be a single string
+  or a list of strings. If a list is provided, groups are formed by
+  combining values from all specified columns (e.g., "drug1-10uM").
+  If *None*, all images are treated as one group.
 - **`n_prototypes`**: How many prototypes per group.
 - **`source`**: ``'embeddings'``, ``'properties'``, or ``'combined'``.
 - **`property_keys`**: Property subset when *source='properties'*.

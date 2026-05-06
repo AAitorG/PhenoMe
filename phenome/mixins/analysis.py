@@ -1122,7 +1122,7 @@ class PhenoMeAnalysis:
 
     def find_prototypes(
         self,
-        cluster_col: str | None = "cluster",
+        cluster_col: str | list[str] | None = "cluster",
         n_prototypes: int = 5,
         source: Literal["embeddings", "properties", "combined"] = "embeddings",
         property_keys: list[str] | None = None,
@@ -1135,7 +1135,10 @@ class PhenoMeAnalysis:
         """Find images closest to each group centroid.
 
         Args:
-            cluster_col: Property/metadata key for grouping (one group if *None*).
+            cluster_col: Property/metadata key(s) for grouping. Can be a single string
+                or a list of strings. If a list is provided, groups are formed by
+                combining values from all specified columns (e.g., "drug1-10uM").
+                If *None*, all images are treated as one group.
             n_prototypes: How many prototypes per group.
             source: ``'embeddings'``, ``'properties'``, or ``'combined'``.
             property_keys: Property subset when *source='properties'*.
@@ -1167,28 +1170,63 @@ class PhenoMeAnalysis:
         # Build group labels
         n_total = len(self.results.img_path)
         group_labels: list[Any] = [None] * n_total
-        actual_cc: str | None = None
+        found_cols: list[str] = []
 
         if cluster_col:
-            for store_key in ("properties", "metadata"):
-                store = getattr(self.results, store_key, None) or []
-                if not store or not isinstance(store[0], dict):
-                    continue
-                for k in store[0]:
-                    if k.lower() == cluster_col.lower():
-                        actual_cc = k
+            requested_cols = [cluster_col] if isinstance(cluster_col, str) else cluster_col
+
+            # 1. Identify which keys actually exist
+            for col in requested_cols:
+                found_key = None
+                for store_key in ("properties", "metadata"):
+                    store = getattr(self.results, store_key, None) or []
+                    if not store or not isinstance(store[0], dict):
+                        continue
+                    for k in store[0]:
+                        if k.lower() == col.lower():
+                            found_key = k
+                            break
+                    if found_key:
+                        break
+                if found_key:
+                    found_cols.append(found_key)
+                else:
+                    logger.warning("Column '%s' not found.", col)
+
+            # 2. Extract values and build labels
+            if found_cols:
+                if len(found_cols) == 1:
+                    # Single column: maintain original behavior (raw values, no N/A mapping)
+                    k = found_cols[0]
+                    for store_key in ("properties", "metadata"):
+                        store = getattr(self.results, store_key, None) or []
+                        if not store or not isinstance(store[0], dict) or k not in store[0]:
+                            continue
                         for i, entry in enumerate(store):
                             if i < n_total and isinstance(entry, dict):
                                 group_labels[i] = entry.get(k)
                         break
-                if actual_cc:
-                    break
-            if actual_cc is None:
-                logger.warning("Column '%s' not found. Treating as one group.", cluster_col)
+                else:
+                    # Multiple columns: composite labels
+                    for i in range(n_total):
+                        row_vals = []
+                        for k in found_cols:
+                            val = None
+                            for store_key in ("properties", "metadata"):
+                                store = getattr(self.results, store_key, None) or []
+                                if i < len(store) and isinstance(store[i], dict):
+                                    val = store[i].get(k)
+                                    if val is not None:
+                                        break
+                            row_vals.append(str(val) if val is not None else "N/A")
+                        group_labels[i] = "-".join(row_vals)
+            else:
+                if cluster_col:
+                    logger.warning("No matching columns found. Treating as one group.")
 
         valid_gl = [group_labels[i] for i in valid_indices]
         unique_groups: list
-        if actual_cc:
+        if found_cols:
             has_none = None in valid_gl
             others = sorted({v for v in valid_gl if v is not None})
             unique_groups = ([None] if has_none else []) + others
