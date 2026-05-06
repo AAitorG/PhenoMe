@@ -348,10 +348,11 @@ class _ImageDisplayMixin:
         figsize: tuple = (6, 6),
         title_fields: list[str] | None = None,
         show_extra_info: bool = True,
-        apply_transforms: bool = True,
+        apply_transforms: bool = False,
         downsample: int | None = 720,
         ax: Any = None,
         return_fig: bool = False,
+        show_mask_overlay: bool = False,
     ) -> Any:
         """
         Plot a specific image by its index.
@@ -369,6 +370,10 @@ class _ImageDisplayMixin:
                 differ slightly due to integer stepping. If None, no downsampling.
             ax: Optional matplotlib axes to plot on. If provided, a new figure is not created.
             return_fig: If True, returns the matplotlib figure object.
+            show_mask_overlay: If True, draws the segmentation mask as a semi-transparent
+                yellow overlay with a crisp contour. Requires masks to have been discovered
+                via ``mask_dir`` in ``find_files``. Useful for verifying that masks load
+                correctly and spatially align with their images.
         """
         display_img, title, was_downsampled, all_info, metadata, img_name, img_path = (
             self._load_image_display_data(
@@ -386,6 +391,50 @@ class _ImageDisplayMixin:
             fig, ax = plt.subplots(1, 1, figsize=figsize)
 
         ax.imshow(display_img, interpolation="nearest")
+
+        if show_mask_overlay:
+            _file_df = getattr(self, "_file_df", None)
+            _mask_col = getattr(self, "_mask_path_col", None)
+            _mask_path = None
+            if _file_df is not None and _mask_col is not None and idx < len(_file_df):
+                _mask_path = _file_df.iloc[idx][_mask_col]
+            if _mask_path and isinstance(_mask_path, str):
+                try:
+                    _mask = ensure_hwc(read_image(_mask_path))
+                    _mask_2d = (_mask.max(axis=-1) > 0.5).astype(np.float32)
+                    if _mask_2d.shape != display_img.shape[:2]:
+                        _pil_mask = Image.fromarray((_mask_2d * 255).astype(np.uint8))
+                        _mask_2d = (
+                            np.array(
+                                _pil_mask.resize(
+                                    (display_img.shape[1], display_img.shape[0]),
+                                    Image.NEAREST,
+                                )
+                            )
+                            / 255.0
+                        )
+
+                    # Create RGBA overlay (Yellow with very faint opacity to not obscure bio details)
+                    _rgba = np.zeros((*_mask_2d.shape, 4), dtype=np.float32)
+                    _rgba[..., 0] = 1.0  # R
+                    _rgba[..., 1] = 1.0  # G (R+G = Yellow)
+                    _rgba[..., 3] = np.where(_mask_2d > 0.5, 0.15, 0.0)  # Faint alpha
+                    ax.imshow(_rgba, interpolation="nearest")
+
+                    # Add a crisp contour to clearly delineate the foreground object
+                    if _mask_2d.max() > 0.5:
+                        ax.contour(
+                            _mask_2d, levels=[0.5], colors="yellow", linewidths=1.0, alpha=1.0
+                        )
+                except Exception as exc:
+                    logger.warning("Could not load mask for overlay (idx=%d): %s", idx, exc)
+            else:
+                logger.warning(
+                    "show_mask_overlay=True but no mask path found for idx=%d. "
+                    "Call find_files with mask_dir to enable mask overlay.",
+                    idx,
+                )
+
         # If image was downsampled for visualization, hide axes for a cleaner look.
         ax.axis("off" if (was_downsampled or ax is not None) else "on")
         ax.set_title(title, fontsize=11)

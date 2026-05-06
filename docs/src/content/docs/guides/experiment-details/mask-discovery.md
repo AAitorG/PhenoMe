@@ -59,6 +59,27 @@ When you use `MetadataBase` (for example `DataFrameMetadata`) with
 automatically if you omit them from `pheno.find_files` - see
 [Advanced patterns](/PhenoMe/guides/experiment-details/advanced-patterns/#object-oriented-metadata-metadatabase).
 
+## Verify mask alignment visually
+
+After calling `find_files` with `mask_dir`, use `plot_image_by_index` with
+`show_mask_overlay=True` to confirm that each mask loads correctly and
+overlaps the expected region of its image:
+
+```python
+pheno.plot_image_by_index(0, show_mask_overlay=True)
+```
+
+A semi-transparent yellow overlay with a crisp contour appears on top of the image wherever the mask
+is non-zero. If the overlay is missing, shifted, or covers the wrong area,
+check your folder layout and mask filenames against the
+[default behaviour](#default-behaviour-mirrored-folder-structure) rules above.
+
+:::tip
+This is the fastest way to catch alignment problems before running
+`compute_properties`, where a misaligned mask would silently produce
+incorrect shape and intensity measurements.
+:::
+
 ## See also
 
 - [Understanding properties](/PhenoMe/concepts/property-interpretation/) - which physical traits
