@@ -180,7 +180,7 @@ def collate_fn(batch: list[Any]) -> Any:
     if not batch:
         return None, None
 
-    images, items = zip(*batch, strict=False)
+    images, items = zip(*batch, strict=True)
 
     # Check if first image is a list (split mode) or tensor/array (combined mode)
     if isinstance(images[0], list):

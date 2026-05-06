@@ -131,16 +131,16 @@ def compute_spearman_correlation(
     """
     x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=3)
     if x_clean is None:
-        return np.nan if x.ndim == 1 else np.full(x.shape[1], np.nan)
+        return np.array([np.nan]) if x.ndim == 1 else np.full(x.shape[1], np.nan)
 
     if x.ndim == 1:
         if _is_constant(x_clean) or _is_constant(y_clean):
-            return np.array(np.nan)
+            return np.array([np.nan])
         try:
             r, _ = spearmanr(x_clean, y_clean)
-            return np.array(np.nan if not np.isfinite(r) else r)
-        except Exception:
-            return np.array(np.nan)
+            return np.array([np.nan if not np.isfinite(r) else r])
+        except (ValueError, TypeError):
+            return np.array([np.nan])
 
     results = np.full(x.shape[1], np.nan)
     y_constant = _is_constant(y_clean)
@@ -151,7 +151,7 @@ def compute_spearman_correlation(
         try:
             r, _ = spearmanr(x_clean[:, i], y_clean)
             results[i] = np.nan if not np.isfinite(r) else r
-        except Exception:
+        except (ValueError, TypeError):
             pass
     return results
 
@@ -265,10 +265,14 @@ def compute_mutual_info(
     seed: int | None = None,
     device: torch.device | str | None = None,
 ) -> np.ndarray:
-    """Compute normalized mutual information between x and y.
+    """Compute MI-derived correlation coefficient between x and y.
 
-    Uses sklearn mutual_info_regression (KNN-based estimator) mapped to an R^2-like
-    [0,1] value using the transformation sqrt(1 - exp(-2 * MI)).
+    Uses sklearn mutual_info_regression (KNN-based estimator) mapped to a
+    correlation-like [0, 1] value via the Gaussian bivariate transform
+    ``sqrt(1 - exp(-2 * MI))``.  This is **not** the standard information-theoretic
+    Normalized Mutual Information (``I(X;Y) / sqrt(H(X)*H(Y))``); rather, it
+    converts raw MI into a scale comparable to |Pearson r| under a joint-Gaussian
+    assumption.
 
     Args:
         x: First array (n_samples,) or (n_samples, n_features).
@@ -277,8 +281,9 @@ def compute_mutual_info(
         device: Torch device (included for API consistency; sklearn uses CPU).
 
     Returns:
-        np.ndarray: Normalized mutual information in [0, 1], dtype float64. If x is 1D, scalar (as array).
-            If x is 2D, shape (n_features,). NaN where insufficient valid samples.
+        np.ndarray: MI-derived correlation coefficient in [0, 1], dtype float64.
+            If x is 1D, scalar (as array).  If x is 2D, shape (n_features,).
+            NaN where insufficient valid samples.
     """
     # sklearn default n_neighbors=3 requires at least 4 valid samples
     x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=4)

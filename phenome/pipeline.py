@@ -157,6 +157,20 @@ class PhenoMe(
         self._batch_correction_applied: bool = False
         self._batch_correction_last_info: dict[str, Any] | None = None
 
+    def __repr__(self) -> str:
+        n_images = self.results.n_images
+        emb_dim = self.results.embedding_dim
+        n_props = len(self.results.property_keys)
+        mode = "lazy" if self._db is not None else "eager"
+        parts = [
+            f"n_images={n_images}",
+            f"embedding_dim={emb_dim}",
+            f"properties={n_props}",
+            f"mode='{mode}'",
+            f"device={self.device}",
+        ]
+        return f"PhenoMe({', '.join(parts)})"
+
     # ------------------------------------------------------------------
     # Reset
     # ------------------------------------------------------------------
@@ -441,6 +455,9 @@ class PhenoMe(
         if isinstance(df, pd.DataFrame) and not df.empty and "file_path" in df.columns:
             self._file_df = df.reset_index(drop=True).copy()
             self._init_file_df_metadata(self._file_df)
+        elif isinstance(df, pd.DataFrame) and df.empty:
+            logger.warning("find_files returned an empty DataFrame; clearing previous _file_df.")
+            self._file_df = None
         return df
 
     # ------------------------------------------------------------------
@@ -589,7 +606,12 @@ class PhenoMe(
                     current_requested_data=all_requested_data,
                 )
             else:
-                logger.warning("No images to process after filtering.")
+                import warnings
+
+                warnings.warn(
+                    "No images to process after filtering. Check your filters/exclude arguments.",
+                    stacklevel=2,
+                )
             return
 
         cur_t = custom_transformations or self._build_transforms(resize_size, pad_size)
@@ -668,11 +690,17 @@ class PhenoMe(
                 file_df = pd.DataFrame({"file_path": [files]})
             else:
                 file_df = self._file_discovery._find_files_from_dir(files, extensions=extensions)
-            if not file_df.empty:
-                self._file_df = file_df.reset_index(drop=True).copy()
-                self._init_file_df_metadata(self._file_df)
         else:
             raise ValueError(f"files must be str, list, or DataFrame, got: {type(files)}")
+
+        if not file_df.empty:
+            combined = (
+                pd.concat([self._file_df, file_df], ignore_index=True)
+                if self._file_df is not None
+                else file_df
+            )
+            self._file_df = combined.reset_index(drop=True).copy()
+            self._init_file_df_metadata(self._file_df)
 
         fdata = self._prepare_filtered_data(file_df)
         if not fdata:
@@ -735,7 +763,7 @@ class PhenoMe(
                     meta[k] = "Temporal"
             meta_list.append(meta)
         self.results.metadata.extend(meta_list)
-        self.results.properties.extend([{}] * n_new)
+        self.results.properties.extend([{} for _ in range(n_new)])
 
         if self._db is not None:
             self._temporal_embeddings = (
@@ -1559,6 +1587,20 @@ class PhenoMe(
 
     def _prepare_filtered_data(self, fdf: pd.DataFrame) -> list[dict[str, Any]]:
         """Prepare filtered data list from DataFrame."""
+        non_fp_cols = [c for c in fdf.columns if str(c).lower() != "file_path"]
+        lowered = [str(c).lower() for c in non_fp_cols]
+        if len(set(lowered)) < len(lowered):
+            seen: dict[str, str] = {}
+            for orig, low in zip(non_fp_cols, lowered, strict=False):
+                if low in seen:
+                    logger.warning(
+                        "Metadata columns '%s' and '%s' collide when lowercased to '%s'; "
+                        "last value wins.",
+                        seen[low],
+                        orig,
+                        low,
+                    )
+                seen[low] = str(orig)
         filtered_data: list[dict[str, Any]] = []
         for _, row in fdf.iterrows():
             meta = {

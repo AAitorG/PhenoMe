@@ -128,16 +128,35 @@ def filter_indices(
     img_paths = _img_path_list(results)
     n_images = len(img_paths)
     indices = list(range(n_images))
+
+    known_keys = {k.lower() for k in get_all_metadata_keys(results)}
+
     if not filters:
         filtered = indices
     else:
         normalized_filters = {key.lower(): v for key, v in filters.items()}
+        unknown = set(normalized_filters) - known_keys
+        if unknown:
+            import warnings
+
+            warnings.warn(
+                f"Filter key(s) {unknown} not found in metadata. Known keys: {sorted(known_keys)}",
+                stacklevel=2,
+            )
         filtered = [i for i in indices if _row_matches_criteria(results, i, normalized_filters)]
 
     if not exclude:
         return filtered
 
     normalized_exclude = {key.lower(): v for key, v in exclude.items()}
+    unknown_ex = set(normalized_exclude) - known_keys
+    if unknown_ex:
+        import warnings
+
+        warnings.warn(
+            f"Exclude key(s) {unknown_ex} not found in metadata. Known keys: {sorted(known_keys)}",
+            stacklevel=2,
+        )
     return [i for i in filtered if not _row_matches_criteria(results, i, normalized_exclude)]
 
 

@@ -145,7 +145,10 @@ def compute_rf_interpretability(
 
     # Use out-of-bag score to prevent inflated R2 values from Random Forest overfitting
     model = RandomForestRegressor(
-        n_estimators=n_estimators, random_state=seed, n_jobs=-1, oob_score=True
+        n_estimators=n_estimators,
+        random_state=seed,
+        n_jobs=1 if seed is not None else -1,
+        oob_score=True,
     )
 
     # We do not strictly need scaling for Random Forest, but we can fit it directly

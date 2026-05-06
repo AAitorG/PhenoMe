@@ -64,7 +64,9 @@ class PhenoMeDistances:
                 or 'combined' for the normalized concatenation of both.
             mode: 'centroid' computes distance to mean embedding of reference,
                 'all_to_all' computes min distance to any reference image.
-            distance_type: 'euclidean' (default) or 'cosine'.
+            distance_type: 'euclidean' (default) or 'cosine'.  Cosine distance
+                is ``1 - cosine_similarity``, range [0, 2].  Zero-norm vectors
+                produce a distance of 1.
             property_keys: Optional subset of property names when *source* is ``'properties'``
                 or ``'combined'``.
             group_by: If set, optionally visualize or print grouped statistics after
@@ -240,19 +242,24 @@ class PhenoMeDistances:
             Tuple of (data_array, is_patch_metric) where is_patch_metric is always False.
 
         Raises:
-            ValueError: If embeddings are not available and source='embeddings'.
+            ValueError: If source is invalid or data is not available.
         """
+        _valid_sources = ("embeddings", "properties", "combined")
+        if source not in _valid_sources:
+            raise ValueError(f"Invalid source: {source!r}. Must be one of {_valid_sources}.")
+
         embeddings = self.get_embeddings()  # type: ignore[attr-defined]
         has_embeddings = embeddings is not None and len(embeddings) > 0
 
-        if source == "embeddings" and has_embeddings:
+        if source == "embeddings":
+            if not has_embeddings:
+                raise ValueError(
+                    "No embeddings available for distance computation. Run process_images() first."
+                )
             return embeddings, False
         elif source == "properties":
             props_matrix, _, _ = self._get_property_matrix(handle_nans="filter")  # type: ignore[attr-defined]
             return props_matrix, False
-        elif has_embeddings:
-            logger.warning("source='%s' not available, using 'embeddings'.", source)
-            return embeddings, False
         else:
             raise ValueError(
                 "No embeddings available for distance computation. Run process_images() first."
@@ -280,6 +287,17 @@ class PhenoMeDistances:
         batch_size = _DISTANCE_BATCH_SIZE
         all_emb = torch.from_numpy(embeddings).to(self.device)
         ref_emb = all_emb[ref_indices]
+        nan_mask = torch.isnan(ref_emb).any(dim=1)
+        if nan_mask.any():
+            n_nan = int(nan_mask.sum())
+            logger.warning(
+                "Dropping %d/%d reference embeddings containing NaN before centroid computation.",
+                n_nan,
+                len(ref_indices),
+            )
+            ref_emb = ref_emb[~nan_mask]
+            if ref_emb.shape[0] == 0:
+                raise ValueError("All reference embeddings contain NaN; cannot compute centroid.")
         centroid = torch.mean(ref_emb, dim=0)
 
         distances_out = np.zeros(n_samples, dtype=np.float32)

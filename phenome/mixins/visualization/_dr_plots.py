@@ -92,7 +92,13 @@ class _DRPlotsMixin:
         else:
             x_col, y_col = "Component 1", "Component 2"
             z_col = "Component 3" if n_components == 3 else None
-            axis_labels = None
+            method_label = method.upper() if method == "tsne" else method.capitalize()
+            axis_labels = {
+                "x": f"{method_label} 1",
+                "y": f"{method_label} 2",
+            }
+            if n_components == 3:
+                axis_labels["z"] = f"{method_label} 3"
         method_label = method.upper() if method == "tsne" else method.capitalize()
         title = f"{method_label} of {data_type}" + (f" (colored by {color_by})" if color_by else "")
         return self._plot_embedding_scatter(

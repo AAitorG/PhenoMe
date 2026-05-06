@@ -181,6 +181,11 @@ class DataFrameMetadata(MetadataBase):
                 )
             row = self._lookup_df.loc[lookup_key]
             if isinstance(row, pd.DataFrame):
+                import logging as _logging
+
+                _logging.getLogger(__name__).warning(
+                    "Duplicate metadata rows for '%s'; using the first match.", lookup_key
+                )
                 row = row.iloc[0]
             meta: dict[str, Any] = dict(row.to_dict())
             meta[self._filename_columns[0]] = filename_stem

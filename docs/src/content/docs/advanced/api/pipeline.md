@@ -1398,7 +1398,8 @@ PhenoMeAnalysis.analyze_group_enrichment(
     return_fig: bool = False,
     top_k: int | None = None,
     figsize: tuple[int, int] = (10, 6),
-    title: str | None = None
+    title: str | None = None,
+    correct_multiple_testing: bool = True
 ) -> dict
 ```
 
@@ -1408,8 +1409,11 @@ PhenoMeAnalysis.analyze_group_enrichment(
 
 Compute z-score enrichment of properties per group (e.g. cluster labels).
 
-Uses sample mean and sample standard deviation (ddof=1) for the
-population statistics when computing z-scores.
+For each group, z-scores are computed against a **leave-group-out**
+population (all samples *except* the current group).  When
+*correct_multiple_testing* is True (default), Benjamini-Hochberg FDR
+correction is applied across all (group, property) pairs and a
+``Significant`` column is added to the output DataFrame.
 
 **Args:**
 
@@ -1426,12 +1430,16 @@ population statistics when computing z-scores.
 - **`top_k`**: Max properties per group in the figure and in the text summary (``None`` = all).
 - **`figsize`**: Figure size ``(width, height)`` in inches for the Plotly layout.
 - **`title`**: Optional figure title.
+- **`correct_multiple_testing`** (`bool`): If True (default), apply Benjamini-Hochberg
+  FDR correction across all (group, property) z-scores and add a
+  ``Significant`` column (alpha = 0.05).
 
 **Returns:**
 
   Dict with keys:
   - enrichment: pd.DataFrame. Columns: Group, Property, Score, Mean_Group, Mean_Pop,
-  AbsScore. Z-score enrichment per group-property pair.
+  AbsScore, and optionally p_value / Significant when *correct_multiple_testing*
+  is True. Z-score enrichment per group-property pair.
   - group_enrichment_fig: Present when ``return_fig`` is True and a figure was built.
 
 </div>
@@ -1489,8 +1497,8 @@ Correlate dim-reduction components with phenotypic properties.
   - ``'spearman'``: Spearman rank correlation (monotonic relationships, robust to outliers)
   - ``'distance_correlation'``: Distance correlation (detects non-linear relationships,
   requires ``dcor`` library: ``pip install dcor``)
-  - ``'mutual_info'``: Normalized mutual information (detects any dependency,
-  normalized to [0, 1] range)
+  - ``'mutual_info'``: MI-derived correlation coefficient (detects any dependency,
+  mapped to [0, 1] via the Gaussian bivariate transform, **not** standard NMI)
 - **`plot`**: If True (default), show an interactive Plotly faceted bar chart (one row per
   component). If False, log a plain-text summary via the package logger instead
   (unless *return_fig* requests a figure).
@@ -1563,8 +1571,8 @@ This is the time-consuming step that computes raw correlations for each property
   - ``'spearman'``: Spearman rank correlation (monotonic relationships, robust to outliers)
   - ``'distance_correlation'``: Distance correlation (detects non-linear relationships,
   requires ``dcor`` library: ``pip install dcor``)
-  - ``'mutual_info'``: Normalized mutual information (detects any dependency,
-  normalized to [0, 1] range)
+  - ``'mutual_info'``: MI-derived correlation coefficient (detects any dependency,
+  mapped to [0, 1] via the Gaussian bivariate transform, **not** standard NMI)
 
 **Returns:**
 

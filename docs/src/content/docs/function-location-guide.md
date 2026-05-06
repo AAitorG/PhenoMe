@@ -226,7 +226,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `compute_distance_correlation` | Compute distance correlation between x and y. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `compute_entropy` | Compute entropy of data using histogram (PyTorch on GPU/CPU). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `compute_lasso_interpretability` | Explain a target variable y using a LASSO model on features x. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
-| `compute_mutual_info` | Compute normalized mutual information between x and y. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `compute_mutual_info` | Compute MI-derived correlation coefficient between x and y. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `compute_pearson_correlation` | Compute Pearson correlation between x and y using torch.corrcoef on GPU/CPU. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `compute_rf_interpretability` | Explain a target variable y using a Random Forest model on features x. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `compute_spearman_correlation` | Compute Spearman rank correlation between x and y using scipy. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |

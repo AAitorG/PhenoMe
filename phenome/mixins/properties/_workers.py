@@ -156,7 +156,8 @@ def collect_property_names_for_stacks(
                     feat_dict = fn(image2d, mask2d)
                     if not isinstance(feat_dict, dict):
                         continue
-                except Exception:
+                except Exception as exc:
+                    logger.debug("Property fn %s failed: %s", getattr(fn, "__name__", fn), exc)
                     feat_dict = {}
 
                 for bname, _value in feat_dict.items():
@@ -244,7 +245,8 @@ def compute_properties_worker(
                     feat_dict = fn(image2d, mask2d)
                     if not isinstance(feat_dict, dict):
                         continue
-                except Exception:
+                except Exception as exc:
+                    logger.debug("Property fn %s failed: %s", getattr(fn, "__name__", fn), exc)
                     feat_dict = {}
 
                 for bname, value in feat_dict.items():

@@ -472,7 +472,7 @@ def _compute_explained_variance_ratio(transformed: np.ndarray) -> np.ndarray:
     """
     n = transformed.shape[0]
     if n < 2:
-        return np.ones(transformed.shape[1])
+        return np.full(transformed.shape[1], np.nan)
     var = np.var(transformed, axis=0, ddof=1)
     total = var.sum()
     return (var / total) if total > 0 else np.zeros_like(var)

@@ -154,7 +154,13 @@ def get_property_matrix(
             raise ValueError("No properties available. Run compute_properties() first.")
         if not isinstance(properties_list[0], dict):
             raise ValueError(f"Properties must be dicts, got: {type(properties_list[0])}")
-        keys = list(properties_list[0].keys())
+        seen: dict[str, None] = {}
+        for p in properties_list:
+            if isinstance(p, dict):
+                for k in p:
+                    if k not in seen:
+                        seen[k] = None
+        keys = list(seen)
     else:
         keys = property_keys
 
@@ -222,6 +228,16 @@ def normalize_property_matrix(
         non_nan_mask = ~np.isnan(all_matrix).any(axis=1)
         if non_nan_mask.sum() > 0:
             scaler.fit(all_matrix[non_nan_mask])
+            zero_var = scaler.var_ < 1e-12
+            if zero_var.any():
+                n_zero = int(zero_var.sum())
+                zero_names = [keys[i] for i in range(len(keys)) if zero_var[i]]
+                logger.warning(
+                    "Replacing %d zero-variance column(s) with scale=1 to avoid inf/NaN: %s",
+                    n_zero,
+                    zero_names[:10],
+                )
+                scaler.scale_[zero_var] = 1.0
         else:
             scaler.mean_ = np.zeros(all_matrix.shape[1], dtype=np.float32)
             scaler.scale_ = np.ones(all_matrix.shape[1], dtype=np.float32)
@@ -274,7 +290,11 @@ def handle_nan_matrix(
 
     if handle_nans == "impute":
         matrix = np.nan_to_num(matrix, nan=0.0)
-        logger.warning("Imputed NaN values with 0.0. NaN counts: %s", nan_props)
+        logger.warning(
+            "Imputed NaN values with 0.0 (this biases distances and correlations "
+            "for missing-at-random data; consider 'filter' instead). NaN counts: %s",
+            nan_props,
+        )
         return matrix, indices
 
     logger.warning(

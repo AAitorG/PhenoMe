@@ -33,8 +33,9 @@ def optimize_property_types(img_props: dict[str, Any]) -> dict[str, Any]:
             elif float(v).is_integer():
                 optimized[k] = int(v)
             else:
-                # Use float16 precision but store as float (JSON serializable)
-                optimized[k] = float(np.float16(v))
+                # Use float32 precision for storage (JSON serializable, avoids
+                # float16 quantization artifacts on small values)
+                optimized[k] = float(np.float32(v))
         elif isinstance(v, (int, np.integer)):
             optimized[k] = int(v)
         else:

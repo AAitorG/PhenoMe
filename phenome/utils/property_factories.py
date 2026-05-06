@@ -388,8 +388,8 @@ def create_concentric_ring_function(num_rings: int, stats: list[str] | None = No
                     else:
                         val = valid_stats[stat](ring_vals)
                     result[f"ring_{i + 1}_{stat}"] = float(val)
-                except Exception:
-                    pass  # Keep NaN values
+                except (ValueError, TypeError, FloatingPointError):
+                    pass
 
         return result
 

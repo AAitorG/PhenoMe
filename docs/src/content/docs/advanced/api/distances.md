@@ -68,7 +68,9 @@ Compute distances from all images to reference group.
   or 'combined' for the normalized concatenation of both.
 - **`mode`**: 'centroid' computes distance to mean embedding of reference,
   'all_to_all' computes min distance to any reference image.
-- **`distance_type`**: 'euclidean' (default) or 'cosine'.
+- **`distance_type`**: 'euclidean' (default) or 'cosine'.  Cosine distance
+  is ``1 - cosine_similarity``, range [0, 2].  Zero-norm vectors
+  produce a distance of 1.
 - **`property_keys`**: Optional subset of property names when *source* is ``'properties'``
   or ``'combined'``.
 - **`group_by`**: If set, optionally visualize or print grouped statistics after

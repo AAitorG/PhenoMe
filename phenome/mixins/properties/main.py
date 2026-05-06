@@ -306,7 +306,10 @@ class PhenoMeProperties:
             additional_property_functions=additional_property_functions,
         )
         if not property_functions:
-            return pd.DataFrame()
+            raise ValueError(
+                "No property functions provided. Pass a property_preset "
+                "(e.g. 'basic', 'morphology') or additional_property_functions."
+            )
 
         image_paths, mask_paths = _compute.resolve_properties_paths(
             results=self.results,

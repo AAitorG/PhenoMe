@@ -171,6 +171,7 @@ __all__ = [
     # Metadata functions
     "default_metadata_from_path",
     "get_metadata_from_path",
+    # Property factories
     "get_preset_property_functions",
     # Default models
     "load_dinov2_model",

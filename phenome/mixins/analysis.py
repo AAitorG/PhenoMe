@@ -136,11 +136,7 @@ class PhenoMeAnalysis:
                 normalize=normalize,
             )
         except ValueError as exc:
-            logger.warning("Clustering aborted: %s", exc)
-            empty_labels = np.full(n_total, np.nan, dtype=np.float32)
-            if return_silhouette:
-                return empty_labels, None
-            return empty_labels
+            raise ValueError(f"Clustering failed: {exc}") from exc
 
         if len(matrix) == 0:
             logger.warning("No data available for clustering.")
@@ -161,6 +157,13 @@ class PhenoMeAnalysis:
                 dev = getattr(self, "device", None)
                 use_gpu_dr = getattr(self, "use_gpu_for_dr", True)
                 dr_kwargs: dict[str, Any] = {}
+                if reduce_method in ("tsne", "umap"):
+                    logger.warning(
+                        "Clustering in %s space: non-linear embeddings are not isometries; "
+                        "cluster boundaries may not reflect true data structure. "
+                        "Consider using 'pca' for reduce_method instead.",
+                        reduce_method.upper(),
+                    )
                 if reduce_method == "tsne":
                     # Perplexity must be < n_samples (sklearn constraint)
                     dr_kwargs["perplexity"] = min(30.0, n_samples - 1)
@@ -519,8 +522,7 @@ class PhenoMeAnalysis:
                 normalize=normalize,
             )
         except ValueError as exc:
-            logger.warning("Outlier detection aborted: %s", exc)
-            return empty
+            raise ValueError(f"Outlier detection failed: {exc}") from exc
 
         if data is None or len(data) == 0:
             return empty
@@ -766,8 +768,8 @@ class PhenoMeAnalysis:
                 - ``'spearman'``: Spearman rank correlation (monotonic relationships, robust to outliers)
                 - ``'distance_correlation'``: Distance correlation (detects non-linear relationships,
                   requires ``dcor`` library: ``pip install dcor``)
-                - ``'mutual_info'``: Normalized mutual information (detects any dependency,
-                  normalized to [0, 1] range)
+                - ``'mutual_info'``: MI-derived correlation coefficient (detects any dependency,
+                  mapped to [0, 1] via the Gaussian bivariate transform, **not** standard NMI)
             plot: If True (default), show an interactive Plotly faceted bar chart (one row per
                 component). If False, log a plain-text summary via the package logger instead
                 (unless *return_fig* requests a figure).
@@ -935,11 +937,15 @@ class PhenoMeAnalysis:
         top_k: int | None = None,
         figsize: tuple[int, int] = (10, 6),
         title: str | None = None,
+        correct_multiple_testing: bool = True,
     ) -> dict[str, Any]:
         """Compute z-score enrichment of properties per group (e.g. cluster labels).
 
-        Uses sample mean and sample standard deviation (ddof=1) for the
-        population statistics when computing z-scores.
+        For each group, z-scores are computed against a **leave-group-out**
+        population (all samples *except* the current group).  When
+        *correct_multiple_testing* is True (default), Benjamini-Hochberg FDR
+        correction is applied across all (group, property) pairs and a
+        ``Significant`` column is added to the output DataFrame.
 
         Args:
             group_col: Property/metadata key holding group labels (e.g. ``"cluster"``).
@@ -955,11 +961,15 @@ class PhenoMeAnalysis:
             top_k: Max properties per group in the figure and in the text summary (``None`` = all).
             figsize: Figure size ``(width, height)`` in inches for the Plotly layout.
             title: Optional figure title.
+            correct_multiple_testing (bool): If True (default), apply Benjamini-Hochberg
+                FDR correction across all (group, property) z-scores and add a
+                ``Significant`` column (alpha = 0.05).
 
         Returns:
             Dict with keys:
             - enrichment: pd.DataFrame. Columns: Group, Property, Score, Mean_Group, Mean_Pop,
-              AbsScore. Z-score enrichment per group-property pair.
+              AbsScore, and optionally p_value / Significant when *correct_multiple_testing*
+              is True. Z-score enrichment per group-property pair.
             - group_enrichment_fig: Present when ``return_fig`` is True and a figure was built.
         """
         working_df = self._build_properties_dataframe()  # type: ignore[attr-defined]
@@ -1030,11 +1040,6 @@ class PhenoMeAnalysis:
             )
             return out_ng
 
-        pop_mean = working_df[property_keys].mean()
-        pop_std = working_df[property_keys].std()
-        # Replace near-zero variance to avoid huge z-scores (exact 0 and fp noise)
-        pop_std = pop_std.where(pop_std >= 1e-10, np.nan)
-
         all_groups = sorted(working_df[cc].unique())
         skipped_small = sum(1 for g in all_groups if len(working_df[working_df[cc] == g]) < 3)
         if skipped_small > 0:
@@ -1048,9 +1053,16 @@ class PhenoMeAnalysis:
             gdf = working_df[working_df[cc] == grp]
             if len(gdf) < 3:
                 continue
+            rest_df = working_df[working_df[cc] != grp]
+            if rest_df.empty:
+                continue
+            pop_mean = rest_df[property_keys].mean()
+            pop_std = rest_df[property_keys].std()
+            pop_std = pop_std.where(pop_std >= 1e-10, np.nan)
             gmean = gdf[property_keys].mean()
+            n_group = len(gdf)
             with np.errstate(divide="ignore", invalid="ignore"):
-                zs = (gmean - pop_mean) / pop_std
+                zs = (gmean - pop_mean) / (pop_std / np.sqrt(n_group))
             for prop in property_keys:
                 s = zs[prop]
                 if pd.notna(s):
@@ -1069,6 +1081,24 @@ class PhenoMeAnalysis:
         else:
             edf = pd.DataFrame(rows)
             edf["AbsScore"] = edf["Score"].abs()
+
+            if correct_multiple_testing:
+                from scipy.stats import norm
+
+                p_values = 2.0 * norm.sf(edf["AbsScore"].values)
+                edf["p_value"] = p_values
+                n_tests = len(p_values)
+                ranks = np.argsort(np.argsort(p_values)) + 1
+                bh_threshold = ranks / n_tests * 0.05
+                sorted_p = np.sort(p_values)
+                sorted_bh = np.sort(bh_threshold)
+                max_k = 0
+                for k in range(n_tests):
+                    if sorted_p[k] <= sorted_bh[k]:
+                        max_k = k + 1
+                critical = sorted_p[max_k - 1] if max_k > 0 else 0.0
+                edf["Significant"] = edf["p_value"] <= critical
+
             edf = edf.sort_values(["Group", "AbsScore"], ascending=[True, False])
 
         out: dict[str, Any] = {"enrichment": edf}
@@ -1132,8 +1162,7 @@ class PhenoMeAnalysis:
                 normalize=normalize,
             )
         except ValueError as exc:
-            logger.warning("find_prototypes aborted: %s", exc)
-            return {}
+            raise ValueError(f"find_prototypes failed: {exc}") from exc
 
         # Build group labels
         n_total = len(self.results.img_path)
@@ -1286,8 +1315,8 @@ class PhenoMeAnalysis:
                 - ``'spearman'``: Spearman rank correlation (monotonic relationships, robust to outliers)
                 - ``'distance_correlation'``: Distance correlation (detects non-linear relationships,
                   requires ``dcor`` library: ``pip install dcor``)
-                - ``'mutual_info'``: Normalized mutual information (detects any dependency,
-                  normalized to [0, 1] range)
+                - ``'mutual_info'``: MI-derived correlation coefficient (detects any dependency,
+                  mapped to [0, 1] via the Gaussian bivariate transform, **not** standard NMI)
 
         Returns:
             Dict with:

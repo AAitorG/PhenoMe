@@ -388,7 +388,7 @@ class _ImageDisplayMixin:
         ax.imshow(display_img, interpolation="nearest")
         # If image was downsampled for visualization, hide axes for a cleaner look.
         ax.axis("off" if (was_downsampled or ax is not None) else "on")
-        ax.set_title(title, fontsize=9)
+        ax.set_title(title, fontsize=11)
 
         if fig is not None:
             fig.tight_layout()

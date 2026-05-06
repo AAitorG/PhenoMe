@@ -100,11 +100,16 @@ def ensure_hwc(img: np.ndarray) -> np.ndarray:
     if img.ndim == 2:
         return img[..., np.newaxis]
     if img.ndim == 3:
-        min_dim = np.argmin(img.shape)
-        if min_dim == 0:
-            return np.transpose(img, (1, 2, 0))
-        if min_dim == 1:
-            return np.transpose(img, (0, 2, 1))
+        # Heuristic: the channel axis is the smallest dimension, but only
+        # transpose when the smallest dimension is clearly a channel count
+        # (≤ 16) to avoid misinterpreting a narrow spatial dimension.
+        min_dim = int(np.argmin(img.shape))
+        min_size = img.shape[min_dim]
+        if min_size <= 16:
+            if min_dim == 0:
+                return np.transpose(img, (1, 2, 0))
+            if min_dim == 1:
+                return np.transpose(img, (0, 2, 1))
     return img
 
 
@@ -325,7 +330,16 @@ class FileDiscovery:
         mask_fnames = sorted(glob(os.path.join(mask_dir, "**", "*.*"), recursive=True))
         mask_lookup: dict[str, str] = {}
         for mp in mask_fnames:
-            mask_lookup[os.path.basename(mp)] = mp
+            bn = os.path.basename(mp)
+            if bn in mask_lookup and mask_lookup[bn] != mp:
+                logger.warning(
+                    "Mask basename '%s' appears in multiple directories; "
+                    "using '%s' (overwriting '%s').",
+                    bn,
+                    mp,
+                    mask_lookup[bn],
+                )
+            mask_lookup[bn] = mp
             mask_lookup[mp] = mp
             with contextlib.suppress(ValueError):
                 mask_lookup[os.path.relpath(mp, mask_dir)] = mp
