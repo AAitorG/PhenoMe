@@ -34,15 +34,15 @@ Computed via [skimage.measure.regionprops](https://scikit-image.org/docs/stable/
 | --- | --- | --- | --- |
 | **area** | Foreground pixel count | ≥ 0 | Larger = bigger object |
 | **perimeter** | Boundary length (4-connected contour) | ≥ 0 | Rough edges → higher perimeter |
-| **axis_major_length** | Major axis of fitted ellipse | ≥ 0 | Main elongation direction |
-| **axis_minor_length** | Minor axis of fitted ellipse | ≥ 0 | Width perpendicular to major |
+| **major_axis_length** | Major axis of fitted ellipse | ≥ 0 | Main elongation direction |
+| **minor_axis_length** | Minor axis of fitted ellipse | ≥ 0 | Width perpendicular to major |
 | **eccentricity** | Elongation of fitted ellipse | 0 (circle) – 1 (line) | How elongated vs round |
 | **solidity** | Area / convex hull area | 0 – 1 | Low = concave/indented shape |
 | **orientation** | Angle of major axis vs horizontal | [−π/2, π/2] rad | Cell alignment direction |
 | **extent** | Area / bounding box area | 0 – 1 | How much of box is filled |
-| **equivalent_diameter_area** | Diameter of equal-area circle | 2√(area/π) | Size in interpretable units |
+| **equivalent_diameter** | Diameter of equal-area circle | 2√(area/π) | Size in interpretable units |
 | **euler_number** | Objects − holes | integer | 1 = solid, 0 = has a hole |
-| **convex_area** | Convex hull pixel count | ≥ area | Used internally for solidity |
+| **convex_hull_area** | Convex hull pixel count | ≥ area | Used internally for solidity |
 
 **Derived properties** (computed from the above):
 
@@ -114,7 +114,7 @@ Gray-Level Co-occurrence Matrix features computed within the masked region using
 | **texture_homogeneity** | Closeness to GLCM diagonal | [0, 1] | High = smooth/uniform |
 | **texture_energy** | Sum of squared GLCM elements | [0, 1] | High = repetitive/ordered |
 | **texture_correlation** | Linear dependency between pixel pairs | [−1, 1] | High = predictable pattern |
-| **texture_ASM** | Angular Second Moment (= energy²) | [0, 1] | Orderliness measure |
+| **texture_asm** | Angular Second Moment (= energy²) | [0, 1] | Orderliness measure |
 
 **Learn more:** [scikit-image GLCM tutorial](https://scikit-image.org/docs/stable/auto_examples/features_detection/plot_glcm.html) · [graycoprops reference](https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.graycoprops)
 
@@ -124,7 +124,7 @@ Gray-Level Co-occurrence Matrix features computed within the masked region using
 
 | Property | Measures | Range | Interpretation |
 | --- | --- | --- | --- |
-| **blur_effect** | Focus quality (multi-scale blur estimation) | 0 (sharp) – 1 (blurry) | QC: filter out-of-focus images |
+| **sharpness_metric** | Focus quality (multi-scale blur estimation) | 0 (sharp) – 1 (blurry) | QC: filter out-of-focus images |
 | **intensity_entropy** | Shannon entropy of intensity histogram | ≥ 0 | Low = uniform; high = complex texture |
 
 **Learn more:** [`skimage.measure.blur_effect`](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.blur_effect) · [`skimage.measure.shannon_entropy`](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.shannon_entropy)
@@ -134,7 +134,7 @@ Gray-Level Co-occurrence Matrix features computed within the masked region using
 ## Choosing properties
 
 - **Avoid redundancy:** `circularity` and `compactness` are inverses — use `circularity`. `aspect_ratio` and `roundness` both capture elongation; pick one unless both add value.
-- **Match your question:** Morphology → area, perimeter, eccentricity, solidity. Intensity → masked mean/std. Texture → GLCM. QC → blur_effect.
+- **Match your question:** Morphology → area, perimeter, eccentricity, solidity. Intensity → masked mean/std. Texture → GLCM. QC → sharpness_metric.
 - **Presets:** For which features are included in `property_preset="basic"` / `"full"` / `"full_extended"`, see [Select properties — Presets](/PhenoMe/guides/select-properties/presets/).
 
 ---

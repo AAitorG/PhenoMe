@@ -49,21 +49,31 @@ Create property function that extracts skimage regionprops from a mask.
 Uses [skimage.measure.regionprops](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops)
 to compute geometric and shape descriptors from the largest connected component.
 
-Available direct properties: area, perimeter, eccentricity, solidity,
-axis_major_length, axis_minor_length, convex_area, orientation, euler_number,
-extent, equivalent_diameter_area.
+Available direct properties:
+- area: Foreground pixel count.
+- perimeter: Boundary length.
+- major_axis_length: Length of the major axis of the fitted ellipse.
+- minor_axis_length: Length of the minor axis of the fitted ellipse.
+- equivalent_diameter: Diameter of a circle with the same area.
+- convex_hull_area: Number of pixels in the convex hull.
+- eccentricity: Elongation of the fitted ellipse (0 for circle, 1 for line).
+- solidity: Ratio of area to convex hull area (measures "compactness" or "roughness").
+- orientation: Angle of the major axis (in radians).
+- euler_number: Number of objects minus number of holes.
+- extent: Ratio of area to bounding box area.
 
-Available derived properties (computed from regionprops): circularity
-(4pi*area/perimeter^2), aspect_ratio (major/minor axis), roundness
-(4*area/(pi*major^2)).
+Available derived properties (computed from regionprops):
+- circularity: 4*pi*area / perimeter^2 (1 for perfect circle).
+- aspect_ratio: major_axis_length / minor_axis_length.
+- roundness: 4*area / (pi * major_axis_length^2).
 
 See [Property interpretation](/PhenoMe/concepts/property-interpretation/) for
-detailed descriptions of each property.
+detailed descriptions of each property from a biological perspective.
 
 **Args:**
 
-- **`property_names`**: Names to extract (e.g. 'area', 'perimeter', 'eccentricity',
-  'solidity', 'axis_major_length', 'circularity').
+- **`property_names`**: Names to extract (e.g. 'area', 'perimeter', 'major_axis_length',
+  'solidity', 'circularity').
 - **`derived_properties`**: Optional dict mapping names to (region) -> float functions.
 
 **Returns:**
@@ -129,7 +139,7 @@ background characterization, illumination uniformity, or global quality metrics.
 create_blur_effect_function() -> Callable
 ```
 
-Create property function that computes blur strength.
+Create property function that computes focus sharpness.
 
 Uses [skimage.measure.blur_effect](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.blur_effect)
 which estimates blur by comparing re-blurred versions at multiple scales.
@@ -139,7 +149,7 @@ of out-of-focus acquisitions.
 **Returns:**
 
   Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
-  Output key: blur_effect.
+  Output key: sharpness_metric.
 
 ### `create_entropy_function`
 
@@ -152,6 +162,9 @@ Create property function that computes Shannon entropy of intensity distribution
 Uses [skimage.measure.shannon_entropy](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.shannon_entropy).
 Low entropy = uniform/constant intensity; high entropy = diverse gray levels
 (complex structures). Defined as H = -sum(p_i * log2(p_i)).
+
+In biological contexts, this is often used as a measure of texture complexity
+within the image or object.
 
 **Returns:**
 
@@ -234,7 +247,7 @@ for background on texture analysis.
 
 - **`properties`**: GLCM properties. Default: contrast, dissimilarity, homogeneity,
   energy, correlation. Valid: 'contrast', 'dissimilarity', 'homogeneity',
-  'energy', 'correlation', 'ASM'.
+  'energy', 'correlation', 'asm'.
 
 **Returns:**
 

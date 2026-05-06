@@ -39,22 +39,22 @@ _PRESET_NAMES = ("basic", "regionprops", "intensity", "full", "full_extended")
 REGIONPROPS_BASIC = ("area", "perimeter", "eccentricity", "solidity")
 REGIONPROPS_FULL = (
     "area",
-    "axis_major_length",
-    "axis_minor_length",
+    "major_axis_length",
+    "minor_axis_length",
     "perimeter",
     "eccentricity",
     "solidity",
 )
 REGIONPROPS_EXTENDED = (
     "area",
-    "axis_major_length",
-    "axis_minor_length",
+    "major_axis_length",
+    "minor_axis_length",
     "perimeter",
     "eccentricity",
     "solidity",
     "orientation",
     "extent",
-    "equivalent_diameter_area",
+    "equivalent_diameter",
     "euler_number",
     "circularity",
 )
@@ -71,38 +71,49 @@ def create_regionprops_function(
     Uses [skimage.measure.regionprops](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops)
     to compute geometric and shape descriptors from the largest connected component.
 
-    Available direct properties: area, perimeter, eccentricity, solidity,
-    axis_major_length, axis_minor_length, convex_area, orientation, euler_number,
-    extent, equivalent_diameter_area.
+    Available direct properties:
+    - area: Foreground pixel count.
+    - perimeter: Boundary length.
+    - major_axis_length: Length of the major axis of the fitted ellipse.
+    - minor_axis_length: Length of the minor axis of the fitted ellipse.
+    - equivalent_diameter: Diameter of a circle with the same area.
+    - convex_hull_area: Number of pixels in the convex hull.
+    - eccentricity: Elongation of the fitted ellipse (0 for circle, 1 for line).
+    - solidity: Ratio of area to convex hull area (measures "compactness" or "roughness").
+    - orientation: Angle of the major axis (in radians).
+    - euler_number: Number of objects minus number of holes.
+    - extent: Ratio of area to bounding box area.
 
-    Available derived properties (computed from regionprops): circularity
-    (4pi*area/perimeter^2), aspect_ratio (major/minor axis), roundness
-    (4*area/(pi*major^2)).
+    Available derived properties (computed from regionprops):
+    - circularity: 4*pi*area / perimeter^2 (1 for perfect circle).
+    - aspect_ratio: major_axis_length / minor_axis_length.
+    - roundness: 4*area / (pi * major_axis_length^2).
 
     See [Property interpretation](/PhenoMe/concepts/property-interpretation/) for
-    detailed descriptions of each property.
+    detailed descriptions of each property from a biological perspective.
 
     Args:
-        property_names: Names to extract (e.g. 'area', 'perimeter', 'eccentricity',
-            'solidity', 'axis_major_length', 'circularity').
+        property_names: Names to extract (e.g. 'area', 'perimeter', 'major_axis_length',
+            'solidity', 'circularity').
         derived_properties: Optional dict mapping names to (region) -> float functions.
 
     Returns:
         Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
     """
+    # Mapping from canonical scientific names to skimage regionprops attributes
     # skimage.measure.regionprops attributes (skimage 0.26+ names)
-    valid_regionprops = {
-        "area",
-        "axis_major_length",
-        "axis_minor_length",
-        "perimeter",
-        "eccentricity",
-        "solidity",
-        "convex_area",
-        "orientation",
-        "euler_number",
-        "extent",
-        "equivalent_diameter_area",
+    name_mapping = {
+        "area": "area",
+        "major_axis_length": "axis_major_length",
+        "minor_axis_length": "axis_minor_length",
+        "perimeter": "perimeter",
+        "eccentricity": "eccentricity",
+        "solidity": "solidity",
+        "convex_hull_area": "convex_area",
+        "orientation": "orientation",
+        "euler_number": "euler_number",
+        "extent": "extent",
+        "equivalent_diameter": "equivalent_diameter_area",
     }
 
     # Derived properties: computed from regionprops (e.g. aspect_ratio = major/minor)
@@ -130,7 +141,8 @@ def create_regionprops_function(
         derived_defaults.update(derived_properties)
 
     # Validate property names
-    invalid = set(property_names) - valid_regionprops - set(derived_defaults.keys())
+    all_valid = set(name_mapping.keys()) | set(derived_defaults.keys())
+    invalid = set(property_names) - all_valid
     if invalid:
         raise ValueError(f"Invalid property names: {invalid}")
 
@@ -148,9 +160,12 @@ def create_regionprops_function(
 
         result = {}
         for name in property_names:
-            if name in valid_regionprops:
-                value = getattr(region, name, None)
+            # Handle direct regionprops via mapping
+            if name in name_mapping:
+                skimage_name = name_mapping[name]
+                value = getattr(region, skimage_name, None)
                 result[name] = float(value) if value is not None else np.nan
+            # Handle derived properties
             elif name in derived_defaults:
                 try:
                     value = derived_defaults[name](region)
@@ -255,7 +270,7 @@ def create_intensity_function(stat_name: str, stat_func: Callable[[np.ndarray], 
 
 
 def create_blur_effect_function() -> Callable:
-    """Create property function that computes blur strength.
+    """Create property function that computes focus sharpness.
 
     Uses [skimage.measure.blur_effect](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.blur_effect)
     which estimates blur by comparing re-blurred versions at multiple scales.
@@ -264,18 +279,18 @@ def create_blur_effect_function() -> Callable:
 
     Returns:
         Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
-        Output key: blur_effect.
+        Output key: sharpness_metric.
     """
 
     def blur_function(image2d: np.ndarray | None, mask2d: np.ndarray | None) -> dict[str, float]:
         if image2d is None:
-            return {"blur_effect": np.nan}
+            return {"sharpness_metric": np.nan}
         try:
             value = measure.blur_effect(image2d)
             scalar = float(np.max(value)) if isinstance(value, (list, np.ndarray)) else float(value)
-            return {"blur_effect": scalar}
+            return {"sharpness_metric": scalar}
         except Exception:
-            return {"blur_effect": np.nan}
+            return {"sharpness_metric": np.nan}
 
     return blur_function
 
@@ -286,6 +301,9 @@ def create_entropy_function() -> Callable:
     Uses [skimage.measure.shannon_entropy](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.shannon_entropy).
     Low entropy = uniform/constant intensity; high entropy = diverse gray levels
     (complex structures). Defined as H = -sum(p_i * log2(p_i)).
+
+    In biological contexts, this is often used as a measure of texture complexity
+    within the image or object.
 
     Returns:
         Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
@@ -461,13 +479,13 @@ def create_texture_function(
     Args:
         properties: GLCM properties. Default: contrast, dissimilarity, homogeneity,
             energy, correlation. Valid: 'contrast', 'dissimilarity', 'homogeneity',
-            'energy', 'correlation', 'ASM'.
+            'energy', 'correlation', 'asm'.
 
     Returns:
         Callable[[Optional[np.ndarray], Optional[np.ndarray]], Dict[str, float]].
         Output keys: texture_{prop}.
     """
-    valid_props = {"contrast", "dissimilarity", "homogeneity", "energy", "correlation", "ASM"}
+    valid_props = {"contrast", "dissimilarity", "homogeneity", "energy", "correlation", "asm"}
     props = properties or ["contrast", "dissimilarity", "homogeneity", "energy", "correlation"]
     invalid = set(props) - valid_props
     if invalid:
@@ -510,7 +528,9 @@ def create_texture_function(
             )
 
             for p in props:
-                vals = graycoprops(glcm, p)
+                # Use 'ASM' for graycoprops call if it's 'asm'
+                skimage_prop = "ASM" if p == "asm" else p
+                vals = graycoprops(glcm, skimage_prop)
                 if vals.size > 0:
                     result[f"texture_{p}"] = float(np.mean(vals))
         except Exception:

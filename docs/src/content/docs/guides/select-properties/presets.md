@@ -14,10 +14,10 @@ then add custom functions only when you need something extra.
 |--------|----------|
 | `"none"` | No preset; use with `additional_property_functions` for custom-only. |
 | `"basic"` | Intensity stats (mean, std) on image; regionprops (area, perimeter, eccentricity, solidity) on mask; masked intensity stats. |
-| `"regionprops"` | Mask shape properties only (area, major/minor axis, perimeter, eccentricity, solidity). |
+| `"regionprops"` | Mask shape properties only (area, major/minor axis length, perimeter, eccentricity, solidity). |
 | `"intensity"` | Image intensity stats only (mean, std, min, max). |
 | `"full"` | Regionprops + masked intensity + image intensity + concentric rings. |
-| `"full_extended"` | `full` + orientation, extent, equivalent_diameter_area, euler_number, circularity, texture (GLCM), masked min/max, blur effect, entropy. |
+| `"full_extended"` | `full` + orientation, extent, equivalent_diameter, euler_number, circularity, texture (GLCM), masked min/max, sharpness_metric, entropy. |
 
 ## Usage
 
@@ -64,12 +64,12 @@ df = pheno.compute_properties(
 
 | Factory | Returns |
 |---------|---------|
-| `create_regionprops_function` | Shape features from mask - area, perimeter, eccentricity, solidity, orientation, extent, equivalent_diameter_area, euler_number, circularity, roundness, aspect_ratio. |
+| `create_regionprops_function` | Shape features from mask - area, perimeter, eccentricity, solidity, orientation, extent, equivalent_diameter, euler_number, circularity, roundness, aspect_ratio. |
 | `create_masked_intensity_function` | Intensity stats (mean, std, min, max) inside the object. |
 | `create_intensity_function` | Intensity stats over the whole image. |
-| `create_texture_function` | GLCM texture (contrast, dissimilarity, homogeneity, energy, correlation) within the masked region. |
-| `create_blur_effect_function` | Blur strength (0=sharp, 1=blurry) for QC. |
-| `create_entropy_function` | Shannon entropy of the intensity distribution. |
+| `create_texture_function` | GLCM texture (contrast, dissimilarity, homogeneity, energy, correlation, asm) within the masked region. |
+| `create_blur_effect_function` | Focus sharpness (0=sharp, 1=blurry) for QC. |
+| `create_entropy_function` | Shannon entropy (texture complexity) of the intensity distribution. |
 | `create_concentric_ring_function` | Radial intensity profiles by distance from boundary. |
 | `phenome.plugins.get_blob_properties` | Blob/cell-level properties from a labelled mask. |
 
