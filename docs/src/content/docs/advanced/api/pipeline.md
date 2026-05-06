@@ -1476,7 +1476,7 @@ PhenoMeAnalysis.compute_component_correlation(
     plot: bool = True,
     return_fig: bool = False,
     figsize: tuple[int, int] = (10, 6)
-) -> dict
+) -> pd.DataFrame | tuple[pd.DataFrame, Any]
 ```
 
 </div>
@@ -1508,30 +1508,26 @@ Correlate dim-reduction components with phenotypic properties.
 - **`plot`**: If True (default), show an interactive Plotly faceted bar chart (one row per
   component). If False, log a plain-text summary via the package logger instead
   (unless *return_fig* requests a figure).
-- **`return_fig`**: If True, attach a Plotly figure under ``component_correlation_fig`` in the
-  returned dict. When ``return_fig`` is True, ``fig.show()`` is not called; use
-  ``plot=True`` with ``return_fig=False`` for the default interactive display.
+- **`return_fig`**: If True, return a tuple of ``(correlation_df, figure)``.
+  When ``return_fig`` is True, ``fig.show()`` is not called.
 - **`figsize`**: Figure size ``(width, height)`` in inches for the Plotly layout.
 
 **Returns:**
 
-  Dict with keys:
-  - correlation_df: pd.DataFrame. Rows=properties, cols=components. Correlation values.
-  - summary: pd.DataFrame. Columns: Component, Property, Correlation, AbsCorrelation.
-  - component_names: List[str]. Column names (Component 1, Component 2, ...) for all methods.
-  - component_correlation_fig: Present when ``return_fig`` is True and a figure was built.
+  pd.DataFrame | tuple[pd.DataFrame, Any]:
+  - If ``return_fig`` is False (default): Returns the correlation DataFrame with a ``Properties`` column and an integer index.
+  - If ``return_fig`` is True: Returns a tuple of ``(correlation_df, figure)``.
 
 **Examples:**
 
 ```python
-Text-only summary (e.g. scripts / logging)::
+Get correlations directly::
 
-    result = pheno.compute_component_correlation(plot=False)
+    corr = pheno.compute_component_correlation(plot=False)
 
-Save the figure without an interactive window::
+Get correlations and save the figure::
 
-    result = pheno.compute_component_correlation(return_fig=True)
-    fig = result["component_correlation_fig"]
+    corr, fig = pheno.compute_component_correlation(return_fig=True)
     fig.write_html("component_corr.html")
 ```
 

@@ -798,7 +798,7 @@ class PhenoMeAnalysis:
         plot: bool = True,
         return_fig: bool = False,
         figsize: tuple[int, int] = (10, 6),
-    ) -> dict[str, Any]:
+    ) -> pd.DataFrame | tuple[pd.DataFrame, Any]:
         """Correlate dim-reduction components with phenotypic properties.
 
         Args:
@@ -823,27 +823,28 @@ class PhenoMeAnalysis:
             plot: If True (default), show an interactive Plotly faceted bar chart (one row per
                 component). If False, log a plain-text summary via the package logger instead
                 (unless *return_fig* requests a figure).
-            return_fig: If True, attach a Plotly figure under ``component_correlation_fig`` in the
-                returned dict. When ``return_fig`` is True, ``fig.show()`` is not called; use
-                ``plot=True`` with ``return_fig=False`` for the default interactive display.
+            return_fig: If True, return a tuple of ``(correlation_df, figure)``.
+                When ``return_fig`` is True, ``fig.show()`` is not called.
             figsize: Figure size ``(width, height)`` in inches for the Plotly layout.
 
         Returns:
-            Dict with keys:
-            - correlation_df: pd.DataFrame. Rows=properties, cols=components. Correlation values.
-            - summary: pd.DataFrame. Columns: Component, Property, Correlation, AbsCorrelation.
-            - component_names: List[str]. Column names (Component 1, Component 2, ...) for all methods.
-            - component_correlation_fig: Present when ``return_fig`` is True and a figure was built.
+            pd.DataFrame | tuple[pd.DataFrame, Any]:
+                - If ``return_fig`` is False (default): Returns the correlation DataFrame
+                  with a ``Properties`` column and an integer index.
+                - If ``return_fig`` is True: Returns a tuple of ``(correlation_df, figure)``.
+
+        Raises:
+            ValueError: If dimensionality reduction fails, no components are found,
+                no numeric properties are available, or correlation computation fails.
 
         Examples:
-            Text-only summary (e.g. scripts / logging)::
+            Get correlations directly::
 
-                result = pheno.compute_component_correlation(plot=False)
+                corr = pheno.compute_component_correlation(plot=False)
 
-            Save the figure without an interactive window::
+            Get correlations and save the figure::
 
-                result = pheno.compute_component_correlation(return_fig=True)
-                fig = result["component_correlation_fig"]
+                corr, fig = pheno.compute_component_correlation(return_fig=True)
                 fig.write_html("component_corr.html")
         """
         df, _, _ = run_dimensionality_reduction(
@@ -859,21 +860,19 @@ class PhenoMeAnalysis:
             use_gpu=getattr(self, "use_gpu_for_dr", True),
         )
         if df is None or df.empty:
-            logger.warning("Dimensionality reduction returned empty result.")
-            return {}
+            raise ValueError("Dimensionality reduction returned empty result.")
 
         # Component columns use common naming: Component 1, Component 2, ... (all methods)
         comp_cols = [f"Component {i + 1}" for i in range(n_components)]
         comp_cols = [c for c in comp_cols if c in df.columns]
         if not comp_cols:
-            return {}
+            raise ValueError(f"No components found for method {method}.")
 
         avail = set(self.get_available_property_keys())  # type: ignore[attr-defined]
         avail |= {k.capitalize() for k in avail}
         prop_cols = [c for c in df.columns if c in avail and pd.api.types.is_numeric_dtype(df[c])]
         if not prop_cols:
-            logger.warning("No numeric properties found to correlate.")
-            return {}
+            raise ValueError("No numeric properties found to correlate.")
 
         # Normalize properties using the unified PhenoMeProperties helper if requested.
         # This ensures consistency and uses the internal normalization cache.
@@ -928,12 +927,12 @@ class PhenoMeAnalysis:
                     corr_data[comp].append(float(r_arr[0]) if r_arr.size > 0 else np.nan)
 
             if not corr_data:
-                return {}
+                raise ValueError(f"No correlation data computed for {correlation_method}.")
 
             corr = pd.DataFrame(corr_data, index=prop_cols)
 
         if corr.empty:
-            return {}
+            raise ValueError("Correlation matrix is empty.")
 
         rows = []
         for comp in comp_cols:
@@ -952,11 +951,6 @@ class PhenoMeAnalysis:
                 )
 
         summary_df = pd.DataFrame(rows)
-        out: dict[str, Any] = {
-            "correlation_df": corr,
-            "summary": summary_df,
-            "component_names": comp_cols,
-        }
         title = f"Component-property correlations ({method.upper()}, {correlation_method})"
         fig = self._plot_component_correlation(  # type: ignore[attr-defined]
             correlation_df=corr,
@@ -968,9 +962,14 @@ class PhenoMeAnalysis:
             figsize=figsize,
             title=title,
         )
+
+        # Add properties title to the column with properties, and add indexes from 0 to N
+        corr.index.name = "Properties"
+        corr = corr.reset_index()
+
         if return_fig and fig is not None:
-            out["component_correlation_fig"] = fig
-        return out
+            return corr, fig
+        return corr
 
     # ------------------------------------------------------------------
     # Group enrichment
