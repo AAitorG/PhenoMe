@@ -235,20 +235,12 @@ class _ComponentCorrelationPlotsMixin:
             figsize=figsize,
             title=title,
         )
+
+        _log_component_correlation_results(summary, component_order=component_names)
+
         if fig is None:
-            if plot or return_fig:
-                _log_component_correlation_results(summary, component_order=component_names)
             return None
 
-        if not plot and return_fig:
-            _log_component_correlation_results(summary, component_order=component_names)
-            return fig
+        from ._helpers import handle_figure_output
 
-        if plot and return_fig:
-            return fig
-
-        if plot and not return_fig:
-            fig.show()
-            return None
-
-        return None
+        return handle_figure_output(fig, plot, return_fig)

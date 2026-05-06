@@ -202,18 +202,10 @@ class _DistancePlotsMixin:
         )
         fig.update_layout(width=figsize[0] * 100, height=figsize[1] * 100)
 
-        if not plot and return_fig:
-            self._log_distance_group_stats(group_col, df)
-            return fig
+        self._log_distance_group_stats(group_col, df)
+        from ._helpers import handle_figure_output
 
-        if plot and return_fig:
-            return fig
-
-        if plot and not return_fig:
-            fig.show()
-            return None
-
-        return None
+        return handle_figure_output(fig, plot, return_fig)
 
     def print_distance_summary(
         self,

@@ -257,15 +257,8 @@ class _GroupEnrichmentPlotsMixin:
                 _log_group_enrichment_results(enrichment_df, group_order=group_names, top_k=top_k)
             return None
 
-        if not plot and return_fig:
-            _log_group_enrichment_results(enrichment_df, group_order=group_names, top_k=top_k)
-            return fig
+        _log_group_enrichment_results(enrichment_df, group_order=group_names, top_k=top_k)
 
-        if plot and return_fig:
-            return fig
+        from ._helpers import handle_figure_output
 
-        if plot and not return_fig:
-            fig.show()
-            return None
-
-        return None
+        return handle_figure_output(fig, plot, return_fig)

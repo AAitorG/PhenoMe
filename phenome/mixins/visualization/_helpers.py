@@ -12,6 +12,25 @@ from ...core import get_all_metadata_keys
 logger = get_logger(__name__)
 
 
+def handle_figure_output(fig: Any, plot: bool, return_fig: bool) -> Any:
+    """Handle standard logic for Plotly figure display and return.
+
+    Standardizes the repeated conditional returns in plotting functions.
+    """
+    if plot and not return_fig:
+        fig.show()
+        return None
+    elif not plot and return_fig:
+        return fig
+    elif plot and return_fig:
+        # Show and then return
+        fig.show()
+        return fig
+    # if not plot and not return_fig:
+    # already handled before building in the callers
+    return None
+
+
 def mpl_to_hex(color: Any) -> str:
     """Convert matplotlib color (tuple or array) to hex string."""
     if isinstance(color, str) and color.startswith("#"):

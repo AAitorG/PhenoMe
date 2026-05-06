@@ -178,18 +178,10 @@ def _display_multivariate_interpretability(
     if fig is None:
         return None
 
-    if not plot and return_fig:
-        _log_multivariate_interpretability_results(results, top_k)
-        return fig
+    _log_multivariate_interpretability_results(results, top_k)
+    from ._helpers import handle_figure_output
 
-    if plot and return_fig:
-        return fig
-
-    if plot and not return_fig:
-        fig.show()
-        return None
-
-    return None
+    return handle_figure_output(fig, plot, return_fig)
 
 
 class _InterpretabilityPlotsMixin:
