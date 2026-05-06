@@ -720,7 +720,7 @@ class PhenoMeAnalysis:
                     ax_flat[j].set_visible(False)
 
                 fig.suptitle(f"Group: {group_name} outliers", fontsize=13, fontweight="bold")
-                fig.tight_layout(pad=0.15, rect=[0, 0, 1, 0.95])
+                fig.subplots_adjust(top=0.85)
                 try:
                     from IPython import get_ipython
                     from IPython.display import display as ipy_display_fig
@@ -1365,7 +1365,7 @@ class PhenoMeAnalysis:
                     ax_flat[j].set_visible(False)
 
                 fig.suptitle(f"Cluster {group_name} prototypes", fontsize=13, fontweight="bold")
-                fig.tight_layout(pad=0.15, rect=[0, 0, 1, 0.95])
+                fig.subplots_adjust(top=0.85)
                 try:
                     from IPython import get_ipython
                     from IPython.display import display as ipy_display_fig
