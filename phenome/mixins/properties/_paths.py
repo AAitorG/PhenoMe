@@ -4,7 +4,6 @@ Path resolution for property computation.
 Functions to resolve image and mask paths for loading during property computation.
 """
 
-import contextlib
 import os
 from glob import glob
 from typing import Any, cast
@@ -12,6 +11,7 @@ from typing import Any, cast
 import pandas as pd
 
 from ..._logging import get_logger
+from ...utils.path_utils import filename_identifier_keys
 from ...utils.path_utils import path_repr as _path_repr
 
 logger = get_logger(__name__)
@@ -163,6 +163,26 @@ def resolve_mask_paths(
         )
         return result
 
+    def _build_mask_lookup(mask_fnames: list[str]) -> dict[str, str | None]:
+        lookup: dict[str, str | None] = {}
+        for mp in mask_fnames:
+            for key in filename_identifier_keys(mp, mask_dir):
+                existing = lookup.get(key)
+                if existing is None and key in lookup:
+                    continue
+                if existing is not None and existing != mp:
+                    lookup[key] = None
+                else:
+                    lookup[key] = mp
+        return lookup
+
+    def _lookup_mask(value: Any, lookup: dict[str, str | None]) -> str | None:
+        for key in filename_identifier_keys(value):
+            matched = lookup.get(key)
+            if matched:
+                return matched
+        return None
+
     # Explicit config: metadata_config.get_mask_path(meta) with fallback to mask_dir glob.
     use_explicit = (
         metadata_config
@@ -182,18 +202,11 @@ def resolve_mask_paths(
         needs_fallback = [i for i, m in enumerate(explicit_resolved) if m is None]
         if needs_fallback and mask_dir:
             mask_fnames = sorted(glob(os.path.join(mask_dir, "**", "*.*"), recursive=True))
-            fallback_lookup: dict[str, str] = {}
-            for mp in mask_fnames:
-                fallback_lookup[os.path.basename(mp)] = mp
-                fallback_lookup[mp] = mp
-                with contextlib.suppress(ValueError):
-                    fallback_lookup[os.path.relpath(mp, mask_dir)] = mp
+            fallback_lookup = _build_mask_lookup(mask_fnames)
             for i in needs_fallback:
                 ip = image_paths[i]
                 ip_basename = ip[0] if isinstance(ip, list) else ip
-                matched = fallback_lookup.get(os.path.basename(ip_basename)) or fallback_lookup.get(
-                    ip_basename
-                )
+                matched = None
                 if image_dir and matched is None:
                     try:
                         candidate = os.path.join(mask_dir, os.path.relpath(ip_basename, image_dir))
@@ -201,6 +214,8 @@ def resolve_mask_paths(
                             matched = candidate
                     except (ValueError, OSError):
                         pass
+                if matched is None:
+                    matched = _lookup_mask(ip_basename, fallback_lookup)
                 explicit_resolved[i] = matched if matched and os.path.exists(matched) else None
         for i in needs_resolution:
             result[i] = explicit_resolved[i]
@@ -216,16 +231,11 @@ def resolve_mask_paths(
     if mask_dir is None:
         return result
 
-    # Discovery: glob mask_dir, match by basename or relpath from image_dir.
+    # Discovery: glob mask_dir, match by root-relative path or unambiguous basename.
     mask_fnames = sorted(glob(os.path.join(mask_dir, "**", "*.*"), recursive=True))
     logger.info("Found %d mask files in %s", len(mask_fnames), mask_dir)
 
-    lookup: dict[str, str] = {}
-    for mp in mask_fnames:
-        lookup[os.path.basename(mp)] = mp
-        lookup[mp] = mp
-        with contextlib.suppress(ValueError):
-            lookup[os.path.relpath(mp, mask_dir)] = mp
+    lookup = _build_mask_lookup(mask_fnames)
 
     result_list: list[str | None] = []
     for ip in image_paths:
@@ -241,7 +251,7 @@ def resolve_mask_paths(
                 pass
 
         if mask_path is None:
-            mask_path = lookup.get(os.path.basename(ip_primary)) or lookup.get(ip_primary)
+            mask_path = _lookup_mask(ip_primary, lookup)
 
         if mask_path and os.path.exists(mask_path):
             result_list.append(mask_path)

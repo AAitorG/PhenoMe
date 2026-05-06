@@ -2,7 +2,6 @@
 File discovery and data inspecting for the phenotyping pipeline.
 """
 
-import contextlib
 import os
 from collections import Counter, defaultdict
 from collections.abc import Callable
@@ -15,6 +14,7 @@ from tqdm.auto import tqdm
 
 from .._logging import get_logger
 from ..metadata.base import MetadataBase
+from ..utils.path_utils import filename_identifier_keys
 
 __all__ = ["FileDiscovery", "ensure_hwc", "read_image"]
 
@@ -326,23 +326,26 @@ class FileDiscovery:
         else:
             effective_data_dir = data_dir
 
-        # Build basename lookup for fallback
+        # Build portable lookup keys. Root-relative keys disambiguate repeated
+        # basenames; basename keys are used only when unambiguous.
         mask_fnames = sorted(glob(os.path.join(mask_dir, "**", "*.*"), recursive=True))
-        mask_lookup: dict[str, str] = {}
+        mask_lookup: dict[str, str | None] = {}
         for mp in mask_fnames:
-            bn = os.path.basename(mp)
-            if bn in mask_lookup and mask_lookup[bn] != mp:
-                logger.warning(
-                    "Mask basename '%s' appears in multiple directories; "
-                    "using '%s' (overwriting '%s').",
-                    bn,
-                    mp,
-                    mask_lookup[bn],
-                )
-            mask_lookup[bn] = mp
-            mask_lookup[mp] = mp
-            with contextlib.suppress(ValueError):
-                mask_lookup[os.path.relpath(mp, mask_dir)] = mp
+            for key in filename_identifier_keys(mp, mask_dir):
+                existing = mask_lookup.get(key)
+                if existing is None and key in mask_lookup:
+                    continue
+                if existing is not None and existing != mp:
+                    mask_lookup[key] = None
+                else:
+                    mask_lookup[key] = mp
+
+        def _lookup_mask(value: Any) -> str | None:
+            for key in filename_identifier_keys(value):
+                matched = mask_lookup.get(key)
+                if matched:
+                    return matched
+            return None
 
         n_found = 0
         for row in rows:
@@ -356,6 +359,12 @@ class FileDiscovery:
                 row["mask_path"] = existing
                 n_found += 1
                 continue
+            if existing:
+                matched_existing = _lookup_mask(existing)
+                if matched_existing and os.path.isfile(matched_existing):
+                    row["mask_path"] = matched_existing
+                    n_found += 1
+                    continue
 
             # Resolve mask path
             row["mask_path"] = None
@@ -376,6 +385,8 @@ class FileDiscovery:
                     full = os.path.join(mask_dir, mask_fname)
                     if os.path.isfile(full):
                         matched = full
+                    if matched is None:
+                        matched = _lookup_mask(mask_fname)
 
             # Default path-based matching
             if matched is None:
@@ -403,7 +414,7 @@ class FileDiscovery:
 
             # Basename fallback
             if matched is None:
-                matched = mask_lookup.get(os.path.basename(primary_path))
+                matched = _lookup_mask(primary_path)
 
             if matched and os.path.isfile(matched):
                 row["mask_path"] = matched

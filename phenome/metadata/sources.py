@@ -10,6 +10,7 @@ from typing import Any
 
 import pandas as pd
 
+from ..utils.path_utils import filename_identifier_keys, normalize_identifier_path
 from .base import MetadataBase
 
 
@@ -125,6 +126,7 @@ class DataFrameMetadata(MetadataBase):
         self._df = metadata_df
         self._multi_channel = len(self._filename_columns) > 1
         self._lookup_df: pd.DataFrame | None = None
+        self._key_to_row_ix: dict[str, int] | None = None
         self._stem_to_row_ch: dict[str, tuple] | None = None
         self._build_lookup()
 
@@ -137,56 +139,58 @@ class DataFrameMetadata(MetadataBase):
                 )
 
         if not self._multi_channel:
-            lookup_df = self._df.copy()
-            lookup_df[self._filename_columns[0]] = lookup_df[self._filename_columns[0]].astype(str)
-            self._lookup_df = lookup_df.set_index(self._filename_columns[0])
+            self._lookup_df = self._df.copy()
+            key_to_row_ix: dict[str, int] = {}
+            for row_ix in range(len(self._df)):
+                val = self._df.iloc[row_ix][self._filename_columns[0]]
+                for key in filename_identifier_keys(val):
+                    key_to_row_ix.setdefault(key, row_ix)
+            self._key_to_row_ix = key_to_row_ix
             self._stem_to_row_ch = None
         else:
             self._lookup_df = None
+            self._key_to_row_ix = None
 
             def _stem(s: Any) -> str:
-                s = str(s).strip()
-                if os.path.splitext(s)[1]:
-                    s = os.path.splitext(s)[0]
-                return str(s)
+                normalized = normalize_identifier_path(s)
+                if os.path.splitext(normalized)[1]:
+                    normalized = os.path.splitext(normalized)[0]
+                return str(normalized)
 
             stem_to_row_ch: dict[str, tuple] = {}
             for row_ix in range(len(self._df)):
                 for ch_idx, col in enumerate(self._filename_columns):
                     val_str = str(self._df.iloc[row_ix][col]).strip()
+                    for key in filename_identifier_keys(val_str):
+                        stem_to_row_ch.setdefault(key, (row_ix, ch_idx))
                     stem = _stem(val_str)
-                    if stem not in stem_to_row_ch:
-                        stem_to_row_ch[stem] = (row_ix, ch_idx)
-                    if val_str != stem and val_str not in stem_to_row_ch:
-                        stem_to_row_ch[val_str] = (row_ix, ch_idx)
+                    stem_to_row_ch.setdefault(stem, (row_ix, ch_idx))
             self._stem_to_row_ch = stem_to_row_ch
 
     def _extract(self, path: str) -> dict[str, Any]:
         """Look up metadata for ``path`` in the configured dataframe index."""
+        return self._extract_with_data_dir(path, self._data_dir)
+
+    def _extract_with_data_dir(self, path: str, data_dir: str | None = None) -> dict[str, Any]:
+        """Look up metadata for ``path`` using partial-path-aware filename keys."""
         filename = os.path.basename(path)
         filename_stem = os.path.splitext(filename)[0]
+        lookup_keys = filename_identifier_keys(path, data_dir or self._data_dir)
 
         if not self._multi_channel:
-            if self._lookup_df is None:
+            if self._lookup_df is None or self._key_to_row_ix is None:
                 return {}
-            lookup_key = (
-                filename_stem
-                if filename_stem in self._lookup_df.index
-                else (filename if filename in self._lookup_df.index else None)
-            )
-            if lookup_key is None:
+            row_ix = None
+            for key in lookup_keys:
+                if key in self._key_to_row_ix:
+                    row_ix = self._key_to_row_ix[key]
+                    break
+            if row_ix is None:
                 raise KeyError(
                     f"Metadata for file '{filename_stem}' (or '{filename}') not found in "
                     f"dataframe '{self._filename_columns[0]}' column."
                 )
-            row = self._lookup_df.loc[lookup_key]
-            if isinstance(row, pd.DataFrame):
-                import logging as _logging
-
-                _logging.getLogger(__name__).warning(
-                    "Duplicate metadata rows for '%s'; using the first match.", lookup_key
-                )
-                row = row.iloc[0]
+            row = self._lookup_df.iloc[row_ix]
             meta: dict[str, Any] = dict(row.to_dict())
             meta[self._filename_columns[0]] = filename_stem
             meta["file_path"] = path
@@ -194,7 +198,10 @@ class DataFrameMetadata(MetadataBase):
 
         match = None
         if self._stem_to_row_ch:
-            match = self._stem_to_row_ch.get(filename_stem) or self._stem_to_row_ch.get(filename)
+            for key in lookup_keys:
+                match = self._stem_to_row_ch.get(key)
+                if match is not None:
+                    break
         if match is None:
             raise KeyError(
                 f"Metadata for file '{filename_stem}' (or '{filename}') not found in "
@@ -206,3 +213,16 @@ class DataFrameMetadata(MetadataBase):
         channel_meta["channel_index"] = ch_idx
         channel_meta["file_path"] = path
         return channel_meta
+
+    def metadata_fn(
+        self,
+        path: str,
+        data_dir: str | None = None,
+    ) -> dict[str, Any]:
+        """Extract metadata with data_dir-aware partial path lookup."""
+        meta = self._extract_with_data_dir(path, data_dir)
+        if not meta:
+            return meta
+        paths = meta.get("file_path", path)
+        self.ensure_id(meta, paths, data_dir)
+        return meta

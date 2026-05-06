@@ -24,6 +24,8 @@ from .core import (
 from .io import CheckpointManager, FileDiscovery
 from .io._path_utils import _resolve_results_hdf5_path
 from .io.checkpoint_alignment import (
+    _build_unique_path_lookup,
+    _lookup_unique_path_index,
     filter_items_not_in_checkpoint,
     get_already_committed_metadata_keys,
     get_already_committed_paths,
@@ -1689,7 +1691,7 @@ class PhenoMe(
             requested_meta_keys = None
             logger.info(
                 "Metadata lacks atomic identifiers for checkpoint matching. "
-                "Falling back to path-based matching (not portable across devices)."
+                "Falling back to path-based matching."
             )
 
         if requested_meta_keys is not None:
@@ -1713,14 +1715,6 @@ class PhenoMe(
             already_paths_list = ckpt.get_committed_paths_list()
             already_paths = get_already_committed_paths(already_paths_list, ckpt.n_committed)
 
-            if ckpt.n_committed > 0 and not already_paths.intersection(requested_paths):
-                logger.warning(
-                    "Checkpoint contains %d images, but NONE match your current files.\n"
-                    "This usually means the dataset has moved. Call find_files at the "
-                    "new location first, then load_results.",
-                    ckpt.n_committed,
-                )
-
             if already_paths:
                 n_before = len(filtered_data)
                 filtered_data = filter_items_not_in_checkpoint(
@@ -1729,6 +1723,13 @@ class PhenoMe(
                     path_repr_fn=_path_repr,
                 )
                 n_skipped = n_before - len(filtered_data)
+                if ckpt.n_committed > 0 and n_skipped == 0:
+                    logger.warning(
+                        "Checkpoint contains %d images, but NONE match your current files.\n"
+                        "This usually means the dataset has moved. Call find_files at the "
+                        "new location first, then load_results.",
+                        ckpt.n_committed,
+                    )
                 logger.info(
                     "Found %d committed images; skipping %d (already in checkpoint), %d to process.",
                     ckpt.n_committed,
@@ -1821,9 +1822,21 @@ class PhenoMe(
                     except ValueError:
                         pass
             else:
-                indices = [
-                    i for i, p in enumerate(paths) if _path_repr(p) in (requested_paths or set())
-                ]
+                if current_requested_data:
+                    current_path_lookup = _build_unique_path_lookup(
+                        [d.get("file_path", "") for d in current_requested_data]
+                    )
+                    indices = [
+                        i
+                        for i, p in enumerate(paths)
+                        if _lookup_unique_path_index(current_path_lookup, p) is not None
+                    ]
+                else:
+                    indices = [
+                        i
+                        for i, p in enumerate(paths)
+                        if _path_repr(p) in (requested_paths or set())
+                    ]
 
             if len(indices) != len(paths):
                 paths = [paths[i] for i in indices]
