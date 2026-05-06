@@ -16,7 +16,6 @@ from tqdm.auto import tqdm
 from .._logging import get_logger
 from ..core import (
     build_combined_features,
-    build_metadata_columns,
     compute_distance_correlation,
     compute_lasso_interpretability,
     compute_mutual_info,
@@ -457,7 +456,7 @@ class PhenoMeAnalysis:
         self,
         method: Literal["z-score", "iqr"] = "z-score",
         threshold: float = 3.0,
-        group_by: str | None = None,
+        group_by: str | list[str] | None = None,
         filters: dict[str, Any] | None = None,
         exclude: dict[str, Any] | None = None,
         source: Literal["embeddings", "properties", "combined"] = "embeddings",
@@ -471,7 +470,10 @@ class PhenoMeAnalysis:
         Args:
             method: ``'z-score'`` or ``'iqr'``.
             threshold: Threshold multiplier.
-            group_by: Optional metadata key for per-group centroids.
+            group_by: Property/metadata key(s) for grouping. Can be a single string
+                or a list of strings. If a list is provided, groups are formed by
+                combining values from all specified columns (e.g., "drug1-10uM").
+                If *None*, all images are treated as one group.
             filters: Optional metadata filters.
             exclude: Optional metadata exclusions (same structure as filters).
             source: Feature space for outlier detection:
@@ -573,20 +575,61 @@ class PhenoMeAnalysis:
 
         # Build groups
         groups: dict[Any, np.ndarray] = {}
+        actual_group_by: str | list[str] | None = None
+
         if group_by:
-            df = pd.DataFrame(
-                build_metadata_columns(self.results, indices=valid_indices, keys=[group_by])
-            )
-            group_col = next(
-                (c for c in df.columns if str(c).lower() == str(group_by).lower()),
-                None,
-            )
-            if group_col is None:
-                logger.warning("Grouping key '%s' not found. Treating as single group.", group_by)
+            requested_cols = [group_by] if isinstance(group_by, str) else group_by
+
+            # 1. Identify which keys actually exist (similar to find_prototypes)
+            found_cols = []
+            for col in requested_cols:
+                found_key = None
+                for store_key in ("properties", "metadata"):
+                    store = getattr(self.results, store_key, None) or []
+                    if not store or not isinstance(store[0], dict):
+                        continue
+                    for k in store[0]:
+                        if k.lower() == col.lower():
+                            found_key = k
+                            break
+                    if found_key:
+                        break
+                if found_key:
+                    found_cols.append(found_key)
+                else:
+                    logger.warning("Grouping key '%s' not found.", col)
+
+            if not found_cols:
+                logger.warning("No matching grouping keys found. Treating as single group.")
                 groups["all"] = np.arange(n_samples)
             else:
-                for gv, gdf in df.groupby(group_col):
-                    groups[gv] = gdf.index.to_numpy()
+                # 2. Build grouping DataFrame
+                group_data = {}
+                for k in found_cols:
+                    vals = []
+                    for i in valid_indices:
+                        val = None
+                        if i < len(self.results.metadata):
+                            val = get_metadata_value_from_dict(self.results.metadata[i], k)
+                        if val is None and i < len(self.results.properties):
+                            val = get_metadata_value_from_dict(self.results.properties[i], k)
+                        vals.append(val)
+                    group_data[k] = vals
+
+                df = pd.DataFrame(group_data)
+
+                if len(found_cols) == 1:
+                    actual_group_by = found_cols[0]
+                    for gv, gdf in df.groupby(actual_group_by):
+                        groups[gv] = gdf.index.to_numpy()
+                else:
+                    actual_group_by = found_cols
+                    # Composite grouping: combine values with '-' separator
+                    df["_composite_group"] = (
+                        df[found_cols].fillna("N/A").astype(str).agg("-".join, axis=1)
+                    )
+                    for gv, gdf in df.groupby("_composite_group"):
+                        groups[gv] = gdf.index.to_numpy()
         else:
             groups["all"] = np.arange(n_samples)
 
@@ -616,8 +659,18 @@ class PhenoMeAnalysis:
                 "distance_to_centroid": distances[rel_out[i]],
                 "file_path": info.get("img_path", ""),
             }
-            if group_by:
-                group_val = get_metadata_value_from_dict(info, group_by)
+            if actual_group_by:
+                if isinstance(actual_group_by, list):
+                    # Multi-column composite
+                    group_vals = []
+                    for k in actual_group_by:
+                        val = get_metadata_value_from_dict(info, k)
+                        group_vals.append(str(val) if val is not None and val != "" else "N/A")
+                    group_val = "-".join(group_vals)
+                else:
+                    # Single column
+                    group_val = get_metadata_value_from_dict(info, actual_group_by)
+
                 row["group"] = "N/A" if group_val is None or group_val == "" else group_val
                 row["threshold"] = thresholds.get(row["group"], 0)
             else:

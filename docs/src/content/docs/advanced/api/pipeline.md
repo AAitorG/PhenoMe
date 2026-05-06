@@ -1273,7 +1273,7 @@ PhenoMeAnalysis.detect_outliers(
     self,
     method: Literal['z-score', 'iqr'] = 'z-score',
     threshold: float = 3.0,
-    group_by: str | None = None,
+    group_by: str | list[str] | None = None,
     filters: dict[str, typing.Any] | None = None,
     exclude: dict[str, typing.Any] | None = None,
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
@@ -1294,7 +1294,10 @@ Detect outliers based on distance to centroid.
 
 - **`method`**: ``'z-score'`` or ``'iqr'``.
 - **`threshold`**: Threshold multiplier.
-- **`group_by`**: Optional metadata key for per-group centroids.
+- **`group_by`**: Property/metadata key(s) for grouping. Can be a single string
+  or a list of strings. If a list is provided, groups are formed by
+  combining values from all specified columns (e.g., "drug1-10uM").
+  If *None*, all images are treated as one group.
 - **`filters`**: Optional metadata filters.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).
 - **`source`**: Feature space for outlier detection:
