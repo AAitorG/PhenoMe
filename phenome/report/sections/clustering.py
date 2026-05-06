@@ -271,13 +271,13 @@ def _generate_group_enrichment(
 ) -> str:
     """Generate group enrichment analysis (e.g. per-cluster Z-scores)."""
     try:
-        result = pipeline.analyze_group_enrichment(
-            group_col="cluster",
+        _enrichment = pipeline.analyze_group_enrichment(
+            group_by="cluster",
             filters=filters,
             exclude=exclude,
             plot=False,
         )
-        enrichment_df = result["enrichment"]
+        enrichment_df = _enrichment[0] if isinstance(_enrichment, tuple) else _enrichment
     except (ValueError, KeyError, RuntimeError) as e:
         return generate_info_box(f"Could not compute enrichment: {e}", "warning")
 
@@ -285,8 +285,8 @@ def _generate_group_enrichment(
         return generate_info_box("No enrichment data available.", "warning")
 
     enrichment_items = []
-    for grp in sorted(enrichment_df["Group"].unique()):
-        group_data = enrichment_df[enrichment_df["Group"] == grp].head(5)
+    for grp in sorted(enrichment_df["cluster"].unique()):
+        group_data = enrichment_df[enrichment_df["cluster"] == grp].head(5)
 
         features_html = []
         for _, row in group_data.iterrows():

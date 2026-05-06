@@ -1396,7 +1396,7 @@ Find images closest to each group centroid.
 ```python
 PhenoMeAnalysis.analyze_group_enrichment(
     self,
-    group_col: str = 'cluster',
+    group_by: str | list[str],
     property_keys: list[str] | None = None,
     filters: dict[str, typing.Any] | None = None,
     exclude: dict[str, typing.Any] | None = None,
@@ -1406,7 +1406,7 @@ PhenoMeAnalysis.analyze_group_enrichment(
     figsize: tuple[int, int] = (10, 6),
     title: str | None = None,
     correct_multiple_testing: bool = True
-) -> dict
+) -> pd.DataFrame | tuple[pd.DataFrame, Any]
 ```
 
 </div>
@@ -1423,15 +1423,16 @@ correction is applied across all (group, property) pairs and a
 
 **Args:**
 
-- **`group_col`**: Property/metadata key holding group labels (e.g. ``"cluster"``).
+- **`group_by`**: Property/metadata key(s) holding group labels (e.g. ``"cluster"``).
+  Can be a single string or a list of strings for composite grouping.
 - **`property_keys`**: Properties to analyse (all numeric if *None*).
 - **`filters`**: Optional metadata filters.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).
 - **`plot`**: If True (default), show an interactive Plotly faceted bar chart (one row per
   group). If False, log a plain-text summary via the package logger instead
   (unless *return_fig* requests a figure).
-- **`return_fig`**: If True, include a Plotly figure under ``group_enrichment_fig`` in the
-  returned dict. When *return_fig* is True, ``fig.show()`` is not called; use
+- **`return_fig`**: If True, return a tuple ``(df, fig)`` where ``fig`` is the Plotly figure.
+  When *return_fig* is True, ``fig.show()`` is not called; use
   ``plot=True`` with ``return_fig=False`` for the default interactive display.
 - **`top_k`**: Max properties per group in the figure and in the text summary (``None`` = all).
 - **`figsize`**: Figure size ``(width, height)`` in inches for the Plotly layout.
@@ -1442,11 +1443,11 @@ correction is applied across all (group, property) pairs and a
 
 **Returns:**
 
-  Dict with keys:
-  - enrichment: pd.DataFrame. Columns: Group, Property, Score, Mean_Group, Mean_Pop,
-  AbsScore, and optionally p_value / Significant when *correct_multiple_testing*
-  is True. Z-score enrichment per group-property pair.
-  - group_enrichment_fig: Present when ``return_fig`` is True and a figure was built.
+  pd.DataFrame or tuple[pd.DataFrame, Any]:
+  - If *return_fig* is False (default): pd.DataFrame with columns:
+    [group_by columns], Property, Score, Mean_Group, Mean_Pop, AbsScore,
+    and optionally p_value / Significant when *correct_multiple_testing* is True.
+  - If *return_fig* is True: A tuple (enrichment_df, fig).
 
 </div>
 
