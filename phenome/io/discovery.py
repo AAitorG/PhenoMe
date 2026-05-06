@@ -177,12 +177,21 @@ class FileDiscovery:
 
         # Support both directory (recursive walk) and glob pattern
         if "*" in data_dir or "?" in data_dir:
-            fnames = sorted(glob(data_dir))
+            raw_fnames = sorted(glob(data_dir))
+            fnames = []
+            for fp in raw_fnames:
+                if os.path.islink(fp):
+                    logger.warning("Skipping symlink: %s", fp)
+                    continue
+                fnames.append(fp)
         else:
             fnames = []
             for root, _, files in os.walk(data_dir):
                 for f in files:
                     fp = os.path.join(root, f)
+                    if os.path.islink(fp):
+                        logger.warning("Skipping symlink: %s", fp)
+                        continue
                     if extensions is None or os.path.splitext(f)[1].lower() in {
                         e.lower() for e in extensions
                     }:

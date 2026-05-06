@@ -189,7 +189,7 @@ def _build_sections(ctx: ReportContext) -> tuple[list[tuple[str, str, str]], lis
     if include_interpretability and ctx.has_embeddings and ctx.has_properties:
         nav_items.append(("interpretability", "Interpretability"))
         interpretability_html = generate_interpretability_section(
-            ctx, method="tsne", component=1, model_type=interpretability_model
+            ctx, method="tsne", component=1, model_type=interpretability_model, top_k=top_k_features
         )
         sections.append(
             ("interpretability", "Multivariate Interpretability", interpretability_html)

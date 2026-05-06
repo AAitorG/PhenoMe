@@ -194,7 +194,10 @@ def _run_dimensionality_reduction_matrix_impl(
                     out_batch.cpu().numpy() if hasattr(out_batch, "cpu") else np.asarray(out_batch)
                 )
             transformed = np.concatenate(transformed_parts, axis=0)
-            dr_obj.explained_variance_ratio_ = _compute_explained_variance_ratio(transformed)
+            total_var = float(np.var(matrix, axis=0, ddof=1).sum())
+            dr_obj.explained_variance_ratio_ = _compute_explained_variance_ratio(
+                transformed, total_var
+            )
         else:
             from sklearn.decomposition import PCA
 
@@ -453,19 +456,17 @@ def _torchdr_umap_fit(
     ) from last_error
 
 
-def _compute_explained_variance_ratio(transformed: np.ndarray) -> np.ndarray:
+def _compute_explained_variance_ratio(transformed: np.ndarray, total_var: float) -> np.ndarray:
     """Compute explained variance ratio from PCA-transformed data (centered).
 
-    Formula: var_i / sum(var_j) where var_i = variance of component i.
-    For PCA, transformed columns are orthogonal, so total variance = sum of
-    component variances. Returns proportion of variance per component.
-
+    Formula: var_i / sum(var_original_j) where var_i = variance of component i.
     Uses ddof=1 (sample variance) for consistency with sklearn's PCA, which
     is based on sample covariance. Ratios match sklearn for large n; small
     n may show minor numerical differences.
 
     Args:
         transformed: np.ndarray, shape (n_samples, n_components), PCA-transformed data.
+        total_var: float, total variance of the original data.
 
     Returns:
         np.ndarray, shape (n_components,), proportion of variance per component.
@@ -474,5 +475,4 @@ def _compute_explained_variance_ratio(transformed: np.ndarray) -> np.ndarray:
     if n < 2:
         return np.full(transformed.shape[1], np.nan)
     var = np.var(transformed, axis=0, ddof=1)
-    total = var.sum()
-    return (var / total) if total > 0 else np.zeros_like(var)
+    return (var / total_var) if total_var > 0 else np.zeros_like(var)

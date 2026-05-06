@@ -38,11 +38,15 @@ def _path_to_id_single(path: str, data_dir: str | None) -> str:
 
             # If relpath escapes out completely using many '../' or is absolute, skip it
             if not rel.startswith("../") and not os.path.isabs(rel) and rel != ".":
-                parts = rel.split("/")
-                if parts:
-                    parts[-1] = os.path.splitext(parts[-1])[0]
-                raw = "/".join(parts)
-                return _sanitize_id(raw)
+                # Stricter validation to catch subtle traversal attempts
+                if os.path.normpath(rel) != rel:
+                    pass
+                else:
+                    parts = rel.split("/")
+                    if parts:
+                        parts[-1] = os.path.splitext(parts[-1])[0]
+                    raw = "/".join(parts)
+                    return _sanitize_id(raw)
         except ValueError:
             pass
 

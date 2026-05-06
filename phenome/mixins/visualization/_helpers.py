@@ -20,10 +20,16 @@ def mpl_to_hex(color: Any) -> str:
         import matplotlib.colors as mcolors
 
         return str(mcolors.to_hex(color))
-    except Exception:
+    except Exception as e:
         if hasattr(color, "__iter__") and len(color) >= 3:
-            r, g, b = int(color[0] * 255), int(color[1] * 255), int(color[2] * 255)
-            return f"#{r:02x}{g:02x}{b:02x}"
+            try:
+                r, g, b = int(color[0] * 255), int(color[1] * 255), int(color[2] * 255)
+                return f"#{r:02x}{g:02x}{b:02x}"
+            except Exception:
+                pass
+        logger.warning(
+            f"Could not convert color '{color}' to hex: {e}. Falling back to default gray."
+        )
         return "#888888"
 
 

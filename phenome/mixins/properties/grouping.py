@@ -214,7 +214,6 @@ def top_properties_different_from_reference(
     if len(other_df) == 0:
         return pd.DataFrame()
 
-    result_rows: list[dict[str, Any]] = []
     eps = 1e-10
 
     if metric == "cohens_d" and (other_df["N"] < 5).any():
@@ -222,44 +221,94 @@ def top_properties_different_from_reference(
             "Some comparison groups have n < 5; Cohen's d may be unreliable for small samples."
         )
 
-    for _, other_row in other_df.iterrows():
-        n_other = int(other_row.get("N", 0))
-        group_vals = {c: other_row[c] for c in grouping_cols if c in other_row}
+    # Vectorized computation: extract all means and stds into arrays
+    n_ref_f = max(1.0, float(n_ref))
+    n_other_f = np.maximum(other_df["N"].values.astype(float), 1.0)
 
-        scores: list[tuple] = []
-        for pn in prop_names:
-            mc, sc = f"{pn}_mean", f"{pn}_std"
-            if mc not in df.columns or sc not in df.columns:
-                continue
-            mean_ref = ref_row.get(mc)
-            mean_other = other_row.get(mc)
-            std_ref = ref_row.get(sc)
-            std_other = other_row.get(sc)
-            if pd.isna(mean_ref) or pd.isna(mean_other):
-                continue
-            mean_diff = float(mean_other) - float(mean_ref)
+    # Reference group stats: shape (n_props,)
+    ref_means = np.array([ref_row.get(f"{pn}_mean", np.nan) for pn in prop_names], dtype=float)
+    ref_stds = np.array([ref_row.get(f"{pn}_std", np.nan) for pn in prop_names], dtype=float)
 
-            if metric == "cohens_d":
-                if pd.isna(std_ref) or pd.isna(std_other):
-                    continue
-                std_ref_f = float(std_ref)
-                std_other_f = float(std_other)
-                n_ref_f = max(1, n_ref)
-                n_other_f = max(1, n_other)
-                df_pooled = n_ref_f + n_other_f - 2
-                if df_pooled <= 0:
-                    continue
-                pooled_var = (
-                    (n_ref_f - 1) * std_ref_f**2 + (n_other_f - 1) * std_other_f**2
-                ) / df_pooled
-                pooled_std = np.sqrt(max(pooled_var, 0) + eps)
-                effect = mean_diff / pooled_std
-            else:
-                effect = abs(mean_diff)
+    # Other groups stats: shape (n_props, n_groups)
+    other_means_list = []
+    other_stds_list = []
+    for pn in prop_names:
+        mean_col, std_col = f"{pn}_mean", f"{pn}_std"
+        other_means_list.append(
+            other_df[mean_col].values.astype(float)
+            if mean_col in other_df.columns
+            else np.full(len(other_df), np.nan)
+        )
+        other_stds_list.append(
+            other_df[std_col].values.astype(float)
+            if std_col in other_df.columns
+            else np.full(len(other_df), np.nan)
+        )
 
-            scores.append((pn, effect, mean_diff, float(mean_ref), float(mean_other)))
+    other_means = np.array(other_means_list, dtype=float)  # (n_props, n_groups)
+    other_stds = np.array(other_stds_list, dtype=float)  # (n_props, n_groups)
+
+    # Vectorized mean differences: (n_props, n_groups)
+    mean_diffs = other_means - ref_means[:, np.newaxis]
+
+    # Vectorized effect size calculations
+    if metric == "cohens_d":
+        df_pooled = np.maximum(n_ref_f + n_other_f - 2, 1)
+        pooled_vars = (
+            (n_ref_f - 1) * (ref_stds[:, np.newaxis] ** 2) + (n_other_f - 1) * (other_stds**2)
+        ) / df_pooled
+        pooled_stds = np.sqrt(np.maximum(pooled_vars, 0) + eps)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            effect_sizes = np.where(pooled_stds != 0, mean_diffs / pooled_stds, 0)
+    else:
+        effect_sizes = np.abs(mean_diffs)
+
+    # Validity mask: NaN out invalid combinations
+    valid_mask = ~(
+        np.isnan(ref_means[:, np.newaxis]) | np.isnan(other_means) | np.isnan(mean_diffs)
+    )
+    if metric == "cohens_d":
+        valid_mask = valid_mask & ~(np.isnan(ref_stds[:, np.newaxis]) | np.isnan(other_stds))
+    effect_sizes[~valid_mask] = np.nan
+
+    # Warn once if small sample sizes
+    warned = False
+    if metric == "cohens_d":
+        for n in n_other_f:
+            if int(n) < 5 and not warned:
+                logger.info(
+                    "Computing Cohen's d with comparison group n=%d. Unreliable for n < 5.", int(n)
+                )
+                warned = True
+                break
+
+    result_rows: list[dict[str, Any]] = []
+
+    # Process each group (vectorized extraction, sequential ranking)
+    for group_idx in range(len(other_df)):
+        group_row = other_df.iloc[group_idx]
+        group_vals = {c: group_row[c] for c in grouping_cols if c in group_row}
+
+        group_effects = effect_sizes[:, group_idx]
+        valid_indices = np.where(~np.isnan(group_effects))[0]
+
+        if len(valid_indices) == 0:
+            continue
+
+        # Create scores for valid properties
+        scores = [
+            (
+                prop_names[idx],
+                float(group_effects[idx]),
+                float(mean_diffs[idx, group_idx]),
+                float(ref_means[idx]),
+                float(other_means[idx, group_idx]),
+            )
+            for idx in valid_indices
+        ]
 
         scores.sort(key=lambda x: abs(x[1]), reverse=True)
+
         for rank, (pn, eff, md, rm, gm) in enumerate(scores[:k], start=1):
             row_dict: dict[str, Any] = {**group_vals, "property": pn, "rank": rank}
             row_dict["effect_size"] = eff if metric == "cohens_d" else md

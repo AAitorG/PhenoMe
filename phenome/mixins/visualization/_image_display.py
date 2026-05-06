@@ -233,7 +233,13 @@ class _ImageDisplayMixin:
                     t_list.append(t)
             if use_custom_channels and channels is not None:
                 selected = sorted([channels] if isinstance(channels, int) else list(channels))
-                img = img[..., selected]
+                max_chan = img.shape[-1] if img.ndim >= 3 else 1
+                valid_selected = [c for c in selected if c < max_chan]
+                if len(valid_selected) != len(selected):
+                    logger.warning(
+                        f"Some channels in {selected} are out of bounds for image (max {max_chan}). Using valid channels only."
+                    )
+                img = img[..., valid_selected] if valid_selected else img
             img = np.ascontiguousarray(img)
             temp_transform = transforms.Compose(t_list)
             img_tensor = temp_transform(img)
@@ -248,7 +254,13 @@ class _ImageDisplayMixin:
                 logger.warning("image_transforms not found, showing raw image.")
             if use_custom_channels and channels is not None:
                 selected = sorted([channels] if isinstance(channels, int) else list(channels))
-                img = img[..., selected]
+                max_chan = img.shape[-1] if img.ndim >= 3 else 1
+                valid_selected = [c for c in selected if c < max_chan]
+                if len(valid_selected) != len(selected):
+                    logger.warning(
+                        f"Some channels in {selected} are out of bounds for image (max {max_chan}). Using valid channels only."
+                    )
+                img = img[..., valid_selected] if valid_selected else img
 
         was_downsampled = False
         if downsample is not None and downsample > 0:
@@ -409,7 +421,7 @@ class _ImageDisplayMixin:
                             np.array(
                                 _pil_mask.resize(
                                     (display_img.shape[1], display_img.shape[0]),
-                                    Image.NEAREST,
+                                    Image.Resampling.NEAREST,
                                 )
                             )
                             / 255.0

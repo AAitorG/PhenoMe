@@ -5,11 +5,12 @@ Explains deep embedding axes (e.g., t-SNE components) using classical phenotypic
 """
 
 import numpy as np
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LassoCV
 from sklearn.metrics import r2_score
 from sklearn.model_selection import cross_val_predict
-from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
 
 from ..._logging import get_logger
 
@@ -64,26 +65,24 @@ def compute_lasso_interpretability(
         }
 
     # Standardize features and y for valid, comparable LASSO coefficients
-    scaler_x = StandardScaler()
-    scaler_y = StandardScaler()
+    from sklearn.preprocessing import StandardScaler
 
-    x_scaled = scaler_x.fit_transform(x_clean)
-    y_scaled = scaler_y.fit_transform(y_clean.reshape(-1, 1)).ravel()
-
-    # LassoCV automatically finds the best alpha using cross-validation
-    model = LassoCV(cv=cv, random_state=seed, max_iter=10000)
+    # Create a proper pipeline with standardization to avoid data leakage during CV
+    base_model = make_pipeline(StandardScaler(), LassoCV(cv=cv, random_state=seed, max_iter=10000))
+    model = TransformedTargetRegressor(regressor=base_model, transformer=StandardScaler())
 
     # Compute cross-validated R2 score robustly using cross_val_predict
-    # This prevents using the training R2 which might be overfitted
     cv_n_jobs = 1 if seed is not None else -1
-    y_cv_pred = cross_val_predict(model, x_scaled, y_scaled, cv=cv, n_jobs=cv_n_jobs)
-    cv_r2 = float(r2_score(y_scaled, y_cv_pred))
+    y_cv_pred = cross_val_predict(model, x_clean, y_clean, cv=cv, n_jobs=cv_n_jobs)
+    cv_r2 = float(r2_score(y_clean, y_cv_pred))
 
     # Fit final model on all data to get final coefficients
-    model.fit(x_scaled, y_scaled)
+    model.fit(x_clean, y_clean)
 
-    coefs = model.coef_
-    intercept = float(model.intercept_)
+    # Extract coefficients from the fitted LassoCV model inside the pipeline
+    lasso_model = model.regressor_.named_steps["lassocv"]
+    coefs = lasso_model.coef_
+    intercept = float(lasso_model.intercept_)
 
     drivers = []
     for name, weight in zip(feature_names, coefs, strict=True):
