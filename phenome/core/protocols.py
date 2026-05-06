@@ -7,7 +7,7 @@ Import and use in mixins: def foo(self: PhenoMeProtocol) -> ... for
 IDE/type-checking only.
 """
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 import numpy as np
 
@@ -64,7 +64,7 @@ class PhenoMeProtocol(Protocol):
         """Return (matrix, valid indices, column keys) for property features."""
         ...
 
-    def get_image_info(self, idx: int, distance_results: dict | None = None) -> dict:
+    def get_image_info(self, idx: int, distance_results: Optional["pd.DataFrame"] = None) -> dict:
         """Return a summary dict for image ``idx`` (paths, metadata, optional distances)."""
         ...
 

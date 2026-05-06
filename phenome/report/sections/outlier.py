@@ -54,7 +54,7 @@ def generate_outlier_section(
             else:
                 scope_label = f"per-group by {group_by}"
 
-        outlier_results = pipeline.detect_outliers(
+        outlier_df = pipeline.detect_outliers(
             method="z-score",
             threshold=threshold,
             source="embeddings",
@@ -63,8 +63,8 @@ def generate_outlier_section(
             group_by=group_by,
             plot=False,
         )
-        outlier_indices = outlier_results.get("outlier_indices", [])
-        summary_df = outlier_results.get("summary", pd.DataFrame())
+        outlier_indices = outlier_df["idx"].tolist() if not outlier_df.empty else []
+        summary_df = outlier_df
     except (ValueError, KeyError, RuntimeError) as e:
         return generate_info_box(f"Error detecting outliers: {e}", "error")
 

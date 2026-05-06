@@ -464,7 +464,7 @@ class PhenoMeAnalysis:
         normalize: bool = True,
         drop_outliers: bool = False,
         plot: bool = True,
-    ) -> dict[str, Any]:
+    ) -> pd.DataFrame:
         """Detect outliers based on distance to centroid.
 
         Args:
@@ -490,21 +490,17 @@ class PhenoMeAnalysis:
                 ``apply_transforms=False`` for display).
 
         Returns:
-            Dict with keys:
-            - outlier_indices: List[int]. Global image indices of detected outliers.
-            - distances: np.ndarray dtype float32. When drop_outliers=False: shape (n_total,),
-              distance to centroid per image; NaN for filtered-out. When drop_outliers=True:
-              shape (n_kept,) with distances for the remaining (non-outlier) images only.
-            - thresholds: Dict[Any, float]. Per-group threshold values (when group_by set).
-            - summary: pd.DataFrame. Columns: group (if group_by), n_outliers, threshold, etc.
-        """
-        empty = {
-            "outlier_indices": [],
-            "distances": [],
-            "thresholds": {},
-            "summary": pd.DataFrame(),
-        }
+            pd.DataFrame: A DataFrame containing detected outliers.
+                Columns include:
+                - ``idx``: Global image index.
+                - ``file_path``: Path to the image file.
+                - Additional columns for each grouping key (if *group_by* was set).
+                - ``threshold``: The threshold value used for the image's group.
+                - ``distance_to_centroid``: Distance to the group centroid.
 
+                If no outliers are detected, returns an empty DataFrame.
+                The index is a range index from 0 to N-1.
+        """
         # drop_outliers mutates results in-place which is incompatible with HDF5-backed mode
         if drop_outliers and getattr(self, "_db", None) is not None:
             raise RuntimeError(
@@ -527,7 +523,7 @@ class PhenoMeAnalysis:
             raise ValueError(f"Outlier detection failed: {exc}") from exc
 
         if data is None or len(data) == 0:
-            return empty
+            return pd.DataFrame()
 
         data = _helpers.numpy_for_torch(data)
 
@@ -645,48 +641,57 @@ class PhenoMeAnalysis:
             outlier_mask[didx] = is_out
             thresholds[gname] = tv
 
+        # Build the result DataFrame for outliers only
+        rows = []
         rel_out = np.where(outlier_mask)[0]
         outlier_indices = [valid_indices[i] for i in rel_out]
-        logger.info(
-            "Detected %d outliers out of %d images.", len(outlier_indices), len(valid_indices)
-        )
 
-        summary_rows = []
         for i, idx in enumerate(outlier_indices):
-            info = self.get_image_info(idx)  # type: ignore[attr-defined]
-            row: dict[str, Any] = {
+            # Fetch basic info without all metadata/properties
+            path = self.results.img_path[idx]
+
+            row = {
                 "idx": idx,
-                "distance_to_centroid": distances[rel_out[i]],
-                "file_path": info.get("img_path", ""),
+                "file_path": path,
             }
+
             if actual_group_by:
+                info = self.get_image_info(idx)  # type: ignore[attr-defined]
                 if isinstance(actual_group_by, list):
                     # Multi-column composite
                     group_vals = []
                     for k in actual_group_by:
                         val = get_metadata_value_from_dict(info, k)
-                        group_vals.append(str(val) if val is not None and val != "" else "N/A")
+                        val_str = str(val) if val is not None and val != "" else "N/A"
+                        group_vals.append(val_str)
+                        row[k] = val
                     group_val = "-".join(group_vals)
                 else:
                     # Single column
-                    group_val = get_metadata_value_from_dict(info, actual_group_by)
+                    val = get_metadata_value_from_dict(info, actual_group_by)
+                    group_val = "N/A" if val is None or val == "" else val
+                    row[actual_group_by] = val
 
-                row["group"] = "N/A" if group_val is None or group_val == "" else group_val
-                row["threshold"] = thresholds.get(row["group"], 0)
+                row["_internal_group"] = group_val
+                row["threshold"] = thresholds.get(group_val, 0.0)
             else:
-                row["threshold"] = thresholds.get("all", 0)
-            summary_rows.append(row)
+                row["_internal_group"] = "all"
+                row["threshold"] = thresholds.get("all", 0.0)
+
+            row["distance_to_centroid"] = float(distances[rel_out[i]])
+            rows.append(row)
+
+        result_df = pd.DataFrame(rows)
+
+        logger.info(
+            "Detected %d outliers out of %d images.", len(outlier_indices), len(valid_indices)
+        )
 
         if plot and outlier_indices:
             import matplotlib.pyplot as plt
 
             # Group outliers by group name
-            outliers_by_group: dict[str, list[int]] = {}
-            for row in summary_rows:
-                gname = str(row.get("group", "All"))
-                if gname not in outliers_by_group:
-                    outliers_by_group[gname] = []
-                outliers_by_group[gname].append(row["idx"])
+            outliers_by_group = result_df.groupby("_internal_group")["idx"].apply(list).to_dict()
 
             for group_name, indices in outliers_by_group.items():
                 if not indices:
@@ -734,9 +739,6 @@ class PhenoMeAnalysis:
                     plt.show()
                 plt.close(fig)
 
-        n_total = len(self.results.img_path)
-        full_dists = _helpers.map_to_full(distances, valid_indices, n_total)
-
         # Remove outliers from results if requested
         if drop_outliers and outlier_indices:
             # Sort indices in descending order to remove from end to start
@@ -763,23 +765,18 @@ class PhenoMeAnalysis:
 
             self._property_norm_cache = None
 
-            # Return distances aligned with new results (exclude outlier positions)
-            kept_mask = np.ones(n_total, dtype=bool)
-            kept_mask[np.asarray(outlier_indices)] = False
-            full_dists = full_dists[kept_mask]
-
             logger.info(
                 "Removed %d outliers from results. Remaining: %d images.",
                 len(outlier_indices),
                 len(self.results.img_path),
             )
 
-        return {
-            "outlier_indices": list(outlier_indices),
-            "distances": full_dists,
-            "thresholds": thresholds,
-            "summary": pd.DataFrame(summary_rows),
-        }
+        if not result_df.empty:
+            result_df.reset_index(drop=True, inplace=True)
+            if "_internal_group" in result_df.columns:
+                result_df.drop(columns=["_internal_group"], inplace=True)
+
+        return result_df
 
     # ------------------------------------------------------------------
     # Component correlation

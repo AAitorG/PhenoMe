@@ -167,7 +167,7 @@ def _generate_outlier_images(
 ) -> str:
     """Generate gallery of outlier images."""
     try:
-        outlier_results = pipeline.detect_outliers(
+        outlier_df = pipeline.detect_outliers(
             method="z-score",
             threshold=threshold,
             source="embeddings",
@@ -176,11 +176,9 @@ def _generate_outlier_images(
             exclude=exclude,
             plot=False,
         )
-    except (ValueError, KeyError, RuntimeError) as e:
-        logger.debug("Outlier detection failed for gallery: %s", e)
-        return ""
-
-    outlier_indices = outlier_results.get("outlier_indices", [])
+        outlier_indices = outlier_df["idx"].tolist() if not outlier_df.empty else []
+    except (ValueError, KeyError, RuntimeError):
+        outlier_indices = []
 
     if not outlier_indices:
         return ""
