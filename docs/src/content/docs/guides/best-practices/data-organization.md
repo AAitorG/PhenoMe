@@ -94,7 +94,7 @@ print("Available keys:", pheno.get_available_metadata_keys())
 df = pheno.export_dataset_table()
 print("Unique conditions:", df["condition"].unique())
 
-dist_results = pheno.compute_reference_distances(
+dist_df = pheno.compute_reference_distances(
     reference_filters={"condition": "Control"},
 )
 ```

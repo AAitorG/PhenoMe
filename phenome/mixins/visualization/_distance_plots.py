@@ -112,7 +112,7 @@ class _DistancePlotsMixin:
 
     def _prepare_distance_distribution_frame(
         self,
-        distance_results: dict,
+        distance_results: pd.DataFrame,
         group_by: str | list[str],
         dist_range: tuple,
     ) -> tuple[pd.DataFrame, str, str] | None:
@@ -121,7 +121,7 @@ class _DistancePlotsMixin:
         Returns:
             (df, group_col, title_suffix) or None if there is no plottable data.
         """
-        if "distances" not in distance_results:
+        if distance_results is None or "distance" not in distance_results.columns:
             logger.warning("No distance data available.")
             return None
 
@@ -131,7 +131,7 @@ class _DistancePlotsMixin:
         df = pd.DataFrame(
             build_metadata_columns(self.results, capitalize=True, keys=group_keys_cap)
         )
-        df["Distance"] = distance_results["distances"]
+        df["Distance"] = distance_results["distance"].values
         df = df.dropna(subset=["Distance"])
 
         if len(group_keys_cap) == 1:
@@ -151,7 +151,7 @@ class _DistancePlotsMixin:
 
     def _plot_distance_distribution(
         self,
-        distance_results: dict,
+        distance_results: pd.DataFrame,
         group_by: str | list[str],
         dist_range: tuple = (0, 100),
         figsize: tuple[int, int] = (10, 6),
@@ -167,7 +167,7 @@ class _DistancePlotsMixin:
         *return_fig* with *plot* false).
 
         Args:
-            distance_results: Dict containing a ``"distances"`` array.
+            distance_results: DataFrame containing a ``"distance"`` column.
             group_by: Metadata key(s) to group by.
             dist_range: (min, max) distance range to keep.
             figsize: Figure size in inches (width, height); scaled for Plotly.
@@ -217,7 +217,7 @@ class _DistancePlotsMixin:
 
     def print_distance_summary(
         self,
-        distance_results: dict,
+        distance_results: pd.DataFrame,
         group_by: str | None = None,
         dist_range: tuple = (0, 100),
     ) -> None:
@@ -225,11 +225,11 @@ class _DistancePlotsMixin:
         Print distance summary statistics without plotting. Safe to use when enable_plots=False.
 
         Args:
-            distance_results: Dictionary containing 'distances' array
+            distance_results: DataFrame containing 'distance' column
             group_by: Metadata key to group by
             dist_range: Tuple of (min, max) distances to include
         """
-        if "distances" not in distance_results:
+        if distance_results is None or "distance" not in distance_results.columns:
             logger.warning("No distance data available.")
             return
         if group_by is None:

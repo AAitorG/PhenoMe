@@ -47,7 +47,7 @@ PhenoMeDistances.compute_reference_distances(
     plot: bool = True,
     return_fig: bool = False,
     points: Optional[Literal['all', 'outliers', False]] = None
-) -> dict
+) -> pandas.DataFrame
 ```
 
 </div>
@@ -82,16 +82,21 @@ Compute distances from all images to reference group.
   per-group text summary to the logger). If False, log per-group summary
   statistics where applicable (e.g. text-only mode, or with *return_fig*).
 - **`return_fig`**: If True and *group_by* is set, add key ``"figure"`` to the
-  return dict and do not call ``fig.show()``.
+  return dataframe's ``.attrs`` and do not call ``fig.show()``.
 - **`points`**: Violin plot point overlay: ``'all'``, ``'outliers'``, or ``False``;
   ``None`` auto-selects by data size.
 
 **Returns:**
 
-  Dict containing:
-  - distances: np.ndarray shape (N,), dtype float32. Distance per image; NaN for invalid/filtered.
-  - reference_indices: list of reference image indices
+  DataFrame with index matching global image indices and columns:
+  - image_index: int, global image index.
+  - image_path: str, path to the image.
+  - distance: float32, distance per image; NaN for invalid/filtered.
+  - is_reference: bool, True for images in the reference group.
+  - (metadata columns): columns for each key in *group_by* if provided.
+  Metadata is stored in ``df.attrs``:
   - reference_filters: dict of filters used
+  - filters: dict of global filters applied
   - mode: str ('centroid' or 'all_to_all')
   - source: str ('embeddings', 'properties', or 'combined')
   - distance_type: str ('euclidean' or 'cosine')
@@ -100,14 +105,14 @@ Compute distances from all images to reference group.
 **Example:**
 
 ```python
->>> dist_results = pipeline.compute_reference_distances(
+>>> dist_df = pipeline.compute_reference_distances(
 ...     reference_filters={'condition': 'Control'},
 ...     source='embeddings',
 ...     mode='centroid',
 ...     distance_type='euclidean',
 ...     group_by='condition',
 ... )
->>> distances = dist_results['distances']
+>>> distances = dist_df['distance']
 ```
 
 </div>

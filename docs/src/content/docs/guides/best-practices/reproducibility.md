@@ -94,12 +94,10 @@ pheno.save_results("results.h5")
 df = pheno.compute_properties(property_preset="basic")
 df.to_csv("results/properties.csv", index=False)
 
-dist_results = pheno.compute_reference_distances(
+dist_df = pheno.compute_reference_distances(
     reference_filters={"condition": "Control"}
 )
-import pickle
-with open("results/distances.pkl", "wb") as f:
-    pickle.dump(dist_results, f)
+dist_df.to_csv("results/distances.csv")
 ```
 
 ## Dimensionality-reduction backends

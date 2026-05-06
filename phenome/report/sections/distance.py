@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 
 from ...core import get_all_metadata_keys, get_metadata_value_from_dict
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
@@ -19,7 +20,7 @@ def generate_distance_section(
     color_by: str | None,
     filters: dict[str, Any] | None = None,
     exclude: dict[str, Any] | None = None,
-) -> tuple[str, dict | None]:
+) -> tuple[str, pd.DataFrame | None]:
     """Generate distance analysis section.
 
     Args:
@@ -30,7 +31,7 @@ def generate_distance_section(
         exclude: Optional metadata exclusions.
 
     Returns:
-        Tuple of (HTML string, dist_results dict or None).
+        Tuple of (HTML string, dist_results DataFrame or None).
     """
     pipeline = ctx.pipeline
     if reference_filters is None:
@@ -90,14 +91,14 @@ def generate_distance_section(
     except (ValueError, KeyError, RuntimeError) as e:
         return (generate_info_box(f"Error computing distances: {e}", "error"), None)
 
-    distances = dist_results["distances"]
+    distances = dist_results["distance"].to_numpy()
     valid_distances = distances[~np.isnan(distances)]
 
     if len(valid_distances) == 0:
         return (generate_info_box("No valid distances computed.", "warning"), None)
 
     filter_desc = ", ".join([f"{k}={v}" for k, v in reference_filters.items()])
-    n_ref = len(dist_results.get("reference_indices", []))
+    n_ref = int(dist_results["is_reference"].sum())
 
     if not color_by:
         return (
@@ -110,7 +111,7 @@ def generate_distance_section(
 
     plot_html = ""
     try:
-        fig = dist_results.get("figure")
+        fig = dist_results.attrs.get("figure")
         if fig is not None:
             apply_dark_theme(fig)
             fig.update_layout(width=None, height=None, autosize=True)

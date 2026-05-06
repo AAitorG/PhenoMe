@@ -825,12 +825,12 @@ class PhenoMe(
     # Info / accessors
     # ------------------------------------------------------------------
 
-    def get_image_info(self, idx: int, distance_results: dict | None = None) -> dict:
+    def get_image_info(self, idx: int, distance_results: pd.DataFrame | None = None) -> dict:
         """Return metadata, properties, and optional distance for image idx.
 
         Args:
             idx: Image index (0 to n_images-1).
-            distance_results: Optional dict from compute_reference_distances.
+            distance_results: Optional DataFrame from compute_reference_distances.
 
         Returns:
             dict: Keys idx, img_name, img_path, metadata keys, property keys,
@@ -865,12 +865,9 @@ class PhenoMe(
                 else:
                     info[k] = v
 
-        if distance_results and "distances" in distance_results:
-            info["distance"] = distance_results["distances"][idx]
-            info["is_reference"] = (
-                distance_results.get("reference_indices")
-                and idx in distance_results["reference_indices"]
-            )
+        if distance_results is not None and "distance" in distance_results.columns:
+            info["distance"] = distance_results.at[idx, "distance"]
+            info["is_reference"] = distance_results.at[idx, "is_reference"]
         return info
 
     def get_available_metadata_keys(self) -> list[str]:
@@ -1038,7 +1035,7 @@ class PhenoMe(
     def export_dataset_table(
         self,
         output_path: str | None = None,
-        dist_results: dict[str, Any] | None = None,
+        dist_results: pd.DataFrame | None = None,
         include_embeddings: bool | Literal["separate"] = False,
         export_format: Literal["csv", "parquet", "excel"] = "csv",
     ) -> pd.DataFrame:
@@ -1046,7 +1043,7 @@ class PhenoMe(
 
         Args:
             output_path: Path to save the export. If None, only returns the DataFrame.
-            dist_results: Optional dict from compute_reference_distances.
+            dist_results: Optional DataFrame from compute_reference_distances.
             include_embeddings: If True, adds embedding columns; if 'separate', saves
                 embeddings to a companion .npy file.
             export_format: Output format: 'csv', 'parquet', or 'excel'.

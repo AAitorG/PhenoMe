@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 
 from .._logging import get_logger
 from ..io import read_image
@@ -18,7 +19,7 @@ def load_image_data(
     pipeline: "PhenoMe",
     indices: list[int],
     image_size: int,
-    dist_results: dict | None = None,
+    dist_results: pd.DataFrame | None = None,
 ) -> list[dict[str, Any]]:
     """Load and encode images for the gallery."""
     images = []
@@ -50,7 +51,7 @@ def load_image_data(
                 meta_str = ", ".join(meta_items)
 
             if dist_results is not None:
-                dist = dist_results["distances"][idx]
+                dist = dist_results.at[idx, "distance"]
                 if not np.isnan(dist):
                     meta_str += f" | Dist: {dist:.2f}"
 

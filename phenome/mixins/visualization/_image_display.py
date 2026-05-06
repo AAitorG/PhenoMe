@@ -6,6 +6,7 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from PIL import Image
 
@@ -183,7 +184,7 @@ class _ImageDisplayMixin:
     def _load_image_display_data(
         self,
         idx: int,
-        distance_results: dict | None = None,
+        distance_results: pd.DataFrame | None = None,
         channels: int | list | None = None,
         title_fields: list[str] | None = None,
         apply_transforms: bool = True,
@@ -273,8 +274,8 @@ class _ImageDisplayMixin:
             }
             if metadata:
                 all_info.update(metadata)
-            if distance_results and "distances" in distance_results:
-                all_info["distance"] = distance_results["distances"][idx]
+            if distance_results is not None and "distance" in distance_results.columns:
+                all_info["distance"] = distance_results.at[idx, "distance"]
 
         distance = all_info.get("distance")
         basic_fields = {"idx", "img_name", "img_path", "distance", "is_reference"}
@@ -289,7 +290,7 @@ class _ImageDisplayMixin:
     def image_preview_png_bytes(
         self,
         idx: int,
-        distance_results: dict | None = None,
+        distance_results: pd.DataFrame | None = None,
         channels: int | list | None = None,
         title_fields: list[str] | None = None,
         show_extra_info: bool = False,
@@ -343,7 +344,7 @@ class _ImageDisplayMixin:
     def plot_image_by_index(
         self,
         idx: int,
-        distance_results: dict | None = None,
+        distance_results: pd.DataFrame | None = None,
         channels: int | list | None = None,
         figsize: tuple = (6, 6),
         title_fields: list[str] | None = None,
@@ -359,7 +360,7 @@ class _ImageDisplayMixin:
 
         Args:
             idx: Image index in results
-            distance_results: Optional distance computation results
+            distance_results: Optional distance computation results DataFrame
             channels: specific channels to plot
             figsize: Figure size
             title_fields: Optional list of field names to display in title

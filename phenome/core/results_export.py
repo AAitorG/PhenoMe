@@ -79,7 +79,7 @@ def prepare_embedding_dataframe(
 
 def build_export_dataframe(
     results: PhenoMeResults | dict,
-    dist_results: dict[str, Any] | None = None,
+    dist_results: pd.DataFrame | None = None,
     include_embeddings: bool | Literal["separate"] = False,
 ) -> pd.DataFrame:
     """Build a DataFrame with the complete dataset for export.
@@ -90,8 +90,8 @@ def build_export_dataframe(
     Args:
         results: PhenoMeResults or dict with 'img_path', 'metadata', 'properties',
             and optionally 'embeddings'.
-        dist_results: Optional dict from compute_reference_distances. Expected key:
-            'distances': np.ndarray shape (N,). Adds a 'distance' column when provided.
+        dist_results: Optional DataFrame from compute_reference_distances. Expected columns:
+            'distance': float32. Adds a 'distance' column when provided.
         include_embeddings: If True, adds embedding columns (embedding_0, embedding_1, ...).
             If 'separate', embeddings are omitted here (caller saves them separately).
 
@@ -136,12 +136,12 @@ def build_export_dataframe(
             export_data[key] = column_values
 
     # Distance column
-    if dist_results and "distances" in dist_results:
-        distances = dist_results["distances"]
-        dist_list = distances.tolist() if isinstance(distances, np.ndarray) else list(distances)
+    if dist_results is not None and "distance" in dist_results.columns:
+        distances = dist_results["distance"].to_numpy()
+        dist_list = distances.tolist()
         if len(dist_list) != n_images:
             logger.warning(
-                "dist_results['distances'] length (%d) does not match n_images (%d); "
+                "dist_results['distance'] length (%d) does not match n_images (%d); "
                 "distance column omitted to avoid misalignment.",
                 len(dist_list),
                 n_images,

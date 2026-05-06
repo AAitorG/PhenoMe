@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 
 from ..._logging import get_logger
 from .._components import generate_image_gallery, generate_info_box
@@ -17,7 +18,7 @@ logger = get_logger(__name__)
 
 def generate_image_gallery_section(
     ctx: "ReportContext",
-    dist_results: dict | None = None,
+    dist_results: pd.DataFrame | None = None,
     n_images_per_category: int = 5,
     image_size: int = 200,
     include_outliers: bool = True,
@@ -32,7 +33,7 @@ def generate_image_gallery_section(
 
     Args:
         ctx: Report context with pipeline and results.
-        dist_results: Distance results for extreme images (closest/farthest).
+        dist_results: Distance results DataFrame for extreme images (closest/farthest).
         n_images_per_category: Images per gallery subsection.
         image_size: Display size in pixels.
         include_outliers: Include outlier images.
@@ -72,7 +73,7 @@ def generate_image_gallery_section(
             )
 
     if include_extremes:
-        if dist_results:
+        if dist_results is not None:
             try:
                 extremes_html = _generate_extreme_images(
                     pipeline,
@@ -116,12 +117,12 @@ def generate_image_gallery_section(
 
 def _generate_extreme_images(
     pipeline: "PhenoMe",
-    dist_results: dict,
+    dist_results: pd.DataFrame,
     n_images: int,
     image_size: int,
 ) -> str:
     """Generate gallery of closest and farthest images."""
-    distances = dist_results["distances"]
+    distances = dist_results["distance"].to_numpy()
     valid_mask = ~np.isnan(distances)
     valid_indices = np.where(valid_mask)[0]
     valid_distances = distances[valid_mask]

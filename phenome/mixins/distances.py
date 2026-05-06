@@ -6,10 +6,11 @@ Provides efficient GPU-accelerated distance calculations.
 from typing import Any, Literal, cast
 
 import numpy as np
+import pandas as pd
 import torch
 
 from .._logging import get_logger
-from ..core import build_combined_features
+from ..core import build_combined_features, build_metadata_columns
 from ..core import filter_indices as common_filter_indices
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
@@ -50,7 +51,7 @@ class PhenoMeDistances:
         plot: bool = True,
         return_fig: bool = False,
         points: Literal["all", "outliers", False] | None = None,
-    ) -> dict:
+    ) -> pd.DataFrame:
         """Compute distances from all images to reference group.
 
         Args:
@@ -78,29 +79,34 @@ class PhenoMeDistances:
                 per-group text summary to the logger). If False, log per-group summary
                 statistics where applicable (e.g. text-only mode, or with *return_fig*).
             return_fig: If True and *group_by* is set, add key ``"figure"`` to the
-                return dict and do not call ``fig.show()``.
+                return dataframe's ``.attrs`` and do not call ``fig.show()``.
             points: Violin plot point overlay: ``'all'``, ``'outliers'``, or ``False``;
                 ``None`` auto-selects by data size.
 
         Returns:
-            Dict containing:
-                - distances: np.ndarray shape (N,), dtype float32. Distance per image; NaN for invalid/filtered.
-                - reference_indices: list of reference image indices
+            DataFrame with index matching global image indices and columns:
+                - image_index: int, global image index.
+                - image_path: str, path to the image.
+                - distance: float32, distance per image; NaN for invalid/filtered.
+                - is_reference: bool, True for images in the reference group.
+                - (metadata columns): columns for each key in *group_by* if provided.
+            Metadata is stored in ``df.attrs``:
                 - reference_filters: dict of filters used
+                - filters: dict of global filters applied
                 - mode: str ('centroid' or 'all_to_all')
                 - source: str ('embeddings', 'properties', or 'combined')
                 - distance_type: str ('euclidean' or 'cosine')
                 - figure: (optional) Plotly figure if ``return_fig=True`` and *group_by* is set
 
         Example:
-            >>> dist_results = pipeline.compute_reference_distances(
+            >>> dist_df = pipeline.compute_reference_distances(
             ...     reference_filters={'condition': 'Control'},
             ...     source='embeddings',
             ...     mode='centroid',
             ...     distance_type='euclidean',
             ...     group_by='condition',
             ... )
-            >>> distances = dist_results['distances']
+            >>> distances = dist_df['distance']
         """
         if not reference_filters:
             raise ValueError(
@@ -202,20 +208,35 @@ class PhenoMeDistances:
                 "  Distance range: [%.4f, %.4f]", np.nanmin(distances), np.nanmax(distances)
             )
 
-        result: dict[str, Any] = {
-            "distances": distances,
-            "reference_indices": ref_indices,
-            "reference_filters": reference_filters,
-            "filters": filters or {},
-            "mode": mode,
-            "source": source,
-            "distance_type": distance_type,
-        }
+        df = pd.DataFrame(
+            {
+                "image_index": np.arange(n_total),
+                "image_path": self.results.img_path,
+                "distance": distances,
+                "is_reference": np.isin(np.arange(n_total), ref_indices),
+            }
+        )
+
+        if group_by is not None:
+            group_keys = [group_by] if isinstance(group_by, str) else list(group_by)
+            meta_cols = build_metadata_columns(self.results, keys=group_keys)
+            for k, v in meta_cols.items():
+                df[k] = v
+
+        df.attrs.update(
+            {
+                "reference_filters": reference_filters,
+                "filters": filters or {},
+                "mode": mode,
+                "source": source,
+                "distance_type": distance_type,
+            }
+        )
 
         if group_by is not None:
             # Visualization lives on ``PhenoMeVisualization`` (PhenoMe MRO)
             fig = self._plot_distance_distribution(  # type: ignore[attr-defined]
-                result,
+                df,
                 group_by=group_by,
                 dist_range=dist_range,
                 figsize=figsize,
@@ -224,9 +245,9 @@ class PhenoMeDistances:
                 points=points,
             )
             if return_fig and fig is not None:
-                result["figure"] = fig
+                df.attrs["figure"] = fig
 
-        return result
+        return df
 
     # ------------------------------------------------------------------
     # Private helpers
