@@ -66,7 +66,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
-| `create_blur_effect_function` | Create property function that computes blur strength (Laplacian variance). | ✅ | [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
+| `create_blur_effect_function` | Create property function that computes blur strength. | ✅ | [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
 | `create_concentric_ring_function` | Create property function that computes stats per concentric ring (edge to core). | ✅ | [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
 | `create_entropy_function` | Create property function that computes Shannon entropy of intensity distribution. | ✅ | [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
 | `create_intensity_function` | Create intensity property function over entire image (no mask). | ✅ | [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
@@ -154,7 +154,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
-| `create_blur_effect_function` | Create property function that computes blur strength (Laplacian variance). | ✅ | [Properties](/PhenoMe/advanced/api/properties/#create_blur_effect_function) · [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
+| `create_blur_effect_function` | Create property function that computes blur strength. | ✅ | [Properties](/PhenoMe/advanced/api/properties/#create_blur_effect_function) · [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
 | `create_concentric_ring_function` | Create property function that computes stats per concentric ring (edge to core). | ✅ | [Properties](/PhenoMe/advanced/api/properties/#create_concentric_ring_function) · [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
 | `create_entropy_function` | Create property function that computes Shannon entropy of intensity distribution. | ✅ | [Properties](/PhenoMe/advanced/api/properties/#create_entropy_function) · [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
 | `create_intensity_function` | Create intensity property function over entire image (no mask). | ✅ | [Properties](/PhenoMe/advanced/api/properties/#create_intensity_function) · [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |

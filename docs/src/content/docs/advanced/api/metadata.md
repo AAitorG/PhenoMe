@@ -421,3 +421,32 @@ DataFrameMetadata(
 </div>
 
 </div>
+
+### Extraction
+
+<div class="api-method" role="region" aria-labelledby="api-dataframemetadata-metadata_fn">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-dataframemetadata-metadata_fn"><code>metadata_fn</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+DataFrameMetadata.metadata_fn(
+    self,
+    path: 'str',
+    data_dir: 'str | None' = None
+) -> dict[str, Any]
+```
+
+</div>
+
+<div class="api-body">
+
+Extract metadata with data_dir-aware partial path lookup.
+
+</div>
+
+</div>
