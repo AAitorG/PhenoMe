@@ -307,7 +307,7 @@ class PhenoMeAnalysis:
         return_fig: bool = False,
         top_k: int = 10,
         figsize: tuple[int, int] = (10, 8),
-    ) -> dict[str, Any]:
+    ) -> pd.DataFrame | tuple[pd.DataFrame, Any]:
         """Explain a dimensionality reduction component using LASSO or Random Forest.
 
         Calculates which phenotypic properties (features) best explain the variability
@@ -329,23 +329,30 @@ class PhenoMeAnalysis:
             seed: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
             plot: If True (default), show an interactive Plotly bar chart of top drivers.
                 If False, log a plain-text summary via the package logger instead.
-            return_fig: If True, attach a Plotly figure under ``interpretability_fig`` in the
-                returned dict. When ``return_fig`` is True, ``fig.show()`` is not called; use
-                ``plot=True`` with ``return_fig=False`` for the default interactive display.
+            return_fig: If True, returns a tuple of ``(df, fig)``.
+                When ``return_fig`` is True, ``fig.show()`` is not called; use
+                ``plot=True`` with ``return_fig=False`` for interactive display.
             top_k: Number of top drivers to show in the plot or text summary.
             figsize: Figure size ``(width, height)`` passed through to Plotly layout; each
                 value is multiplied by 100 to set width and height in layout pixels.
 
         Returns:
-            Dict with:
-                - r2: Explainability Score (R^2).
-                - drivers: Ranked list of properties with weights/importances.
-                - method: The DR method used.
-                - model_type: The regression model type used.
-                - target_component: The component name explained.
-                - n_samples: Number of samples used.
-                - n_features: Number of properties considered.
-                - interpretability_fig: Present when ``return_fig`` is True and a figure was built.
+            pd.DataFrame | tuple[pd.DataFrame, Any]:
+                - If ``return_fig`` is False (default): A DataFrame of ranked drivers.
+                  Columns are ``feature`` and ``weight``. Metadata is in ``df.attrs``.
+                - If ``return_fig`` is True: A tuple of ``(df, fig)``.
+
+                The DataFrame contains:
+                - ``feature``: The phenotypic property name.
+                - ``weight``: LASSO coefficient or Random Forest Gini importance.
+
+                Metadata in ``df.attrs`` includes:
+                - ``r2``: Explainability Score (R^2) for the model.
+                - ``n_samples``: Number of samples used for the model.
+                - ``n_features``: Total number of features considered.
+                - ``method``: The dimensionality reduction method used.
+                - ``model_type``: The regression model type used.
+                - ``target_component``: The component name explained.
         """
         effective_seed = seed if seed is not None else getattr(self, "seed", None)
 
@@ -366,12 +373,14 @@ class PhenoMeAnalysis:
 
         if dr_results is None or dr_results.empty:
             logger.warning("No data available for multivariate interpretability.")
-            return {}
+            df = pd.DataFrame()
+            return (df, None) if return_fig else df
 
         comp_col = f"Component {component}"
         if comp_col not in dr_results.columns:
             logger.warning("Target component '%s' not found in DR results.", comp_col)
-            return {}
+            df = pd.DataFrame()
+            return (df, None) if return_fig else df
 
         y = dr_results[comp_col].values
         valid_indices = dr_results["Index"].values.tolist()
@@ -387,7 +396,8 @@ class PhenoMeAnalysis:
 
         if len(matrix) == 0:
             logger.warning("No valid samples with properties for interpretability.")
-            return {}
+            df = pd.DataFrame()
+            return (df, None) if return_fig else df
 
         # Align y with X if NaN-filtering in _get_property_matrix changed samples
         if len(matrix) < len(y):
@@ -443,10 +453,20 @@ class PhenoMeAnalysis:
             top_k=top_k,
             figsize=figsize,
         )
-        if return_fig and fig is not None:
-            results["interpretability_fig"] = fig
 
-        return results
+        # Convert results dict to DataFrame
+        drivers = results.pop("drivers", [])
+        df = pd.DataFrame(columns=["feature", "weight"]) if not drivers else pd.DataFrame(drivers)
+
+        # Store metadata in attrs instead of columns
+        for key, value in results.items():
+            if key != "dr_object":
+                df.attrs[key] = value
+
+        if return_fig:
+            return df, fig
+
+        return df
 
     # ------------------------------------------------------------------
     # Outlier detection
@@ -1581,7 +1601,7 @@ class PhenoMeAnalysis:
         embedding_shape: tuple[int, int] | None = None,
         n_properties: int | None = None,
         correlation_method: str = "pearson",
-    ) -> pd.DataFrame:
+    ) -> pd.DataFrame | tuple[pd.DataFrame, Any | None]:
         """Summarize embedding-property correlations, optionally plot, and/or return a Plotly figure.
 
         Computes per-property ``mean_abs``, ``std`` (across dimensions), ``max_abs``, ``min_abs``,
@@ -1599,8 +1619,8 @@ class PhenoMeAnalysis:
             plot: If *True* (default), show a Plotly violin plot of |r| per dimension for the top
                 ``top_k`` properties by ``order_by`` (*None* = all). Highest metric at the **top**
                 of the y-axis.
-            return_fig: If *True*, include the :class:`plotly.graph_objects.Figure` in the
-                result under key ``"figure"``.
+            return_fig: If *True*, return both the summary DataFrame and the
+                Plotly figure.
             figsize: Figure size in inches, converted to pixels for Plotly layout.
             title: Chart title.
             embedding_shape: Shape of embeddings (n_samples, n_dims) for metadata display.
@@ -1609,7 +1629,7 @@ class PhenoMeAnalysis:
 
         Returns:
             Sorted DataFrame with ``property``, ``mean_abs``, ``std``, ``max_abs``, ``min_abs``,
-            and ``mean``.
+            and ``mean``. If ``return_fig`` is *True*, returns ``(summary, figure)``.
         """
         if order_by not in _helpers.ORDER_METRICS:
             raise ValueError(
@@ -1683,6 +1703,8 @@ class PhenoMeAnalysis:
         if not plot:
             self._log_embedding_property_correlation_summary(summary, order_by, top_k)
 
+        if return_fig:
+            return summary, out_fig
         return summary
 
     # ------------------------------------------------------------------

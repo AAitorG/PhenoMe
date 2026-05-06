@@ -51,7 +51,7 @@ class PhenoMeDistances:
         plot: bool = True,
         return_fig: bool = False,
         points: Literal["all", "outliers", False] | None = None,
-    ) -> pd.DataFrame:
+    ) -> pd.DataFrame | tuple[pd.DataFrame, Any]:
         """Compute distances from all images to reference group.
 
         Args:
@@ -78,25 +78,30 @@ class PhenoMeDistances:
             plot: If True and *group_by* is set, show or return a violin plot only (no
                 per-group text summary to the logger). If False, log per-group summary
                 statistics where applicable (e.g. text-only mode, or with *return_fig*).
-            return_fig: If True and *group_by* is set, add key ``"figure"`` to the
-                return dataframe's ``.attrs`` and do not call ``fig.show()``.
+            return_fig: If True and *group_by* is set, return a tuple of ``(df, fig)``.
+                When ``return_fig`` is True, ``fig.show()`` is not called.
             points: Violin plot point overlay: ``'all'``, ``'outliers'``, or ``False``;
                 ``None`` auto-selects by data size.
 
         Returns:
-            DataFrame with index matching global image indices and columns:
+            pd.DataFrame | tuple[pd.DataFrame, Any]:
+                - If ``return_fig`` is False (default): Returns the distance DataFrame.
+                - If ``return_fig`` is True: Returns a tuple of ``(distance_df, figure)``.
+                  The figure is None if *group_by* is not set.
+
+            The DataFrame contains:
                 - image_index: int, global image index.
                 - image_path: str, path to the image.
                 - distance: float32, distance per image; NaN for invalid/filtered.
                 - is_reference: bool, True for images in the reference group.
                 - (metadata columns): columns for each key in *group_by* if provided.
+
             Metadata is stored in ``df.attrs``:
                 - reference_filters: dict of filters used
                 - filters: dict of global filters applied
                 - mode: str ('centroid' or 'all_to_all')
                 - source: str ('embeddings', 'properties', or 'combined')
                 - distance_type: str ('euclidean' or 'cosine')
-                - figure: (optional) Plotly figure if ``return_fig=True`` and *group_by* is set
 
         Example:
             >>> dist_df = pipeline.compute_reference_distances(
@@ -233,6 +238,7 @@ class PhenoMeDistances:
             }
         )
 
+        fig = None
         if group_by is not None:
             # Visualization lives on ``PhenoMeVisualization`` (PhenoMe MRO)
             fig = self._plot_distance_distribution(  # type: ignore[attr-defined]
@@ -244,9 +250,9 @@ class PhenoMeDistances:
                 return_fig=return_fig,
                 points=points,
             )
-            if return_fig and fig is not None:
-                df.attrs["figure"] = fig
 
+        if return_fig:
+            return df, fig
         return df
 
     # ------------------------------------------------------------------

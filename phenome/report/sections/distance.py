@@ -63,11 +63,12 @@ def generate_distance_section(
                 None,
             )
 
+    fig = None
     try:
         if color_by:
             # Full numeric range: Plotly will autoscale; avoids a second distance computation
             # just to set dist_range with padding.
-            dist_results = pipeline.compute_reference_distances(
+            raw_out = pipeline.compute_reference_distances(
                 reference_filters=reference_filters,
                 filters=filters,
                 exclude=exclude,
@@ -79,6 +80,11 @@ def generate_distance_section(
                 plot=False,
                 return_fig=True,
             )
+            if isinstance(raw_out, tuple):
+                dist_results = raw_out[0]
+                fig = raw_out[1]
+            else:
+                dist_results = raw_out
         else:
             dist_results = pipeline.compute_reference_distances(
                 reference_filters=reference_filters,
@@ -111,7 +117,6 @@ def generate_distance_section(
 
     plot_html = ""
     try:
-        fig = dist_results.attrs.get("figure")
         if fig is not None:
             apply_dark_theme(fig)
             fig.update_layout(width=None, height=None, autosize=True)

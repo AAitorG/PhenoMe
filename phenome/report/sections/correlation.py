@@ -28,9 +28,10 @@ def generate_correlation_section(
     pipeline = ctx.pipeline
     try:
         raw_corr = pipeline.compute_embedding_property_correlations()
-        summary_df = pipeline.summarize_embedding_property_correlations(
+        summary_out = pipeline.summarize_embedding_property_correlations(
             raw_corr, order_by="mean_abs", top_k=top_k, plot=False, return_fig=False
         )
+        summary_df = summary_out[0] if isinstance(summary_out, tuple) else summary_out
     except (ValueError, KeyError, RuntimeError) as e:
         return generate_info_box(f"Could not compute correlations: {e}", "warning")
 

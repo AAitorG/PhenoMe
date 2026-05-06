@@ -1,6 +1,8 @@
 """Multivariate interpretability section generator."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
+
+import plotly.graph_objects as go
 
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
 from .._components import generate_info_box, generate_plot_container
@@ -32,7 +34,7 @@ def generate_interpretability_section(
     pipeline = ctx.pipeline
     try:
         # Compute multivariate interpretability via the mixin
-        results = pipeline.compute_multivariate_interpretability(
+        interp_out = pipeline.compute_multivariate_interpretability(
             method=method,
             component=component,
             model_type=model_type,
@@ -41,24 +43,30 @@ def generate_interpretability_section(
             return_fig=True,
             top_k=top_k,
         )
+        if not isinstance(interp_out, tuple):
+            return generate_info_box(
+                "Unexpected interpretability result (expected figure tuple).",
+                "warning",
+            )
+        df, fig = interp_out[0], interp_out[1]
     except (ValueError, KeyError, RuntimeError, ImportError) as e:
         return generate_info_box(f"Could not compute multivariate interpretability: {e}", "warning")
 
-    if not results or not results.get("drivers"):
+    if df.empty:
         return generate_info_box(
             f"No multivariate interpretability data available for {method.upper()} component {component}.",
             "info",
         )
 
-    fig = results.get("interpretability_fig")
-
     if fig is None:
         return generate_info_box("Failed to generate interpretability plot.", "warning")
 
-    apply_dark_theme(fig)
+    plot_fig = cast(go.Figure, fig)
+    apply_dark_theme(plot_fig)
 
-    r2 = results["r2"]
-    n_samples = results["n_samples"]
+    # Extract metadata from DataFrame attrs
+    r2 = df.attrs.get("r2", 0.0)
+    n_samples = df.attrs.get("n_samples", 0)
     model_name = "LASSO" if model_type == "lasso" else "Random Forest"
 
     interpretation = ""
@@ -85,5 +93,5 @@ def generate_interpretability_section(
         <br><small>Computed on {n_samples} samples using {algorithm_desc}</small>
     </div>
 
-    {generate_plot_container(plotly_to_html_fragment(fig, config=PLOTLY_DISPLAY_CONFIG))}
+    {generate_plot_container(plotly_to_html_fragment(plot_fig, config=PLOTLY_DISPLAY_CONFIG))}
     """

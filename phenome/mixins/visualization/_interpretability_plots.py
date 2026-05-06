@@ -115,8 +115,29 @@ def _build_multivariate_interpretability_figure(
     return fig
 
 
+def _interpretability_df_to_dict(df: pd.DataFrame) -> dict[str, Any]:
+    """Convert the restructured interpretability DataFrame back to the internal dict format."""
+    if df.empty:
+        return {}
+
+    # Extract metadata from attrs
+    results = {
+        "r2": df.attrs.get("r2"),
+        "method": df.attrs.get("method"),
+        "model_type": df.attrs.get("model_type"),
+        "target_component": df.attrs.get("target_component"),
+        "n_samples": df.attrs.get("n_samples"),
+        "n_features": df.attrs.get("n_features"),
+    }
+
+    # Extract drivers
+    results["drivers"] = df[["feature", "weight"]].to_dict("records")
+
+    return results
+
+
 def _display_multivariate_interpretability(
-    results: dict[str, Any],
+    results: dict[str, Any] | pd.DataFrame,
     plot: bool = True,
     return_fig: bool = False,
     top_k: int = 10,
@@ -127,7 +148,8 @@ def _display_multivariate_interpretability(
     Mirrors the branching pattern used by :meth:`_DistancePlotsMixin._plot_distance_distribution`.
 
     Args:
-        results: Output dict from :meth:`PhenoMeAnalysis.compute_multivariate_interpretability`.
+        results: Output from :meth:`PhenoMeAnalysis.compute_multivariate_interpretability`.
+            Can be a dict (old format) or a pd.DataFrame (new format).
         plot: If True, build/show a bar chart when applicable. If False, text summary only
             (unless *return_fig* requests a figure).
         return_fig: If True, return the Plotly figure and do not call ``fig.show()``.
@@ -137,9 +159,12 @@ def _display_multivariate_interpretability(
     Returns:
         The Plotly figure if one was built and *return_fig* is True; otherwise ``None``.
     """
+    if isinstance(results, pd.DataFrame):
+        results = _interpretability_df_to_dict(results)
+
     if not isinstance(results, dict):
         logger.warning(
-            "multivariate interpretability display: expected a dict, got %s.",
+            "multivariate interpretability display: expected a dict or DataFrame, got %s.",
             type(results).__name__,
         )
         return None
@@ -172,7 +197,7 @@ class _InterpretabilityPlotsMixin:
 
     def _plot_multivariate_interpretability(
         self,
-        results: dict[str, Any],
+        results: dict[str, Any] | pd.DataFrame,
         plot: bool = True,
         return_fig: bool = False,
         top_k: int = 10,
