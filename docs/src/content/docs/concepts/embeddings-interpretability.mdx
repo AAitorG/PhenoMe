@@ -39,8 +39,8 @@ UMAP shows interesting clusters, the engine helps answer:
     **Example**: "Embedding dim 142 correlates with nuclear intensity."
 
     ```python
-    pheno.compute_embedding_property_correlations()
-    pheno.summarize_embedding_property_correlations()
+    corrs = pheno.compute_embedding_property_correlations()
+    summary_df = pheno.summarize_embedding_property_correlations(corrs)
     ```
   </Card>
 </div>

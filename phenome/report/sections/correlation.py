@@ -28,23 +28,23 @@ def generate_correlation_section(
     pipeline = ctx.pipeline
     try:
         raw_corr = pipeline.compute_embedding_property_correlations()
-        corr_results = pipeline.summarize_embedding_property_correlations(
+        summary_df = pipeline.summarize_embedding_property_correlations(
             raw_corr, order_by="mean_abs", top_k=top_k, plot=False, return_fig=False
         )
     except (ValueError, KeyError, RuntimeError) as e:
         return generate_info_box(f"Could not compute correlations: {e}", "warning")
 
-    if not corr_results or corr_results["summary"].empty:
+    if summary_df is None or summary_df.empty:
         return generate_info_box("No correlation data available.", "warning")
 
-    summary_df = corr_results["summary"].head(top_k)
-    order_key = str(corr_results.get("order_by", "mean_abs"))
-    x_col = summary_df[order_key]
+    order_key = "mean_abs"
+    plot_df = summary_df.head(top_k)
+    x_col = plot_df[order_key]
 
     fig = go.Figure(
         go.Bar(
             x=x_col.values[::-1],
-            y=summary_df["property"].values[::-1],
+            y=plot_df["property"].values[::-1],
             orientation="h",
             marker_color="#10b981",
             text=x_col.round(4).values[::-1],
@@ -60,7 +60,7 @@ def generate_correlation_section(
     )
     apply_dark_theme(fig)
 
-    top_features = corr_results["top_properties"][:10]
+    top_features = summary_df["property"].head(10).tolist()
 
     return f"""
     <p>Features with the strongest correlation to the model's learned embedding space.

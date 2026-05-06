@@ -31,18 +31,6 @@ def index_array_for_torch(a: object) -> np.ndarray:
     return np.array(a, dtype=np.intp, copy=True, order="C")
 
 
-def mean_correlation_sign(mean: float) -> str:
-    """Label for the sign of the mean raw correlation: ``+`` / ``-`` / ``0`` / em dash (non-finite)."""
-    if not np.isfinite(mean):
-        return "-"
-    m = float(mean)
-    if m > 1e-12:
-        return "+"
-    if m < -1e-12:
-        return "-"
-    return "0"
-
-
 def map_to_full(values: np.ndarray, valid_indices: list[int], n_total: int) -> np.ndarray:
     """Map values for valid_indices into a full-length NaN array.
 

@@ -1555,7 +1555,7 @@ PhenoMeAnalysis.compute_embedding_property_correlations(
     normalize: bool = True,
     method: Literal['pearson', 'spearman', 'distance_correlation', 'mutual_info'] = 'pearson',
     n_jobs: int = 1
-) -> dict
+) -> dict[str, numpy.ndarray]
 ```
 
 </div>
@@ -1582,11 +1582,7 @@ This is the time-consuming step that computes raw correlations for each property
 
 **Returns:**
 
-  Dict with:
-  - ``correlations``: Dict mapping property names to correlation arrays (n_dims,)
-  - ``embedding_shape``: Shape of embeddings (n_samples, n_dims)
-  - ``n_properties``: Number of properties processed
-  - ``correlation_method``: Method used for correlation computation
+  Dict mapping property names to correlation arrays (n_dims,)
 
 </div>
 
@@ -1604,14 +1600,17 @@ This is the time-consuming step that computes raw correlations for each property
 ```python
 PhenoMeAnalysis.summarize_embedding_property_correlations(
     self,
-    correlation_results: dict[str, typing.Any],
+    correlations: dict[str, numpy.ndarray],
     order_by: str = 'mean_abs',
     top_k: int | None = 20,
     plot: bool = True,
     return_fig: bool = False,
     figsize: tuple[int, int] = (10, 8),
-    title: str = 'Property Correlations with Embeddings'
-) -> dict
+    title: str = 'Property Correlations with Embeddings',
+    embedding_shape: tuple[int, int] | None = None,
+    n_properties: int | None = None,
+    correlation_method: str = 'pearson'
+) -> pandas.DataFrame
 ```
 
 </div>
@@ -1621,18 +1620,18 @@ PhenoMeAnalysis.summarize_embedding_property_correlations(
 Summarize embedding-property correlations, optionally plot, and/or return a Plotly figure.
 
 Computes per-property ``mean_abs``, ``std`` (across dimensions), ``max_abs``, ``min_abs``,
-``mean``, ``sign`` (of mean raw *r*), orders rows by ``order_by``, and either shows a
+and ``mean``, orders rows by ``order_by``, and either shows a
 horizontal violin plot of the distribution of |r| across dimensions per property or logs
 a plain-text table when ``plot`` is *False*.
 
 **Args:**
 
-- **`correlation_results`**: Output from :meth:`compute_embedding_property_correlations`
-  (must include ``correlations`` and ``correlation_method``).
+- **`correlations`**: Output from :meth:`compute_embedding_property_correlations`
+  (dict mapping property names to correlation arrays).
 - **`order_by`**: Metric used to sort properties (descending):
   ``mean_abs`` | ``max_abs`` | ``mean`` | ``std``.
-- **`top_k`**: Number of top properties shown in the plot and listed in ``top_properties``;
-  full sorted table is always in ``summary`` (*None* = all).
+- **`top_k`**: Number of top properties shown in the plot;
+  full sorted table is always returned (*None* = all).
 - **`plot`**: If *True* (default), show a Plotly violin plot of |r| per dimension for the top
   ``top_k`` properties by ``order_by`` (*None* = all). Highest metric at the **top**
   of the y-axis.
@@ -1640,18 +1639,14 @@ a plain-text table when ``plot`` is *False*.
   result under key ``"figure"``.
 - **`figsize`**: Figure size in inches, converted to pixels for Plotly layout.
 - **`title`**: Chart title.
+- **`embedding_shape`**: Shape of embeddings (n_samples, n_dims) for metadata display.
+- **`n_properties`**: Number of properties processed for metadata display.
+- **`correlation_method`**: Method used for correlation computation for metadata display.
 
 **Returns:**
 
-  Dict with:
-  - ``correlations``: Original per-property correlation vectors
-  - ``summary``: Sorted DataFrame with ``property``, ``mean_abs``, ``std``,
-  ``max_abs``, ``min_abs``, ``mean``, ``sign``, etc.
-  - ``top_properties``: Top-``k`` property names
-  - ``metrics``: Per-metric dicts (including ``min_abs``) keyed by property name
-  - ``order_by`` — metric used for sorting
-  - ``correlation_method``, ``embedding_shape``, ``n_properties``
-  - ``figure``: Plotly figure if ``return_fig`` is *True*; otherwise *None*.
+  Sorted DataFrame with ``property``, ``mean_abs``, ``std``, ``max_abs``, ``min_abs``,
+  and ``mean``.
 
 </div>
 

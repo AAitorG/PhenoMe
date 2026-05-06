@@ -1388,7 +1388,7 @@ class PhenoMeAnalysis:
         normalize: bool = True,
         method: Literal["pearson", "spearman", "distance_correlation", "mutual_info"] = "pearson",
         n_jobs: int = 1,
-    ) -> dict[str, Any]:
+    ) -> dict[str, np.ndarray]:
         """Compute correlations between embedding dimensions and phenotypic scalar properties.
 
         This is the time-consuming step that computes raw correlations for each property.
@@ -1407,11 +1407,7 @@ class PhenoMeAnalysis:
                   mapped to [0, 1] via the Gaussian bivariate transform, **not** standard NMI)
 
         Returns:
-            Dict with:
-                - ``correlations``: Dict mapping property names to correlation arrays (n_dims,)
-                - ``embedding_shape``: Shape of embeddings (n_samples, n_dims)
-                - ``n_properties``: Number of properties processed
-                - ``correlation_method``: Method used for correlation computation
+            Dict mapping property names to correlation arrays (n_dims,)
         """
         embeddings = self.get_embeddings()  # type: ignore[attr-defined]
         if embeddings is None or len(embeddings) == 0:
@@ -1531,19 +1527,14 @@ class PhenoMeAnalysis:
             method,
         )
 
-        return {
-            "correlations": corrs,
-            "embedding_shape": embeddings.shape,
-            "n_properties": len(valid_props),
-            "correlation_method": method,
-        }
+        return corrs
 
     @staticmethod
     def _log_embedding_property_correlation_summary(
         summary: pd.DataFrame, order_by: str, top_k: int | None
     ) -> None:
         """Log a plain-text table of the top property correlation rows."""
-        want = ("property", "sign", "mean_abs", "std", "max_abs", "min_abs")
+        want = ("property", "mean_abs", "std", "max_abs", "min_abs")
         columns = [c for c in want if c in summary.columns]
         if not columns or "property" not in columns:
             logger.info("Property correlation summary is empty; nothing to log.")
@@ -1554,7 +1545,7 @@ class PhenoMeAnalysis:
         n = len(view)
         top_note = f" (showing {n} of {len(summary)} properties)" if n < len(summary) else ""
         sep = "─" * 88
-        num_cols = [c for c in columns if c not in ("property", "sign")]
+        num_cols = [c for c in columns if c not in ("property",)]
 
         def _fmt_num_cell(v: object) -> str:
             try:
@@ -1568,12 +1559,6 @@ class PhenoMeAnalysis:
         out = view.copy()
         for c in num_cols:
             out[c] = out[c].map(_fmt_num_cell)
-        if "property" in out.columns and "sign" in out.columns:
-            # Pad property (first column) so there is a bit more space before sign (second column).
-            prop_w = max((len(str(x)) for x in out["property"]), default=0) + 6
-            prop_w = max(prop_w, len("property") + 4)
-            out = out.copy()
-            out["property"] = out["property"].map(lambda s: f"{s!s:<{prop_w}}")
         block = out.to_string(index=False, col_space=2)
         logger.info(
             "%s\nEmbedding-property correlations  (ordered by %s)%s\n%s\n%s\n%s",
@@ -1587,24 +1572,27 @@ class PhenoMeAnalysis:
 
     def summarize_embedding_property_correlations(
         self,
-        correlation_results: dict[str, Any],
+        correlations: dict[str, np.ndarray],
         order_by: str = "mean_abs",
         top_k: int | None = 20,
         plot: bool = True,
         return_fig: bool = False,
         figsize: tuple[int, int] = (10, 8),
         title: str = "Property Correlations with Embeddings",
-    ) -> dict[str, Any]:
+        embedding_shape: tuple[int, int] | None = None,
+        n_properties: int | None = None,
+        correlation_method: str = "pearson",
+    ) -> pd.DataFrame:
         """Summarize embedding-property correlations, optionally plot, and/or return a Plotly figure.
 
         Computes per-property ``mean_abs``, ``std`` (across dimensions), ``max_abs``, ``min_abs``,
-        ``mean``, ``sign`` (of mean raw *r*), orders rows by ``order_by``, and either shows a
+        and ``mean``, orders rows by ``order_by``, and either shows a
         horizontal violin plot of the distribution of |r| across dimensions per property or logs
         a plain-text table when ``plot`` is *False*.
 
         Args:
-            correlation_results: Output from :meth:`compute_embedding_property_correlations`
-                (must include ``correlations`` and ``correlation_method``).
+            correlations: Output from :meth:`compute_embedding_property_correlations`
+                (dict mapping property names to correlation arrays).
             order_by: Metric used to sort properties (descending):
                 ``mean_abs`` | ``max_abs`` | ``mean`` | ``std``.
             top_k: Number of top properties shown in the plot and listed in ``top_properties``;
@@ -1616,42 +1604,31 @@ class PhenoMeAnalysis:
                 result under key ``"figure"``.
             figsize: Figure size in inches, converted to pixels for Plotly layout.
             title: Chart title.
+            embedding_shape: Shape of embeddings (n_samples, n_dims) for metadata display.
+            n_properties: Number of properties processed for metadata display.
+            correlation_method: Method used for correlation computation for metadata display.
 
         Returns:
-            Dict with:
-                - ``correlations``: Original per-property correlation vectors
-                - ``summary``: Sorted DataFrame with ``property``, ``mean_abs``, ``std``,
-                  ``max_abs``, ``min_abs``, ``mean``, ``sign``, etc.
-                - ``top_properties``: Top-``k`` property names
-                - ``metrics``: Per-metric dicts (including ``min_abs``) keyed by property name
-                - ``order_by`` — metric used for sorting
-                - ``correlation_method``, ``embedding_shape``, ``n_properties``
-                - ``figure``: Plotly figure if ``return_fig`` is *True*; otherwise *None*.
+            Sorted DataFrame with ``property``, ``mean_abs``, ``std``, ``max_abs``, ``min_abs``,
+            and ``mean``.
         """
         if order_by not in _helpers.ORDER_METRICS:
             raise ValueError(
                 f"Unknown order_by: {order_by!r}; expected one of {_helpers.ORDER_METRICS}"
             )
-        if not correlation_results or "correlations" not in correlation_results:
-            raise KeyError(
-                "correlation_results must contain 'correlations' (output of "
-                "compute_embedding_property_correlations)."
-            )
+        if not correlations:
+            raise ValueError("correlations dict cannot be empty.")
 
-        corrs: dict[str, np.ndarray] = correlation_results["correlations"]
-        embedding_shape = correlation_results.get(
-            "embedding_shape", correlation_results.get("cls_shape")
-        )
-        n_properties = correlation_results.get(
-            "n_properties", correlation_results.get("n_features")
-        )
-        correlation_method = str(correlation_results["correlation_method"])
+        if embedding_shape is None:
+            embedding_shape = getattr(self, "cls_shape", (0, 0))
+        if n_properties is None:
+            n_properties = len(correlations)
 
         per_prop: list[dict[str, Any]] = []
         metrics: dict[str, Any] = {m: {} for m in _helpers.ORDER_METRICS}
         metrics["min_abs"] = {}
 
-        for pname, r in corrs.items():
+        for pname, r in correlations.items():
             vc = r[np.isfinite(r)]
             if len(vc) == 0:
                 row = {
@@ -1661,7 +1638,6 @@ class PhenoMeAnalysis:
                     "mean_abs": np.nan,
                     "max_abs": np.nan,
                     "min_abs": np.nan,
-                    "sign": "—",
                 }
             else:
                 mean_v = float(np.mean(vc))
@@ -1676,7 +1652,6 @@ class PhenoMeAnalysis:
                     "mean_abs": mean_abs_v,
                     "max_abs": max_abs_v,
                     "min_abs": min_abs_v,
-                    "sign": _helpers.mean_correlation_sign(mean_v),
                 }
             per_prop.append(row)
             for name in _helpers.ORDER_METRICS:
@@ -1686,12 +1661,6 @@ class PhenoMeAnalysis:
         summary = pd.DataFrame(per_prop)
         summary = summary.sort_values(order_by, ascending=False, na_position="last")
         summary = summary.reset_index(drop=True)
-
-        top_properties: list[str] = (
-            summary.head(top_k)["property"].astype(str).tolist()
-            if top_k is not None
-            else summary["property"].astype(str).tolist()
-        )
 
         out_fig: Any = None
         need_fig = bool(plot) or bool(return_fig)
@@ -1703,7 +1672,7 @@ class PhenoMeAnalysis:
             plot_df = plot_df.sort_values(order_by, ascending=False, na_position="last")
             out_fig = _plot_property_correlations_plotly(
                 plot_df,
-                correlations=corrs,
+                correlations=correlations,
                 order_by=order_by,
                 title=title,
                 figsize=figsize,
@@ -1715,19 +1684,7 @@ class PhenoMeAnalysis:
         if not plot:
             self._log_embedding_property_correlation_summary(summary, order_by, top_k)
 
-        figure_out: Any = out_fig if (return_fig and need_fig) else None
-
-        return {
-            "correlations": corrs,
-            "summary": summary,
-            "top_properties": top_properties,
-            "metrics": metrics,
-            "embedding_shape": embedding_shape,
-            "n_properties": n_properties,
-            "order_by": order_by,
-            "correlation_method": correlation_method,
-            "figure": figure_out,
-        }
+        return summary
 
     # ------------------------------------------------------------------
     # Normalization helpers
