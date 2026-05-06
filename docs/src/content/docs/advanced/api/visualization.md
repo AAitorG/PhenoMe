@@ -162,7 +162,8 @@ Plot UMAP of embeddings, properties, or combined features (Plotly, WebGL by defa
 PhenoMeVisualization.plot_counts(
     self,
     group_by: list[str] | None = None,
-    return_fig: bool = False
+    return_fig: bool = False,
+    plot: bool = True
 ) -> Any
 ```
 
@@ -171,6 +172,12 @@ PhenoMeVisualization.plot_counts(
 <div class="api-body">
 
 Plot count of images grouped by metadata using Plotly.
+
+**Args:**
+
+- **`group_by`**: List of metadata keys to group by.
+- **`return_fig`**: If True, return the Plotly figure instead of displaying it.
+- **`plot`**: If True (default), create and display a Plotly plot. If False, print results as text.
 
 </div>
 
@@ -227,15 +234,16 @@ Plot centroids of groups in reduced embedding space.
 _ImageDisplayMixin.plot_image_by_index(
     self,
     idx: int,
-    distance_results: dict | None = None,
+    distance_results: pandas.DataFrame | None = None,
     channels: int | list | None = None,
     figsize: tuple = (6, 6),
     title_fields: list[str] | None = None,
     show_extra_info: bool = True,
-    apply_transforms: bool = True,
+    apply_transforms: bool = False,
     downsample: int | None = 720,
     ax: Any = None,
-    return_fig: bool = False
+    return_fig: bool = False,
+    show_mask_overlay: bool = False
 ) -> Any
 ```
 
@@ -248,7 +256,7 @@ Plot a specific image by its index.
 **Args:**
 
 - **`idx`**: Image index in results
-- **`distance_results`**: Optional distance computation results
+- **`distance_results`**: Optional distance computation results DataFrame
 - **`channels`**: specific channels to plot
 - **`figsize`**: Figure size
 - **`title_fields`**: Optional list of field names to display in title
@@ -259,6 +267,10 @@ Plot a specific image by its index.
   differ slightly due to integer stepping. If None, no downsampling.
 - **`ax`**: Optional matplotlib axes to plot on. If provided, a new figure is not created.
 - **`return_fig`**: If True, returns the matplotlib figure object.
+- **`show_mask_overlay`**: If True, draws the segmentation mask as a semi-transparent
+  yellow overlay with a crisp contour. Requires masks to have been discovered
+  via ``mask_dir`` in ``find_files``. Useful for verifying that masks load
+  correctly and spatially align with their images.
 
 </div>
 
@@ -277,7 +289,7 @@ Plot a specific image by its index.
 _ImageDisplayMixin.image_preview_png_bytes(
     self,
     idx: int,
-    distance_results: dict | None = None,
+    distance_results: pandas.DataFrame | None = None,
     channels: int | list | None = None,
     title_fields: list[str] | None = None,
     show_extra_info: bool = False,
@@ -320,7 +332,7 @@ When ``show_extra_info`` is True, also emits the same details as
 ```python
 _DistancePlotsMixin.print_distance_summary(
     self,
-    distance_results: dict,
+    distance_results: pandas.DataFrame,
     group_by: str | None = None,
     dist_range: tuple = (0, 100)
 ) -> None
@@ -334,7 +346,7 @@ Print distance summary statistics without plotting. Safe to use when enable_plot
 
 **Args:**
 
-- **`distance_results`**: Dictionary containing 'distances' array
+- **`distance_results`**: DataFrame containing 'distance' column
 - **`group_by`**: Metadata key to group by
 - **`dist_range`**: Tuple of (min, max) distances to include
 

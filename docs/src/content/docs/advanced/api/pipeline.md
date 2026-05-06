@@ -492,7 +492,7 @@ they are merged with checkpoint data. When no database is active, slices
 PhenoMe.get_image_info(
     self,
     idx: int,
-    distance_results: dict | None = None
+    distance_results: pandas.DataFrame | None = None
 ) -> dict
 ```
 
@@ -505,7 +505,7 @@ Return metadata, properties, and optional distance for image idx.
 **Args:**
 
 - **`idx`**: Image index (0 to n_images-1).
-- **`distance_results`**: Optional dict from compute_reference_distances.
+- **`distance_results`**: Optional DataFrame from compute_reference_distances.
 
 **Returns:**
 
@@ -891,7 +891,7 @@ and pass the same reference_filters used for distance analysis.
 PhenoMe.export_dataset_table(
     self,
     output_path: str | None = None,
-    dist_results: dict[str, typing.Any] | None = None,
+    dist_results: pandas.DataFrame | None = None,
     include_embeddings: Union[bool, Literal['separate']] = False,
     export_format: Literal['csv', 'parquet', 'excel'] = 'csv'
 ) -> DataFrame
@@ -906,7 +906,7 @@ Export the dataset as a table (CSV, Parquet, or Excel).
 **Args:**
 
 - **`output_path`**: Path to save the export. If None, only returns the DataFrame.
-- **`dist_results`**: Optional dict from compute_reference_distances.
+- **`dist_results`**: Optional DataFrame from compute_reference_distances.
 - **`include_embeddings`**: If True, adds embedding columns; if 'separate', saves
   embeddings to a companion .npy file.
 - **`export_format`**: Output format: 'csv', 'parquet', or 'excel'.
@@ -1281,7 +1281,7 @@ PhenoMeAnalysis.detect_outliers(
     normalize: bool = True,
     drop_outliers: bool = False,
     plot: bool = True
-) -> dict
+) -> DataFrame
 ```
 
 </div>
@@ -1315,13 +1315,15 @@ Detect outliers based on distance to centroid.
 
 **Returns:**
 
-  Dict with keys:
-  - outlier_indices: List[int]. Global image indices of detected outliers.
-  - distances: np.ndarray dtype float32. When drop_outliers=False: shape (n_total,),
-  distance to centroid per image; NaN for filtered-out. When drop_outliers=True:
-  shape (n_kept,) with distances for the remaining (non-outlier) images only.
-  - thresholds: Dict[Any, float]. Per-group threshold values (when group_by set).
-  - summary: pd.DataFrame. Columns: group (if group_by), n_outliers, threshold, etc.
+  pd.DataFrame: A DataFrame containing detected outliers.
+  Columns include:
+  - ``idx``: Global image index.
+  - ``file_path``: Path to the image file.
+  - Additional columns for each grouping key (if *group_by* was set).
+  - ``threshold``: The threshold value used for the image's group.
+  - ``distance_to_centroid``: Distance to the group centroid.
+  If no outliers are detected, returns an empty DataFrame.
+  The index is a range index from 0 to N-1.
 
 </div>
 
@@ -1396,7 +1398,7 @@ Find images closest to each group centroid.
 ```python
 PhenoMeAnalysis.analyze_group_enrichment(
     self,
-    group_by: str | list[str],
+    group_by: str | list[str] = 'cluster',
     property_keys: list[str] | None = None,
     filters: dict[str, typing.Any] | None = None,
     exclude: dict[str, typing.Any] | None = None,
@@ -1406,7 +1408,7 @@ PhenoMeAnalysis.analyze_group_enrichment(
     figsize: tuple[int, int] = (10, 6),
     title: str | None = None,
     correct_multiple_testing: bool = True
-) -> pd.DataFrame | tuple[pd.DataFrame, Any]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, Any]
 ```
 
 </div>
@@ -1445,8 +1447,8 @@ correction is applied across all (group, property) pairs and a
 
   pd.DataFrame or tuple[pd.DataFrame, Any]:
   - If *return_fig* is False (default): pd.DataFrame with columns:
-    [group_by columns], Property, Score, Mean_Group, Mean_Pop, AbsScore,
-    and optionally p_value / Significant when *correct_multiple_testing* is True.
+  [group_by columns], Property, Score, Mean_Group, Mean_Pop, AbsScore,
+  and optionally p_value / Significant when *correct_multiple_testing* is True.
   - If *return_fig* is True: A tuple (enrichment_df, fig).
 
 </div>
@@ -1477,7 +1479,7 @@ PhenoMeAnalysis.compute_component_correlation(
     plot: bool = True,
     return_fig: bool = False,
     figsize: tuple[int, int] = (10, 6)
-) -> pd.DataFrame | tuple[pd.DataFrame, Any]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, Any]
 ```
 
 </div>
@@ -1516,8 +1518,14 @@ Correlate dim-reduction components with phenotypic properties.
 **Returns:**
 
   pd.DataFrame | tuple[pd.DataFrame, Any]:
-  - If ``return_fig`` is False (default): Returns the correlation DataFrame with a ``Properties`` column and an integer index.
+  - If ``return_fig`` is False (default): Returns the correlation DataFrame
+  with a ``Properties`` column and an integer index.
   - If ``return_fig`` is True: Returns a tuple of ``(correlation_df, figure)``.
+
+**Raises:**
+
+- **`ValueError`**: If dimensionality reduction fails, no components are found,
+  no numeric properties are available, or correlation computation fails.
 
 **Examples:**
 
@@ -1552,7 +1560,7 @@ PhenoMeAnalysis.compute_embedding_property_correlations(
     normalize: bool = True,
     method: Literal['pearson', 'spearman', 'distance_correlation', 'mutual_info'] = 'pearson',
     n_jobs: int = 1
-) -> dict[str, numpy.ndarray]
+) -> dict
 ```
 
 </div>
@@ -1607,7 +1615,7 @@ PhenoMeAnalysis.summarize_embedding_property_correlations(
     embedding_shape: tuple[int, int] | None = None,
     n_properties: int | None = None,
     correlation_method: str = 'pearson'
-) -> pandas.DataFrame
+) -> pandas.DataFrame | tuple[pandas.DataFrame, Any | None]
 ```
 
 </div>
@@ -1627,13 +1635,13 @@ a plain-text table when ``plot`` is *False*.
   (dict mapping property names to correlation arrays).
 - **`order_by`**: Metric used to sort properties (descending):
   ``mean_abs`` | ``max_abs`` | ``mean`` | ``std``.
-- **`top_k`**: Number of top properties shown in the plot;
-  full sorted table is always returned (*None* = all).
+- **`top_k`**: Number of top properties shown in the plot and listed in ``top_properties``;
+  full sorted table is always in ``summary`` (*None* = all).
 - **`plot`**: If *True* (default), show a Plotly violin plot of |r| per dimension for the top
   ``top_k`` properties by ``order_by`` (*None* = all). Highest metric at the **top**
   of the y-axis.
-- **`return_fig`**: If *True*, include the :class:`plotly.graph_objects.Figure` in the
-  result under key ``"figure"``.
+- **`return_fig`**: If *True*, return both the summary DataFrame and the
+  Plotly figure.
 - **`figsize`**: Figure size in inches, converted to pixels for Plotly layout.
 - **`title`**: Chart title.
 - **`embedding_shape`**: Shape of embeddings (n_samples, n_dims) for metadata display.
@@ -1643,7 +1651,7 @@ a plain-text table when ``plot`` is *False*.
 **Returns:**
 
   Sorted DataFrame with ``property``, ``mean_abs``, ``std``, ``max_abs``, ``min_abs``,
-  and ``mean``.
+  and ``mean``. If ``return_fig`` is *True*, returns ``(summary, figure)``.
 
 </div>
 
@@ -1675,7 +1683,7 @@ PhenoMeAnalysis.compute_multivariate_interpretability(
     return_fig: bool = False,
     top_k: int = 10,
     figsize: tuple[int, int] = (10, 8)
-) -> dict
+) -> pandas.DataFrame | tuple[pandas.DataFrame, Any]
 ```
 
 </div>
@@ -1704,24 +1712,29 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 - **`seed`**: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
 - **`plot`**: If True (default), show an interactive Plotly bar chart of top drivers.
   If False, log a plain-text summary via the package logger instead.
-- **`return_fig`**: If True, attach a Plotly figure under ``interpretability_fig`` in the
-  returned dict. When ``return_fig`` is True, ``fig.show()`` is not called; use
-  ``plot=True`` with ``return_fig=False`` for the default interactive display.
+- **`return_fig`**: If True, returns a tuple of ``(df, fig)``.
+  When ``return_fig`` is True, ``fig.show()`` is not called; use
+  ``plot=True`` with ``return_fig=False`` for interactive display.
 - **`top_k`**: Number of top drivers to show in the plot or text summary.
 - **`figsize`**: Figure size ``(width, height)`` passed through to Plotly layout; each
   value is multiplied by 100 to set width and height in layout pixels.
 
 **Returns:**
 
-  Dict with:
-  - r2: Explainability Score (R^2).
-  - drivers: Ranked list of properties with weights/importances.
-  - method: The DR method used.
-  - model_type: The regression model type used.
-  - target_component: The component name explained.
-  - n_samples: Number of samples used.
-  - n_features: Number of properties considered.
-  - interpretability_fig: Present when ``return_fig`` is True and a figure was built.
+  pd.DataFrame | tuple[pd.DataFrame, Any]:
+  - If ``return_fig`` is False (default): A DataFrame of ranked drivers.
+  Columns are ``feature`` and ``weight``. Metadata is in ``df.attrs``.
+  - If ``return_fig`` is True: A tuple of ``(df, fig)``.
+  The DataFrame contains:
+  - ``feature``: The phenotypic property name.
+  - ``weight``: LASSO coefficient or Random Forest Gini importance.
+  Metadata in ``df.attrs`` includes:
+  - ``r2``: Explainability Score (R^2) for the model.
+  - ``n_samples``: Number of samples used for the model.
+  - ``n_features``: Total number of features considered.
+  - ``method``: The dimensionality reduction method used.
+  - ``model_type``: The regression model type used.
+  - ``target_component``: The component name explained.
 
 </div>
 
@@ -1790,7 +1803,7 @@ or use **overrides to tweak individual settings (e.g. include_plots=False).
 _ImageDisplayMixin.image_preview_png_bytes(
     self,
     idx: int,
-    distance_results: dict | None = None,
+    distance_results: pandas.DataFrame | None = None,
     channels: int | list | None = None,
     title_fields: list[str] | None = None,
     show_extra_info: bool = False,
@@ -1872,15 +1885,16 @@ Plot centroids of groups in reduced embedding space.
 _ImageDisplayMixin.plot_image_by_index(
     self,
     idx: int,
-    distance_results: dict | None = None,
+    distance_results: pandas.DataFrame | None = None,
     channels: int | list | None = None,
     figsize: tuple = (6, 6),
     title_fields: list[str] | None = None,
     show_extra_info: bool = True,
-    apply_transforms: bool = True,
+    apply_transforms: bool = False,
     downsample: int | None = 720,
     ax: Any = None,
-    return_fig: bool = False
+    return_fig: bool = False,
+    show_mask_overlay: bool = False
 ) -> Any
 ```
 
@@ -1893,7 +1907,7 @@ Plot a specific image by its index.
 **Args:**
 
 - **`idx`**: Image index in results
-- **`distance_results`**: Optional distance computation results
+- **`distance_results`**: Optional distance computation results DataFrame
 - **`channels`**: specific channels to plot
 - **`figsize`**: Figure size
 - **`title_fields`**: Optional list of field names to display in title
@@ -1904,6 +1918,10 @@ Plot a specific image by its index.
   differ slightly due to integer stepping. If None, no downsampling.
 - **`ax`**: Optional matplotlib axes to plot on. If provided, a new figure is not created.
 - **`return_fig`**: If True, returns the matplotlib figure object.
+- **`show_mask_overlay`**: If True, draws the segmentation mask as a semi-transparent
+  yellow overlay with a crisp contour. Requires masks to have been discovered
+  via ``mask_dir`` in ``find_files``. Useful for verifying that masks load
+  correctly and spatially align with their images.
 
 </div>
 
@@ -2038,7 +2056,7 @@ Plot UMAP of embeddings, properties, or combined features (Plotly, WebGL by defa
 ```python
 _DistancePlotsMixin.print_distance_summary(
     self,
-    distance_results: dict,
+    distance_results: pandas.DataFrame,
     group_by: str | None = None,
     dist_range: tuple = (0, 100)
 ) -> None
@@ -2052,7 +2070,7 @@ Print distance summary statistics without plotting. Safe to use when enable_plot
 
 **Args:**
 
-- **`distance_results`**: Dictionary containing 'distances' array
+- **`distance_results`**: DataFrame containing 'distance' column
 - **`group_by`**: Metadata key to group by
 - **`dist_range`**: Tuple of (min, max) distances to include
 
