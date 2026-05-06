@@ -78,6 +78,10 @@ def read_image(path: str | list[str]) -> np.ndarray:
         img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
         if img is None:
             raise ValueError(f"Could not read image at {path}")
+        if img.ndim == 3 and img.shape[-1] == 3:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        elif img.ndim == 3 and img.shape[-1] == 4:
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
 
     img = np.array(img, dtype=np.float32)
 

@@ -37,7 +37,7 @@ from phenome.report import generate_report
 pm = PhenoMe()
 pm.find_files("images/")
 pm.process_images(model)
-pm.compute_properties(properties)
+pm.compute_properties(property_preset="basic")
 pm.compute_clustering()
 pm.compute_pca()
 

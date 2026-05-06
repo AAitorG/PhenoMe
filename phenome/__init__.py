@@ -80,7 +80,6 @@ Basic phenotyping workflow:
 
 ```python
 from phenome import PhenoMe, load_dinov2_model
-from phenome import create_regionprops_function, create_intensity_function
 
 # Initialize pipeline
 pm = PhenoMe(device="cuda", seed=42)
@@ -93,11 +92,7 @@ model = load_dinov2_model(model_name="dinov2_vitb14")
 pm.process_images(model, batch_size=32)
 
 # Compute properties
-props = [
-    create_regionprops_function(["area", "eccentricity"]),
-    create_intensity_function(channels=[0, 1, 2]),
-]
-pm.compute_properties(props)
+pm.compute_properties(property_preset="basic")
 
 # Analyze
 pm.compute_clustering(method="kmeans", n_clusters=5)

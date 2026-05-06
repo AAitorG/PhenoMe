@@ -41,21 +41,27 @@ extractors, and report sections. It also exports builtin property functions.
 **Example: Register custom property**
 
 ```python
+from phenome import PhenoMe
 from phenome.plugins import register_property, get_property
 
 def my_property(image, mask=None):
     '''Custom property: average brightness.'''
+    if image is None:
+        return {"avg_brightness": float("nan")}
     if mask is not None:
         image = image[mask]
-    return float(image.mean())
+    return {"avg_brightness": float(image.mean())}
 
 register_property("avg_brightness", my_property)
 
 # Later, use in pipeline:
 pm = PhenoMe()
 prop_fn = get_property("avg_brightness")
-properties = [prop_fn]
-pm.compute_properties(properties)
+if prop_fn is not None:
+    pm.compute_properties(
+        property_preset="none",
+        additional_property_functions={"image": [prop_fn]},
+    )
 ```
 
 **See Also:**
