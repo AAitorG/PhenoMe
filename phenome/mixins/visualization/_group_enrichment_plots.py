@@ -241,9 +241,10 @@ class _GroupEnrichmentPlotsMixin:
         if group_names is None:
             group_names = sorted(enrichment_df["Group"].unique().tolist())
 
-        if not plot and not return_fig:
+        if not plot:
             _log_group_enrichment_results(enrichment_df, group_order=group_names, top_k=top_k)
-            return None
+            if not return_fig:
+                return None
 
         fig = _build_group_enrichment_figure(
             enrichment_df,
@@ -253,11 +254,7 @@ class _GroupEnrichmentPlotsMixin:
             title=title,
         )
         if fig is None:
-            if plot or return_fig:
-                _log_group_enrichment_results(enrichment_df, group_order=group_names, top_k=top_k)
             return None
-
-        _log_group_enrichment_results(enrichment_df, group_order=group_names, top_k=top_k)
 
         from ._helpers import handle_figure_output
 

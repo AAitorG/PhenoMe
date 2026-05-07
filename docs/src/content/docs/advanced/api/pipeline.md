@@ -1350,7 +1350,7 @@ PhenoMeAnalysis.find_prototypes(
     metric: str = 'euclidean',
     normalize: bool = True,
     plot: bool = True
-) -> dict
+) -> DataFrame
 ```
 
 </div>
@@ -1380,7 +1380,9 @@ Find images closest to each group centroid.
 
 **Returns:**
 
-  Dict[str, List[int]]: Group name (or "All") -> list of global image indices (prototypes).
+  pd.DataFrame: DataFrame with one row per prototype. Columns include grouping
+  keys (split into individual columns if multiple), ``prototype_index``,
+  and ``image_path``.
 
 </div>
 

@@ -169,16 +169,15 @@ def _display_multivariate_interpretability(
         )
         return None
 
-    # Text-only, no figure
-    if not plot and not return_fig:
+    if not plot:
         _log_multivariate_interpretability_results(results, top_k)
-        return None
+        if not return_fig:
+            return None
 
     fig = _build_multivariate_interpretability_figure(results, top_k=top_k, figsize=figsize)
     if fig is None:
         return None
 
-    _log_multivariate_interpretability_results(results, top_k)
     from ._helpers import handle_figure_output
 
     return handle_figure_output(fig, plot, return_fig)

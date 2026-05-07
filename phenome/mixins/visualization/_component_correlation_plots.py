@@ -224,9 +224,10 @@ class _ComponentCorrelationPlotsMixin:
         Returns:
             The Plotly figure if one was built and *return_fig* is True; otherwise ``None``.
         """
-        if not plot and not return_fig:
+        if not plot:
             _log_component_correlation_results(summary, component_order=component_names)
-            return None
+            if not return_fig:
+                return None
 
         fig = _build_component_correlation_figure(
             correlation_df,
@@ -235,8 +236,6 @@ class _ComponentCorrelationPlotsMixin:
             figsize=figsize,
             title=title,
         )
-
-        _log_component_correlation_results(summary, component_order=component_names)
 
         if fig is None:
             return None
