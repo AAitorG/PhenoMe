@@ -330,22 +330,30 @@ def _generate_prototype_images(
     except (ValueError, KeyError, RuntimeError) as e:
         return generate_info_box(f"Could not find prototypes: {e}", "warning")
 
-    if not prototypes:
+    if prototypes.empty:
         return generate_info_box("No prototype images found.", "warning")
 
     all_images = []
-    for cluster_name, proto_indices in prototypes.items():
+    # find_prototypes now returns a DataFrame.
+    # We group by the cluster column to get prototypes for each cluster.
+    cluster_col = "cluster"
+    if cluster_col not in prototypes.columns:
+        # Fallback if the column name is different or if it's "group" (for None cluster_col)
+        cluster_col = "group" if "group" in prototypes.columns else prototypes.columns[0]
+
+    for cluster_val, group_df in prototypes.groupby(cluster_col, sort=False):
         # Skip noise group (DBSCAN: find_prototypes uses "All" for None cluster)
-        if cluster_name == "All":
+        if str(cluster_val) == "All" or cluster_val is None:
             continue
         try:
             cluster_num = (
-                int(str(cluster_name).split("_")[-1])
-                if "_" in str(cluster_name)
-                else int(cluster_name)
+                int(str(cluster_val).split("_")[-1])
+                if "_" in str(cluster_val)
+                else int(cluster_val)
             )
         except (ValueError, TypeError):
             continue
+        proto_indices = group_df["prototype_index"].tolist()
         imgs = load_image_data(pipeline, proto_indices[:n_prototypes], image_size)
         for img_dict in imgs:
             img_dict["cluster"] = cluster_num

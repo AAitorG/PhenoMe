@@ -1231,7 +1231,7 @@ class PhenoMeAnalysis:
         metric: str = "euclidean",
         normalize: bool = True,
         plot: bool = True,
-    ) -> dict[str, list[int]]:
+    ) -> pd.DataFrame:
         """Find images closest to each group centroid.
 
         Args:
@@ -1253,7 +1253,9 @@ class PhenoMeAnalysis:
                 ``apply_transforms=False`` for display).
 
         Returns:
-            Dict[str, List[int]]: Group name (or "All") -> list of global image indices (prototypes).
+            pd.DataFrame: DataFrame with one row per prototype. Columns include grouping
+                keys (split into individual columns if multiple), ``prototype_index``,
+                and ``image_path``.
         """
         try:
             matrix, valid_indices = self._get_data_matrix(
@@ -1340,7 +1342,7 @@ class PhenoMeAnalysis:
         # Convert entire matrix to GPU once (avoid repeated conversions per group)
         matrix_t = torch.from_numpy(matrix).to(device) if device.type != "cpu" else None
 
-        out: dict[str, list[int]] = {}
+        results_list = []
         for grp in unique_groups:
             mask = [lab == grp for lab in valid_gl]
             mask_arr = np.array(mask)
@@ -1375,14 +1377,46 @@ class PhenoMeAnalysis:
                 else:
                     raise ValueError(f"Unknown metric '{metric}'.")
 
-            name = str(grp) if grp is not None else "All"
-            out[name] = [gi[i] for i in top]
-        if plot:
+            group_name = str(grp) if grp is not None else "All"
+
+            # Prepare row data for this group
+            for i in top:
+                global_idx = gi[i]
+                row = {
+                    "prototype_index": global_idx,
+                    "image_path": self.results.img_path[global_idx],
+                }
+
+                # Add grouping columns
+                if not found_cols:
+                    row["group"] = group_name
+                elif len(found_cols) == 1:
+                    row[found_cols[0]] = grp
+                else:
+                    # Multi-column: split composite label
+                    # composite labels were built as "-".join(row_vals)
+                    # where row_vals are str(val) or "N/A"
+                    vals = group_name.split("-")
+                    for col_name, val in zip(found_cols, vals, strict=False):
+                        row[col_name] = val
+
+                results_list.append(row)
+
+        df = pd.DataFrame(results_list)
+
+        if plot and not df.empty:
             import matplotlib.pyplot as plt
 
-            for group_name, indices in out.items():
-                if not indices:
-                    continue
+            # Determine grouping columns for plotting
+            plot_group_cols = found_cols if found_cols else ["group"]
+
+            for group_vals, group_df in df.groupby(plot_group_cols, sort=False):
+                indices = group_df["prototype_index"].tolist()
+                if isinstance(group_vals, tuple):
+                    group_name = "-".join(map(str, group_vals))
+                else:
+                    group_name = str(group_vals)
+
                 n = len(indices)
                 ncols = min(5, n)
                 nrows = (n + ncols - 1) // ncols
@@ -1426,7 +1460,7 @@ class PhenoMeAnalysis:
                     plt.show()
                 plt.close(fig)
 
-        return out
+        return df
 
     # ------------------------------------------------------------------
     # Embedding-property correlation
