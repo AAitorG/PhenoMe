@@ -184,10 +184,10 @@ class _DistancePlotsMixin:
 
         df, group_col, title_suffix = prepared
 
-        # Text-only, no figure
-        if not plot and not return_fig:
+        if not plot:
             self._log_distance_group_stats(group_col, df)
-            return None
+            if not return_fig:
+                return None
 
         if points is None:
             points = "outliers" if len(df) > 5000 else "all"
@@ -202,7 +202,6 @@ class _DistancePlotsMixin:
         )
         fig.update_layout(width=figsize[0] * 100, height=figsize[1] * 100)
 
-        self._log_distance_group_stats(group_col, df)
         from ._helpers import handle_figure_output
 
         return handle_figure_output(fig, plot, return_fig)
