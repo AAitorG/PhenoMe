@@ -501,7 +501,9 @@ class PhenoMe(
 
         Args:
             model_wrapper (ModelWrapper): Model instance (e.g., from `load_dinov2_model()`).
-                Must implement `_get_embeddings(images: ndarray) -> (B, D)`.
+                Must implement `_get_embeddings(tensor: torch.Tensor) -> torch.Tensor`.
+                For non-PyTorch models (Keras, TensorFlow, etc.), see the
+                [Custom Model Wrapper guide](https://AAitorG.github.io/PhenoMe/guides/custom-model-wrapper/).
             batch_size (int): Batch size for processing. Default: 32. Larger batches are
                 faster but use more GPU memory.
             num_workers (int): Number of loader processes. In Jupyter, automatically

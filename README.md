@@ -16,7 +16,7 @@ A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping
 
 ## ✨ Features
 
-- **Model Agnostic**: Extract embeddings using DINOv2 or any custom PyTorch vision model.
+- **Model Agnostic**: Extract embeddings using DINOv2 or any custom vision model (PyTorch, TensorFlow, Keras, etc.) via the modular `ModelWrapper` interface.
 - **Dataset Agnostic**: Works with any image dataset structure with customizable metadata extraction.
 - **Analysis Toolkit**: Distance quantification, anomaly detection, property extraction, and correlation analysis.
 - **Interactive Visualizations**: High-performance Plotly-based PCA, t-SNE, and UMAP plots.

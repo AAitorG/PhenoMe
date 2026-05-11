@@ -2,6 +2,7 @@
 Model wrappers for vision model embedding extraction.
 """
 
+import contextlib
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -17,12 +18,17 @@ class ModelWrapper(ABC):
 
     Base wrapper for vision model embedding extraction.
 
-    Provides only basics: model.eval(), model.to(device), torch.no_grad(), and
-    a sanity check that output is (B, D). Dict extraction, key lookup, and
-    tensor flattening are the heritage class's responsibility.
+    While PhenoMe is primarily built on PyTorch, this interface is designed to be
+    framework-agnostic. Users can wrap models from any framework (TensorFlow, Keras,
+    ONNX, etc.) by implementing a custom `ModelWrapper` subclass.
+
+    **Contract for custom wrappers:**
+    1. The `_get_embeddings(tensor)` method must be implemented.
+    2. It receives a `torch.Tensor` (B, C, H, W) as input.
+    3. It MUST return a `torch.Tensor` (B, D) as output.
 
     Args:
-        model: PyTorch vision model.
+        model: Vision model (PyTorch module, or any other framework model).
         device: Optional torch.device. If None, uses get_default_device().
     """
 
@@ -30,8 +36,14 @@ class ModelWrapper(ABC):
         self.model = model
         self.device = device if device is not None else get_default_device()
 
-        self.model.to(self.device)
-        self.model.eval()
+        # Try to move PyTorch models to device; non-PyTorch models should override __init__
+        if hasattr(self.model, "to"):
+            with contextlib.suppress(Exception):
+                self.model.to(self.device)
+
+        if hasattr(self.model, "eval"):
+            with contextlib.suppress(Exception):
+                self.model.eval()
 
     def extract_embeddings(self, tensor: torch.Tensor) -> torch.Tensor:
         """@section Model wrappers
@@ -40,6 +52,8 @@ class ModelWrapper(ABC):
         Extract per-image embeddings.
 
         Delegates to _get_embeddings (heritage class) and validates output shape (B, D).
+        Even for non-PyTorch models, this method ensures the final output is a
+        PyTorch tensor compatible with the rest of the pipeline.
 
         Args:
             tensor: Input tensor (B, C, H, W) on device.
@@ -53,16 +67,16 @@ class ModelWrapper(ABC):
 
     @abstractmethod
     def _get_embeddings(self, tensor: torch.Tensor) -> torch.Tensor:
-        """Return embeddings as (B, D) tensor.
+        """Return embeddings as (B, D) PyTorch tensor.
 
-        Heritage class must implement. Handles dict extraction, key lookup,
-        squeeze (B,1,D), flatten, etc. as needed for the specific model architecture.
+        Heritage class must implement. Handles framework-specific inference,
+        data conversion, and output formatting (squeezing, flattening, etc.).
 
         Args:
-            tensor: Input tensor (B, C, H, W) on device.
+            tensor: Input PyTorch tensor (B, C, H, W) on device.
 
         Returns:
-            Embedding tensor (B, D).
+            Embedding PyTorch tensor (B, D).
         """
         pass
 

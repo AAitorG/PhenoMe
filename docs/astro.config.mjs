@@ -135,6 +135,7 @@ export default defineConfig({
             { label: "Architecture", link: "/guides/architecture/" },
             { label: "Extending the pipeline", link: "/guides/extending/" },
             { label: "Plugins", link: "/guides/plugins/" },
+            { label: "Custom model wrappers", link: "/guides/custom-model-wrapper/" },
             { label: "External checkpoints", link: "/guides/external-checkpoints/" },
             { label: "Developer guide", link: "/guides/developer-guide/" },
             { label: "Testing & quality", link: "/guides/testing/" },
