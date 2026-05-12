@@ -112,5 +112,5 @@ PhenoMe's default transformations might not match what your model expects. You c
 | Topic | Document |
 |-------|----------|
 | ModelWrapper API | [API Reference](/PhenoMe/advanced/api/model-wrapper/) |
-| Image Processing | [Pipeline Guide](/PhenoMe/guides/image-processing/) |
+| Image Processing | [Pipeline API](/PhenoMe/advanced/api/pipeline/) |
 | Custom Plugins | [Plugins Guide](/PhenoMe/guides/plugins/) |

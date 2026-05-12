@@ -95,7 +95,7 @@ export default defineConfig({
             {
               label: "Best practices",
               collapsed: true,
-              autogenerate: { directory: "guides/best-practices" },
+              items: [{ autogenerate: { directory: "guides/best-practices" } }],
             },
           ],
         },
@@ -137,7 +137,7 @@ export default defineConfig({
             {
               label: "API",
               collapsed: true,
-              autogenerate: { directory: "advanced/api" },
+              items: [{ autogenerate: { directory: "advanced/api" } }],
             },
             { label: "HDF5 database protocol", link: "/advanced/database_protocol/" },
           ],

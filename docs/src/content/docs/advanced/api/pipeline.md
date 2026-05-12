@@ -1217,7 +1217,7 @@ PhenoMeAnalysis.compute_clustering(
     return_silhouette: bool = False,
     dbscan_eps: float | None = None,
     dbscan_min_samples: int | None = None
-) -> numpy.ndarray | tuple[numpy.ndarray, float | None]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, float | None]
 ```
 
 </div>
@@ -1244,7 +1244,7 @@ Perform clustering and store labels in ``metadata[i]['cluster']`` for each image
   ``'pca'`` (fast, linear), ``'tsne'`` (non-linear, slower), ``'umap'``
   (non-linear, preserves structure). Default: ``'pca'``.
 - **`return_silhouette`**: If True, compute and return the silhouette score (default: False).
-  Returns ``(labels, score)``; score is None if it could not be computed.
+  Returns ``(df, score)``; score is None if it could not be computed.
   Silhouette requires at least 2 clusters and 2 samples per cluster.
 - **`dbscan_eps`**: Maximum distance between two samples for DBSCAN (only when
   clustering_method='dbscan'). If None, uses 0.5.
@@ -1253,9 +1253,9 @@ Perform clustering and store labels in ``metadata[i]['cluster']`` for each image
 
 **Returns:**
 
-  If return_silhouette=False: np.ndarray of shape (n_total,) with cluster labels.
-  If return_silhouette=True: Tuple of (labels, silhouette_score). Score is None
-  if it could not be computed. Labels: 0..K-1; NaN for excluded/DBSCAN noise.
+  If return_silhouette=False: pd.DataFrame with columns ['idx', 'path', 'cluster'].
+  If return_silhouette=True: Tuple of (df, silhouette_score). Score is None
+  if it could not be computed. Cluster labels are 0..K-1; None for excluded/noise.
 
 </div>
 

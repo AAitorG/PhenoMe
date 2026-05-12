@@ -1378,6 +1378,73 @@ the ``mask_path`` column of file_df when present.
 
 
 
+## NumPy image utilities
+
+### `scale_minmax`
+
+```python
+scale_minmax(
+    img: numpy.ndarray
+) -> ndarray
+```
+
+Apply min-max scaling to each channel independently.
+
+**Args:**
+
+- **`img`**: np.ndarray, shape (..., C) with channels as last dimension. Any dtype.
+
+**Returns:**
+
+  np.ndarray: Same shape as input, dtype float. Values in [0, 1] per channel.
+
+
+### `quantile_normalize`
+
+```python
+quantile_normalize(
+    img: numpy.ndarray,
+    quantile: float = 0.99
+) -> ndarray
+```
+
+Apply quantile normalization to each channel independently.
+
+Clips values at the specified quantile threshold, then rescales to [0, 1].
+
+**Args:**
+
+- **`img`**: np.ndarray, shape (..., C) with channels as last dimension. Any dtype.
+- **`quantile`**: float, quantile threshold for clipping (default: 0.99).
+
+**Returns:**
+
+  np.ndarray: Same shape as input, dtype float64. Values in [0, 1] per channel.
+
+
+### `normalize_by_dtype_max`
+
+```python
+normalize_by_dtype_max(
+    img: numpy.ndarray
+) -> ndarray
+```
+
+Normalize an image to [0, 1] based on dtype-inferred maximum.
+
+Images already in [0, 1] (max <= 1.0) are returned unchanged.
+8-bit images (max <= 255) are divided by 255; 16-bit (max <= 65535) by 65535.
+
+**Args:**
+
+- **`img`**: np.ndarray, any shape. Value-based inference: max<=1 unchanged;
+  max<=255 (uint8-like), max<=65535 (uint16-like), else divide by max.
+
+**Returns:**
+
+  np.ndarray: Same shape, dtype float64. Values in [0, 1].
+
+
 ## Transforms — `TransformBuilder`
 
 Builds torchvision transform pipelines for image preprocessing.

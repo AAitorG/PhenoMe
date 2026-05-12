@@ -416,6 +416,26 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
                     member_heading_level="###",
                 ),
                 CompoundBlock(
+                    kind="function",
+                    function_module="phenome.utils.transforms",
+                    function_name="scale_minmax",
+                    heading="NumPy image utilities",
+                    class_heading_prefix="##",
+                    member_heading_level="###",
+                ),
+                CompoundBlock(
+                    kind="function",
+                    function_module="phenome.utils.transforms",
+                    function_name="quantile_normalize",
+                    member_heading_level="###",
+                ),
+                CompoundBlock(
+                    kind="function",
+                    function_module="phenome.utils.transforms",
+                    function_name="normalize_by_dtype_max",
+                    member_heading_level="###",
+                ),
+                CompoundBlock(
                     kind="class",
                     class_module="phenome.utils.transforms",
                     class_name="TransformBuilder",
