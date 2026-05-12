@@ -25,7 +25,7 @@ def scale_minmax(img: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: Same shape as input, dtype float. Values in [0, 1] per channel.
     """
-    img = img.copy()  # Avoid modifying input in place
+    img = img.astype(np.float64) if img.dtype != np.float64 else img.copy()
     # Scale each channel independently to [0, 1] (handles multi-channel images)
     for i in range(img.shape[-1]):
         c = img[..., i]

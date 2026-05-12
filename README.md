@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/assets/logo.png" alt="PhenoMe logo" width="360"/>
 
-  <p><b>A modular, dataset-agnostic and model-agnostic framework for phenotyping analysis, combining deep learning embeddings and image properties.</b></p>
+  <p>A modular, <b>dataset-agnostic</b> and <b>model-agnostic</b> framework for phenotyping analysis, combining deep learning embeddings and image properties.</p>
 </div>
 
 ---

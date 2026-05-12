@@ -91,7 +91,7 @@ class PhenoMeAnalysis:
         return_silhouette: bool = False,
         dbscan_eps: float | None = None,
         dbscan_min_samples: int | None = None,
-    ) -> np.ndarray | tuple[np.ndarray, float | None]:
+    ) -> pd.DataFrame | tuple[pd.DataFrame, float | None]:
         """Perform clustering and store labels in ``metadata[i]['cluster']`` for each image.
 
         Args:
@@ -111,7 +111,7 @@ class PhenoMeAnalysis:
                 ``'pca'`` (fast, linear), ``'tsne'`` (non-linear, slower), ``'umap'``
                 (non-linear, preserves structure). Default: ``'pca'``.
             return_silhouette: If True, compute and return the silhouette score (default: False).
-                Returns ``(labels, score)``; score is None if it could not be computed.
+                Returns ``(df, score)``; score is None if it could not be computed.
                 Silhouette requires at least 2 clusters and 2 samples per cluster.
             dbscan_eps: Maximum distance between two samples for DBSCAN (only when
                 clustering_method='dbscan'). If None, uses 0.5.
@@ -119,9 +119,9 @@ class PhenoMeAnalysis:
                 clustering_method='dbscan'). If None, uses max(2, n_samples // 20).
 
         Returns:
-            If return_silhouette=False: np.ndarray of shape (n_total,) with cluster labels.
-            If return_silhouette=True: Tuple of (labels, silhouette_score). Score is None
-                if it could not be computed. Labels: 0..K-1; NaN for excluded/DBSCAN noise.
+            If return_silhouette=False: pd.DataFrame with columns ['idx', 'path', 'cluster'].
+            If return_silhouette=True: Tuple of (df, silhouette_score). Score is None
+                if it could not be computed. Cluster labels are 0..K-1; None for excluded/noise.
         """
         n_total = len(self.results.img_path)
 
@@ -139,10 +139,16 @@ class PhenoMeAnalysis:
 
         if len(matrix) == 0:
             logger.warning("No data available for clustering.")
-            empty_labels = np.full(n_total, np.nan, dtype=np.float32)
+            df = pd.DataFrame(
+                {
+                    "idx": range(n_total),
+                    "path": self.results.img_path,
+                    "cluster": [None] * n_total,
+                }
+            )
             if return_silhouette:
-                return empty_labels, None
-            return empty_labels
+                return df, None
+            return df
 
         # Step 2: Apply dimensionality reduction
         # We extract components to avoid the curse of dimensionality and ill-conditioned fits.
@@ -283,9 +289,19 @@ class PhenoMeAnalysis:
             len(valid_indices),
             source,
         )
+
+        # Create DataFrame with idx, path, and cluster
+        df = pd.DataFrame(
+            {
+                "idx": range(n_total),
+                "path": self.results.img_path,
+                "cluster": [int(x) if not np.isnan(x) else None for x in full_labels],
+            }
+        )
+
         if return_silhouette:
-            return (full_labels, silhouette_score_val)
-        return full_labels
+            return (df, silhouette_score_val)
+        return df
 
     # ------------------------------------------------------------------
     # Multivariate Interpretability
