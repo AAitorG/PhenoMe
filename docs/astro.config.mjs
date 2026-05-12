@@ -6,7 +6,8 @@ import starlight from "@astrojs/starlight";
 const site = "https://AAitorG.github.io";
 const base = "/PhenoMe/";
 
-const NOTEBOOKS = "https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials";
+const TUTORIALS_URL = "https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials";
+const EXAMPLES_URL = "https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/examples";
 
 export default defineConfig({
   site,
@@ -99,18 +100,31 @@ export default defineConfig({
           ],
         },
         {
-          label: "Tutorials (notebooks)",
+          label: "Notebooks",
           collapsed: true,
           items: [
-            { label: "01 Interactive quickstart", link: `${NOTEBOOKS}/01_interactive_quickstart.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
-            { label: "02 Inspect your images", link: `${NOTEBOOKS}/02_inspect_your_images.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
-            { label: "03 Core phenotyping workflow", link: `${NOTEBOOKS}/03_core_phenotyping_workflow.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
-            { label: "04 Exploratory & explainability", link: `${NOTEBOOKS}/04_exploratory_analysis_and_explainability.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
-            { label: "05 Extending with plugins", link: `${NOTEBOOKS}/05_extending_phenome_plugins.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+            {
+              label: "Tutorials",
+              collapsed: false,
+              items: [
+                { label: "01 Interactive quickstart", link: `${TUTORIALS_URL}/01_interactive_quickstart.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "02 Inspect your images", link: `${TUTORIALS_URL}/02_inspect_your_images.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "03 Core phenotyping workflow", link: `${TUTORIALS_URL}/03_core_phenotyping_workflow.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "04 Exploratory & explainability", link: `${TUTORIALS_URL}/04_exploratory_analysis_and_explainability.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "05 Extending with plugins", link: `${TUTORIALS_URL}/05_extending_phenome_plugins.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "06 Custom model and preprocessing", link: `${TUTORIALS_URL}/06_custom_model_and_preprocessing.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+              ],
+            },
             {
               label: "Examples",
-              collapsed: true,
-              autogenerate: { directory: "examples" },
+              collapsed: false,
+              items: [
+                { label: "BBBC014 Two cell lines", link: `${EXAMPLES_URL}/bbbc014_two_cell_lines.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "BBBC021 Compound screen", link: `${EXAMPLES_URL}/bbbc021_compound_screen.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "CellCognition Time-lapse", link: `${EXAMPLES_URL}/cellcognition_time_lapse.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "E. coli Drug timecourse", link: `${EXAMPLES_URL}/ecoli_drug_timecourse.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "HPA Subcellular phenotypes", link: `${EXAMPLES_URL}/hpa_subcellular_phenotypes.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+              ],
             },
           ],
         },

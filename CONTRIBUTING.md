@@ -101,7 +101,7 @@ Quick reference for maintainers: which file to edit for each type of change.
 | Update conda environment | `envs/environment-cpu.yml` / `envs/environment-gpu.yml` – adjust pins under `dependencies:` / `pip:` |
 | Update pip pins | `envs/requirements-base.txt` (shared); `torch` / index in `envs/requirements-cpu.txt` / `envs/requirements-gpu.txt` |
 | Document a new API | Docstrings in `phenome/` (generated pages) and/or narrative `docs/src/content/docs/advanced/api/` |
-| Add a guide or tutorial | `docs/src/content/docs/guides/` or `docs/src/content/docs/examples/` |
+| Add a guide or tutorial | `docs/src/content/docs/guides/` |
 | Record a release | `CHANGELOG.md` – move [Unreleased] items under `[X.Y.Z] – YYYY-MM-DD` |
 | Change lint/format rules | `pyproject.toml` → `[tool.ruff]`, `[tool.mypy]` |
 

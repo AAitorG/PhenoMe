@@ -1,32 +1,32 @@
-# PhenoMe
-
-<p align="center">
+<div align="center">
   <img src="docs/assets/logo.png" alt="PhenoMe logo" width="360"/>
-</p>
 
-A modular, **dataset-agnostic** and **model-agnostic** framework for phenotyping analysis using deep learning embeddings (**visual fingerprints**) and extracted image properties.
+  <p><b>A modular, dataset-agnostic and model-agnostic framework for phenotyping analysis, combining deep learning embeddings and image properties.</b></p>
+</div>
 
 ---
 
 ### 🗺️ Navigation
 
-[**✨ Features**](#-features) | [**🚀 Quick Start**](#-quick-start) | [**📦 Installation**](#-installation) | [**📖 Documentation**](https://AAitorG.github.io/PhenoMe/) | [**📜 Citation**](#citation)
+**[✨ Features](#-features)** | **[🚀 Quick Start](#-quick-start)** | **[📦 Installation](#-installation)** | **[📖 Documentation](https://AAitorG.github.io/PhenoMe/)** | **[📜 Citation](#citation)**
 
 ---
 
 ## ✨ Features
 
-- **Model Agnostic**: Extract embeddings using DINOv2 or any custom vision model (PyTorch, TensorFlow, Keras, etc.) via the modular `ModelWrapper` interface.
-- **Dataset Agnostic**: Works with any image dataset structure with customizable metadata extraction.
-- **Analysis Toolkit**: Distance quantification, anomaly detection, property extraction, and correlation analysis.
-- **Interactive Visualizations**: High-performance Plotly-based PCA, t-SNE, and UMAP plots.
-- **Automated Reporting**: Generate comprehensive standalone HTML reports.
+- 🧠 **Model Agnostic**: Extract embeddings using DINOv2 or any custom vision model (PyTorch, TensorFlow, Keras, etc.) via the modular `ModelWrapper` interface.
+- 📂 **Dataset Agnostic**: Works with any image dataset structure with customizable metadata extraction.
+- 🛠️ **Analysis Toolkit**: Distance quantification, anomaly detection, property extraction, and correlation analysis.
+- 📊 **Interactive Visualizations**: High-performance Plotly-based PCA, t-SNE, and UMAP plots.
+- 📑 **Automated Reporting**: Generate comprehensive standalone HTML reports.
 
 ---
 
 ## 🚀 Quick Start
 
-Try the no-code experience with the **[Interactive Quickstart Notebook](Notebooks/tutorials/01_interactive_quickstart.ipynb)** or launch instantly in Colab: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb)
+Try the no-code experience with the **[Interactive Quickstart Notebook](Notebooks/tutorials/01_interactive_quickstart.ipynb)** or launch instantly in Colab:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb)
 
 ---
 
@@ -37,69 +37,45 @@ git clone https://github.com/AAitorG/PhenoMe.git
 cd PhenoMe
 ```
 
-<details open>
-
-<summary>conda</summary>
-
-Pick **one** — **CPU** or **GPU**:
+### Choose your package manager
 
 <details open>
+<summary><b>Using Conda (Recommended)</b></summary>
 
-<summary>CPU</summary>
+Pick **one** environment based on your hardware:
 
+**CPU (Default)**
 ```bash
-# CPU-oriented env (default Conda setup)
 conda env create -f envs/environment-cpu.yml
 conda activate phenome-cpu
 ```
 
-</details>
-
-<details>
-
-<summary>GPU</summary>
-
+**GPU**
 ```bash
-# GPU-oriented env
 conda env create -f envs/environment-gpu.yml
 conda activate phenome-gpu
 ```
-
-</details>
-
 </details>
 
 <details>
+<summary><b>Using Pip</b></summary>
 
-<summary>pip</summary>
+Pick **one** installation based on your hardware:
 
-Pick **one** — **CPU** or **GPU**:
-
-<details open>
-
-<summary>CPU</summary>
-
+**CPU**
 ```bash
-# CPU-oriented env
 pip install -r requirements.txt -e .
 ```
 
-</details>
-
-<details open>
-
-<summary>GPU</summary>
-
+**GPU**
 ```bash
-# GPU-oriented env
 pip install -r envs/requirements-gpu.txt -e .
 ```
-
 </details>
 
-</details>
+<br>
 
-> **Full instructions, verification, and troubleshooting:**
+> **💡 Full instructions, verification, and troubleshooting:**
 > See the [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) guide for GPU setup details, verification commands, and first-analysis walkthroughs.
 
 ---
@@ -108,24 +84,24 @@ pip install -r envs/requirements-gpu.txt -e .
 
 **Explore the [Full Documentation](https://AAitorG.github.io/PhenoMe/)** for detailed guides, API references, and tutorials.
 
-### New users (install → data → notebooks)
+| Step | Resource |
+| ---- | -------- |
+| 1️⃣ **Install** | [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) |
+| 2️⃣ **Set up your data** | [Data setup](https://AAitorG.github.io/PhenoMe/guides/data-setup/) · [Experiment details](https://AAitorG.github.io/PhenoMe/guides/experiment-details/) |
+| 3️⃣ **Tutorials** | [Notebooks/tutorials/](Notebooks/tutorials/) |
+| 4️⃣ **Examples** | [Notebooks/examples/](Notebooks/examples/) |
 
-| Step | Link |
-|------|------|
-| 1. Install | [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) |
-| 2. Set up your data | [Data setup](https://AAitorG.github.io/PhenoMe/guides/data-setup/) · [Experiment details](https://AAitorG.github.io/PhenoMe/guides/experiment-details/) |
-| 3. Tutorials | [Notebooks/tutorials/](Notebooks/tutorials/) (start with **01**, then **02**–**03**) · [Learning paths](https://AAitorG.github.io/PhenoMe/user-paths/) |
-| 4. Use-case examples & reproducibility | [Notebooks/examples/](Notebooks/examples/) |
-
-**Concepts and examples:** [Core concepts](https://AAitorG.github.io/PhenoMe/concepts/) · [Workflows](https://AAitorG.github.io/PhenoMe/workflows/) · [Examples](https://AAitorG.github.io/PhenoMe/examples/) · [FAQ](https://AAitorG.github.io/PhenoMe/faq/) · [Glossary](https://AAitorG.github.io/PhenoMe/glossary/)
+**Learn More:** [Core concepts](https://AAitorG.github.io/PhenoMe/concepts/) · [Workflows](https://AAitorG.github.io/PhenoMe/workflows/) · [FAQ](https://AAitorG.github.io/PhenoMe/faq/) · [Glossary](https://AAitorG.github.io/PhenoMe/glossary/)
 
 ---
 
-## Author
+## 👤 Author
 
 **Aitor González-Marfil** — [@AAitorG](https://github.com/AAitorG)
 
-## Citation
+## 📜 Citation
+
+If you use PhenoMe in your research, please cite:
 
 ```bibtex
 @software{phenome,

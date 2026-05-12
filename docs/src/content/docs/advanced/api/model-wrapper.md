@@ -70,6 +70,21 @@ ONNX, etc.) by implementing a custom `ModelWrapper` subclass.
 - **`model`**: Vision model (PyTorch module, or any other framework model).
 - **`device`**: Optional torch.device. If None, uses get_default_device().
 
+**Example (Keras):**
+
+```python
+>>> import tensorflow as tf
+>>> import numpy as np
+>>> class KerasWrapper(ModelWrapper):
+...     def _get_embeddings(self, tensor):
+...         x = np.transpose(tensor.cpu().numpy(), (0, 2, 3, 1))
+...         out = self.model.predict(x, verbose=0)
+...         return torch.from_numpy(out).to(self.device)
+>>> model = tf.keras.applications.MobileNetV2(pooling='avg')
+>>> wrapper = KerasWrapper(model)
+>>> pheno.process_images(wrapper)
+```
+
 <div class="api-method" role="region" aria-labelledby="api-modelwrapper-__init__">
 
 <div class="api-method-header">
