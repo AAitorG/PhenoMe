@@ -32,6 +32,7 @@ This package provides reusable components for building and extending phenotyping
 - `TypeMaxNorm`: Normalize by dtype max value.
 - `normalize_by_dtype_max`: Normalize array by dtype maximum.
 - `scale_minmax`: Min-max scaling.
+- `quantile_normalize`: Quantile-based normalization.
 
 **Device management:**
 - `get_default_device`: Get current device (CPU or GPU).
@@ -74,6 +75,7 @@ from .transforms import (
     TransformBuilder,
     TypeMaxNorm,
     normalize_by_dtype_max,
+    quantile_normalize,
     scale_minmax,
 )
 
@@ -101,6 +103,7 @@ __all__ = [
     "load_dinov2_model",
     "make_dataframe_metadata_fn",
     "normalize_by_dtype_max",
+    "quantile_normalize",
     "scale_minmax",
     "set_determinism",
 ]

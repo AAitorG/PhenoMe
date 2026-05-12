@@ -175,6 +175,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `normalize_by_dtype_max` | Normalize an image to [0, 1] based on dtype-inferred maximum. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `PadToSize` | Pad image (C, H, W) equally on all sides to pad_size. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `PathTemplateMetadata` | Metadata extractor from path template with capture groups. | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/#pathtemplatemetadata) |
+| `quantile_normalize` | Apply quantile normalization to each channel independently. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#quantile_normalize) |
 | `scale_minmax` | Apply min-max scaling to each channel independently. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `set_determinism` | Set random seeds for reproducibility across all frameworks. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#set_determinism) |
 | `TransformBuilder` | Builds torchvision transform pipelines for image preprocessing. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#transforms--transformbuilder) |

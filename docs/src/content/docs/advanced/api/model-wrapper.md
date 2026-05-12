@@ -56,13 +56,18 @@ subclasses ModelWrapper and is fully compatible with the pipeline.
 
 Base wrapper for vision model embedding extraction.
 
-Provides only basics: model.eval(), model.to(device), torch.no_grad(), and
-a sanity check that output is (B, D). Dict extraction, key lookup, and
-tensor flattening are the heritage class's responsibility.
+While PhenoMe is primarily built on PyTorch, this interface is designed to be
+framework-agnostic. Users can wrap models from any framework (TensorFlow, Keras,
+ONNX, etc.) by implementing a custom `ModelWrapper` subclass.
+
+**Contract for custom wrappers:**
+1. The `_get_embeddings(tensor)` method must be implemented.
+2. It receives a `torch.Tensor` (B, C, H, W) as input.
+3. It MUST return a `torch.Tensor` (B, D) as output.
 
 **Args:**
 
-- **`model`**: PyTorch vision model.
+- **`model`**: Vision model (PyTorch module, or any other framework model).
 - **`device`**: Optional torch.device. If None, uses get_default_device().
 
 <div class="api-method" role="region" aria-labelledby="api-modelwrapper-__init__">
@@ -108,6 +113,8 @@ ModelWrapper.extract_embeddings(
 Extract per-image embeddings.
 
 Delegates to _get_embeddings (heritage class) and validates output shape (B, D).
+Even for non-PyTorch models, this method ensures the final output is a
+PyTorch tensor compatible with the rest of the pipeline.
 
 **Args:**
 
@@ -178,6 +185,8 @@ DinoV2ModelWrapper.extract_embeddings(
 Extract per-image embeddings.
 
 Delegates to _get_embeddings (heritage class) and validates output shape (B, D).
+Even for non-PyTorch models, this method ensures the final output is a
+PyTorch tensor compatible with the rest of the pipeline.
 
 **Args:**
 

@@ -2,8 +2,8 @@
 Transforms and transform builder for the phenotyping pipeline.
 
 Includes both NumPy-based image utilities (ensure_hwc, scale_minmax,
-normalize_by_dtype_max) and PyTorch transforms (TypeMaxNorm, PadToSize,
-TransformBuilder).
+quantile_normalize, normalize_by_dtype_max) and PyTorch transforms (TypeMaxNorm,
+PadToSize, TransformBuilder).
 """
 
 import numpy as np
@@ -31,6 +31,31 @@ def scale_minmax(img: np.ndarray) -> np.ndarray:
         c = img[..., i]
         if c.max() > c.min():
             img[..., i] = (c - c.min()) / (c.max() - c.min())
+    return img
+
+
+def quantile_normalize(img: np.ndarray, quantile: float = 0.99) -> np.ndarray:
+    """Apply quantile normalization to each channel independently.
+
+    Clips values at the specified quantile threshold, then rescales to [0, 1].
+
+    Args:
+        img: np.ndarray, shape (..., C) with channels as last dimension. Any dtype.
+        quantile: float, quantile threshold for clipping (default: 0.99).
+
+    Returns:
+        np.ndarray: Same shape as input, dtype float64. Values in [0, 1] per channel.
+    """
+    img = img.astype(np.float64) if img.dtype != np.float64 else img.copy()
+    # Scale each channel independently to [0, 1] (handles multi-channel images)
+    for i in range(img.shape[-1]):
+        c = img[..., i]
+        q_val = np.quantile(c, quantile)
+        c_min = c.min()
+        if q_val > c_min:
+            img[..., i] = np.clip((c - c_min) / (q_val - c_min), 0, 1)
+        else:
+            img[..., i] = np.zeros_like(c)
     return img
 
 
