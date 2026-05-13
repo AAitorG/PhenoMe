@@ -75,7 +75,6 @@ Provides a unified interface for 2D/3D exploration with:
   - Click-to-inspect image viewer.
   - 2D box/lasso selection with CSV export of selected rows
     in the Selection section (Plotly modebar: pan, zoom, box/lasso, PNG).
-  - Dark mode for the plot (Appearance).
 
     Key design:
       - **Color changes** are instant (no recomputation, only visual update).

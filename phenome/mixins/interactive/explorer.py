@@ -15,6 +15,7 @@ import csv
 import html
 import io
 import json
+import pathlib
 import threading
 import time
 from collections.abc import Callable
@@ -423,13 +424,27 @@ class PhenoMeInteractive:
         accordion.set_title(3, "⬚ Selection (box / lasso)")
         accordion.selected_index = 0
 
+        # Load logo if available
+        logo_html = ""
+        try:
+            logo_path = pathlib.Path(__file__).parents[3] / "docs" / "assets" / "logo_minimal.png"
+            if logo_path.exists():
+                with open(logo_path, "rb") as f:
+                    logo_b64 = base64.b64encode(f.read()).decode("ascii")
+                logo_html = (
+                    f'<img src="data:image/png;base64,{logo_b64}" '
+                    'style="height:28px;margin-right:11px;vertical-align:middle;">'
+                )
+        except Exception:
+            pass
+
         sidebar = widgets.VBox(
             [
                 widgets.HTML(
-                    '<div style="background:linear-gradient(90deg,#4E79A7,#59A14F);'
-                    "color:white;padding:8px 12px 8px 20px;border-radius:6px;"
-                    'font-size:14px;font-weight:600;letter-spacing:0.5px;">'
-                    "PhenoMe Explorer</div>"
+                    f'<div style="background:linear-gradient(90deg,#4E79A7,#59A14F);'
+                    f"color:white;padding:8px 12px 8px 20px;border-radius:6px;"
+                    f'font-size:14px;font-weight:600;letter-spacing:0.5px;display:flex;align-items:center;">'
+                    f"{logo_html}PhenoMe Explorer</div>"
                 ),
                 accordion,
                 widgets.HBox(
