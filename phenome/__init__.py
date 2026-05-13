@@ -103,7 +103,7 @@ pm.plot_pca(color_by="clustering")
 ```
 
 **See Also:**
-For architecture, design patterns, and extensibility, see `phenome/ARCHITECTURE.md`.
+For architecture, design patterns, and extensibility, see the [Architecture guide](https://AAitorG.github.io/PhenoMe/guides/architecture/).
 """
 
 # Initialise notebook-safe logging on first import

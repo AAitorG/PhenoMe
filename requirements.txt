@@ -1,2 +1,2 @@
-# Default: CPU PyTorch. GPU: envs/requirements-gpu.txt — see envs/README.md
+# Default: CPU PyTorch. GPU: envs/requirements-gpu.txt
 -r envs/requirements-cpu.txt

@@ -42,11 +42,11 @@ docs/
 │   ├── assets/              # Full mirror of docs/assets/ from sync-assets (gitignored); not the source of truth
 │   ├── content/docs/        # Markdown content
 │   │   ├── index.mdx        # Home page (splash)
+│   │   ├── concepts/        # Conceptual explainers (embeddings, distances, properties)
 │   │   ├── guides/          # How-to guides
-│   │   ├── examples/        # Usage examples
 │   │   ├── advanced/        # Reference (API + HDF5 database protocol)
 │   │   │   └── api/         # Auto-generated API docs
-│   │   └── *.md             # Other pages (FAQ, glossary, etc.)
+│   │   └── *.md / *.mdx     # Other pages (FAQ, glossary, workflows, etc.)
 │   └── styles/              # Custom CSS
 ├── scripts/
 │   ├── generate_api_docs.py  # API doc generator
