@@ -95,7 +95,7 @@ pip install -r envs/requirements-gpu.txt -e .
 
 ---
 
-## 👤 Author
+## Author
 
 **Aitor González-Marfil** — [@AAitorG](https://github.com/AAitorG)
 
