@@ -100,7 +100,6 @@ class PhenoMeInteractive:
       - Click-to-inspect image viewer.
       - 2D box/lasso selection with CSV export of selected rows
         in the Selection section (Plotly modebar: pan, zoom, box/lasso, PNG).
-      - Dark mode for the plot (Appearance).
 
         Key design:
           - **Color changes** are instant (no recomputation, only visual update).
@@ -174,8 +173,6 @@ class PhenoMeInteractive:
         self._highlight_active: bool = False
         # Box/lasso multi-selection: pipeline image indices currently selected (2D only).
         self._multi_selected_indices: list[int] = []
-        # Theme state for Appearance dark-mode (plot) toggle.
-        self._dark_mode: bool = False
         # Full list of categorical highlight values (for search filtering)
         self._highlight_value_options_all: list[str] = []
         # Pre-compute filter/exclude value lists (search narrows SelectMultiple like Highlight)
@@ -338,7 +335,7 @@ class PhenoMeInteractive:
         )
         # Align checkbox with control column (same 70px label gutter as sliders/dropdowns)
         _appear_row_extra = widgets.HBox(
-            [self.show_extra_info_checkbox, self.dark_mode_checkbox],
+            [self.show_extra_info_checkbox],
             layout=widgets.Layout(
                 width="100%",
                 padding="2px 0 0 70px",
@@ -503,8 +500,8 @@ class PhenoMeInteractive:
         """
         self._constructor_filters = dict(filters) if filters else None
         self._constructor_exclude = dict(exclude) if exclude else None
-        self.initial_filters = filters
-        self.initial_exclude = exclude
+        self.initial_filters = dict(filters) if filters else {}
+        self.initial_exclude = dict(exclude) if exclude else {}
         self._on_compute_clicked(None)
 
     def _create_widgets(self) -> None:
@@ -612,15 +609,6 @@ class PhenoMeInteractive:
                 max_width=f"{INTERACTIVE_FIELD_MAX_W_PX}px",
             ),
         )
-        self.dark_mode_checkbox = widgets.Checkbox(
-            value=False,
-            description="Dark mode",
-            indent=False,
-            layout=widgets.Layout(
-                min_width="120px",
-                max_width="200px",
-            ),
-        )
 
     # ------------------------------------------------------------------
     # Selection section widgets (copy / CSV / clear)
@@ -678,10 +666,11 @@ class PhenoMeInteractive:
                 select_widget.value = prev
             elif select_default:
                 select_widget.value = (filtered[0],)
-            elif not old_sel:
-                select_widget.value = ()
             else:
-                select_widget.value = (filtered[0],)
+                # No previously-selected value survives the filter and the caller
+                # did not request a default selection: clear instead of silently
+                # jumping the selection to ``filtered[0]``.
+                select_widget.value = ()
         else:
             select_widget.value = ()
 
@@ -1008,7 +997,6 @@ class PhenoMeInteractive:
         self.highlight_toggle.on_click(self._on_highlight_click)
         self.point_size_slider.observe(self._on_marker_style_changed, names="value")
         self.opacity_slider.observe(self._on_marker_style_changed, names="value")
-        self.dark_mode_checkbox.observe(self._on_dark_mode_changed, names="value")
 
         # Selection section callbacks
         self.selection_copy_btn.on_click(self._on_selection_copy_clicked)
@@ -1055,9 +1043,13 @@ class PhenoMeInteractive:
         else:
             opts = list(self.color_dropdown.options)
 
-        self.highlight_key_dropdown.options = sorted(opts) if opts else []
-        if opts:
-            self.highlight_key_dropdown.value = opts[0]
+        sorted_opts = sorted(opts) if opts else []
+        prev = self.highlight_key_dropdown.value
+        self.highlight_key_dropdown.options = sorted_opts
+        if not sorted_opts:
+            return
+        # Preserve prior selection across recomputes when still available.
+        self.highlight_key_dropdown.value = prev if prev in sorted_opts else sorted_opts[0]
 
     def _update_filter_exclude_options(self) -> None:
         """Populate filter and exclude field dropdowns from available metadata."""
@@ -1070,12 +1062,15 @@ class PhenoMeInteractive:
         cols.extend(get_all_metadata_keys(self.pheno.results))
         cols = sorted(set(cols))
 
+        prev_filter = self.filter_key_dropdown.value
+        prev_exclude = self.exclude_key_dropdown.value
         self.filter_key_dropdown.options = cols
         self.exclude_key_dropdown.options = cols
 
         if cols:
-            self.filter_key_dropdown.value = cols[0]
-            self.exclude_key_dropdown.value = cols[0]
+            # Preserve prior selections when still available; otherwise pick first.
+            self.filter_key_dropdown.value = prev_filter if prev_filter in cols else cols[0]
+            self.exclude_key_dropdown.value = prev_exclude if prev_exclude in cols else cols[0]
         self._update_filter_value_options(select_default=False)
         self._update_exclude_value_options(select_default=False)
 
@@ -1343,7 +1338,7 @@ class PhenoMeInteractive:
                 raise ImportError(
                     "TorchDR is not installed. Please install it with: pip install torchdr"
                 ) from e
-            raise e
+            raise
         elapsed = time.time() - t0
 
         if df is None:
@@ -1571,29 +1566,18 @@ class PhenoMeInteractive:
             [0] * n_tr,
         )
 
-    def _figure_theme_layout(self) -> dict[str, Any]:
-        """Return a layout dict patch for the current theme (light/dark)."""
-        if self._dark_mode:
-            return {
-                "template": "plotly_dark",
-                "paper_bgcolor": "#111827",
-                "plot_bgcolor": "#1f2937",
-                "font_color": "#e5e7eb",
-            }
-        return {
-            "template": "plotly_white",
-            "paper_bgcolor": "white",
-            "plot_bgcolor": "#FAFCFE",
-            "font_color": "#141428",
-        }
-
     def _build_figure(self) -> None:
         """Build a new FigureWidget from the cached DataFrame."""
         df = self._cached_df
         if df is None:
             return
 
-        theme = self._figure_theme_layout()
+        theme = {
+            "template": "plotly_white",
+            "paper_bgcolor": "white",
+            "plot_bgcolor": "#FAFCFE",
+            "font_color": "#141428",
+        }
 
         if len(df) == 0:
             # No data - show empty placeholder and clear selection
@@ -1701,7 +1685,7 @@ class PhenoMeInteractive:
         )
 
         _font = {"family": "Inter, Helvetica Neue, Arial, sans-serif", "size": 12}
-        _grid_color = "#2d3748" if self._dark_mode else "#EBEBEB"
+        _grid_color = "#EBEBEB"
         _axis_2d = {
             "showline": False,
             "zeroline": False,
@@ -1712,9 +1696,9 @@ class PhenoMeInteractive:
             "bordercolor": "rgba(0,0,0,0)",
             "font": {"size": 11},
         }
-        _legend_bg = "rgba(31,41,55,0.92)" if self._dark_mode else "rgba(248,250,252,0.92)"
-        _legend_border = "#374151" if self._dark_mode else "#E2E8F0"
-        _legend_font_color = "#e5e7eb" if self._dark_mode else "#334155"
+        _legend_bg = "rgba(248,250,252,0.92)"
+        _legend_border = "#E2E8F0"
+        _legend_font_color = "#334155"
         _legend = {
             "orientation": "h",
             "yanchor": "top",
@@ -1739,7 +1723,7 @@ class PhenoMeInteractive:
         source_label = self._cached_source if self._cached_source else "?"
         title_main = f"{self._cached_method} ({source_label})"
         _title_color = theme["font_color"]
-        _subtitle_color = "#cbd5f5" if self._dark_mode else "#64748b"
+        _subtitle_color = "#64748b"
         title_html = (
             f'<span style="font-size:17px;font-weight:600;letter-spacing:-0.02em;color:{_title_color};">'
             f"{html.escape(title_main)}</span>"
@@ -1769,8 +1753,8 @@ class PhenoMeInteractive:
 
         _drag_mode = "pan"
         if z_col:
-            _scene_bg = "#111827" if self._dark_mode else "#FAFCFE"
-            _scene_grid = "#1f2937" if self._dark_mode else "#E8ECF0"
+            _scene_bg = "#FAFCFE"
+            _scene_grid = "#E8ECF0"
             _scene_axis = {
                 "showbackground": True,
                 "backgroundcolor": _scene_bg,
@@ -1938,7 +1922,7 @@ class PhenoMeInteractive:
         if len(traces) != 1:
             return False
         tr = traces[0]
-        vals = df[color_column]
+        vals = df[color_column].tolist()
         try:
             with self.fig_widget.batch_update():
                 tr.marker.color = vals
@@ -2502,13 +2486,20 @@ class PhenoMeInteractive:
                 continue
             if trace.customdata is not None and len(trace.customdata) > 0:
                 try:
-                    trace_indices = [raw_index_from_customdata_row(cd) for cd in trace.customdata]
-                    tm = np.array(
-                        [
-                            bool(row_mask[df_row_map[ti]]) if ti in df_row_map else False
-                            for ti in trace_indices
-                        ]
-                    )
+                    cd_arr = np.asarray(trace.customdata)
+                    if cd_arr.ndim == 2:
+                        pipeline_ids = cd_arr[:, 0].astype(int)
+                    elif cd_arr.ndim == 1:
+                        pipeline_ids = cd_arr.astype(int)
+                    else:
+                        pipeline_ids = np.array(
+                            [raw_index_from_customdata_row(cd) for cd in trace.customdata]
+                        )
+                    tm = np.zeros(len(pipeline_ids), dtype=bool)
+                    for i, pid in enumerate(pipeline_ids):
+                        row_idx = df_row_map.get(int(pid))
+                        if row_idx is not None:
+                            tm[i] = row_mask[row_idx]
                 except (TypeError, ValueError, KeyError, IndexError):
                     tm = np.zeros(n_trace, dtype=bool)
             else:
@@ -2601,56 +2592,62 @@ class PhenoMeInteractive:
             self._update_stats()
             return
 
-        data_traces = self._get_data_traces()
-        n_tr = len(data_traces)
+        with self.fig_widget.batch_update():
+            data_traces = self._get_data_traces()
+            n_tr = len(data_traces)
 
-        if not self._highlight_active:
+            if not self._highlight_active:
+                normal_size = self.point_size_slider.value
+                normal_opacity = self.opacity_slider.value
+                self._apply_marker_style_to_traces(
+                    [normal_size] * n_tr,
+                    [normal_opacity] * n_tr,
+                    [0] * n_tr,
+                )
+                self._apply_highlight_halo_overlay()
+                self._update_stats()
+                return
+
+            highlight_mask = self._build_highlight_mask()
+            if highlight_mask is None:
+                self._apply_highlight_halo_overlay()
+                self._update_stats()
+                return
+
+            trace_masks = self._get_per_trace_masks(highlight_mask)
             normal_size = self.point_size_slider.value
             normal_opacity = self.opacity_slider.value
-            self._apply_marker_style_to_traces(
-                [normal_size] * n_tr,
-                [normal_opacity] * n_tr,
-                [0] * n_tr,
-            )
-            self._apply_highlight_halo_overlay()
-            self._update_stats()
-            return
+            dim_opacity = max(0.08, normal_opacity * 0.15)
 
-        highlight_mask = self._build_highlight_mask()
-        if highlight_mask is None:
-            self._apply_highlight_halo_overlay()
-            self._update_stats()
-            return
-
-        trace_masks = self._get_per_trace_masks(highlight_mask)
-        normal_size = self.point_size_slider.value
-        normal_opacity = self.opacity_slider.value
-        dim_opacity = max(0.08, normal_opacity * 0.15)
-
-        sizes_l: list[Any] = []
-        op_l: list[Any] = []
-        lw_l: list[Any] = []
-        for _trace, tm in zip(data_traces, trace_masks, strict=True):
-            n_trace = len(tm)
-            if n_trace == 0:
+            sizes_l: list[Any] = []
+            op_l: list[Any] = []
+            lw_l: list[Any] = []
+            for _trace, tm in zip(data_traces, trace_masks, strict=True):
+                n_trace = len(tm)
+                if n_trace == 0:
+                    sizes_l.append(normal_size)
+                    op_l.append(normal_opacity)
+                    lw_l.append(0)
+                    continue
+                has_any = bool(np.any(tm))
+                if has_any:
+                    op: Any = np.where(tm, normal_opacity, dim_opacity).tolist()
+                else:
+                    op = dim_opacity
                 sizes_l.append(normal_size)
-                op_l.append(normal_opacity)
+                op_l.append(op)
                 lw_l.append(0)
-                continue
-            has_any = bool(np.any(tm))
-            if has_any:
-                op: Any = np.where(tm, normal_opacity, dim_opacity).tolist()
-            else:
-                op = dim_opacity
-            sizes_l.append(normal_size)
-            op_l.append(op)
-            lw_l.append(0)
-        self._apply_marker_style_to_traces(sizes_l, op_l, lw_l)
-        self._apply_highlight_halo_overlay()
+            self._apply_marker_style_to_traces(sizes_l, op_l, lw_l)
+            self._apply_highlight_halo_overlay()
         self._update_stats()
 
     def _apply_highlight_halo_overlay(self) -> None:
-        """Draw or clear the 2D pink halo for group-Highlight; always hidden in 3D (stub trace)."""
+        """Draw or clear the 2D pink halo for group-Highlight; always hidden in 3D (stub trace).
+
+        Callers are expected to wrap this in ``fig_widget.batch_update()``
+        (e.g. via ``_apply_selected_point_highlight``) so individual trace
+        mutations are batched into a single frontend message.
+        """
         if self.fig_widget is None or self._cached_df is None:
             return
         ov = self._highlight_overlay_trace()
@@ -2658,55 +2655,47 @@ class PhenoMeInteractive:
             return
         _, _, z_col = self._coord_columns()
         if z_col:
-            with self.fig_widget.batch_update():
-                ov.visible = False
+            ov.visible = False
             return
         if not self._highlight_active:
-            with self.fig_widget.batch_update():
-                ov.x = []
-                ov.y = []
-                ov.customdata = []
-                ov.visible = False
+            ov.x = []
+            ov.y = []
+            ov.customdata = []
+            ov.visible = False
             return
         mask = self._build_highlight_mask()
         if mask is None or not np.any(mask):
-            with self.fig_widget.batch_update():
-                ov.x = []
-                ov.y = []
-                ov.customdata = []
-                ov.visible = False
+            ov.x = []
+            ov.y = []
+            ov.customdata = []
+            ov.visible = False
             return
         df = self._cached_df
         if "Index" not in df.columns:
-            with self.fig_widget.batch_update():
-                ov.visible = False
+            ov.visible = False
             return
         x_col, y_col, _ = self._coord_columns()
-        xs: list[float] = []
-        ys: list[float] = []
-        cd: list[list[int]] = []
-        for j in range(len(mask)):
-            if not bool(mask[j]):
-                continue
-            row = df.iloc[j]
-            xs.append(float(row[x_col]))
-            ys.append(float(row[y_col]))
-            cd.append([int(row["Index"])])
-        with self.fig_widget.batch_update():
-            ov.x = xs
-            ov.y = ys
-            ov.customdata = cd
-            ov.marker.size = self._highlight_marker_size()
-            ov.marker.color = HALO_COLOR_HIGHLIGHT
-            ov.marker.line = {"width": 0, "color": "rgba(0,0,0,0)"}
-            ov.visible = bool(xs)
+        sub = df.loc[mask, [x_col, y_col, "Index"]]
+        xs = sub[x_col].tolist()
+        ys = sub[y_col].tolist()
+        cd = [[int(v)] for v in sub["Index"]]
+
+        ov.x = xs
+        ov.y = ys
+        ov.customdata = cd
+        ov.marker.size = self._highlight_marker_size()
+        ov.marker.color = HALO_COLOR_HIGHLIGHT
+        ov.marker.line = {"width": 0, "color": "rgba(0,0,0,0)"}
+        ov.visible = bool(xs)
 
     def _apply_selected_point_highlight(self) -> None:
         """Apply base styling and show selection via overlay trace."""
-        self._apply_base_styling()
-        self._apply_selected_point_overlay()
-        self._apply_multi_select_overlay()
-        self._apply_grid_thumb_overlay()
+        if self.fig_widget is not None:
+            with self.fig_widget.batch_update():
+                self._apply_base_styling()
+                self._apply_selected_point_overlay()
+                self._apply_multi_select_overlay()
+                self._apply_grid_thumb_overlay()
         self._update_stats()
 
     def _apply_base_styling(self) -> None:
@@ -2729,8 +2718,18 @@ class PhenoMeInteractive:
                 self._selected_point_index = None
 
         if ov is not None:
-            with self.fig_widget.batch_update():
-                if self._selected_point_index is None:
+            if self._selected_point_index is None:
+                ov.visible = False
+                ov.x = []
+                ov.y = []
+                if getattr(ov, "type", "") == "scatter3d":
+                    ov.z = []
+                ov.customdata = []
+            else:
+                df = self._cached_df
+                m = self._cached_index_to_row
+                if m is None or self._selected_point_index not in m:
+                    self._selected_point_index = None
                     ov.visible = False
                     ov.x = []
                     ov.y = []
@@ -2738,31 +2737,20 @@ class PhenoMeInteractive:
                         ov.z = []
                     ov.customdata = []
                 else:
-                    df = self._cached_df
-                    m = self._cached_index_to_row
-                    if m is None or self._selected_point_index not in m:
-                        self._selected_point_index = None
-                        ov.visible = False
-                        ov.x = []
-                        ov.y = []
-                        if getattr(ov, "type", "") == "scatter3d":
-                            ov.z = []
-                        ov.customdata = []
+                    row = df.iloc[m[self._selected_point_index]]
+                    ring_size = self._click_select_ring_size()
+                    ov.marker.size = ring_size
+                    ov.marker.color = "rgba(0,0,0,0)"
+                    ov.marker.line = {"color": "black", "width": 2}
+                    if z_col:
+                        ov.x = [float(row[x_col])]
+                        ov.y = [float(row[y_col])]
+                        ov.z = [float(row[z_col])]
                     else:
-                        row = df.iloc[m[self._selected_point_index]]
-                        ring_size = self._click_select_ring_size()
-                        ov.marker.size = ring_size
-                        ov.marker.color = "rgba(0,0,0,0)"
-                        ov.marker.line = {"color": "black", "width": 2}
-                        if z_col:
-                            ov.x = [float(row[x_col])]
-                            ov.y = [float(row[y_col])]
-                            ov.z = [float(row[z_col])]
-                        else:
-                            ov.x = [float(row[x_col])]
-                            ov.y = [float(row[y_col])]
-                        ov.customdata = [[self._selected_point_index]]
-                        ov.visible = True
+                        ov.x = [float(row[x_col])]
+                        ov.y = [float(row[y_col])]
+                    ov.customdata = [[self._selected_point_index]]
+                    ov.visible = True
 
     def _apply_multi_select_overlay(self) -> None:
         """Prune stale indices; keep multi-select stub trace empty (lasso/box uses Plotly dimming only)."""
@@ -2774,8 +2762,7 @@ class PhenoMeInteractive:
         _, _, z_col = self._coord_columns()
         if z_col:
             # 3D: overlay trace exists but we don't support box/lasso in 3D.
-            with self.fig_widget.batch_update():
-                ov.visible = False
+            ov.visible = False
             return
 
         m = self._cached_index_to_row or {}
@@ -2788,11 +2775,10 @@ class PhenoMeInteractive:
         # Keep list aligned with what we can actually display (strip stale ids).
         self._multi_selected_indices = kept
 
-        with self.fig_widget.batch_update():
-            ov.x = []
-            ov.y = []
-            ov.customdata = []
-            ov.visible = False
+        ov.x = []
+        ov.y = []
+        ov.customdata = []
+        ov.visible = False
 
     def _apply_grid_thumb_overlay(self) -> None:
         """2D: orange ring on the thumbnail-traced point."""
@@ -2803,8 +2789,7 @@ class PhenoMeInteractive:
             return
         x_col, y_col, z_col = self._coord_columns()
         if z_col:
-            with self.fig_widget.batch_update():
-                ov.visible = False
+            ov.visible = False
             return
         m = self._cached_index_to_row or {}
         df = self._cached_df
@@ -2813,22 +2798,21 @@ class PhenoMeInteractive:
             self._grid_trace_index = None
             gidx = None
 
-        with self.fig_widget.batch_update():
-            if gidx is None:
-                ov.visible = False
-                ov.x = []
-                ov.y = []
-                ov.customdata = []
-            else:
-                row = df.iloc[m[gidx]]
-                ring_size = self._grid_thumb_select_ring_size()
-                ov.marker.size = ring_size
-                ov.marker.color = "rgba(0,0,0,0)"
-                ov.marker.line = {"color": "#f97316", "width": 3}
-                ov.x = [float(row[x_col])]
-                ov.y = [float(row[y_col])]
-                ov.customdata = [[gidx]]
-                ov.visible = True
+        if gidx is None:
+            ov.visible = False
+            ov.x = []
+            ov.y = []
+            ov.customdata = []
+        else:
+            row = df.iloc[m[gidx]]
+            ring_size = self._grid_thumb_select_ring_size()
+            ov.marker.size = ring_size
+            ov.marker.color = "rgba(0,0,0,0)"
+            ov.marker.line = {"color": "#f97316", "width": 3}
+            ov.x = [float(row[x_col])]
+            ov.y = [float(row[y_col])]
+            ov.customdata = [[gidx]]
+            ov.visible = True
 
     # ------------------------------------------------------------------
     # Widget callbacks
@@ -3106,7 +3090,7 @@ class PhenoMeInteractive:
             items = []
             for k, v in self._ui_filters.items():
                 val_str = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
-                items.append(f"<b>{k}</b>: {val_str}")
+                items.append(f"<b>{html.escape(str(k))}</b>: {html.escape(val_str)}")
             self.filter_summary.value = (
                 '<div style="font-size:11px; color:#475569; line-height:1.4;">'
                 + "<br>".join(items)
@@ -3123,7 +3107,7 @@ class PhenoMeInteractive:
             items = []
             for k, v in self._ui_exclude.items():
                 val_str = ", ".join(map(str, v)) if isinstance(v, list) else str(v)
-                items.append(f"<b>{k}</b>: {val_str}")
+                items.append(f"<b>{html.escape(str(k))}</b>: {html.escape(val_str)}")
             self.exclude_summary.value = (
                 '<div style="font-size:11px; color:#475569; line-height:1.4;">'
                 + "<br>".join(items)
@@ -3140,27 +3124,6 @@ class PhenoMeInteractive:
             if fig is None:
                 return
             self._apply_selected_point_highlight()
-
-        schedule_after_plotly_event_loop(_do)
-
-    def _on_dark_mode_changed(self, change: Any) -> None:
-        """Toggle dark/light theme (requires a rebuild to change plotly template)."""
-        new_val = bool(change.get("new", change.get("owner").value if change else False))
-        self._dark_mode = new_val
-
-        if self._cached_df is None:
-            return
-
-        def _do() -> None:
-            try:
-                with self._click_lock:
-                    self._build_figure()
-                    self._display_figure()
-                self.status_label.value = status_html(
-                    f"Theme: {'dark' if self._dark_mode else 'light'}", "ok"
-                )
-            except Exception as e:
-                self.status_label.value = status_html(f"Theme error: {e}", "err")
 
         schedule_after_plotly_event_loop(_do)
 
