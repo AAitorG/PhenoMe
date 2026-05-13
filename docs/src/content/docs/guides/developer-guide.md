@@ -27,7 +27,7 @@ The public site uses **Astro Starlight**. Narrative guides live under [`docs/src
 
 ### Prerequisites
 
-- **Node.js** 20+ and **npm**
+- **Node.js** 22.12+ and **npm**
 - **Python** 3.12+ with the package installed editable (`pip install -e .`) so docstrings can be imported
 
 ### Local build

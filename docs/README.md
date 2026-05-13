@@ -4,7 +4,7 @@ This directory builds the **public documentation** (search, sidebar, dark mode) 
 
 ## Local preview
 
-Requirements: **Node.js 20+**, **npm**, and **Python** matching the package (`requires-python` in the repo root `pyproject.toml`, currently **3.12+**).
+Requirements: **Node.js 22.12+**, **npm**, and **Python** matching the package (`requires-python` in the repo root `pyproject.toml`, currently **3.12+**).
 
 API Markdown under `src/content/docs/advanced/api/` is produced by `scripts/generate_api_docs.py` (via `npm run build` / `npm run dev`). That script **prepends the repository root to `sys.path`**, so `import phenome` works **without** `pip install -e .` as long as the same runtime dependencies are available in your environment.
 
