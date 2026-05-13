@@ -57,6 +57,7 @@ from ._html_components import (
     INTERACTIVE_VALUES_W_PX,
     MULTI_SELECT_OVERLAY_NAME,
     SEARCH_DEBOUNCE_SEC,
+    SELECTION_MERGE_WINDOW_SEC,
     SELECTION_OVERLAY_NAME,
     THUMBNAIL_DOWNSAMPLE,
     THUMBNAIL_GRID_MAX_IMAGES,
@@ -193,6 +194,7 @@ class PhenoMeInteractive:
         self._compute_thread: threading.Thread | None = None
         self._click_lock = threading.Lock()
         self._last_click_time = 0.0
+        self._last_selection_time = 0.0
         self._last_deselect_time = 0.0
         self._debounce_timer: threading.Timer | None = None
         self._filter_search_debounce_timer: threading.Timer | None = None
@@ -2433,8 +2435,16 @@ class PhenoMeInteractive:
 
         # Merge across traces (deduplicate). Selections from multiple traces arrive via
         # consecutive callbacks; replace-on-different-trace gives best UX.
-        existing = set(self._multi_selected_indices)
-        merged = list(dict.fromkeys(list(existing) + selected_ids))
+        t_now = time.time()
+        is_same_gesture = (t_now - self._last_selection_time) < SELECTION_MERGE_WINDOW_SEC
+        self._last_selection_time = t_now
+
+        if is_same_gesture:
+            existing = set(self._multi_selected_indices)
+            merged = list(dict.fromkeys(list(existing) + selected_ids))
+        else:
+            merged = selected_ids
+
         if merged == self._multi_selected_indices:
             return
 
