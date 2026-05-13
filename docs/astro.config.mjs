@@ -14,6 +14,9 @@ export default defineConfig({
   base,
   publicDir: "./assets",
   trailingSlash: "always",
+  image: {
+    objectFit: "contain",
+  },
   redirects: {
     [`${base}guides/property-reference/`]: `${base}concepts/property-interpretation/`,
     [`${base}guides/interpretability/`]: `${base}concepts/embeddings-interpretability/`,
