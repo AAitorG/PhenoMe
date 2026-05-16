@@ -5,8 +5,8 @@
 # Numerical computing
 numpy==2.4.2
 scipy==1.17.1
-torch==2.10.0
-torchvision==0.25.0
+torch==2.12.0
+torchvision==0.27.0
 
 # Tabular data
 pandas==3.0.0
