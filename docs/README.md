@@ -63,6 +63,7 @@ docs/
 | `assets/` | Canonical static assets (`logo.png`, `logo_horizontal.png`, `logo_minimal.png`, `pipeline_overview.png`, etc.); served at site root via `publicDir` |
 | `src/assets/**` | Full copy of `assets/` from `sync-assets` for Starlight logo, MDX-relative imports, etc. (gitignored) |
 | `astro.config.mjs` | Starlight theme, sidebar, `site` + `base` (set to `/PhenoMe/` for GitHub Pages), `publicDir: "./assets"` |
+| `src/content.config.ts` | Starlight `docsLoader` and schema configuration (Astro 6.0+) |
 
 ## npm scripts cheat sheet
 

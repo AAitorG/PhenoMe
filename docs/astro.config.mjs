@@ -16,6 +16,9 @@ export default defineConfig({
   trailingSlash: "always",
   image: {
     objectFit: "contain",
+    dangerouslyProcessSVG: false,
+    remotePatterns: [],
+    domains: [],
   },
   redirects: {
     [`${base}guides/property-reference/`]: `${base}concepts/property-interpretation/`,
