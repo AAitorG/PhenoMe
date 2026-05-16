@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 import plotly.graph_objects as go
 
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
+from ...utils.display_names import format_dr_method
 from .._components import generate_info_box, generate_plot_container
 from ..helpers import apply_dark_theme, plotly_to_html_fragment
 
@@ -39,7 +40,7 @@ def generate_interpretability_section(
             component=component,
             model_type=model_type,
             seed=getattr(pipeline, "seed", None),
-            plot=True,
+            plot=False,
             return_fig=True,
             top_k=top_k,
         )
@@ -54,7 +55,7 @@ def generate_interpretability_section(
 
     if df.empty:
         return generate_info_box(
-            f"No multivariate interpretability data available for {method.upper()} component {component}.",
+            f"No multivariate interpretability data available for {format_dr_method(method)} component {component}.",
             "info",
         )
 

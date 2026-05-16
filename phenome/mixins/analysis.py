@@ -29,6 +29,11 @@ from ..core import (
 )
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
+from ..utils.display_names import (
+    format_clustering_method,
+    format_correlation_method,
+    format_dr_method,
+)
 from . import _helpers
 from .visualization._distance_plots import _plot_property_correlations_plotly
 from .visualization._interpretability_plots import _display_multivariate_interpretability
@@ -167,7 +172,7 @@ class PhenoMeAnalysis:
                         "Clustering in %s space: non-linear embeddings are not isometries; "
                         "cluster boundaries may not reflect true data structure. "
                         "Consider using 'pca' for reduce_method instead.",
-                        reduce_method.upper(),
+                        format_dr_method(reduce_method),
                     )
                 if reduce_method == "tsne":
                     # Perplexity must be < n_samples (sklearn constraint)
@@ -187,10 +192,10 @@ class PhenoMeAnalysis:
                 )
                 logger.info(
                     "Clustering: %s extracted %d components from %d dimensions before %s.",
-                    reduce_method.upper(),
+                    format_dr_method(reduce_method),
                     n_comp,
                     orig_dim,
-                    clustering_method.upper(),
+                    format_clustering_method(clustering_method),
                 )
 
         # Fitted DR object from the optional pre-clustering step (None if no reduction).
@@ -454,7 +459,7 @@ class PhenoMeAnalysis:
 
         logger.info(
             "Multivariate Interpretability (%s, %s, %s): R^2=%.2f, %d drivers found.",
-            method.upper(),
+            format_dr_method(method),
             comp_col,
             model_type,
             results["r2"],
@@ -942,7 +947,7 @@ class PhenoMeAnalysis:
             comp_iter = (
                 tqdm(
                     comp_cols,
-                    desc=f"Computing {correlation_method} correlations",
+                    desc=f"Computing {format_correlation_method(correlation_method)} correlations",
                     disable=not use_progress,
                     leave=False,
                 )
@@ -963,7 +968,9 @@ class PhenoMeAnalysis:
                     corr_data[comp].append(float(r_arr[0]) if r_arr.size > 0 else np.nan)
 
             if not corr_data:
-                raise ValueError(f"No correlation data computed for {correlation_method}.")
+                raise ValueError(
+                    f"No correlation data computed for {format_correlation_method(correlation_method)}."
+                )
 
             corr = pd.DataFrame(corr_data, index=prop_cols)
 
@@ -987,7 +994,10 @@ class PhenoMeAnalysis:
                 )
 
         summary_df = pd.DataFrame(rows)
-        title = f"Component-property correlations ({method.upper()}, {correlation_method})"
+        title = (
+            f"Component-property correlations ({format_dr_method(method)}, "
+            f"{format_correlation_method(correlation_method)})"
+        )
         fig = self._plot_component_correlation(  # type: ignore[attr-defined]
             correlation_df=corr,
             summary=summary_df,
@@ -1594,7 +1604,7 @@ class PhenoMeAnalysis:
             prop_iter = (
                 tqdm(
                     valid_props.items(),
-                    desc=f"Computing {method} correlations",
+                    desc=f"Computing {format_correlation_method(method)} correlations",
                     disable=not use_progress,
                     leave=False,
                 )
@@ -1612,7 +1622,7 @@ class PhenoMeAnalysis:
                 delayed(_worker)(pname, parr)
                 for pname, parr in tqdm(
                     items,
-                    desc=f"Computing {method} correlations",
+                    desc=f"Computing {format_correlation_method(method)} correlations",
                     disable=not use_progress,
                     leave=False,
                 )
@@ -1624,7 +1634,7 @@ class PhenoMeAnalysis:
         logger.info(
             "Computed embedding-property correlations: %d properties, method=%s",
             len(valid_props),
-            method,
+            format_correlation_method(method),
         )
 
         return corrs

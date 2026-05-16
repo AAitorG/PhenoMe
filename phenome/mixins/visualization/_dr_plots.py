@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 
 from ..._logging import get_logger
 from ...core import get_all_metadata_keys, run_dimensionality_reduction
+from ...utils.display_names import format_dr_method
 from ._helpers import (
     build_hover_columns as _build_hover_columns,
 )
@@ -92,15 +93,16 @@ class _DRPlotsMixin:
         else:
             x_col, y_col = "Component 1", "Component 2"
             z_col = "Component 3" if n_components == 3 else None
-            method_label = method.upper() if method == "tsne" else method.capitalize()
+            dr_display = format_dr_method(method)
             axis_labels = {
-                "x": f"{method_label} 1",
-                "y": f"{method_label} 2",
+                "x": f"{dr_display} 1",
+                "y": f"{dr_display} 2",
             }
             if n_components == 3:
-                axis_labels["z"] = f"{method_label} 3"
-        method_label = method.upper() if method == "tsne" else method.capitalize()
-        title = f"{method_label} of {data_type}" + (f" (colored by {color_by})" if color_by else "")
+                axis_labels["z"] = f"{dr_display} 3"
+        title = f"{format_dr_method(method)} of {data_type}" + (
+            f" (colored by {color_by})" if color_by else ""
+        )
         return self._plot_embedding_scatter(
             df=df,
             x_col=x_col,

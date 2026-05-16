@@ -9,6 +9,7 @@ import plotly.express as px
 from plotly.graph_objects import Figure
 
 from ..._logging import get_logger
+from ...utils.display_names import format_dr_method
 
 logger = get_logger(__name__)
 
@@ -53,7 +54,7 @@ def _build_multivariate_interpretability_figure(
     r2 = results["r2"]
     drivers = results["drivers"][:top_k]
     target = results["target_component"]
-    dr_method = results["method"].upper()
+    dr_method = format_dr_method(str(results["method"]))
     model_name = "LASSO" if resolved_model_type == "lasso" else "Random Forest"
 
     df = pd.DataFrame(drivers)

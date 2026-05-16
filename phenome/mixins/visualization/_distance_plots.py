@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 
 from ..._logging import get_logger
 from ...core import build_metadata_columns, get_all_metadata_keys
+from ...utils.display_names import format_correlation_method
 
 logger = get_logger(__name__)
 
@@ -51,8 +52,10 @@ def _plot_property_correlations_plotly(
         return go.Figure()
 
     long_df = pd.DataFrame(rows)
-    method = correlation_method or "n/a"
-    xaxis_title = f"Distribution of |r| across dimensions [{method}]"
+    method_display = (
+        "n/a" if not correlation_method else format_correlation_method(correlation_method)
+    )
+    xaxis_title = f"Distribution of |r| across dimensions [{method_display}]"
 
     fig = px.violin(
         long_df,
