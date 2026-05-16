@@ -33,7 +33,7 @@ from .transforms import normalize_by_dtype_max
 # Public API
 # ============================================================================
 
-_PRESET_NAMES = ("basic", "regionprops", "intensity", "full", "full_extended")
+_PRESET_NAMES = ("basic", "shape", "intensity", "standard", "complete")
 
 # Regionprops preset lists (reused in get_preset_property_functions)
 REGIONPROPS_BASIC = ("area", "perimeter", "eccentricity", "solidity")
@@ -547,7 +547,7 @@ def get_preset_property_functions(
     """Return a preset dict of property functions for use with compute_properties.
 
     Args:
-        preset: "basic", "regionprops", "intensity", "full", or "full_extended".
+        preset: "basic", "shape", "intensity", "standard", or "complete".
 
     Returns:
         Dict with keys 'image', 'mask', 'both' mapping to lists of property functions.
@@ -577,19 +577,19 @@ def get_preset_property_functions(
             "mask": [regionprops_basic],
             "both": [masked_mean, masked_std],
         }
-    if preset == "regionprops":
+    if preset == "shape":
         return {"mask": [regionprops_full]}
     if preset == "intensity":
         return {
             "image": [intensity_mean, intensity_std, intensity_min, intensity_max],
         }
-    if preset == "full":
+    if preset == "standard":
         return {
             "image": [intensity_mean, intensity_std, intensity_min, intensity_max],
             "mask": [regionprops_full],
             "both": [masked_mean, masked_std, ring_func],
         }
-    if preset == "full_extended":
+    if preset == "complete":
         return {
             "image": [
                 intensity_mean,

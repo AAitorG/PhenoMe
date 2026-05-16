@@ -71,14 +71,14 @@ def normalize_property_functions(
     if property_preset is not None and property_preset != "none":
         if property_preset not in (
             "basic",
-            "regionprops",
+            "shape",
             "intensity",
-            "full",
-            "full_extended",
+            "standard",
+            "complete",
         ):
             raise ValueError(
                 f"Unknown preset '{property_preset}'. Valid presets: "
-                "'none', 'basic', 'regionprops', 'intensity', 'full', 'full_extended'"
+                "'none', 'basic', 'shape', 'intensity', 'standard', 'complete'"
             )
         base = get_preset_property_functions(property_preset)
 

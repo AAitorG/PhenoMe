@@ -7,7 +7,7 @@ sidebar:
 
 Property functions extract numerical features from images and masks.
 For what each built-in column *means*, see [Property interpretation](/PhenoMe/concepts/property-interpretation/).
-For **preset bundles** (`basic`, `full`, …) and mixing in custom code, stay in this section.
+For **preset bundles** (`basic`, `standard`, …) and mixing in custom code, stay in this section.
 
 Select properties covers:
 

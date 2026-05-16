@@ -973,8 +973,8 @@ supported.
   `phenome.metadata`). When it has ``mask_dir`` and
   ``mask_filename_column``, uses explicit mask lookup.
 - **`property_preset`**: Preset name. Use ``"none"`` or ``None`` for no
-  preset. Valid: ``"none"``, ``"basic"``, ``"regionprops"``,
-  ``"intensity"``, ``"full"``, ``"full_extended"``.
+  preset. Valid: ``"none"``, ``"basic"``, ``"shape"``,
+  ``"intensity"``, ``"standard"``, ``"complete"``.
 - **`additional_property_functions`**: Extra property functions to add on
   top of preset. Dict of {requirement: fn_or_list} where
   requirement is ``"image"``, ``"mask"``, ``"both"``, or

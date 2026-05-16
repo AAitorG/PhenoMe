@@ -266,7 +266,7 @@ Return a preset dict of property functions for use with compute_properties.
 
 **Args:**
 
-- **`preset`**: "basic", "regionprops", "intensity", "full", or "full_extended".
+- **`preset`**: "basic", "shape", "intensity", "standard", or "complete".
 
 **Returns:**
 

@@ -1,6 +1,6 @@
 ---
 title: "Property presets"
-description: Built-in property sets (basic, intensity, full, ...) and how to extend them without writing code.
+description: Built-in property sets (basic, intensity, standard, ...) and how to extend them without writing code.
 sidebar:
   order: 1
 ---
@@ -18,10 +18,10 @@ the preset does not cover.
 |--------|----------|----------|
 | `"none"` | — | Custom-only pipelines; pair with `additional_property_functions`. |
 | `"intensity"` | Image only | No segmentation masks; global illumination/signal QC. |
-| `"regionprops"` | Mask only | Shape analysis without intensity information. |
+| `"shape"` | Mask only | Shape analysis without intensity information. |
 | `"basic"` | Image + mask | General-purpose starting point; covers shape and signal in one pass. |
-| `"full"` | Image + mask | More complete description; adds axis lengths and radial intensity rings. |
-| `"full_extended"` | Image + mask | Maximum feature set; adds texture, QC metrics, and extended shape. |
+| `"standard"` | Image + mask | More complete description; adds axis lengths and radial intensity rings. |
+| `"complete"` | Image + mask | Maximum feature set; adds texture, QC metrics, and extended shape. |
 
 The "Requires" column indicates what the preset needs to run. Presets that
 require a mask return `NaN` for mask-dependent features if no mask is found
@@ -49,7 +49,7 @@ Image-level statistics over all pixels (no mask required).
 
 ---
 
-### `"regionprops"`
+### `"shape"`
 
 Shape descriptors of the segmented object (mask required).
 
@@ -93,10 +93,10 @@ A lightweight but well-rounded set of intensity and shape features.
 
 ---
 
-### `"full"`
+### `"standard"`
 
 Extends `"basic"` with axis lengths, full intensity range, and a
-3-ring radial intensity profile.
+3-ring radial intensity profile. Recommended default for most analyses.
 
 **Image-level** (image required):
 
@@ -133,10 +133,10 @@ Extends `"basic"` with axis lengths, full intensity range, and a
 
 ---
 
-### `"full_extended"`
+### `"complete"`
 
 The most comprehensive preset. Adds texture (GLCM), QC metrics, extended
-shape descriptors, and masked min/max on top of `"full"`.
+shape descriptors, and masked min/max on top of `"standard"`.
 
 **Image-level** (image required):
 
@@ -208,7 +208,7 @@ df = pheno.compute_properties(
 
 # Extend a preset with extra functions
 df = pheno.compute_properties(
-    property_preset="full",
+    property_preset="standard",
     additional_property_functions={
         "both": [create_concentric_ring_function(5, ["mean"])]
     },
