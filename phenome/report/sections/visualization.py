@@ -21,14 +21,12 @@ logger = get_logger(__name__)
 def generate_visualization_section(
     ctx: "ReportContext",
     color_by: str | None,
-    metadata_keys: list[str],
 ) -> str:
     """Generate visualization section with PCA, t-SNE, and UMAP.
 
     Args:
         ctx: Report context with pipeline and opts.
         color_by: Metadata key for point colors; None for default.
-        metadata_keys: Passed as hover_features for tooltip display.
 
     Returns:
         HTML string for the section (plot containers + intro paragraph).
@@ -48,7 +46,7 @@ def generate_visualization_section(
             n_components=2,
             return_fig=True,
             color_by=color_by,
-            hover_features=metadata_keys,
+            hover_features=[],
             filters=filters,
             exclude=exclude,
             sample_size=sample_size,
@@ -69,7 +67,7 @@ def generate_visualization_section(
         fig_tsne = pipeline.plot_tsne(
             return_fig=True,
             color_by=color_by,
-            hover_features=metadata_keys,
+            hover_features=[],
             filters=filters,
             exclude=exclude,
             sample_size=sample_size,
@@ -90,7 +88,7 @@ def generate_visualization_section(
         fig_umap = pipeline.plot_umap(
             return_fig=True,
             color_by=color_by,
-            hover_features=metadata_keys,
+            hover_features=[],
             filters=filters,
             exclude=exclude,
             sample_size=sample_size,
@@ -118,6 +116,6 @@ def generate_visualization_section(
 
     return f"""
     <p>Interactive dimensionality reduction visualizations of the embedding space{sample_info}.
-    Hover over points for details, zoom and pan to explore.</p>
+    Hover over points for sample index, zoom and pan to explore.</p>
     {"".join(plots_html)}
     """

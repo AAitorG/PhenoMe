@@ -245,16 +245,20 @@ class _DRPlotsMixin:
         hover_cols = _build_hover_columns(
             df, x_col, y_col, z_col, color_column, hover_features, n_points
         )
+        index_only_hover = hover_cols == ["Index"] and "Index" in df.columns
 
         kwargs = {
             "data_frame": df,
             "x": x_col,
             "y": y_col,
-            "hover_data": hover_cols,
             "title": title,
             "width": figsize[0] * 100,
             "height": figsize[1] * 100,
         }
+        if index_only_hover:
+            kwargs["custom_data"] = ["Index"]
+        else:
+            kwargs["hover_data"] = hover_cols
         if not z_col:
             kwargs["render_mode"] = render_mode
         if z_col:
@@ -269,6 +273,10 @@ class _DRPlotsMixin:
         fig = px.scatter_3d(**kwargs) if z_col else px.scatter(**kwargs)
         marker_size, opacity = _get_marker_styling(n_points, z_col is not None)
         fig.update_traces(marker={"size": marker_size, "opacity": opacity})
+        if index_only_hover:
+            fig.update_traces(
+                hovertemplate="<b>Index</b>: %{customdata[0]}<extra></extra>",
+            )
         if not color_column:
             # Plotly default first discrete color (matches plotly.express defaults)
             fig.update_traces(marker_color="#636EFA")

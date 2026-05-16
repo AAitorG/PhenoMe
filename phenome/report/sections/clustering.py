@@ -172,6 +172,7 @@ def _generate_cluster_pca(
 
     df_plot = pd.DataFrame(
         {
+            "Index": np.arange(len(coords)),
             "PC1": coords[:, 0],
             "PC2": coords[:, 1],
             "Cluster": cluster_labels.astype(str),
@@ -185,11 +186,14 @@ def _generate_cluster_pca(
         y="PC2",
         color="Cluster",
         title="PCA Projection Colored by Cluster",
-        hover_data={"PC1": ":.2f", "PC2": ":.2f"},
+        custom_data=["Index"],
     )
 
     apply_dark_theme(fig)
-    fig.update_traces(marker={"size": 6, "opacity": 0.7})
+    fig.update_traces(
+        marker={"size": 6, "opacity": 0.7},
+        hovertemplate="<b>Index</b>: %{customdata[0]}<extra></extra>",
+    )
 
     var_explained = pca.explained_variance_ratio_
     fig.update_layout(

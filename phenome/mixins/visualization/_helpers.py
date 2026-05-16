@@ -80,7 +80,15 @@ def build_hover_columns(
     hover_features: list[str] | None,
     n_points: int,
 ) -> list[str]:
-    """Build hover column list based on dataset size and features."""
+    """Build hover column list based on dataset size and features.
+
+    Hover policy:
+        - ``None``: include Index, Image, color column (when present), plus all other
+          non-coordinate columns (default interactive exploration behaviour).
+        - Non-empty ``hover_features``: include Index and Image plus the listed fields
+          resolved against ``df``.
+        - ``[]`` (empty list): tooltip shows only Index (used e.g. for HTML reports).
+    """
     coord_cols = {x_col, y_col, z_col} | {c for c in df.columns if c.startswith("Component ")}
 
     if n_points > 500000:
@@ -90,6 +98,8 @@ def build_hover_columns(
         if color_column:
             hover_cols.append(color_column)
         logger.warning("Large dataset (>0.5M). Hover data limited to Index/Image.")
+    elif hover_features is not None and len(hover_features) == 0:
+        hover_cols = ["Index"]
     elif hover_features:
         hover_cols = ["Index", "Image"]
         for prop in hover_features:

@@ -198,7 +198,7 @@ def _build_sections(ctx: ReportContext) -> tuple[list[tuple[str, str, str]], lis
     # Visualization
     if include_plots and ctx.has_embeddings:
         nav_items.append(("visualizations", "Visualizations"))
-        viz_html = generate_visualization_section(ctx, color_by, metadata_keys)
+        viz_html = generate_visualization_section(ctx, color_by)
         sections.append(("visualizations", "Embedding Visualizations", viz_html))
 
     # Distance Analysis
