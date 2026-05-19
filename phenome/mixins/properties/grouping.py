@@ -78,7 +78,7 @@ def property_stats_by_group(
         raise TypeError(f"properties must be a list or None, got: {type(properties)}")
 
     if properties is None:
-        exclude_cols = {"img_name", "img_path"}
+        exclude_cols = {"index", "img_name", "img_path"}
         metadata_cols = {
             col
             for col in df.columns
@@ -107,7 +107,9 @@ def property_stats_by_group(
         return out
 
     metadata_cols_list = [
-        col for col in df.columns if col not in properties and col not in {"img_name", "img_path"}
+        col
+        for col in df.columns
+        if col not in properties and col not in {"index", "img_name", "img_path"}
     ]
 
     if group_by is not None:

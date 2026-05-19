@@ -285,8 +285,8 @@ class PhenoMeProperties:
                 computation proceeds as for a new checkpoint.
 
         Returns:
-            DataFrame with all properties and metadata columns. Also populates
-            ``results.properties`` as ``List[dict]`` (one dict per image).
+            DataFrame with columns ``index``, ``img_path``, and property values.
+            Also populates ``results.properties`` as ``List[dict]`` (one dict per image).
 
         Raises:
             ValueError: If no images processed or invalid preset/requirement
@@ -375,7 +375,7 @@ class PhenoMeProperties:
                 property_keys=sorted(expected_property_keys) if expected_property_keys else None,
                 count_missing_key_as_nan=not bool(expected_property_keys),
             )
-            return _build_properties_dataframe_fn(self.results)
+            return _build_properties_dataframe_fn(self.results, simple=True)
 
         # Process images
         all_property_names, feature_buffers, last_committed, internal_buffer = (
@@ -425,6 +425,7 @@ class PhenoMeProperties:
         return _build_properties_dataframe_fn(
             self.results,
             list(all_property_names) if all_property_names else None,
+            simple=True,
         )
 
     def _build_properties_dataframe(

@@ -998,8 +998,8 @@ supported.
 
 **Returns:**
 
-  DataFrame with all properties and metadata columns. Also populates
-  ``results.properties`` as ``List[dict]`` (one dict per image).
+  DataFrame with columns ``index``, ``img_path``, and property values.
+  Also populates ``results.properties`` as ``List[dict]`` (one dict per image).
 
 **Raises:**
 

@@ -51,8 +51,17 @@ def parse_grouped_stats_dataframe(
 def build_properties_dataframe(
     results: Any,
     properties: list[str] | None = None,
+    *,
+    simple: bool = False,
 ) -> pd.DataFrame:
-    """Build DataFrame from computed properties and metadata."""
+    """Build DataFrame from computed properties.
+
+    Args:
+        results: Pipeline results with ``properties`` and ``img_path``.
+        properties: Property column names. If None, inferred from first row.
+        simple: If True, return only ``index``, ``img_path``, and property columns.
+            If False (default), include all metadata columns and ``img_name``.
+    """
     properties_list = (
         results.properties if hasattr(results, "properties") else results.get("properties", [])
     )
@@ -63,11 +72,15 @@ def build_properties_dataframe(
         logger.warning("No properties found in results. Run compute_properties first.")
         return pd.DataFrame()
 
-    df_dict: dict = {}
-    df_dict.update(build_metadata_columns(results))
     img_path = results.img_path if hasattr(results, "img_path") else results.get("img_path", [])
-    df_dict["img_name"] = [path_basename(p) for p in img_path]
-    df_dict["img_path"] = list(img_path)
+    df_dict: dict = {}
+    if simple:
+        df_dict["index"] = list(range(len(properties_list)))
+        df_dict["img_path"] = list(img_path)
+    else:
+        df_dict.update(build_metadata_columns(results))
+        df_dict["img_name"] = [path_basename(p) for p in img_path]
+        df_dict["img_path"] = list(img_path)
 
     for prop in properties:
         df_dict[prop] = [props.get(prop, np.nan) for props in properties_list]
