@@ -451,7 +451,7 @@ Remove all temporal images (metadata['source'] == 'NEW') from the session.
 ```python
 PhenoMe.get_embeddings(
     self,
-    indices: Union[list[int], ForwardRef('np.ndarray'), NoneType] = None
+    indices: int | list[int] | numpy.ndarray | None = None
 ) -> numpy.ndarray | None
 ```
 
@@ -469,8 +469,9 @@ they are merged with checkpoint data. When no database is active, slices
 
 **Args:**
 
-- **`indices`**: Optional integer array/list of row indices (0-based).
-  If None, returns all embeddings.
+- **`indices`**: Optional row index or sequence of row indices (0-based).
+  A single ``int`` returns shape ``(1, D)``. If None, returns all
+  embeddings.
 
 **Returns:**
 

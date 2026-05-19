@@ -35,7 +35,9 @@ class PhenoMeProtocol(Protocol):
     use_gpu_for_dr: bool
 
     # Embedding access
-    def get_embeddings(self, indices: list[int] | np.ndarray | None = None) -> np.ndarray | None:
+    def get_embeddings(
+        self, indices: int | list[int] | np.ndarray | None = None
+    ) -> np.ndarray | None:
         """Return embedding rows for ``indices`` (or all committed rows)."""
         ...
 

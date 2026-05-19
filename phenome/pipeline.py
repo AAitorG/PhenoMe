@@ -6,7 +6,7 @@ import os
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Literal, Union, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -60,6 +60,17 @@ def _effective_num_workers(num_workers: int) -> int:
         logger.debug("Jupyter detected: using num_workers=0 to avoid multiprocessing issues.")
         return 0
     return num_workers
+
+
+def _normalize_row_indices(
+    indices: int | list[int] | np.ndarray | None,
+) -> np.ndarray | None:
+    """Convert a row index selector to a 1-D int64 array, or None for all rows."""
+    if indices is None:
+        return None
+    if isinstance(indices, (int, np.integer)):
+        return np.array([int(indices)], dtype=np.int64)
+    return np.asarray(indices, dtype=np.int64).ravel()
 
 
 class PhenoMe(
@@ -265,7 +276,7 @@ class PhenoMe(
 
     def get_embeddings(
         self,
-        indices: Union[list[int], "np.ndarray"] | None = None,
+        indices: int | list[int] | np.ndarray | None = None,
     ) -> np.ndarray | None:
         """Return embeddings for the given row indices.
 
@@ -276,13 +287,15 @@ class PhenoMe(
         ``results.embeddings``.
 
         Args:
-            indices: Optional integer array/list of row indices (0-based).
-                If None, returns all embeddings.
+            indices: Optional row index or sequence of row indices (0-based).
+                A single ``int`` returns shape ``(1, D)``. If None, returns all
+                embeddings.
 
         Returns:
             np.ndarray shape ``(len(indices), D)`` float32, or None if no
             embeddings are available.
         """
+        indices_arr = _normalize_row_indices(indices)
         n_total = self.results.n_images
         temporal_emb = self._temporal_embeddings
         has_temporal = (
@@ -319,10 +332,8 @@ class PhenoMe(
                     out[temp_pos] = temporal_emb[local_temp]
                 return out
 
-            if indices is None:
+            if indices_arr is None:
                 indices_arr = np.arange(n_total, dtype=np.int64)
-            else:
-                indices_arr = np.asarray(indices, dtype=np.int64)
 
             if len(indices_arr) == 0:
                 return None
@@ -335,9 +346,9 @@ class PhenoMe(
         emb = self.results.embeddings
         if emb is None or len(emb) == 0:
             return None
-        if indices is None:
+        if indices_arr is None:
             return emb
-        return emb[np.asarray(indices, dtype=np.int64)]
+        return emb[indices_arr]
 
     # ------------------------------------------------------------------
     # File discovery

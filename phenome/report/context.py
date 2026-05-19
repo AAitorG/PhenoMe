@@ -46,7 +46,7 @@ class ReportContext:
 
     def get_embeddings(
         self,
-        indices: list[int] | np.ndarray | None = None,
+        indices: int | list[int] | np.ndarray | None = None,
     ) -> np.ndarray | None:
         """Get embeddings (lazy-safe)."""
         return self.pipeline.get_embeddings(indices=indices)

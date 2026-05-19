@@ -51,7 +51,7 @@ class PhenoMeBatchCorrection:
 
     def get_embeddings(
         self,
-        indices: list[int] | np.ndarray | None = None,
+        indices: int | list[int] | np.ndarray | None = None,
     ) -> np.ndarray | None:
         """Provided by the concrete pipeline; stub for type checkers."""
         raise NotImplementedError
