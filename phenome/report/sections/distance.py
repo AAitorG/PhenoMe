@@ -14,6 +14,21 @@ if TYPE_CHECKING:
     from ..context import ReportContext
 
 
+def _unpack_distance_results(
+    raw_out: pd.DataFrame | tuple,
+) -> tuple[pd.DataFrame, Any]:
+    """Unpack compute_reference_distances return (df or df+fig or df+meta+fig)."""
+    if isinstance(raw_out, pd.DataFrame):
+        return raw_out, None
+    if len(raw_out) == 3:
+        return raw_out[0], raw_out[2]
+    if len(raw_out) == 2:
+        if isinstance(raw_out[1], dict):
+            return raw_out[0], None
+        return raw_out[0], raw_out[1]
+    return raw_out[0], None
+
+
 def generate_distance_section(
     ctx: "ReportContext",
     reference_filters: dict[str, Any] | None,
@@ -80,13 +95,9 @@ def generate_distance_section(
                 plot=False,
                 return_fig=True,
             )
-            if isinstance(raw_out, tuple):
-                dist_results = raw_out[0]
-                fig = raw_out[1]
-            else:
-                dist_results = raw_out
+            dist_results, fig = _unpack_distance_results(raw_out)
         else:
-            dist_results = pipeline.compute_reference_distances(
+            raw_out = pipeline.compute_reference_distances(
                 reference_filters=reference_filters,
                 filters=filters,
                 exclude=exclude,
@@ -94,6 +105,7 @@ def generate_distance_section(
                 source="embeddings",
                 distance_type="euclidean",
             )
+            dist_results, fig = _unpack_distance_results(raw_out)
     except (ValueError, KeyError, RuntimeError) as e:
         return (generate_info_box(f"Error computing distances: {e}", "error"), None)
 

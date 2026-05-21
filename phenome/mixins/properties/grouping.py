@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from ..._logging import get_logger
+from ...core.dataframe_contract import TIER_A_EXCLUDE_FROM_PROPERTIES
 from ._grouping_table import (
     _fit_width,
     _group_col_width_need,
@@ -22,7 +23,10 @@ from ._grouping_table import (
 from ._report import (
     compute_property_statistics,
     parse_grouped_stats_dataframe,
+    tier_a_property_columns,
 )
+
+_TIER_A_EXCLUDE = set(TIER_A_EXCLUDE_FROM_PROPERTIES)
 
 logger = get_logger(__name__)
 
@@ -78,20 +82,7 @@ def property_stats_by_group(
         raise TypeError(f"properties must be a list or None, got: {type(properties)}")
 
     if properties is None:
-        exclude_cols = {"index", "img_name", "img_path"}
-        metadata_cols = {
-            col
-            for col in df.columns
-            if col not in exclude_cols
-            and (df[col].dtype == "object" or not pd.api.types.is_numeric_dtype(df[col]))
-        }
-        properties = [
-            col
-            for col in df.columns
-            if col not in exclude_cols
-            and col not in metadata_cols
-            and pd.api.types.is_numeric_dtype(df[col])
-        ]
+        properties = tier_a_property_columns(df)
 
     if not properties:
         logger.warning("No property columns found in DataFrame.")
@@ -107,9 +98,7 @@ def property_stats_by_group(
         return out
 
     metadata_cols_list = [
-        col
-        for col in df.columns
-        if col not in properties and col not in {"index", "img_name", "img_path"}
+        col for col in df.columns if col not in properties and col not in _TIER_A_EXCLUDE
     ]
 
     if group_by is not None:

@@ -26,6 +26,59 @@ if TYPE_CHECKING:
     from ..context import ReportContext
 
 
+def _cluster_labels_from_metadata(pipeline: "PhenoMe") -> np.ndarray | None:
+    """Build per-image cluster label array from ``results.metadata``, or None."""
+    metadata_list = pipeline.results.metadata
+    if not metadata_list:
+        return None
+    try:
+        labels = []
+        for m in metadata_list:
+            if isinstance(m, dict):
+                val = m.get("cluster", m.get("Cluster"))
+                labels.append(float(val) if val is not None else np.nan)
+            else:
+                labels.append(np.nan)
+        labels_arr = np.array(labels, dtype=float)
+        if np.any(~np.isnan(labels_arr)):
+            return labels_arr
+    except (ValueError, TypeError):
+        return None
+    return None
+
+
+def _cluster_labels_from_clustering_result(
+    pipeline: "PhenoMe",
+    result: pd.DataFrame | tuple[pd.DataFrame, Any],
+) -> np.ndarray:
+    """Convert ``compute_clustering`` return value to a length-``n_images`` label array."""
+    n_images = len(pipeline.results.img_path)
+    labels = np.full(n_images, np.nan, dtype=float)
+
+    if isinstance(result, tuple):
+        cluster_df = result[0]
+    elif isinstance(result, pd.DataFrame):
+        cluster_df = result
+    else:
+        return labels
+
+    if cluster_df.empty or "cluster" not in cluster_df.columns:
+        from_metadata = _cluster_labels_from_metadata(pipeline)
+        return from_metadata if from_metadata is not None else labels
+
+    if "image_index" in cluster_df.columns:
+        for idx, label in zip(cluster_df["image_index"], cluster_df["cluster"], strict=False):
+            i = int(idx)
+            if 0 <= i < n_images:
+                labels[i] = float(label) if label is not None else np.nan
+    else:
+        for i, label in enumerate(cluster_df["cluster"].tolist()):
+            if i < n_images:
+                labels[i] = float(label) if label is not None else np.nan
+
+    return labels
+
+
 def generate_clustering_section(
     ctx: "ReportContext",
     n_clusters: int = 5,
@@ -59,27 +112,11 @@ def generate_clustering_section(
     if not pipeline.has_embeddings:
         return generate_info_box("No embeddings available for clustering.", "warning")
 
-    # Try to use existing cluster labels from metadata if available to avoid re-calculation
-    cluster_labels = None
-    if pipeline.results.metadata:
-        try:
-            labels = []
-            for m in pipeline.results.metadata:
-                if isinstance(m, dict):
-                    # Check both 'cluster' and 'Cluster' variants
-                    val = m.get("cluster", m.get("Cluster"))
-                    labels.append(float(val) if val is not None else np.nan)
-                else:
-                    labels.append(np.nan)
-            labels_arr = np.array(labels)
-            if np.any(~np.isnan(labels_arr)):
-                cluster_labels = labels_arr
-        except (ValueError, TypeError):
-            cluster_labels = None
+    cluster_labels = _cluster_labels_from_metadata(pipeline)
 
     if cluster_labels is None:
         try:
-            cluster_labels = pipeline.compute_clustering(
+            clustering_result = pipeline.compute_clustering(
                 source="embeddings",
                 n_clusters=n_clusters,
                 clustering_method=clustering_method,
@@ -88,6 +125,7 @@ def generate_clustering_section(
                 reduce_dim=reduce_dim,
                 reduce_method=reduce_method,
             )
+            cluster_labels = _cluster_labels_from_clustering_result(pipeline, clustering_result)
         except (ValueError, KeyError, RuntimeError) as e:
             return generate_info_box(f"Error computing clustering: {e}", "error")
 
@@ -294,11 +332,11 @@ def _generate_group_enrichment(
 
         features_html = []
         for _, row in group_data.iterrows():
-            direction = "High" if row["Score"] > 0 else "Low"
-            color = "#10b981" if row["Score"] > 0 else "#ef4444"
+            direction = "High" if row["score"] > 0 else "Low"
+            color = "#10b981" if row["score"] > 0 else "#ef4444"
             features_html.append(
-                f'<span style="color: {color};">{direction} {row["Property"]} '
-                f"(Z: {row['Score']:.2f})</span>"
+                f'<span style="color: {color};">{direction} {row["property"]} '
+                f"(Z: {row['score']:.2f})</span>"
             )
 
         enrichment_items.append(
@@ -357,7 +395,7 @@ def _generate_prototype_images(
             )
         except (ValueError, TypeError):
             continue
-        proto_indices = group_df["prototype_index"].tolist()
+        proto_indices = group_df["image_index"].tolist()
         imgs = load_image_data(pipeline, proto_indices[:n_prototypes], image_size)
         for img_dict in imgs:
             img_dict["cluster"] = cluster_num

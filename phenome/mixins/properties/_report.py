@@ -8,8 +8,11 @@ import numpy as np
 import pandas as pd
 
 from ..._logging import get_logger
-from ...core import build_metadata_columns
-from ...utils.path_utils import path_basename
+from ...core.dataframe_contract import (
+    TIER_A_EXCLUDE_FROM_PROPERTIES,
+    append_property_columns,
+    per_image_dataframe,
+)
 
 logger = get_logger(__name__)
 
@@ -51,16 +54,18 @@ def parse_grouped_stats_dataframe(
 def build_properties_dataframe(
     results: Any,
     properties: list[str] | None = None,
-    *,
-    simple: bool = False,
+    include_metadata: bool = False,
 ) -> pd.DataFrame:
-    """Build DataFrame from computed properties.
+    """Build Tier-A DataFrame from computed properties.
 
     Args:
         results: Pipeline results with ``properties`` and ``img_path``.
         properties: Property column names. If None, inferred from first row.
-        simple: If True, return only ``index``, ``img_path``, and property columns.
-            If False (default), include all metadata columns and ``img_name``.
+        include_metadata: If True, include metadata columns with raw key casing.
+
+    Returns:
+        DataFrame with ``image_index``, ``image_path``, ``image_name``, optional metadata,
+        and property values.
     """
     properties_list = (
         results.properties if hasattr(results, "properties") else results.get("properties", [])
@@ -68,24 +73,16 @@ def build_properties_dataframe(
     if properties is None or (isinstance(properties, list) and len(properties) == 0):
         properties = list(properties_list[0].keys()) if properties_list else []
 
-    if not properties:
+    if not properties_list:
         logger.warning("No properties found in results. Run compute_properties first.")
         return pd.DataFrame()
 
-    img_path = results.img_path if hasattr(results, "img_path") else results.get("img_path", [])
-    df_dict: dict = {}
-    if simple:
-        df_dict["index"] = list(range(len(properties_list)))
-        df_dict["img_path"] = list(img_path)
-    else:
-        df_dict.update(build_metadata_columns(results))
-        df_dict["img_name"] = [path_basename(p) for p in img_path]
-        df_dict["img_path"] = list(img_path)
+    df = per_image_dataframe(results, include_metadata=include_metadata)
+    if not properties:
+        logger.warning("No property columns to include.")
+        return df
 
-    for prop in properties:
-        df_dict[prop] = [props.get(prop, np.nan) for props in properties_list]
-
-    return pd.DataFrame(df_dict)
+    return append_property_columns(df, results, properties)
 
 
 def compute_property_statistics(
@@ -107,3 +104,21 @@ def compute_property_statistics(
         else:
             stats.update({f"{prop}_{s}": np.nan for s in ("mean", "std", "min", "max")})
     return stats
+
+
+def tier_a_property_columns(df: pd.DataFrame) -> list[str]:
+    """Numeric property columns in a per-image properties DataFrame (Tier A)."""
+    exclude = set(TIER_A_EXCLUDE_FROM_PROPERTIES)
+    metadata_cols = {
+        col
+        for col in df.columns
+        if col not in exclude
+        and (df[col].dtype == object or not pd.api.types.is_numeric_dtype(df[col]))
+    }
+    return [
+        col
+        for col in df.columns
+        if col not in exclude
+        and col not in metadata_cols
+        and pd.api.types.is_numeric_dtype(df[col])
+    ]

@@ -4,34 +4,37 @@ All notable changes to PhenoMe are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [1.2.0] – 2026-05
 
 ### Added
 
-- `export_experiment_config()` – Export experiment configuration (seed, reference_filters, model name, etc.) to JSON for reproducibility
-- `envs/` – Conda (`environment-cpu.yml`, `environment-gpu.yml`) and pip requirements (CPU/GPU + shared `requirements-base.txt`)
-- `CONTRIBUTING.md` – Contribution guidelines
-- `CHANGELOG.md` – Version history
+- `phenome.core.dataframe_contract` – Tier-A helpers (`per_image_dataframe`, `IMAGE_INDEX`, …)
+- `export_experiment_config()` – Export experiment configuration to JSON for reproducibility
+- `envs/` – Conda and pip environment files
+- `CONTRIBUTING.md`, `CHANGELOG.md`
+- API doc: [Results DataFrames](/PhenoMe/advanced/api/results-dataframes/)
 
 ### Changed
 
-- **Python 3.12+** required (`requires-python`, Trove classifiers); Ruff `target-version` and Mypy `python_version` set to 3.12 for consistency with CI and modern dependencies (e.g. `tifffile` typing syntax)
-- Unified logging: `results_validation` and `dimensionality_reduction` now use the package logger (notebook-safe)
-- Pre-commit: Removed Black; use Ruff for linting and formatting only
-- `.editorconfig`: Indent style changed from tabs to spaces for PEP 8 compliance
+- **Breaking:** Unified per-image API DataFrames on Tier A: `image_index`, `image_path`, `image_name`, raw metadata keys
+- **Breaking:** Slim default per-image returns: `compute_properties`, `compute_clustering`, and `compute_reference_distances` omit metadata columns unless `include_metadata=True`; use `export_dataset_table()` for full tables
+- **Breaking:** `compute_clustering` columns `idx`/`path` → `image_index`/`image_path`
+- **Breaking:** `detect_outliers` columns `idx`/`file_path` → `image_index`/`image_path`
+- **Breaking:** `find_prototypes` uses `image_index` and `rank_in_group` (was `prototype_index`)
+- **Breaking:** `analyze_group_enrichment` metric columns snake_case (`property`, `score`, `mean_group`, …)
+- **Breaking:** `compute_component_correlation` returns `property` + `component_1`, … columns
+- **Breaking:** `compute_reference_distances` and `compute_multivariate_interpretability` return a DataFrame by default; use `return_meta=True` for `(df, meta)` or `(df, meta, fig)` with `return_fig=True`
+- **Breaking:** `get_image_info` keys `image_index`, `image_name`, `image_path`
+- **Python 3.12+** required
+- Unified logging in validation and DR modules
 
 ### Fixed
 
-- Interactive explorer: Color-by dropdown now evaluates metadata/property cardinality across the full dataset (or a seeded random sample when very large), fixing columns such as `new_labels` omitted when classes were ordered so variability appeared only after the old fixed prefix window.
-- Environment: Simplified `environment-gpu.yml` to use standard backends; `pykeops` is now optional for extreme-scale datasets.
-- `prepare_embedding_dataframe` unions property keys across rows (not only row 0)
-- TorchDR→CPU fallback only on likely GPU/transient failures; `ValueError` always propagates; integer `random_state` for TorchDR PCA/TSNE/UMAP
-- Pearson correlation: constant `x` columns yield NaN; 1D result is always a length-1 `ndarray`
-- Checkpoint alignment: strict `zip` for metadata vs paths; duplicate path/key warnings; `path_repr` preserves multi-channel order; NIfTI detection limited to `.nii` / `.nii.gz`
-- `EmbeddingExtractor` checkpoint `embedding_dim` from last feature dimension with 2D requirement
-- `build_export_dataframe` skips misaligned `distances` with a warning
-- Centroid reference distances batched to reduce GPU OOM risk
-- Logging in Jupyter: validation and DR modules now respect the package logger configuration
+- Interactive explorer color-by cardinality across full dataset
+- `prepare_embedding_dataframe` unions property keys across all rows
+- `build_export_dataframe` skips misaligned distance columns with a warning
+- Centroid reference distances batched for GPU memory
+- Checkpoint alignment and TorchDR fallback behavior
 
 ## [1.1.0] – 2026-03
 

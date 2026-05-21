@@ -47,6 +47,8 @@ Results live in `PhenoMeResults` (`pheno.results`): `img_path`, `metadata`, `pro
 | `pheno.export_dataset_table()` | Metadata, properties, and distances as a DataFrame. Use for filtering, grouping, external analysis. |
 | `pheno.get_image_info(idx)` | Full metadata, properties, and optional distance for one image. |
 
+Analysis methods return [per-image DataFrames](/PhenoMe/advanced/api/results-dataframes/) (Tier A) with `image_index`, `image_path`, and `image_name` so tables join on one schema.
+
 Results are saved and loaded as HDF5 via `save_results()` and `load_results()`.
 
 ## Portability and data management

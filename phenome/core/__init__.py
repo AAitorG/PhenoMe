@@ -36,6 +36,16 @@ the phenotyping pipeline. Key components:
 For top-level analysis pipeline, see `phenome.PhenoMe`.
 """
 
+from .dataframe_contract import (
+    IMAGE_INDEX,
+    IMAGE_NAME,
+    IMAGE_PATH,
+    TIER_A_EXCLUDE_FROM_PROPERTIES,
+    append_property_columns,
+    is_per_image_df,
+    per_image_dataframe,
+    reorder_tier_a_columns,
+)
 from .math import (
     build_combined_features,
     clean_correlation_inputs,
@@ -63,8 +73,13 @@ from .results_metadata import (
 from .results_validation import validate_results
 
 __all__ = [
+    "IMAGE_INDEX",
+    "IMAGE_NAME",
+    "IMAGE_PATH",
+    "TIER_A_EXCLUDE_FROM_PROPERTIES",
     "PhenoMeProtocol",
     "PhenoMeResults",
+    "append_property_columns",
     "build_combined_features",
     "build_export_dataframe",
     "build_metadata_columns",
@@ -80,9 +95,12 @@ __all__ = [
     "get_all_metadata_keys",
     "get_metadata_value",
     "get_metadata_value_from_dict",
+    "is_per_image_df",
     "metadata_to_stable_key",
     "optimize_property_types",
+    "per_image_dataframe",
     "prepare_embedding_dataframe",
+    "reorder_tier_a_columns",
     "run_dimensionality_reduction",
     "run_dimensionality_reduction_matrix",
     "validate_results",

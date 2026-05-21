@@ -220,6 +220,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
+| `append_property_columns` | Add property columns to a Tier-A DataFrame. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `build_combined_features` | Build combined embedding + property matrix with balanced normalization. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `build_export_dataframe` | Build a DataFrame with the complete dataset for export. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `build_metadata_columns` | Build dict of metadata columns suitable for DataFrame creation. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
@@ -235,13 +236,20 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `get_all_metadata_keys` | Get sorted unique metadata keys present in results. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `get_metadata_value` | Safely fetch a metadata value for an image index. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `get_metadata_value_from_dict` | Get value from a single metadata dict with case-insensitive key matching. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `IMAGE_INDEX` | str(object='') -> str | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `IMAGE_NAME` | str(object='') -> str | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `IMAGE_PATH` | str(object='') -> str | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `is_per_image_df` | Return whether ``df`` satisfies the per-image DataFrame contract (Tier A). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `metadata_to_stable_key` | Build a deterministic, portable key from metadata for matching across devices. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `optimize_property_types` | Reduce memory usage of property values. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `per_image_dataframe` | Build a Tier-A per-image DataFrame. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `PhenoMeProtocol` | Protocol describing attributes and methods mixins expect from PhenoMe. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `PhenoMeResults` | Typed container for per-image phenotyping data. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `prepare_embedding_dataframe` | Create a DataFrame with embedding/reduction coordinates, metadata, and properties. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `reorder_tier_a_columns` | Place Tier-A id columns first, then metadata, then remaining columns. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `run_dimensionality_reduction` | Run dimensionality reduction using pipeline data and return DataFrame. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `run_dimensionality_reduction_matrix` | Run dimensionality reduction on a raw matrix (pure, no pipeline). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `TIER_A_EXCLUDE_FROM_PROPERTIES` | frozenset() -> empty frozenset object | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `validate_results` | Check that pipeline results have consistent lengths across all arrays. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 
 ---

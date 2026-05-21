@@ -76,7 +76,7 @@ Pull requests run the **Documentation** workflow: Node + Python install, `npm ru
 ## Optional checks
 
 - **Preview:** `npm run preview` after a production build.
-- **Doctest:** the project does not run doctest on all modules by default; add targeted tests under `tests/` when adding executable examples in docstrings.
+- **Doctest:** the project does not run doctest on all modules by default.
 
 ---
 

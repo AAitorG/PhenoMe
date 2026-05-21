@@ -117,8 +117,10 @@ class _ImageDisplayMixin:
         img_path: Any,
     ) -> str | None:
         """Build the same multi-line details string as logging in ``_print_image_details``."""
-        extra_info = {k: v for k, v in all_info.items() if k != "idx" and v is not None}
-        basic_id_fields = {"img_name", "img_path"}
+        extra_info = {
+            k: v for k, v in all_info.items() if k not in ("image_index", "idx") and v is not None
+        }
+        basic_id_fields = {"image_name", "image_path", "img_name", "img_path"}
         has_extra = any(k not in basic_id_fields for k in extra_info)
         if not has_extra:
             return None
@@ -128,7 +130,7 @@ class _ImageDisplayMixin:
             f"IMAGE DETAILS - Index {idx}",
             f"{'=' * 50}",
             f"  Name:     {all_info.get('img_name', img_name)}",
-            f"  Path:     {all_info.get('img_path', img_path)}",
+            f"  Path:     {all_info.get('image_path', all_info.get('img_path', img_path))}",
         ]
         metadata_keys = set(metadata.keys()) if metadata else set()
         metadata_info = {
@@ -280,9 +282,9 @@ class _ImageDisplayMixin:
             all_info = self.get_image_info(idx, distance_results)
         else:
             all_info = {
-                "idx": idx,
-                "img_name": img_name,
-                "img_path": img_path,
+                "image_index": idx,
+                "image_name": img_name,
+                "image_path": img_path,
             }
             if metadata:
                 all_info.update(metadata)
@@ -290,7 +292,16 @@ class _ImageDisplayMixin:
                 all_info["distance"] = distance_results.at[idx, "distance"]
 
         distance = all_info.get("distance")
-        basic_fields = {"idx", "img_name", "img_path", "distance", "is_reference"}
+        basic_fields = {
+            "image_index",
+            "image_name",
+            "image_path",
+            "idx",
+            "img_name",
+            "img_path",
+            "distance",
+            "is_reference",
+        }
         properties_for_title = {
             k: v for k, v in all_info.items() if k not in basic_fields and v is not None
         }

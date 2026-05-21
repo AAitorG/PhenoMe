@@ -153,7 +153,7 @@ class PhenoMeProperties:
             TypeError: If group_by/properties are invalid types.
             ValueError: If group_by keys are not in DataFrame columns.
         """
-        df = self._build_properties_dataframe()
+        df = self._build_properties_dataframe(include_metadata=True)
         return _property_stats_by_group_fn(
             df,
             group_by=group_by,
@@ -240,6 +240,7 @@ class PhenoMeProperties:
         n_jobs: int = 1,
         lazy_checkpoint: bool = True,
         force_update: bool = False,
+        include_metadata: bool = False,
     ) -> pd.DataFrame:
         """Compute per-image properties using presets and/or custom functions.
 
@@ -283,9 +284,11 @@ class PhenoMeProperties:
                 missing checkpoint property keys. If ``checkpoint_path``
                 is set but the file does not exist yet, only an info log is emitted;
                 computation proceeds as for a new checkpoint.
+            include_metadata: If True, add metadata columns to the returned DataFrame.
 
         Returns:
-            DataFrame with columns ``index``, ``img_path``, and property values.
+            DataFrame with ``image_index``, ``image_path``, ``image_name``, property values,
+            and optional metadata columns.
             Also populates ``results.properties`` as ``List[dict]`` (one dict per image).
 
         Raises:
@@ -375,7 +378,7 @@ class PhenoMeProperties:
                 property_keys=sorted(expected_property_keys) if expected_property_keys else None,
                 count_missing_key_as_nan=not bool(expected_property_keys),
             )
-            return _build_properties_dataframe_fn(self.results, simple=True)
+            return _build_properties_dataframe_fn(self.results, include_metadata=include_metadata)
 
         # Process images
         all_property_names, feature_buffers, last_committed, internal_buffer = (
@@ -425,15 +428,19 @@ class PhenoMeProperties:
         return _build_properties_dataframe_fn(
             self.results,
             list(all_property_names) if all_property_names else None,
-            simple=True,
+            include_metadata=include_metadata,
         )
 
     def _build_properties_dataframe(
         self,
         property_keys: list[str] | None = None,
+        *,
+        include_metadata: bool = False,
     ) -> pd.DataFrame:
-        """Build DataFrame from computed properties and metadata."""
-        return _build_properties_dataframe_fn(self.results, property_keys)
+        """Build DataFrame from computed properties and optional metadata."""
+        return _build_properties_dataframe_fn(
+            self.results, property_keys, include_metadata=include_metadata
+        )
 
     # ------------------------------------------------------------------
     # Property matrix & NaN detection (used by distances, viz, analysis)

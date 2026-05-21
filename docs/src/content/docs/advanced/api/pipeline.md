@@ -512,7 +512,7 @@ Return metadata, properties, and optional distance for image idx.
 
 **Returns:**
 
-- **`dict`**: Keys idx, img_name, img_path, metadata keys, property keys,
+- **`dict`**: Keys image_index, image_name, image_path, metadata keys, property keys,
   distance (if distance_results provided), is_reference (if applicable).
 
 </div>
@@ -945,7 +945,8 @@ PhenoMeProperties.compute_properties(
     save_every: int = 50,
     n_jobs: int = 1,
     lazy_checkpoint: bool = True,
-    force_update: bool = False
+    force_update: bool = False,
+    include_metadata: bool = False
 ) -> DataFrame
 ```
 
@@ -996,10 +997,12 @@ supported.
   missing checkpoint property keys. If ``checkpoint_path``
   is set but the file does not exist yet, only an info log is emitted;
   computation proceeds as for a new checkpoint.
+- **`include_metadata`**: If True, add metadata columns to the returned DataFrame.
 
 **Returns:**
 
-  DataFrame with columns ``index``, ``img_path``, and property values.
+  DataFrame with ``image_index``, ``image_path``, ``image_name``, property values,
+  and optional metadata columns.
   Also populates ``results.properties`` as ``List[dict]`` (one dict per image).
 
 **Raises:**
@@ -1217,7 +1220,8 @@ PhenoMeAnalysis.compute_clustering(
     reduce_method: Literal['pca', 'tsne', 'umap'] = 'pca',
     return_silhouette: bool = False,
     dbscan_eps: float | None = None,
-    dbscan_min_samples: int | None = None
+    dbscan_min_samples: int | None = None,
+    include_metadata: bool = False
 ) -> pandas.DataFrame | tuple[pandas.DataFrame, float | None]
 ```
 
@@ -1251,10 +1255,12 @@ Perform clustering and store labels in ``metadata[i]['cluster']`` for each image
   clustering_method='dbscan'). If None, uses 0.5.
 - **`dbscan_min_samples`**: Minimum samples in a neighborhood for DBSCAN (only when
   clustering_method='dbscan'). If None, uses max(2, n_samples // 20).
+- **`include_metadata`**: If True, add metadata columns to the returned DataFrame.
 
 **Returns:**
 
-  If return_silhouette=False: pd.DataFrame with columns ['idx', 'path', 'cluster'].
+  If return_silhouette=False: Tier-A DataFrame with image_index, image_path,
+  image_name, cluster, and optional metadata.
   If return_silhouette=True: Tuple of (df, silhouette_score). Score is None
   if it could not be computed. Cluster labels are 0..K-1; None for excluded/noise.
 
@@ -1384,8 +1390,8 @@ Find images closest to each group centroid.
 **Returns:**
 
   pd.DataFrame: DataFrame with one row per prototype. Columns include grouping
-  keys (split into individual columns if multiple), ``prototype_index``,
-  and ``image_path``.
+  keys (split into individual columns if multiple), ``image_index``,
+  ``image_path``, ``image_name``, and ``rank_in_group``.
 
 </div>
 
@@ -1426,7 +1432,7 @@ For each group, z-scores are computed against a **leave-group-out**
 population (all samples *except* the current group).  When
 *correct_multiple_testing* is True (default), Benjamini-Hochberg FDR
 correction is applied across all (group, property) pairs and a
-``Significant`` column is added to the output DataFrame.
+``significant`` column is added to the output DataFrame.
 
 **Args:**
 
@@ -1446,14 +1452,14 @@ correction is applied across all (group, property) pairs and a
 - **`title`**: Optional figure title.
 - **`correct_multiple_testing`** (`bool`): If True (default), apply Benjamini-Hochberg
   FDR correction across all (group, property) z-scores and add a
-  ``Significant`` column (alpha = 0.05).
+  ``significant`` column (alpha = 0.05).
 
 **Returns:**
 
   pd.DataFrame or tuple[pd.DataFrame, Any]:
   - If *return_fig* is False (default): pd.DataFrame with columns:
-  [group_by columns], Property, Score, Mean_Group, Mean_Pop, AbsScore,
-  and optionally p_value / Significant when *correct_multiple_testing* is True.
+  [group_by columns], property, score, mean_group, mean_pop, abs_score,
+  and optionally p_value / significant when *correct_multiple_testing* is True.
   - If *return_fig* is True: A tuple (enrichment_df, fig).
 
 </div>
@@ -1523,8 +1529,8 @@ Correlate dim-reduction components with phenotypic properties.
 **Returns:**
 
   pd.DataFrame | tuple[pd.DataFrame, Any]:
-  - If ``return_fig`` is False (default): Returns the correlation DataFrame
-  with a ``Properties`` column and an integer index.
+  - If ``return_fig`` is False (default): Correlation DataFrame with a
+  ``property`` column and ``component_1``, ``component_2``, … columns.
   - If ``return_fig`` is True: Returns a tuple of ``(correlation_df, figure)``.
 
 **Raises:**
@@ -1686,9 +1692,10 @@ PhenoMeAnalysis.compute_multivariate_interpretability(
     seed: int | None = None,
     plot: bool = True,
     return_fig: bool = False,
+    return_meta: bool = False,
     top_k: int = 10,
     figsize: tuple[int, int] = (10, 8)
-) -> pandas.DataFrame | tuple[pandas.DataFrame, Any]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, dict[str, Any]] | tuple[pandas.DataFrame, Any] | tuple[pandas.DataFrame, dict[str, Any], Any]
 ```
 
 </div>
@@ -1717,29 +1724,22 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 - **`seed`**: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
 - **`plot`**: If True (default), show an interactive Plotly bar chart of top drivers.
   If False, log a plain-text summary via the package logger instead.
-- **`return_fig`**: If True, returns a tuple of ``(df, fig)``.
+- **`return_fig`**: If True, include the Plotly figure in the return value (see Returns).
   When ``return_fig`` is True, ``fig.show()`` is not called; use
   ``plot=True`` with ``return_fig=False`` for interactive display.
+- **`return_meta`**: If True, include a run-parameters dict in the return value.
 - **`top_k`**: Number of top drivers to show in the plot or text summary.
 - **`figsize`**: Figure size ``(width, height)`` passed through to Plotly layout; each
   value is multiplied by 100 to set width and height in layout pixels.
 
 **Returns:**
 
-  pd.DataFrame | tuple[pd.DataFrame, Any]:
-  - If ``return_fig`` is False (default): A DataFrame of ranked drivers.
-  Columns are ``feature`` and ``weight``. Metadata is in ``df.attrs``.
-  - If ``return_fig`` is True: A tuple of ``(df, fig)``.
-  The DataFrame contains:
-  - ``feature``: The phenotypic property name.
-  - ``weight``: LASSO coefficient or Random Forest Gini importance.
-  Metadata in ``df.attrs`` includes:
-  - ``r2``: Explainability Score (R^2) for the model.
-  - ``n_samples``: Number of samples used for the model.
-  - ``n_features``: Total number of features considered.
-  - ``method``: The dimensionality reduction method used.
-  - ``model_type``: The regression model type used.
-  - ``target_component``: The component name explained.
+  pd.DataFrame or tuple, depending on *return_meta* and *return_fig*:
+  - Default: ``drivers_df`` with columns ``feature``, ``weight``.
+  - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2, n_samples,
+  n_features, method, model_type, target_component.
+  - ``return_fig=True``: ``(drivers_df, fig)`` or ``(drivers_df, meta, fig)`` when
+  *return_meta* is also True.
 
 </div>
 

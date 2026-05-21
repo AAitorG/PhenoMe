@@ -63,7 +63,7 @@ def generate_outlier_section(
             group_by=group_by,
             plot=False,
         )
-        outlier_indices = outlier_df["idx"].tolist() if not outlier_df.empty else []
+        outlier_indices = outlier_df["image_index"].tolist() if not outlier_df.empty else []
         summary_df = outlier_df
     except (ValueError, KeyError, RuntimeError) as e:
         return generate_info_box(f"Error detecting outliers: {e}", "error")
@@ -77,7 +77,7 @@ def generate_outlier_section(
 
         rows = []
         for _, row in top_outliers.iterrows():
-            file_path = row.get("file_path", "")
+            file_path = row.get("image_path", row.get("file_path", ""))
             if isinstance(file_path, list):
                 file_path = file_path[0] if file_path else ""
             path_str = str(file_path)
@@ -85,7 +85,7 @@ def generate_outlier_section(
             rows.append(
                 f"""
             <tr>
-                <td><span class="value">{int(row.get("idx", 0))}</span></td>
+                <td><span class="value">{int(row.get("image_index", 0))}</span></td>
                 <td>{row.get("distance_to_centroid", 0):.4f}</td>
                 <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
                     {display_path}

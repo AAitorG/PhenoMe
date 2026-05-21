@@ -846,7 +846,7 @@ class PhenoMe(
             distance_results: Optional DataFrame from compute_reference_distances.
 
         Returns:
-            dict: Keys idx, img_name, img_path, metadata keys, property keys,
+            dict: Keys image_index, image_name, image_path, metadata keys, property keys,
                 distance (if distance_results provided), is_reference (if applicable).
         """
         if not isinstance(idx, (int, np.integer)):
@@ -859,9 +859,9 @@ class PhenoMe(
         path = self.results.img_path[idx]
         path_for_name = path[0] if isinstance(path, list) else path
         info: dict[str, Any] = {
-            "idx": idx,
-            "img_name": os.path.basename(path_for_name),
-            "img_path": path,
+            "image_index": idx,
+            "image_name": os.path.basename(path_for_name),
+            "image_path": path,
         }
 
         if idx < len(self.results.metadata) and isinstance(self.results.metadata[idx], dict):

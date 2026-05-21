@@ -38,8 +38,8 @@ def _log_group_enrichment_results(
     z_fmt = f"{{:+{num_w}.{fixed_decimals}f}}"
 
     # Column headers once (printed a single time above all groups)
-    props = enrichment_df["Property"].astype(str)
-    prop_w = max(len("Property"), int(props.str.len().max()))
+    props = enrichment_df["property"].astype(str)
+    prop_w = max(len("property"), int(props.str.len().max()))
     h1, h2, h3 = "Group_mean", "Z", "Pop_mean"
     w1 = max(len(h1), num_w)
     w2 = max(len(h2), num_w)
@@ -48,7 +48,7 @@ def _log_group_enrichment_results(
     logger.info(
         "  %-*s  %*s  %*s  %*s",
         prop_w,
-        "Property",
+        "property",
         w1,
         h1,
         w2,
@@ -62,19 +62,19 @@ def _log_group_enrichment_results(
         sub = enrichment_df[enrichment_df["Group"] == grp]
         if sub.empty:
             continue
-        sub = sub.sort_values("AbsScore", ascending=False)
+        sub = sub.sort_values("abs_score", ascending=False)
         if top_k is not None:
             sub = sub.head(int(top_k))
         logger.info("")
         logger.info("Group: %s", grp)
         for _, row in sub.iterrows():
-            gm = float(row["Mean_Group"])
-            z = float(row["Score"])
-            pm = float(row["Mean_Pop"])
+            gm = float(row["mean_group"])
+            z = float(row["score"])
+            pm = float(row["mean_pop"])
             logger.info(
                 "  %-*s  %*s  %*s  %*s",
                 prop_w,
-                str(row["Property"]),
+                str(row["property"]),
                 w1,
                 fmt.format(gm),
                 w2,
@@ -102,10 +102,10 @@ def _build_group_enrichment_figure(
         sub = enrichment_df[enrichment_df["Group"] == grp]
         if sub.empty:
             continue
-        sub = sub.sort_values("AbsScore", ascending=False)
+        sub = sub.sort_values("abs_score", ascending=False)
         if top_k is not None:
             sub = sub.head(int(top_k))
-        s = sub.set_index("Property")["Score"].dropna()
+        s = sub.set_index("property")["score"].dropna()
         if s.empty:
             continue
         s_display = s.iloc[s.abs().argsort()]
@@ -178,7 +178,7 @@ def _build_group_enrichment_figure(
     fig.update_yaxes(automargin=False)
     title_center_shift_px = -(tick_label_reserve_px + title_gutter_px // 3)
     fig.add_annotation(
-        text="<b>Property</b>",
+        text="<b>property</b>",
         xref="paper",
         yref="paper",
         x=0,
@@ -219,8 +219,8 @@ class _GroupEnrichmentPlotsMixin:
         Mirrors the branching pattern used by :meth:`_ComponentCorrelationPlotsMixin._plot_component_correlation`.
 
         Args:
-            enrichment_df: Rows per group-property with columns Group, Property, Score,
-                Mean_Group, Mean_Pop, AbsScore.
+            enrichment_df: Rows per group-property with columns Group, property, score,
+                mean_group, mean_pop, abs_score.
             group_names: Order of groups for facets; default is sorted unique ``Group`` values.
             plot: If True, build/show faceted bar charts when applicable.
             return_fig: If True, return the Plotly figure and do not call ``fig.show()``.

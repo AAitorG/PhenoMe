@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "phenome"
-version = "1.1.0"
+version = "1.2.0"
 description = "PhenoMe: dataset-agnostic phenotyping pipeline using deep learning embeddings"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -172,10 +172,6 @@ verbose            = 1
 quiet              = false
 whitelist-regex    = []
 color              = true
-
-[tool.pytest.ini_options]
-# When pytest is used, keep its cache under `.cache/` instead of `.pytest_cache/` at repo root
-cache_dir = ".cache/pytest"
 
 
 # ==============================================================================

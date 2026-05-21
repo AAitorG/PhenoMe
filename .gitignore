@@ -1,5 +1,8 @@
-# Centralized local tool caches (ruff/mypy/pytest); paths set in pyproject.toml
+# Centralized local tool caches (ruff/mypy); paths set in pyproject.toml
 .cache/
+
+# Local uv lockfile (CI and releases use pip/conda; see CONTRIBUTING.md)
+uv.lock
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

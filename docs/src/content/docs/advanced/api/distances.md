@@ -46,8 +46,10 @@ PhenoMeDistances.compute_reference_distances(
     figsize: tuple[int, int] = (10, 6),
     plot: bool = True,
     return_fig: bool = False,
+    return_meta: bool = False,
+    include_metadata: bool = False,
     points: Optional[Literal['all', 'outliers', False]] = None
-) -> pandas.DataFrame | tuple[pandas.DataFrame, Any]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, dict[str, Any]] | tuple[pandas.DataFrame, Any] | tuple[pandas.DataFrame, dict[str, Any], Any]
 ```
 
 </div>
@@ -81,29 +83,22 @@ Compute distances from all images to reference group.
 - **`plot`**: If True and *group_by* is set, show or return a violin plot only (no
   per-group text summary to the logger). If False, log per-group summary
   statistics where applicable (e.g. text-only mode, or with *return_fig*).
-- **`return_fig`**: If True and *group_by* is set, return a tuple of ``(df, fig)``.
-  When ``return_fig`` is True, ``fig.show()`` is not called.
+- **`return_fig`**: If True and *group_by* is set, include the Plotly figure in the
+  return value (see Returns). When ``return_fig`` is True, ``fig.show()`` is not called.
+- **`return_meta`**: If True, include a run-parameters dict in the return value.
+- **`include_metadata`**: If True, add metadata columns to the returned DataFrame.
 - **`points`**: Violin plot point overlay: ``'all'``, ``'outliers'``, or ``False``;
   ``None`` auto-selects by data size.
 
 **Returns:**
 
-  pd.DataFrame | tuple[pd.DataFrame, Any]:
-  - If ``return_fig`` is False (default): Returns the distance DataFrame.
-  - If ``return_fig`` is True: Returns a tuple of ``(distance_df, figure)``.
-  The figure is None if *group_by* is not set.
-  The DataFrame contains:
-  - image_index: int, global image index.
-  - image_path: str, path to the image.
-  - distance: float32, distance per image; NaN for invalid/filtered.
-  - is_reference: bool, True for images in the reference group.
-  - (metadata columns): columns for each key in *group_by* if provided.
-  Metadata is stored in ``df.attrs``:
-  - reference_filters: dict of filters used
-  - filters: dict of global filters applied
-  - mode: str ('centroid' or 'all_to_all')
-  - source: str ('embeddings', 'properties', or 'combined')
-  - distance_type: str ('euclidean' or 'cosine')
+  pd.DataFrame or tuple, depending on *return_meta* and *return_fig*:
+  - Default: ``distance_df`` (Tier A) with ``image_index``, ``image_path``,
+  ``image_name``, ``distance``, ``is_reference``.
+  - ``return_meta=True``: ``(distance_df, meta)``; *meta* holds
+  reference_filters, filters, mode, source, distance_type.
+  - ``return_fig=True`` (with *group_by*): ``(distance_df, fig)`` or
+  ``(distance_df, meta, fig)`` when *return_meta* is also True.
 
 **Example:**
 
@@ -113,7 +108,6 @@ Compute distances from all images to reference group.
 ...     source='embeddings',
 ...     mode='centroid',
 ...     distance_type='euclidean',
-...     group_by='condition',
 ... )
 >>> distances = dist_df['distance']
 ```

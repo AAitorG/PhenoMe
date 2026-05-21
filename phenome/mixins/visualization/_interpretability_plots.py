@@ -116,29 +116,25 @@ def _build_multivariate_interpretability_figure(
     return fig
 
 
-def _interpretability_df_to_dict(df: pd.DataFrame) -> dict[str, Any]:
-    """Convert the restructured interpretability DataFrame back to the internal dict format."""
-    if df.empty:
+def _interpretability_df_to_dict(
+    df: pd.DataFrame,
+    meta: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Convert interpretability DataFrame (+ optional meta) to the internal dict format."""
+    if df.empty and not meta:
         return {}
 
-    # Extract metadata from attrs
-    results = {
-        "r2": df.attrs.get("r2"),
-        "method": df.attrs.get("method"),
-        "model_type": df.attrs.get("model_type"),
-        "target_component": df.attrs.get("target_component"),
-        "n_samples": df.attrs.get("n_samples"),
-        "n_features": df.attrs.get("n_features"),
-    }
-
-    # Extract drivers
-    results["drivers"] = df[["feature", "weight"]].to_dict("records")
+    results: dict[str, Any] = dict(meta or {})
+    if "drivers" not in results and not df.empty:
+        results["drivers"] = df[["feature", "weight"]].to_dict("records")
+    elif "drivers" not in results:
+        results["drivers"] = []
 
     return results
 
 
 def _display_multivariate_interpretability(
-    results: dict[str, Any] | pd.DataFrame,
+    results: dict[str, Any] | pd.DataFrame | tuple[pd.DataFrame, dict[str, Any]],
     plot: bool = True,
     return_fig: bool = False,
     top_k: int = 10,
@@ -160,7 +156,17 @@ def _display_multivariate_interpretability(
     Returns:
         The Plotly figure if one was built and *return_fig* is True; otherwise ``None``.
     """
-    if isinstance(results, pd.DataFrame):
+    if isinstance(results, tuple) and len(results) >= 1:
+        df_part = results[0]
+        if not isinstance(df_part, pd.DataFrame):
+            df_part = pd.DataFrame()
+        meta_part: dict[str, Any] | None = None
+        if (len(results) == 3 and isinstance(results[1], dict)) or (
+            len(results) >= 2 and isinstance(results[1], dict)
+        ):
+            meta_part = results[1]
+        results = _interpretability_df_to_dict(df_part, meta_part)
+    elif isinstance(results, pd.DataFrame):
         results = _interpretability_df_to_dict(results)
 
     if not isinstance(results, dict):

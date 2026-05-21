@@ -36,7 +36,7 @@ def generate_property_stats_section(
 
         property_keys = list(properties_list[0].keys())
 
-        df = pipeline._build_properties_dataframe(property_keys)
+        df = pipeline._build_properties_dataframe(property_keys, include_metadata=True)
 
         if df.empty:
             return generate_info_box("Properties DataFrame is empty.", "warning")

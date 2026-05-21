@@ -176,7 +176,7 @@ def _generate_outlier_images(
             exclude=exclude,
             plot=False,
         )
-        outlier_indices = outlier_df["idx"].tolist() if not outlier_df.empty else []
+        outlier_indices = outlier_df["image_index"].tolist() if not outlier_df.empty else []
     except (ValueError, KeyError, RuntimeError):
         outlier_indices = []
 

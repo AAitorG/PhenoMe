@@ -27,6 +27,13 @@ from ..core import (
     run_dimensionality_reduction,
     run_dimensionality_reduction_matrix,
 )
+from ..core.dataframe_contract import (
+    IMAGE_INDEX,
+    IMAGE_PATH,
+    TIER_A_EXCLUDE_FROM_PROPERTIES,
+    pack_df_meta_fig,
+    per_image_dataframe,
+)
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
 from ..utils.display_names import (
@@ -34,6 +41,7 @@ from ..utils.display_names import (
     format_correlation_method,
     format_dr_method,
 )
+from ..utils.path_utils import path_basename
 from . import _helpers
 from .visualization._distance_plots import _plot_property_correlations_plotly
 from .visualization._interpretability_plots import _display_multivariate_interpretability
@@ -96,6 +104,7 @@ class PhenoMeAnalysis:
         return_silhouette: bool = False,
         dbscan_eps: float | None = None,
         dbscan_min_samples: int | None = None,
+        include_metadata: bool = False,
     ) -> pd.DataFrame | tuple[pd.DataFrame, float | None]:
         """Perform clustering and store labels in ``metadata[i]['cluster']`` for each image.
 
@@ -122,9 +131,11 @@ class PhenoMeAnalysis:
                 clustering_method='dbscan'). If None, uses 0.5.
             dbscan_min_samples: Minimum samples in a neighborhood for DBSCAN (only when
                 clustering_method='dbscan'). If None, uses max(2, n_samples // 20).
+            include_metadata: If True, add metadata columns to the returned DataFrame.
 
         Returns:
-            If return_silhouette=False: pd.DataFrame with columns ['idx', 'path', 'cluster'].
+            If return_silhouette=False: Tier-A DataFrame with image_index, image_path,
+            image_name, cluster, and optional metadata.
             If return_silhouette=True: Tuple of (df, silhouette_score). Score is None
                 if it could not be computed. Cluster labels are 0..K-1; None for excluded/noise.
         """
@@ -144,12 +155,10 @@ class PhenoMeAnalysis:
 
         if len(matrix) == 0:
             logger.warning("No data available for clustering.")
-            df = pd.DataFrame(
-                {
-                    "idx": range(n_total),
-                    "path": self.results.img_path,
-                    "cluster": [None] * n_total,
-                }
+            df = per_image_dataframe(
+                self.results,
+                include_metadata=include_metadata,
+                extra_columns={"cluster": [None] * n_total},
             )
             if return_silhouette:
                 return df, None
@@ -295,13 +304,12 @@ class PhenoMeAnalysis:
             source,
         )
 
-        # Create DataFrame with idx, path, and cluster
-        df = pd.DataFrame(
-            {
-                "idx": range(n_total),
-                "path": self.results.img_path,
+        df = per_image_dataframe(
+            self.results,
+            include_metadata=include_metadata,
+            extra_columns={
                 "cluster": [int(x) if not np.isnan(x) else None for x in full_labels],
-            }
+            },
         )
 
         if return_silhouette:
@@ -326,9 +334,15 @@ class PhenoMeAnalysis:
         seed: int | None = None,
         plot: bool = True,
         return_fig: bool = False,
+        return_meta: bool = False,
         top_k: int = 10,
         figsize: tuple[int, int] = (10, 8),
-    ) -> pd.DataFrame | tuple[pd.DataFrame, Any]:
+    ) -> (
+        pd.DataFrame
+        | tuple[pd.DataFrame, dict[str, Any]]
+        | tuple[pd.DataFrame, Any]
+        | tuple[pd.DataFrame, dict[str, Any], Any]
+    ):
         """Explain a dimensionality reduction component using LASSO or Random Forest.
 
         Calculates which phenotypic properties (features) best explain the variability
@@ -350,30 +364,22 @@ class PhenoMeAnalysis:
             seed: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
             plot: If True (default), show an interactive Plotly bar chart of top drivers.
                 If False, log a plain-text summary via the package logger instead.
-            return_fig: If True, returns a tuple of ``(df, fig)``.
+            return_fig: If True, include the Plotly figure in the return value (see Returns).
                 When ``return_fig`` is True, ``fig.show()`` is not called; use
                 ``plot=True`` with ``return_fig=False`` for interactive display.
+            return_meta: If True, include a run-parameters dict in the return value.
             top_k: Number of top drivers to show in the plot or text summary.
             figsize: Figure size ``(width, height)`` passed through to Plotly layout; each
                 value is multiplied by 100 to set width and height in layout pixels.
 
         Returns:
-            pd.DataFrame | tuple[pd.DataFrame, Any]:
-                - If ``return_fig`` is False (default): A DataFrame of ranked drivers.
-                  Columns are ``feature`` and ``weight``. Metadata is in ``df.attrs``.
-                - If ``return_fig`` is True: A tuple of ``(df, fig)``.
+            pd.DataFrame or tuple, depending on *return_meta* and *return_fig*:
 
-                The DataFrame contains:
-                - ``feature``: The phenotypic property name.
-                - ``weight``: LASSO coefficient or Random Forest Gini importance.
-
-                Metadata in ``df.attrs`` includes:
-                - ``r2``: Explainability Score (R^2) for the model.
-                - ``n_samples``: Number of samples used for the model.
-                - ``n_features``: Total number of features considered.
-                - ``method``: The dimensionality reduction method used.
-                - ``model_type``: The regression model type used.
-                - ``target_component``: The component name explained.
+            - Default: ``drivers_df`` with columns ``feature``, ``weight``.
+            - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2, n_samples,
+              n_features, method, model_type, target_component.
+            - ``return_fig=True``: ``(drivers_df, fig)`` or ``(drivers_df, meta, fig)`` when
+              *return_meta* is also True.
         """
         effective_seed = seed if seed is not None else getattr(self, "seed", None)
 
@@ -395,13 +401,13 @@ class PhenoMeAnalysis:
         if dr_results is None or dr_results.empty:
             logger.warning("No data available for multivariate interpretability.")
             df = pd.DataFrame()
-            return (df, None) if return_fig else df
+            return pack_df_meta_fig(df, {}, None, return_meta=return_meta, return_fig=return_fig)
 
         comp_col = f"Component {component}"
         if comp_col not in dr_results.columns:
             logger.warning("Target component '%s' not found in DR results.", comp_col)
             df = pd.DataFrame()
-            return (df, None) if return_fig else df
+            return pack_df_meta_fig(df, {}, None, return_meta=return_meta, return_fig=return_fig)
 
         y = dr_results[comp_col].values
         valid_indices = dr_results["Index"].values.tolist()
@@ -418,7 +424,7 @@ class PhenoMeAnalysis:
         if len(matrix) == 0:
             logger.warning("No valid samples with properties for interpretability.")
             df = pd.DataFrame()
-            return (df, None) if return_fig else df
+            return pack_df_meta_fig(df, {}, None, return_meta=return_meta, return_fig=return_fig)
 
         # Align y with X if NaN-filtering in _get_property_matrix changed samples
         if len(matrix) < len(y):
@@ -475,19 +481,11 @@ class PhenoMeAnalysis:
             figsize=figsize,
         )
 
-        # Convert results dict to DataFrame
         drivers = results.pop("drivers", [])
         df = pd.DataFrame(columns=["feature", "weight"]) if not drivers else pd.DataFrame(drivers)
+        meta = {k: v for k, v in results.items() if k != "dr_object"}
 
-        # Store metadata in attrs instead of columns
-        for key, value in results.items():
-            if key != "dr_object":
-                df.attrs[key] = value
-
-        if return_fig:
-            return df, fig
-
-        return df
+        return pack_df_meta_fig(df, meta, fig, return_meta=return_meta, return_fig=return_fig)
 
     # ------------------------------------------------------------------
     # Outlier detection
@@ -531,10 +529,11 @@ class PhenoMeAnalysis:
                 ``apply_transforms=False`` for display).
 
         Returns:
-            pd.DataFrame: A DataFrame containing detected outliers.
+            pd.DataFrame: Tier-A DataFrame containing detected outliers.
                 Columns include:
-                - ``idx``: Global image index.
-                - ``file_path``: Path to the image file.
+                - ``image_index``: Global image index.
+                - ``image_path``: Path to the image file.
+                - ``image_name``: Basename of the image file.
                 - Additional columns for each grouping key (if *group_by* was set).
                 - ``threshold``: The threshold value used for the image's group.
                 - ``distance_to_centroid``: Distance to the group centroid.
@@ -692,8 +691,9 @@ class PhenoMeAnalysis:
             path = self.results.img_path[idx]
 
             row = {
-                "idx": idx,
-                "file_path": path,
+                IMAGE_INDEX: idx,
+                IMAGE_PATH: path,
+                "image_name": path_basename(path),
             }
 
             if actual_group_by:
@@ -732,7 +732,9 @@ class PhenoMeAnalysis:
             import matplotlib.pyplot as plt
 
             # Group outliers by group name
-            outliers_by_group = result_df.groupby("_internal_group")["idx"].apply(list).to_dict()
+            outliers_by_group = (
+                result_df.groupby("_internal_group")[IMAGE_INDEX].apply(list).to_dict()
+            )
 
             for group_name, indices in outliers_by_group.items():
                 if not indices:
@@ -870,8 +872,8 @@ class PhenoMeAnalysis:
 
         Returns:
             pd.DataFrame | tuple[pd.DataFrame, Any]:
-                - If ``return_fig`` is False (default): Returns the correlation DataFrame
-                  with a ``Properties`` column and an integer index.
+                - If ``return_fig`` is False (default): Correlation DataFrame with a
+                  ``property`` column and ``component_1``, ``component_2``, … columns.
                 - If ``return_fig`` is True: Returns a tuple of ``(correlation_df, figure)``.
 
         Raises:
@@ -1009,9 +1011,10 @@ class PhenoMeAnalysis:
             title=title,
         )
 
-        # Add properties title to the column with properties, and add indexes from 0 to N
-        corr.index.name = "Properties"
+        corr.index.name = "property"
         corr = corr.reset_index()
+        component_rename = {comp: f"component_{i}" for i, comp in enumerate(comp_cols, start=1)}
+        corr = corr.rename(columns=component_rename)
 
         if return_fig and fig is not None:
             return corr, fig
@@ -1040,7 +1043,7 @@ class PhenoMeAnalysis:
         population (all samples *except* the current group).  When
         *correct_multiple_testing* is True (default), Benjamini-Hochberg FDR
         correction is applied across all (group, property) pairs and a
-        ``Significant`` column is added to the output DataFrame.
+        ``significant`` column is added to the output DataFrame.
 
         Args:
             group_by: Property/metadata key(s) holding group labels (e.g. ``"cluster"``).
@@ -1059,16 +1062,16 @@ class PhenoMeAnalysis:
             title: Optional figure title.
             correct_multiple_testing (bool): If True (default), apply Benjamini-Hochberg
                 FDR correction across all (group, property) z-scores and add a
-                ``Significant`` column (alpha = 0.05).
+                ``significant`` column (alpha = 0.05).
 
         Returns:
             pd.DataFrame or tuple[pd.DataFrame, Any]:
                 - If *return_fig* is False (default): pd.DataFrame with columns:
-                  [group_by columns], Property, Score, Mean_Group, Mean_Pop, AbsScore,
-                  and optionally p_value / Significant when *correct_multiple_testing* is True.
+                  [group_by columns], property, score, mean_group, mean_pop, abs_score,
+                  and optionally p_value / significant when *correct_multiple_testing* is True.
                 - If *return_fig* is True: A tuple (enrichment_df, fig).
         """
-        working_df = self._build_properties_dataframe()  # type: ignore[attr-defined]
+        working_df = self._build_properties_dataframe(include_metadata=True)  # type: ignore[attr-defined]
 
         # Resolve group columns (case-insensitive)
         requested_cols = [group_by] if isinstance(group_by, str) else group_by
@@ -1089,7 +1092,14 @@ class PhenoMeAnalysis:
                     f"Group column '{col}' not found. Columns: {list(working_df.columns)}"
                 )
 
-        empty_cols = [*resolved_cols, "Property", "Score", "Mean_Group", "Mean_Pop", "AbsScore"]
+        empty_cols = [
+            *resolved_cols,
+            "property",
+            "score",
+            "mean_group",
+            "mean_pop",
+            "abs_score",
+        ]
         if working_df.empty:
             edf = pd.DataFrame(columns=empty_cols)
             fig = self._plot_group_enrichment(  # type: ignore[attr-defined]
@@ -1105,7 +1115,10 @@ class PhenoMeAnalysis:
 
         if filters or exclude:
             indices = filter_indices(self.results, filters, exclude)
-            working_df = working_df.iloc[indices]
+            if IMAGE_INDEX in working_df.columns:
+                working_df = working_df[working_df[IMAGE_INDEX].isin(indices)]
+            else:
+                working_df = working_df.iloc[indices]
 
         # Create internal Group column for z-score calculation and plotting
         internal_group_col = "_internal_group_label_"
@@ -1118,7 +1131,11 @@ class PhenoMeAnalysis:
 
         cc = internal_group_col
         if property_keys is None:
-            exclude_cols = {"img_name", "img_path", "Index", "Image", internal_group_col}
+            exclude_cols = set(TIER_A_EXCLUDE_FROM_PROPERTIES) | {
+                "Index",
+                "Image",
+                internal_group_col,
+            }
             exclude_cols.update(resolved_cols)
             exclude_cols.update(c for c in working_df.columns if c.startswith("Component "))
             property_keys = [
@@ -1184,10 +1201,10 @@ class PhenoMeAnalysis:
                     rows.append(
                         {
                             "Group": grp,
-                            "Property": prop,
-                            "Score": float(s),
-                            "Mean_Group": float(gmean[prop]),
-                            "Mean_Pop": float(pop_mean[prop]),
+                            "property": prop,
+                            "score": float(s),
+                            "mean_group": float(gmean[prop]),
+                            "mean_pop": float(pop_mean[prop]),
                         }
                     )
 
@@ -1202,12 +1219,12 @@ class PhenoMeAnalysis:
             ]
             edf = edf.join(mapping, on="Group")
 
-            edf["AbsScore"] = edf["Score"].abs()
+            edf["abs_score"] = edf["score"].abs()
 
             if correct_multiple_testing:
                 from scipy.stats import norm
 
-                p_values = 2.0 * norm.sf(edf["AbsScore"].values)
+                p_values = 2.0 * norm.sf(edf["abs_score"].values)
                 edf["p_value"] = p_values
                 n_tests = len(p_values)
                 ranks = np.argsort(np.argsort(p_values)) + 1
@@ -1219,9 +1236,9 @@ class PhenoMeAnalysis:
                     if sorted_p[k] <= sorted_bh[k]:
                         max_k = k + 1
                 critical = sorted_p[max_k - 1] if max_k > 0 else 0.0
-                edf["Significant"] = edf["p_value"] <= critical
+                edf["significant"] = edf["p_value"] <= critical
 
-            edf = edf.sort_values(["Group", "AbsScore"], ascending=[True, False])
+            edf = edf.sort_values(["Group", "abs_score"], ascending=[True, False])
 
         fig_title = title or "Group enrichment (Z-scores)"
         fig = self._plot_group_enrichment(  # type: ignore[attr-defined]
@@ -1280,8 +1297,8 @@ class PhenoMeAnalysis:
 
         Returns:
             pd.DataFrame: DataFrame with one row per prototype. Columns include grouping
-                keys (split into individual columns if multiple), ``prototype_index``,
-                and ``image_path``.
+                keys (split into individual columns if multiple), ``image_index``,
+                ``image_path``, ``image_name``, and ``rank_in_group``.
         """
         try:
             matrix, valid_indices = self._get_data_matrix(
@@ -1405,12 +1422,13 @@ class PhenoMeAnalysis:
 
             group_name = str(grp) if grp is not None else "All"
 
-            # Prepare row data for this group
-            for i in top:
+            for rank, i in enumerate(top, start=1):
                 global_idx = gi[i]
                 row = {
-                    "prototype_index": global_idx,
-                    "image_path": self.results.img_path[global_idx],
+                    IMAGE_INDEX: global_idx,
+                    IMAGE_PATH: self.results.img_path[global_idx],
+                    "image_name": path_basename(self.results.img_path[global_idx]),
+                    "rank_in_group": rank,
                 }
 
                 # Add grouping columns
@@ -1437,7 +1455,7 @@ class PhenoMeAnalysis:
             plot_group_cols = found_cols if found_cols else ["group"]
 
             for group_vals, group_df in df.groupby(plot_group_cols, sort=False):
-                indices = group_df["prototype_index"].tolist()
+                indices = group_df[IMAGE_INDEX].tolist()
                 if isinstance(group_vals, tuple):
                     group_name = "-".join(map(str, group_vals))
                 else:

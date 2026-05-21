@@ -10,8 +10,9 @@ import pandas as pd
 import torch
 
 from .._logging import get_logger
-from ..core import build_combined_features, build_metadata_columns
+from ..core import build_combined_features
 from ..core import filter_indices as common_filter_indices
+from ..core.dataframe_contract import pack_df_meta_fig, per_image_dataframe
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
 
@@ -50,8 +51,15 @@ class PhenoMeDistances:
         figsize: tuple[int, int] = (10, 6),
         plot: bool = True,
         return_fig: bool = False,
+        return_meta: bool = False,
+        include_metadata: bool = False,
         points: Literal["all", "outliers", False] | None = None,
-    ) -> pd.DataFrame | tuple[pd.DataFrame, Any]:
+    ) -> (
+        pd.DataFrame
+        | tuple[pd.DataFrame, dict[str, Any]]
+        | tuple[pd.DataFrame, Any]
+        | tuple[pd.DataFrame, dict[str, Any], Any]
+    ):
         """Compute distances from all images to reference group.
 
         Args:
@@ -78,30 +86,22 @@ class PhenoMeDistances:
             plot: If True and *group_by* is set, show or return a violin plot only (no
                 per-group text summary to the logger). If False, log per-group summary
                 statistics where applicable (e.g. text-only mode, or with *return_fig*).
-            return_fig: If True and *group_by* is set, return a tuple of ``(df, fig)``.
-                When ``return_fig`` is True, ``fig.show()`` is not called.
+            return_fig: If True and *group_by* is set, include the Plotly figure in the
+                return value (see Returns). When ``return_fig`` is True, ``fig.show()`` is not called.
+            return_meta: If True, include a run-parameters dict in the return value.
+            include_metadata: If True, add metadata columns to the returned DataFrame.
             points: Violin plot point overlay: ``'all'``, ``'outliers'``, or ``False``;
                 ``None`` auto-selects by data size.
 
         Returns:
-            pd.DataFrame | tuple[pd.DataFrame, Any]:
-                - If ``return_fig`` is False (default): Returns the distance DataFrame.
-                - If ``return_fig`` is True: Returns a tuple of ``(distance_df, figure)``.
-                  The figure is None if *group_by* is not set.
+            pd.DataFrame or tuple, depending on *return_meta* and *return_fig*:
 
-            The DataFrame contains:
-                - image_index: int, global image index.
-                - image_path: str, path to the image.
-                - distance: float32, distance per image; NaN for invalid/filtered.
-                - is_reference: bool, True for images in the reference group.
-                - (metadata columns): columns for each key in *group_by* if provided.
-
-            Metadata is stored in ``df.attrs``:
-                - reference_filters: dict of filters used
-                - filters: dict of global filters applied
-                - mode: str ('centroid' or 'all_to_all')
-                - source: str ('embeddings', 'properties', or 'combined')
-                - distance_type: str ('euclidean' or 'cosine')
+            - Default: ``distance_df`` (Tier A) with ``image_index``, ``image_path``,
+              ``image_name``, ``distance``, ``is_reference``.
+            - ``return_meta=True``: ``(distance_df, meta)``; *meta* holds
+              reference_filters, filters, mode, source, distance_type.
+            - ``return_fig=True`` (with *group_by*): ``(distance_df, fig)`` or
+              ``(distance_df, meta, fig)`` when *return_meta* is also True.
 
         Example:
             >>> dist_df = pipeline.compute_reference_distances(
@@ -109,7 +109,6 @@ class PhenoMeDistances:
             ...     source='embeddings',
             ...     mode='centroid',
             ...     distance_type='euclidean',
-            ...     group_by='condition',
             ... )
             >>> distances = dist_df['distance']
         """
@@ -213,34 +212,25 @@ class PhenoMeDistances:
                 "  Distance range: [%.4f, %.4f]", np.nanmin(distances), np.nanmax(distances)
             )
 
-        df = pd.DataFrame(
-            {
-                "image_index": np.arange(n_total),
-                "image_path": self.results.img_path,
+        df = per_image_dataframe(
+            self.results,
+            include_metadata=include_metadata,
+            extra_columns={
                 "distance": distances,
                 "is_reference": np.isin(np.arange(n_total), ref_indices),
-            }
+            },
         )
 
-        if group_by is not None:
-            group_keys = [group_by] if isinstance(group_by, str) else list(group_by)
-            meta_cols = build_metadata_columns(self.results, keys=group_keys)
-            for k, v in meta_cols.items():
-                df[k] = v
-
-        df.attrs.update(
-            {
-                "reference_filters": reference_filters,
-                "filters": filters or {},
-                "mode": mode,
-                "source": source,
-                "distance_type": distance_type,
-            }
-        )
+        meta: dict[str, Any] = {
+            "reference_filters": reference_filters,
+            "filters": filters or {},
+            "mode": mode,
+            "source": source,
+            "distance_type": distance_type,
+        }
 
         fig = None
         if group_by is not None:
-            # Visualization lives on ``PhenoMeVisualization`` (PhenoMe MRO)
             fig = self._plot_distance_distribution(  # type: ignore[attr-defined]
                 df,
                 group_by=group_by,
@@ -251,9 +241,7 @@ class PhenoMeDistances:
                 points=points,
             )
 
-        if return_fig:
-            return df, fig
-        return df
+        return pack_df_meta_fig(df, meta, fig, return_meta=return_meta, return_fig=return_fig)
 
     # ------------------------------------------------------------------
     # Private helpers
