@@ -1324,10 +1324,11 @@ Detect outliers based on distance to centroid.
 
 **Returns:**
 
-  pd.DataFrame: A DataFrame containing detected outliers.
+  pd.DataFrame: Tier-A DataFrame containing detected outliers.
   Columns include:
-  - ``idx``: Global image index.
-  - ``file_path``: Path to the image file.
+  - ``image_index``: Global image index.
+  - ``image_path``: Path to the image file.
+  - ``image_name``: Basename of the image file.
   - Additional columns for each grouping key (if *group_by* was set).
   - ``threshold``: The threshold value used for the image's group.
   - ``distance_to_centroid``: Distance to the group centroid.
