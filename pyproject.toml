@@ -60,7 +60,7 @@ dependencies = [
 
 [project.optional-dependencies]
 full = [
-    "umap-learn==0.5.11",
+    "umap-learn==0.5.12",
     "dcor==0.7",
     "pykeops==2.3; sys_platform != 'win32'",
     "torchdr>=0.1,<0.5",

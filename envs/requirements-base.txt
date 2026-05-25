@@ -3,13 +3,13 @@
 # Python 3.12+ (matches pyproject.toml requires-python and CI).
 
 # Numerical computing
-numpy==2.4.2
+numpy==2.4.6
 scipy==1.17.1
 torch==2.12.0
 torchvision==0.27.0
 
 # Tabular data
-pandas==3.0.0
+pandas==3.0.3
 
 # ML utilities
 scikit-learn==1.8.0
@@ -18,16 +18,16 @@ scikit-image==0.26.0
 # Image processing & file I/O
 opencv-python==4.13.0.92
 pillow==12.2.0
-tifffile==2025.12.20
-h5py==3.15.1
+tifffile==2026.5.15
+h5py==3.16.0
 
 # Visualization
-matplotlib==3.10.8
-plotly==6.5.0
+matplotlib==3.10.9
+plotly==6.7.0
 
 # UI & interactivity
-ipywidgets==8.1.7
-anywidget==0.9.21
+ipywidgets==8.1.8
+anywidget==0.11.0
 
 # Jupyter
 ipykernel==7.2.0
@@ -40,6 +40,6 @@ joblib==1.5.3
 tqdm==4.67.3
 
 # Optional stack (CPU-compatible)
-umap-learn==0.5.11
+umap-learn==0.5.12
 dcor==0.7
 nibabel>=5.2.0,<6
