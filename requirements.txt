@@ -1,2 +1,2 @@
-# Default: CPU PyTorch. GPU: envs/requirements-gpu.txt
--r envs/requirements-cpu.txt
+# Default: GPU PyTorch (most complete). CPU: envs/requirements-cpu.txt
+-r envs/requirements-gpu.txt
