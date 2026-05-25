@@ -1,5 +1,5 @@
 # Shared pins (GPU-only extras: envs/requirements-gpu.txt and envs/environment-gpu.yml).
-# Included by envs/requirements-cpu.txt / envs/requirements-gpu.txt.
+# Included by envs/requirements-cpu.txt / envs/requirements.txt.
 # Python 3.12+ (matches pyproject.toml requires-python and CI).
 
 # Numerical computing
