@@ -31,7 +31,7 @@ anywidget==0.9.21
 
 # Jupyter
 ipykernel==7.2.0
-jupyterlab==4.5.6
+jupyterlab==4.5.7
 nbformat==5.10.4
 jupyterlab_widgets==3.0.16
 
