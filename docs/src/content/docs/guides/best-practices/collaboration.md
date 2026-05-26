@@ -43,7 +43,7 @@ For collaboration, add `configs/` (template configs) and environment
 specs under `envs/` (conda YAML and pip requirements); the repo root
 keeps a short
 [`requirements.txt`](https://github.com/AAitorG/PhenoMe/blob/main/requirements.txt)
-that defaults to CPU.
+that defaults to GPU.
 
 ## Data versioning with DVC (optional)
 
