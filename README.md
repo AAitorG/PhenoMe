@@ -44,16 +44,16 @@ cd PhenoMe
 
 Pick **one** environment based on your hardware:
 
-**CPU (Default)**
-```bash
-conda env create -f envs/environment-cpu.yml
-conda activate phenome-cpu
-```
-
-**GPU**
+**GPU (Default)**
 ```bash
 conda env create -f envs/environment-gpu.yml
 conda activate phenome-gpu
+```
+
+**CPU**
+```bash
+conda env create -f envs/environment-cpu.yml
+conda activate phenome-cpu
 ```
 </details>
 
@@ -62,14 +62,14 @@ conda activate phenome-gpu
 
 Pick **one** installation based on your hardware:
 
-**CPU**
+**GPU (Default)**
 ```bash
 pip install -r requirements.txt -e .
 ```
 
-**GPU**
+**CPU**
 ```bash
-pip install -r envs/requirements-gpu.txt -e .
+pip install -r envs/requirements-cpu.txt -e .
 ```
 </details>
 

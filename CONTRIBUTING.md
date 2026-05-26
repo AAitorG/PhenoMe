@@ -13,11 +13,11 @@ Thank you for your interest in contributing to PhenoMe. This document explains h
 2. **Create environment**
    Manual setup with conda:
    ```bash
-   conda env create -f envs/environment-cpu.yml
-   conda activate phenome-cpu
+   conda env create -f envs/environment-gpu.yml
+   conda activate phenome-gpu
    pip install -e ".[dev]"
    ```
-   Or with pip (CPU or GPU lockfiles; add dev extras):
+   Or with pip (GPU or CPU lockfiles; add dev extras):
    ```bash
    pip install -r requirements.txt -e ".[dev]"
    # NVIDIA CUDA: pip install -r envs/requirements-gpu.txt -e ".[dev]"
