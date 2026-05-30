@@ -298,6 +298,10 @@ attribute that is updated *after* all data for a batch has been flushed to
 disk.  On reload, only the first ``n_committed`` rows are trusted; any
 trailing rows left behind by an interrupted write are silently discarded.
 
+When used as a context manager (``with CheckpointManager(...) as ckpt:``), an
+exception during the block **discards** uncommitted in-memory buffers without
+writing them to disk; see ``__exit__`` for the explicit error log.
+
 All compression is **lossless** (gzip).  Float32 embedding data is stored
 bit-for-bit exactly; gzip only removes redundancy without altering values.
 
