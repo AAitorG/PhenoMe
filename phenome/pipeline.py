@@ -609,6 +609,7 @@ class PhenoMe(
                 lazy=lazy_checkpoint,
             )
         )
+        n_pre_existing = ckpt.n_committed if ckpt is not None else 0
         self._processing_params = cur_params
 
         if not filtered_data:
@@ -658,6 +659,8 @@ class PhenoMe(
             requested_meta_keys,
             len(filtered_data),
             all_requested_data=all_requested_data,
+            n_pre_existing=n_pre_existing,
+            n_load_failures=getattr(dl.dataset, "load_failure_count", 0),
         )
 
     # ------------------------------------------------------------------
@@ -926,6 +929,16 @@ class PhenoMe(
             if self.results.has_properties:
                 n_db = self._db.n_committed_props + self._db.properties_buffered
                 if n_db < self.results.n_images:
+                    db_indices = self._db_indices
+                    if db_indices is not None and (
+                        len(db_indices) != self.results.n_images
+                        or not np.array_equal(db_indices, np.arange(len(db_indices)))
+                    ):
+                        raise ValueError(
+                            "Cannot append properties to checkpoint after a filtered lazy "
+                            "reload (non-contiguous row mapping). Recompute properties with "
+                            "checkpoint_path= or export with write_results_to_hdf5()."
+                        )
                     to_buffer = self.results.properties[n_db:]
                     self._db.buffer_properties(to_buffer)
                     if self._ram_internal and len(self._ram_internal) >= self.results.n_images:
@@ -941,6 +954,12 @@ class PhenoMe(
                     self._db._file.flush()
                 logger.info("Results already on disk at %s (flushed).", db_path)
                 return
+
+            if self._db.embeddings_buffered:
+                self._db.commit_embeddings()
+            if self._db.properties_buffered:
+                self._db.commit_properties()
+
             logger.debug("Copying HDF5 database from %s to %s …", db_path, target_path)
             import shutil
 
@@ -952,11 +971,6 @@ class PhenoMe(
 
             shutil.copy2(db_path, target_path)
             self._db.path = target_path
-
-            if self._db.embeddings_buffered:
-                self._db.commit_embeddings()
-            if self._db.properties_buffered:
-                self._db.commit_properties()
 
             if was_open:
                 self._db._ensure_open()
@@ -1605,12 +1619,9 @@ class PhenoMe(
             seen: dict[str, str] = {}
             for orig, low in zip(non_fp_cols, lowered, strict=False):
                 if low in seen:
-                    logger.warning(
-                        "Metadata columns '%s' and '%s' collide when lowercased to '%s'; "
-                        "last value wins.",
-                        seen[low],
-                        orig,
-                        low,
+                    raise ValueError(
+                        f"Metadata columns '{seen[low]}' and '{orig}' collide when "
+                        f"lowercased to '{low}'. Rename columns so lowercase names are unique."
                     )
                 seen[low] = str(orig)
         filtered_data: list[dict[str, Any]] = []
@@ -1757,12 +1768,30 @@ class PhenoMe(
         requested_meta_keys: set | None,
         n_expected: int,
         all_requested_data: list[dict[str, Any]] | None = None,
+        *,
+        n_pre_existing: int = 0,
+        n_load_failures: int = 0,
     ) -> None:
         """Finalize processing and handle checkpoint commit."""
         use_ckpt = checkpoint_path is not None
 
         if use_ckpt and ckpt is not None:
             ckpt.commit_embeddings()
+            n_new_committed = ckpt.n_committed - n_pre_existing
+            if n_load_failures > 0 or n_new_committed < n_expected:
+                logger.error(
+                    "Checkpoint run incomplete: %d image(s) failed to load, "
+                    "%d/%d new rows committed.",
+                    n_load_failures,
+                    n_new_committed,
+                    n_expected,
+                )
+                raise RuntimeError(
+                    f"Checkpoint processing incomplete: {n_new_committed} of {n_expected} "
+                    f"requested images were committed"
+                    + (f" ({n_load_failures} failed to load)" if n_load_failures > 0 else "")
+                    + "."
+                )
             self._setup_lazy_results(
                 ckpt,
                 requested_paths=requested_paths,

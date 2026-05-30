@@ -53,6 +53,7 @@ class PhenoMeDataset(Dataset):
         self.channels = list(channels) if channels is not None else None
         self.preprocessing_fn = preprocessing_fn
         self.force_rgb = force_rgb
+        self.load_failure_count = 0
 
         if channel_mode not in ["split", "combined"]:
             raise ValueError(f"channel_mode must be 'split' or 'combined', got: {channel_mode}")
@@ -84,6 +85,7 @@ class PhenoMeDataset(Dataset):
             return processed_imgs, item
 
         except Exception as e:
+            self.load_failure_count += 1
             file_path = item["file_path"]
             logger.warning(
                 "Failed loading: %s (%s)",

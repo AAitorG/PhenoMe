@@ -7,7 +7,7 @@ which items are already in a checkpoint and which need processing.
 
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 from .._logging import get_logger
 from ..core import metadata_to_stable_key
@@ -76,6 +76,44 @@ def _union_prop_keys_sample(existing_props: list[Any], max_rows: int = 10) -> se
         if isinstance(p, dict):
             keys.update(p.keys())
     return keys
+
+
+def build_metadata_key_index(
+    metadata_list: list[dict[str, Any]],
+    *,
+    on_duplicate: Literal["first", "error"] = "first",
+) -> dict[str, int]:
+    """Map metadata stable keys to row indices in *metadata_list*.
+
+    Args:
+        metadata_list: Per-row metadata dicts.
+        on_duplicate: ``\"first\"`` keeps the earliest row and logs a warning;
+            ``\"error\"`` raises ``ValueError`` on duplicate keys.
+
+    Returns:
+        Dict mapping stable key to row index.
+    """
+    index: dict[str, int] = {}
+    for i, meta in enumerate(metadata_list):
+        try:
+            key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
+        except ValueError:
+            continue
+        if key in index:
+            if on_duplicate == "error":
+                raise ValueError(
+                    f"Duplicate metadata stable key {key!r} at checkpoint rows "
+                    f"{index[key]} and {i}."
+                )
+            logger.warning(
+                "Duplicate checkpoint metadata key %r: keeping index %d, ignoring %d.",
+                key,
+                index[key],
+                i,
+            )
+        else:
+            index[key] = i
+    return index
 
 
 def get_already_committed_metadata_keys(
@@ -237,21 +275,7 @@ def compute_metadata_alignment(
     Returns:
         Tuple of (key_to_ckpt_idx, keys_with_data, paths_to_compute, identifier_list).
     """
-    meta_key_to_ckpt_idx: dict[str, int] = {}
-    for i, meta in enumerate(ckpt_metadata):
-        try:
-            key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
-            if key in meta_key_to_ckpt_idx:
-                logger.warning(
-                    "Duplicate checkpoint metadata key %r: keeping index %d, ignoring %d.",
-                    key,
-                    meta_key_to_ckpt_idx[key],
-                    i,
-                )
-            else:
-                meta_key_to_ckpt_idx[key] = i
-        except ValueError:
-            pass
+    meta_key_to_ckpt_idx = build_metadata_key_index(ckpt_metadata, on_duplicate="first")
 
     identifiers_with_data: set[str] = get_already_committed_metadata_keys(
         ckpt_metadata, n_committed

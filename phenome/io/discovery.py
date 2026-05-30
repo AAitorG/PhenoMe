@@ -52,7 +52,9 @@ def read_image(path: str | list[str]) -> np.ndarray:
     path_lower = path.lower()
 
     if ext == ".npy":
-        img = np.load(path)
+        img = np.load(path, allow_pickle=False)
+        if img.dtype == object:
+            raise ValueError(f".npy at {path} has object dtype; only numeric arrays are supported.")
     elif ext == ".npz":
         with np.load(path) as data:
             img = data[data.files[0]]
@@ -216,9 +218,11 @@ class FileDiscovery:
                     is_missing = not meta or not any(k.lower() != "file_path" for k in meta)
                 else:
                     is_missing = not meta
-            except Exception:
+            except (ValueError, KeyError, FileNotFoundError):
                 meta = {}
                 is_missing = True
+            except Exception as exc:
+                raise RuntimeError(f"Metadata extraction failed for {path!r}: {exc}") from exc
 
             if is_missing:
                 bad.append(path)

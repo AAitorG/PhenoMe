@@ -17,7 +17,11 @@ from tqdm.auto import tqdm
 from ..._logging import get_logger
 from ...core import metadata_to_stable_key, optimize_property_types
 from ...io import CheckpointManager, align_by_metadata
-from ...io.checkpoint_alignment import _canonical_path, _union_prop_keys_sample
+from ...io.checkpoint_alignment import (
+    _canonical_path,
+    _union_prop_keys_sample,
+    build_metadata_key_index,
+)
 from ...utils.path_utils import primary_path as _primary_path
 from ...utils.property_factories import get_preset_property_functions
 from ._paths import build_file_df_lookup, resolve_image_paths, resolve_mask_paths
@@ -449,11 +453,8 @@ def setup_properties_checkpoint_resume(
 
             filtered_props = []
             filtered_internal: list[dict] = []
+            id_to_idx = build_metadata_key_index(ckpt_metadata, on_duplicate="error")
             try:
-                id_to_idx = {}
-                for i, meta in enumerate(ckpt_metadata):
-                    key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
-                    id_to_idx[key] = i
                 for _i, meta in enumerate(image_metadata):
                     key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
                     idx = id_to_idx.get(key, -1)
@@ -505,7 +506,8 @@ def setup_properties_checkpoint_resume(
                     n_prop,
                 )
                 results.properties = filtered_props
-                ckpt.close()
+                if ckpt is not active_db:
+                    ckpt.close()
                 return None, n_already, None
 
             # Calculate initial alignment before refinement for better logging
@@ -894,12 +896,12 @@ def finalize_properties_computation(
                 # committing properties (which are aligned to image_paths) doesn't
                 # create misaligned datasets.
                 if len(image_paths) > len(ckpt_paths):
-                    n_old = len(ckpt_paths)
-                    missing_paths = image_paths[n_old:]
-                    missing_meta = session_metadata[n_old:]
-                    ckpt.buffer_paths_and_metadata(missing_paths, missing_meta)
-                    ckpt.commit_embeddings()
-                    logger.info("Checkpoint: extended with %d new samples.", len(missing_paths))
+                    raise RuntimeError(
+                        f"Session has {len(image_paths)} images but checkpoint has "
+                        f"{len(ckpt_paths)} committed rows. Run process_images() for new "
+                        "samples before saving properties to checkpoint. Temporal images "
+                        "from process_temporal_images() are not persisted to checkpoint."
+                    )
 
                 if path_alignment is None:
                     images_computed = max((len(buf) for buf in feature_buffers.values()), default=0)

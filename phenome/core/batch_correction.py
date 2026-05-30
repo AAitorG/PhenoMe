@@ -29,6 +29,26 @@ def stable_batch_id(value: Any) -> str:
     return str(value)
 
 
+def validate_batch_metadata_present(
+    metadata: Sequence[Mapping[str, Any] | dict[str, Any]],
+    batch_metadata_key: str,
+) -> None:
+    """Raise when any row lacks a usable batch metadata value."""
+    missing_rows = 0
+    for meta in metadata:
+        if not isinstance(meta, dict):
+            meta = {}
+        val = get_metadata_value_from_dict(meta, batch_metadata_key)
+        if stable_batch_id(val) == "__missing__":
+            missing_rows += 1
+    if missing_rows > 0:
+        raise ValueError(
+            f"{missing_rows} of {len(metadata)} row(s) lack batch metadata key "
+            f"{batch_metadata_key!r} (mapped to {stable_batch_id(None)!r}). "
+            "Fix the metadata column name or fill missing values before batch correction."
+        )
+
+
 @dataclass
 class BatchCorrectionStats:
     """Per-batch statistics for correction."""
@@ -168,6 +188,8 @@ def compute_batch_stats(
     n = len(metadata)
     if n == 0:
         raise ValueError("metadata is empty.")
+
+    validate_batch_metadata_present(metadata, batch_metadata_key)
 
     if results_for_filter is None:
 

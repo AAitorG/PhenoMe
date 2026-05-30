@@ -13,6 +13,7 @@ from typing import Any, Literal, cast
 import h5py
 import numpy as np
 
+from .._logging import get_logger
 from ..core.batch_correction import BatchCorrectionStats, MethodName
 from ..core.pipeline_results import PhenoMeResults
 from ._checkpoint_ops import (
@@ -55,6 +56,8 @@ _VL_STR = h5py.special_dtype(vlen=str)
 # paths in the checkpoint are stored relative to this root; on load they are
 # joined with it to resolve to absolute paths.
 _STORAGE_ROOT_ATTR = "_storage_root"
+
+logger = get_logger(__name__)
 
 # Metadata keys excluded from checkpoint (redundant or not useful for persistence)
 _METADATA_EXCLUDE_KEYS = frozenset({"mask_path"})
@@ -150,6 +153,10 @@ class CheckpointManager:
     attribute that is updated *after* all data for a batch has been flushed to
     disk.  On reload, only the first ``n_committed`` rows are trusted; any
     trailing rows left behind by an interrupted write are silently discarded.
+
+    When used as a context manager (``with CheckpointManager(...) as ckpt:``), an
+    exception during the block **discards** uncommitted in-memory buffers without
+    writing them to disk; see ``__exit__`` for the explicit error log.
 
     All compression is **lossless** (gzip).  Float32 embedding data is stored
     bit-for-bit exactly; gzip only removes redundancy without altering values.
@@ -473,6 +480,17 @@ class CheckpointManager:
             return self._merged_props_internal_cache
 
         n = self.n_committed_props
+        n_rows = self.n_committed
+        if n_rows > 0 and n > n_rows:
+            logger.error(
+                "Checkpoint %s: n_committed_props (%d) exceeds n_committed (%d); "
+                "reading %d property rows.",
+                self.path,
+                n,
+                n_rows,
+                n_rows,
+            )
+            n = n_rows
         if n == 0:
             self._merged_props_internal_cache = ([], [])
             return self._merged_props_internal_cache
@@ -690,6 +708,14 @@ class CheckpointManager:
         n_new = len(self._buf_paths)
         n_total = n_old + n_new
 
+        has_emb_dataset = "embeddings" in f
+        emb_dim_attr = int(f.attrs.get("embedding_dim", 0) or 0)
+        if not self._buf_embeddings and (has_emb_dataset or emb_dim_attr > 0):
+            raise RuntimeError(
+                "Cannot commit path/metadata rows without embeddings when this checkpoint "
+                "stores embeddings. Run process_images() for new samples first."
+            )
+
         # --- embeddings ---
         if self._buf_embeddings:
             all_emb = np.concatenate(self._buf_embeddings, axis=0)
@@ -809,6 +835,13 @@ class CheckpointManager:
         n_old = self.n_committed_props
         n_new = len(self._buf_props)
         n_total = n_old + n_new
+
+        n_committed = self.n_committed
+        if n_total > n_committed:
+            raise ValueError(
+                f"Cannot commit {n_total} property rows when only {n_committed} "
+                "path/embedding rows are committed."
+            )
 
         append_properties_group(f, "properties", self._buf_props, n_old, n_total)
         if self._buf_internal:
@@ -1106,6 +1139,16 @@ class CheckpointManager:
 
         n = self.n_committed
         n_prop = self.n_committed_props
+        if n_prop > n:
+            logger.error(
+                "Checkpoint %s: n_committed_props (%d) exceeds n_committed (%d); "
+                "truncating property reads to %d rows.",
+                self.path,
+                n_prop,
+                n,
+                n,
+            )
+            n_prop = n
         if n == 0 and n_prop == 0:
             return PhenoMeResults()
 
@@ -1193,6 +1236,19 @@ class CheckpointManager:
         if exc_type is None:
             self.close()
         else:
+            n_emb_rows = sum(len(b) for b in self._buf_embeddings)
+            n_path_rows = len(self._buf_paths)
+            n_prop_rows = len(self._buf_props)
+            if n_emb_rows or n_path_rows or n_prop_rows:
+                logger.error(
+                    "Checkpoint %s: discarding uncommitted buffers after %s "
+                    "(embedding rows=%d, path rows=%d, property rows=%d).",
+                    self.path,
+                    exc_type.__name__ if exc_type is not None else "exception",
+                    n_emb_rows,
+                    n_path_rows,
+                    n_prop_rows,
+                )
             self._buf_embeddings.clear()
             self._buf_paths.clear()
             self._buf_channels.clear()
@@ -1433,20 +1489,12 @@ class CheckpointManager:
             If the file format is invalid or corrupted.
         """
         with h5py.File(path, "r") as f:
-            version = str(f.attrs.get("version", "0.0"))
-            if not _is_checkpoint_version_supported(version):
-                raise ValueError(
-                    f"Checkpoint version '{version}' is not supported "
-                    f"(supported: {sorted(CHECKPOINT_SUPPORTED_VERSIONS)}). "
-                    "Re-run processing to create a fresh checkpoint."
-                )
-
-            n = int(f.attrs.get("n_committed", 0))
-            n_prop = int(f.attrs.get("n_committed_props", 0))
-            is_multi = bool(f.attrs.get("is_multichannel", False))
+            n, n_prop = CheckpointManager._validate_checkpoint_file(f, truncate=False)
 
             if n == 0 and n_prop == 0:
                 return PhenoMeResults()
+
+            is_multi = bool(f.attrs.get("is_multichannel", False))
 
             # Paths
             paths: list[Any]
@@ -1490,6 +1538,10 @@ class CheckpointManager:
             if "embeddings" in f and n > 0:
                 ds = cast(h5py.Dataset, f["embeddings"])
                 actual_emb = ds.shape[0]
+                if actual_emb < n:
+                    raise ValueError(
+                        f"Checkpoint embeddings dataset has {actual_emb} rows but n_committed={n}."
+                    )
                 n_to_load = min(n, actual_emb)
                 embeddings = np.array(ds[:n_to_load], dtype=np.float32)
 
@@ -1585,6 +1637,23 @@ class CheckpointManager:
         """Truncate datasets to committed row counts and validate version."""
         f = self._file
         assert f is not None
+        n, n_prop = self._validate_checkpoint_file(f, truncate=True)
+        f.attrs["n_committed"] = n
+        if n_prop < int(f.attrs.get("n_committed_props", 0)):
+            f.attrs["n_committed_props"] = n_prop
+        f.flush()
+
+    @staticmethod
+    def _validate_checkpoint_file(
+        f: h5py.File,
+        *,
+        truncate: bool,
+    ) -> tuple[int, int]:
+        """Validate checkpoint attrs and dataset row counts.
+
+        When *truncate* is True, resize datasets down to committed counts (write mode).
+        When False, raise or cap counts for read-only loads.
+        """
         version = str(f.attrs.get("version", "0.0"))
         if not _is_checkpoint_version_supported(version):
             raise ValueError(
@@ -1594,6 +1663,35 @@ class CheckpointManager:
             )
         n = int(f.attrs.get("n_committed", 0))
         n_prop = int(f.attrs.get("n_committed_props", 0))
+
+        if n_prop > n:
+            msg = (
+                f"n_committed_props ({n_prop}) exceeds n_committed ({n}); "
+                "property rows cannot outlive path/embedding rows."
+            )
+            if truncate:
+                logger.error("Checkpoint %s: %s Truncating property datasets.", f.filename, msg)
+                n_prop = n
+            else:
+                logger.error("Checkpoint %s: %s Capping property reads.", f.filename, msg)
+                n_prop = n
+
+        if "embeddings" in f and n > 0:
+            emb_rows = int(cast(h5py.Dataset, f["embeddings"]).shape[0])
+            if emb_rows < n:
+                raise ValueError(
+                    f"Checkpoint embeddings dataset has {emb_rows} rows but n_committed={n}."
+                )
+
+        if "img_path" in f:
+            path_rows = int(cast(h5py.Dataset, f["img_path"]).shape[0])
+            if path_rows < n:
+                raise ValueError(
+                    f"Checkpoint img_path dataset has {path_rows} rows but n_committed={n}."
+                )
+
+        if not truncate:
+            return n, n_prop
 
         # Truncate datasets to committed lengths
         for ds_name in ("img_path",):
@@ -1620,7 +1718,7 @@ class CheckpointManager:
         if _INTERNAL_GROUP_NAME in f:
             truncate_group_datasets(cast(h5py.Group, f[_INTERNAL_GROUP_NAME]), n_prop)
 
-        f.flush()
+        return n, n_prop
 
     def _update_ram_from_buffers(self, embeddings: bool = False, properties: bool = False) -> None:
         """Merge current buffers into self._ram_data."""
