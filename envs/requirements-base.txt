@@ -18,7 +18,7 @@ scikit-image==0.26.0
 # Image processing & file I/O
 opencv-python==4.13.0.92
 pillow==12.2.0
-tifffile==2026.5.15
+tifffile==2026.6.1
 h5py==3.16.0
 
 # Visualization
