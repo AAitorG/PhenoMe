@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from .._components import generate_collapsible, generate_feature_tags, generate_info_box
+from ..helpers import safe_html
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -108,7 +109,7 @@ def generate_property_stats_section(
 
         rows = []
         for _, row in filtered_df.iterrows():
-            cells = "".join([f"<td>{row.get(g, '')}</td>" for g in group_cols])
+            cells = "".join([f"<td>{safe_html(str(row.get(g, '')))}</td>" for g in group_cols])
             n_val = row.get("N", 0)
             cells += f"<td><span class='value'>{int(n_val) if n_val is not None else 0}</span></td>"
             cell_list = []

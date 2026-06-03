@@ -143,6 +143,43 @@ PyTorch tensor compatible with the rest of the pipeline.
 
 </div>
 
+<div class="api-method" role="region" aria-labelledby="api-modelwrapper-sync_device">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-modelwrapper-sync_device"><code>sync_device</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+ModelWrapper.sync_device(
+    self,
+    device: torch.device | None = None
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Move the wrapped model to *device* and set eval mode when supported.
+
+Called from ``__init__`` and again by ``EmbeddingExtractor`` before each batch
+so the model stays on the pipeline device after user changes.
+
+**Args:**
+
+- **`device`**: Target device. If None, uses the wrapper's current ``self.device``.
+
+**Raises:**
+
+- **`RuntimeError`**: If ``model.to(device)`` or ``model.eval()`` fails.
+
+</div>
+
+</div>
+
 ### `class DinoV2ModelWrapper`
 
 Heritage wrapper for DINOv2 models from Meta AI.
@@ -210,6 +247,43 @@ PyTorch tensor compatible with the rest of the pipeline.
 **Returns:**
 
   Embedding tensor (B, D).
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-dinov2modelwrapper-sync_device">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-dinov2modelwrapper-sync_device"><code>sync_device</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+DinoV2ModelWrapper.sync_device(
+    self,
+    device: torch.device | None = None
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Move the wrapped model to *device* and set eval mode when supported.
+
+Called from ``__init__`` and again by ``EmbeddingExtractor`` before each batch
+so the model stays on the pipeline device after user changes.
+
+**Args:**
+
+- **`device`**: Target device. If None, uses the wrapper's current ``self.device``.
+
+**Raises:**
+
+- **`RuntimeError`**: If ``model.to(device)`` or ``model.eval()`` fails.
 
 </div>
 

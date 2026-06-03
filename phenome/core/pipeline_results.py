@@ -139,11 +139,15 @@ class PhenoMeResults:
 
     def __setitem__(self, key: str, value: Any) -> None:
         if key == "img_path":
-            self.img_path = value
+            self.img_path = (
+                [list(p) if isinstance(p, (list, tuple)) else str(p) for p in value]
+                if value is not None
+                else []
+            )
         elif key == "metadata":
-            self.metadata = value
+            self.metadata = [dict(m) if isinstance(m, dict) else {} for m in value]
         elif key == "properties":
-            self.properties = value
+            self.properties = [dict(p) if isinstance(p, dict) else {} for p in value]
         elif key == "embeddings":
             # Accept np.ndarray or the empty-list sentinel from legacy code.
             if isinstance(value, np.ndarray):

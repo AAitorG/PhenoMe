@@ -569,7 +569,7 @@ class PhenoMeAnalysis:
 
         n_samples = len(data)
         outlier_mask = np.zeros(n_samples, dtype=bool)
-        distances = np.zeros(n_samples, dtype=np.float32)
+        distances = np.full(n_samples, np.nan, dtype=np.float32)
 
         device = self.device
 
@@ -656,15 +656,14 @@ class PhenoMeAnalysis:
 
                 if len(found_cols) == 1:
                     actual_group_by = found_cols[0]
-                    for gv, gdf in df.groupby(actual_group_by):
+                    for gv, gdf in df.groupby(actual_group_by, dropna=False):
                         groups[gv] = gdf.index.to_numpy()
                 else:
                     actual_group_by = found_cols
-                    # Composite grouping: combine values with '-' separator
                     df["_composite_group"] = (
-                        df[found_cols].fillna("N/A").astype(str).agg("-".join, axis=1)
+                        df[found_cols].fillna("N/A").astype(str).agg(" | ".join, axis=1)
                     )
-                    for gv, gdf in df.groupby("_composite_group"):
+                    for gv, gdf in df.groupby("_composite_group", dropna=False):
                         groups[gv] = gdf.index.to_numpy()
         else:
             groups["all"] = np.arange(n_samples)
@@ -706,7 +705,7 @@ class PhenoMeAnalysis:
                         val_str = str(val) if val is not None and val != "" else "N/A"
                         group_vals.append(val_str)
                         row[k] = val
-                    group_val = "-".join(group_vals)
+                    group_val = " | ".join(group_vals)
                 else:
                     # Single column
                     val = get_metadata_value_from_dict(info, actual_group_by)
@@ -1192,9 +1191,8 @@ class PhenoMeAnalysis:
             pop_std = rest_df[property_keys].std()
             pop_std = pop_std.where(pop_std >= 1e-10, np.nan)
             gmean = gdf[property_keys].mean()
-            n_group = len(gdf)
             with np.errstate(divide="ignore", invalid="ignore"):
-                zs = (gmean - pop_mean) / (pop_std / np.sqrt(n_group))
+                zs = (gmean - pop_mean) / pop_std
             for prop in property_keys:
                 s = zs[prop]
                 if pd.notna(s):
@@ -1364,7 +1362,7 @@ class PhenoMeAnalysis:
                                     if val is not None:
                                         break
                             row_vals.append(str(val) if val is not None else "N/A")
-                        group_labels[i] = "-".join(row_vals)
+                        group_labels[i] = " | ".join(row_vals)
             else:
                 if cluster_col:
                     logger.warning("No matching columns found. Treating as one group.")
@@ -1437,10 +1435,8 @@ class PhenoMeAnalysis:
                 elif len(found_cols) == 1:
                     row[found_cols[0]] = grp
                 else:
-                    # Multi-column: split composite label
-                    # composite labels were built as "-".join(row_vals)
-                    # where row_vals are str(val) or "N/A"
-                    vals = group_name.split("-")
+                    # Multi-column: split composite label (built with " | " separator)
+                    vals = group_name.split(" | ")
                     for col_name, val in zip(found_cols, vals, strict=False):
                         row[col_name] = val
 
@@ -1457,7 +1453,7 @@ class PhenoMeAnalysis:
             for group_vals, group_df in df.groupby(plot_group_cols, sort=False):
                 indices = group_df[IMAGE_INDEX].tolist()
                 if isinstance(group_vals, tuple):
-                    group_name = "-".join(map(str, group_vals))
+                    group_name = " | ".join(map(str, group_vals))
                 else:
                     group_name = str(group_vals)
 

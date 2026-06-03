@@ -217,7 +217,7 @@ def generate_feature_tags(features: list[str], max_display: int = 50) -> str:
         HTML string for feature list
     """
     display_features = features[:max_display]
-    tags = "\n".join([f'<span class="feature-tag">{f}</span>' for f in display_features])
+    tags = "\n".join([f'<span class="feature-tag">{escape(f)}</span>' for f in display_features])
 
     extra = ""
     if len(features) > max_display:

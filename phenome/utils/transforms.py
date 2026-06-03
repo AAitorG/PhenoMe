@@ -20,17 +20,25 @@ def scale_minmax(img: np.ndarray) -> np.ndarray:
     """Apply min-max scaling to each channel independently.
 
     Args:
-        img: np.ndarray, shape (..., C) with channels as last dimension. Any dtype.
+        img: np.ndarray, shape (H, W) or (..., C) with channels as last dimension. Any dtype.
 
     Returns:
         np.ndarray: Same shape as input, dtype float. Values in [0, 1] per channel.
     """
+    if img.ndim == 2:
+        img = img.astype(np.float64) if img.dtype != np.float64 else img.copy()
+        c = img
+        if c.max() > c.min():
+            return (c - c.min()) / (c.max() - c.min())
+        return np.zeros_like(c)
+
     img = img.astype(np.float64) if img.dtype != np.float64 else img.copy()
-    # Scale each channel independently to [0, 1] (handles multi-channel images)
     for i in range(img.shape[-1]):
         c = img[..., i]
         if c.max() > c.min():
             img[..., i] = (c - c.min()) / (c.max() - c.min())
+        else:
+            img[..., i] = 0.0
     return img
 
 
@@ -40,14 +48,22 @@ def quantile_normalize(img: np.ndarray, quantile: float = 0.99) -> np.ndarray:
     Clips values at the specified quantile threshold, then rescales to [0, 1].
 
     Args:
-        img: np.ndarray, shape (..., C) with channels as last dimension. Any dtype.
+        img: np.ndarray, shape (H, W) or (..., C) with channels as last dimension. Any dtype.
         quantile: float, quantile threshold for clipping (default: 0.99).
 
     Returns:
         np.ndarray: Same shape as input, dtype float64. Values in [0, 1] per channel.
     """
+    if img.ndim == 2:
+        img = img.astype(np.float64) if img.dtype != np.float64 else img.copy()
+        c = img
+        q_val = np.quantile(c, quantile)
+        c_min = c.min()
+        if q_val > c_min:
+            return np.clip((c - c_min) / (q_val - c_min), 0, 1)
+        return np.zeros_like(c)
+
     img = img.astype(np.float64) if img.dtype != np.float64 else img.copy()
-    # Scale each channel independently to [0, 1] (handles multi-channel images)
     for i in range(img.shape[-1]):
         c = img[..., i]
         q_val = np.quantile(c, quantile)
@@ -59,15 +75,28 @@ def quantile_normalize(img: np.ndarray, quantile: float = 0.99) -> np.ndarray:
     return img
 
 
+def _dtype_scale_max(dtype: np.dtype) -> float | None:
+    """Return full-scale max for integer dtypes, or None to infer from data."""
+    kind = dtype.kind
+    if kind == "u":
+        if dtype.itemsize == 1:
+            return 255.0
+        if dtype.itemsize == 2:
+            return 65535.0
+        return float(np.iinfo(dtype).max)
+    if kind == "i":
+        return float(np.iinfo(dtype).max)
+    return None
+
+
 def normalize_by_dtype_max(img: np.ndarray) -> np.ndarray:
     """Normalize an image to [0, 1] based on dtype-inferred maximum.
 
     Images already in [0, 1] (max <= 1.0) are returned unchanged.
-    8-bit images (max <= 255) are divided by 255; 16-bit (max <= 65535) by 65535.
+    uint8 images divide by 255; uint16 by 65535; other types use dtype max or / mx.
 
     Args:
-        img: np.ndarray, any shape. Value-based inference: max<=1 unchanged;
-            max<=255 (uint8-like), max<=65535 (uint16-like), else divide by max.
+        img: np.ndarray, any shape.
 
     Returns:
         np.ndarray: Same shape, dtype float64. Values in [0, 1].
@@ -76,11 +105,10 @@ def normalize_by_dtype_max(img: np.ndarray) -> np.ndarray:
     mx = out.max()
     if mx <= 1.0:
         return out
-    if mx <= 255.0:
-        return out / 255.0
-    if mx <= 65535.0:
-        return out / 65535.0
-    return out / mx  # fallback: generic min-max via max
+    scale = _dtype_scale_max(img.dtype)
+    if scale is not None:
+        return out / scale
+    return out / mx
 
 
 # =============================================================================
@@ -102,9 +130,6 @@ class TypeMaxNorm:
 
         Returns:
             torch.Tensor: Same shape. Values in [0, 1].
-
-        Raises:
-            ValueError: If image max value is not supported.
         """
         mx = img.max()
         if mx <= 1:
@@ -113,7 +138,7 @@ class TypeMaxNorm:
             return img / 255.0
         if mx <= 65535:
             return img / 65535.0
-        raise ValueError(f"Unsupported data type max: {mx}")
+        return img / mx
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"
@@ -144,7 +169,6 @@ class PadToSize:
         """
         _c, h, w = img.shape
         if h < self.pad_size or w < self.pad_size:
-            # Pad equally on all sides (top/bottom, left/right)
             ph, pw = max(0, self.pad_size - h), max(0, self.pad_size - w)
             pt, pl = ph // 2, pw // 2
             img = F.pad(img, (pl, pw - pl, pt, ph - pt), "constant", 0)
@@ -179,6 +203,7 @@ class TransformBuilder:
         self,
         resize_size: int | None = None,
         pad_size: int | None = None,
+        n_channels: int = 3,
     ) -> transforms.Compose:
         """Build torchvision transform pipeline for image preprocessing.
 
@@ -189,14 +214,22 @@ class TransformBuilder:
         Args:
             resize_size: Target spatial size (H, W) for final resize. If None, no resize.
             pad_size: Minimum size for H and W before resize. If None, no padding.
+            n_channels: Number of input channels for Normalize mean/std (default 3).
 
         Returns:
             transforms.Compose: Pipeline for (H, W, C) numpy image -> (C, H', W') tensor.
         """
+        if n_channels <= 0:
+            raise ValueError(f"n_channels must be positive, got {n_channels}")
+        mean = (
+            self.mean[:n_channels] if len(self.mean) >= n_channels else (self.mean[0],) * n_channels
+        )
+        std = self.std[:n_channels] if len(self.std) >= n_channels else (self.std[0],) * n_channels
+
         t = [transforms.ToTensor(), TypeMaxNorm()]
         if pad_size is not None:
             t.append(PadToSize(pad_size=pad_size))
         if resize_size is not None:
             t.append(transforms.Resize((resize_size, resize_size), antialias=True))
-        t.append(transforms.Normalize(mean=self.mean, std=self.std))
+        t.append(transforms.Normalize(mean=mean, std=std))
         return transforms.Compose(t)

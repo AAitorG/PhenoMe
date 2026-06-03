@@ -116,6 +116,61 @@ def build_metadata_key_index(
     return index
 
 
+def build_current_run_metadata_lookup(
+    current_requested_data: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Map stable metadata keys to metadata dicts for the current run.
+
+    Each item in *current_requested_data* is expected to have a ``metadata`` dict
+    (as produced by file discovery / ``process_images`` preparation). Rows without
+    a valid stable key are omitted (same as :func:`build_metadata_key_index`).
+
+    Args:
+        current_requested_data: Per-image dicts with ``metadata`` (and optionally
+            ``file_path``).
+
+    Returns:
+        Dict mapping :func:`~phenome.core.metadata_to_stable_key` string to the
+        corresponding metadata dict.
+
+    Raises:
+        ValueError: If two rows share the same stable metadata key.
+    """
+    metas = [d.get("metadata") or {} for d in current_requested_data]
+    meta_dicts = [m if isinstance(m, dict) else {} for m in metas]
+    key_index = build_metadata_key_index(meta_dicts, on_duplicate="error")
+    by_key: dict[str, dict[str, Any]] = {}
+    for key, row_ix in key_index.items():
+        by_key[key] = meta_dicts[row_ix]
+    return by_key
+
+
+def build_current_run_item_lookup(
+    current_requested_data: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Map stable metadata keys to full current-run items (file_path + metadata).
+
+    Used when rebasing checkpoint paths from the current discovery run.
+
+    Args:
+        current_requested_data: Per-image dicts with ``file_path`` and ``metadata``.
+
+    Returns:
+        Dict mapping stable metadata key to the full item dict from
+        *current_requested_data*.
+
+    Raises:
+        ValueError: If two rows share the same stable metadata key.
+    """
+    metas = [d.get("metadata") or {} for d in current_requested_data]
+    meta_dicts = [m if isinstance(m, dict) else {} for m in metas]
+    key_index = build_metadata_key_index(meta_dicts, on_duplicate="error")
+    by_key: dict[str, dict[str, Any]] = {}
+    for key, row_ix in key_index.items():
+        by_key[key] = current_requested_data[row_ix]
+    return by_key
+
+
 def get_already_committed_metadata_keys(
     ckpt_metadata: list[dict[str, Any]],
     n_committed: int,
@@ -331,17 +386,9 @@ def merge_metadata_from_current_run(
         return list(ckpt_metadata)
 
     # Build lookups from current run: key -> metadata, portable path -> metadata
-    by_key: dict[str, dict[str, Any]] = {}
+    by_key = build_current_run_metadata_lookup(current_requested_data)
     current_paths = [d.get("file_path", "") for d in current_requested_data]
     by_path = _build_unique_path_lookup(current_paths)
-    for d in current_requested_data:
-        meta = d.get("metadata") or {}
-        if isinstance(meta, dict):
-            try:
-                key = metadata_to_stable_key(meta)
-                by_key[key] = meta
-            except ValueError:
-                pass
 
     merged: list[dict[str, Any]] = []
     for i in range(n):
@@ -396,17 +443,9 @@ def rebase_paths_from_current_run(
         return list(ckpt_paths)
 
     # Build lookups: metadata key -> item (with file_path), portable path -> item
-    by_key: dict[str, dict[str, Any]] = {}
+    by_key = build_current_run_item_lookup(current_requested_data)
     current_paths = [d.get("file_path", "") for d in current_requested_data]
     by_path = _build_unique_path_lookup(current_paths)
-    for d in current_requested_data:
-        meta = d.get("metadata") or {}
-        if isinstance(meta, dict):
-            try:
-                key = metadata_to_stable_key(meta)
-                by_key[key] = d
-            except ValueError:
-                pass
 
     result: list[Any] = []
     for i in range(n):

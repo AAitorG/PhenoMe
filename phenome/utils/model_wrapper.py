@@ -2,7 +2,6 @@
 Model wrappers for vision model embedding extraction.
 """
 
-import contextlib
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -47,15 +46,32 @@ class ModelWrapper(ABC):
     def __init__(self, model: Any, device: torch.device | None = None):
         self.model = model
         self.device = device if device is not None else get_default_device()
+        self.sync_device(self.device)
 
-        # Try to move PyTorch models to device; non-PyTorch models should override __init__
+    def sync_device(self, device: torch.device | None = None) -> None:
+        """Move the wrapped model to *device* and set eval mode when supported.
+
+        Called from ``__init__`` and again by ``EmbeddingExtractor`` before each batch
+        so the model stays on the pipeline device after user changes.
+
+        Args:
+            device: Target device. If None, uses the wrapper's current ``self.device``.
+
+        Raises:
+            RuntimeError: If ``model.to(device)`` or ``model.eval()`` fails.
+        """
+        dev = device if device is not None else self.device
+        self.device = dev
         if hasattr(self.model, "to"):
-            with contextlib.suppress(Exception):
-                self.model.to(self.device)
-
+            try:
+                self.model.to(dev)
+            except Exception as e:
+                raise RuntimeError(f"Failed to move model to device {dev!s}") from e
         if hasattr(self.model, "eval"):
-            with contextlib.suppress(Exception):
+            try:
                 self.model.eval()
+            except Exception as e:
+                raise RuntimeError("Failed to set model to eval mode") from e
 
     def extract_embeddings(self, tensor: torch.Tensor) -> torch.Tensor:
         """@section Model wrappers

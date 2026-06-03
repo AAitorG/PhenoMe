@@ -185,11 +185,9 @@ def compute_batch_stats(
         (stats_by_batch_id, info) where *info* has keys ``batches``, ``controls_per_batch``.
     """
     _normalize_control_filters(control_filters)
-    n = len(metadata)
-    if n == 0:
+    n_meta = len(metadata)
+    if n_meta == 0:
         raise ValueError("metadata is empty.")
-
-    validate_batch_metadata_present(metadata, batch_metadata_key)
 
     if results_for_filter is None:
 
@@ -199,6 +197,32 @@ def compute_batch_stats(
                 self.img_path = [""] * len(meta)
 
         results_for_filter = _MetaOnly(metadata)
+
+    n_images = len(results_for_filter.img_path)
+    if n_meta != n_images:
+        raise ValueError(
+            f"Batch correction requires metadata length ({n_meta}) to match "
+            f"number of images ({n_images})."
+        )
+
+    validate_batch_metadata_present(metadata, batch_metadata_key)
+
+    missing_indices = [
+        i
+        for i in range(n_meta)
+        if stable_batch_id(
+            get_metadata_value_from_dict(
+                metadata[i] if isinstance(metadata[i], dict) else {},
+                batch_metadata_key,
+            )
+        )
+        == "__missing__"
+    ]
+    if missing_indices:
+        raise ValueError(
+            f"{len(missing_indices)} row(s) lack batch metadata key "
+            f"{batch_metadata_key!r} (indices include {missing_indices[:5]})."
+        )
 
     control_set = set(filter_indices(results_for_filter, filters=dict(control_filters)))
     if not control_set:
@@ -340,7 +364,13 @@ def build_property_fetch_fn(
             prop = properties[i] if i < len(properties) else {}
             if not isinstance(prop, dict):
                 prop = {}
-            rows.append([float(prop.get(k, np.nan)) for k in keys])
+            row_vals = [float(prop.get(k, np.nan)) for k in keys]
+            if not all(np.isfinite(v) for v in row_vals):
+                raise ValueError(
+                    f"Non-finite property values at row {i} for keys {list(keys)}; "
+                    "fix missing values before batch correction."
+                )
+            rows.append(row_vals)
         return np.asarray(rows, dtype=np.float32)
 
     return fetch_rows

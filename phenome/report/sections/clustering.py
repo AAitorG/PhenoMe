@@ -267,10 +267,11 @@ def _generate_cluster_composition(
         {generate_table(["Cluster", "Count", "Percentage"], rows, numeric_columns=[1])}
         """
 
+    n_images = len(cluster_labels)
     groups = []
-    for m in metadata_list:
-        if isinstance(m, dict):
-            val = get_metadata_value_from_dict(m, color_by)
+    for i in range(n_images):
+        if i < len(metadata_list) and isinstance(metadata_list[i], dict):
+            val = get_metadata_value_from_dict(metadata_list[i], color_by)
             groups.append("Unknown" if val is None or val == "" else val)
         else:
             groups.append("Unknown")
@@ -326,9 +327,13 @@ def _generate_group_enrichment(
     if enrichment_df.empty:
         return generate_info_box("No enrichment data available.", "warning")
 
+    group_col = next((c for c in enrichment_df.columns if c.lower() == "cluster"), None)
+    if group_col is None:
+        return generate_info_box("Enrichment results missing cluster/group column.", "warning")
+
     enrichment_items = []
-    for grp in sorted(enrichment_df["cluster"].unique()):
-        group_data = enrichment_df[enrichment_df["cluster"] == grp].head(5)
+    for grp in sorted(enrichment_df[group_col].unique()):
+        group_data = enrichment_df[enrichment_df[group_col] == grp].head(5)
 
         features_html = []
         for _, row in group_data.iterrows():

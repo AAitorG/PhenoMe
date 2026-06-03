@@ -1663,7 +1663,6 @@ class PhenoMeInteractive:
             "x": x_col,
             "y": y_col,
             "hover_data": hover_cols,
-            "custom_data": ["Index"],
             "width": EMBEDDING_FIG_WIDTH_PX,
             "height": EMBEDDING_FIG_HEIGHT_PX,
         }
@@ -1680,10 +1679,6 @@ class PhenoMeInteractive:
                 }
 
         fig = px.scatter_3d(**kwargs) if z_col else px.scatter(**kwargs)
-
-        if hover_cols:
-            ht_parts = [f"{col}=%{{customdata[{i}]}}" for i, col in enumerate(hover_cols)]
-            fig.update_traces(hovertemplate="<br>".join(ht_parts) + "<extra></extra>")
 
         marker_size = self.point_size_slider.value
         opacity = self.opacity_slider.value

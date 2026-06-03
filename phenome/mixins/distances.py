@@ -171,6 +171,7 @@ class PhenoMeDistances:
                 raise ValueError(
                     "No embeddings available for distance computation. Run process_images() first."
                 )
+            embeddings = cast(PhenoMeProtocol, self)._normalize_embeddings_l2(embeddings)
             ref_indices_mapped = [
                 i for i, orig_idx in enumerate(filtered_indices) if orig_idx in ref_indices
             ]

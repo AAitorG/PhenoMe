@@ -1396,7 +1396,7 @@ Apply min-max scaling to each channel independently.
 
 **Args:**
 
-- **`img`**: np.ndarray, shape (..., C) with channels as last dimension. Any dtype.
+- **`img`**: np.ndarray, shape (H, W) or (..., C) with channels as last dimension. Any dtype.
 
 **Returns:**
 
@@ -1418,7 +1418,7 @@ Clips values at the specified quantile threshold, then rescales to [0, 1].
 
 **Args:**
 
-- **`img`**: np.ndarray, shape (..., C) with channels as last dimension. Any dtype.
+- **`img`**: np.ndarray, shape (H, W) or (..., C) with channels as last dimension. Any dtype.
 - **`quantile`**: float, quantile threshold for clipping (default: 0.99).
 
 **Returns:**
@@ -1437,12 +1437,11 @@ normalize_by_dtype_max(
 Normalize an image to [0, 1] based on dtype-inferred maximum.
 
 Images already in [0, 1] (max <= 1.0) are returned unchanged.
-8-bit images (max <= 255) are divided by 255; 16-bit (max <= 65535) by 65535.
+uint8 images divide by 255; uint16 by 65535; other types use dtype max or / mx.
 
 **Args:**
 
-- **`img`**: np.ndarray, any shape. Value-based inference: max<=1 unchanged;
-  max<=255 (uint8-like), max<=65535 (uint16-like), else divide by max.
+- **`img`**: np.ndarray, any shape.
 
 **Returns:**
 
@@ -1475,7 +1474,8 @@ Uses ImageNet normalization by default.
 TransformBuilder.build(
     self,
     resize_size: int | None = None,
-    pad_size: int | None = None
+    pad_size: int | None = None,
+    n_channels: int = 3
 ) -> Compose
 ```
 
@@ -1493,6 +1493,7 @@ When both pad_size and resize_size are given, padding is applied first, then res
 
 - **`resize_size`**: Target spatial size (H, W) for final resize. If None, no resize.
 - **`pad_size`**: Minimum size for H and W before resize. If None, no padding.
+- **`n_channels`**: Number of input channels for Normalize mean/std (default 3).
 
 **Returns:**
 

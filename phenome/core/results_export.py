@@ -10,7 +10,12 @@ import numpy as np
 import pandas as pd
 
 from .._logging import get_logger
-from .dataframe_contract import append_property_columns, per_image_dataframe, reorder_tier_a_columns
+from .dataframe_contract import (
+    IMAGE_INDEX,
+    append_property_columns,
+    per_image_dataframe,
+    reorder_tier_a_columns,
+)
 from .pipeline_results import PhenoMeResults
 
 logger = get_logger(__name__)
@@ -114,21 +119,37 @@ def build_export_dataframe(
     df = append_property_columns(df, results)
 
     if dist_results is not None and "distance" in dist_results.columns:
-        distances = dist_results["distance"].to_numpy()
-        dist_list = distances.tolist()
-        if len(dist_list) != n_images:
+        if IMAGE_INDEX in dist_results.columns and IMAGE_INDEX in df.columns:
+            merged = df.merge(
+                dist_results[[IMAGE_INDEX, "distance"]],
+                on=IMAGE_INDEX,
+                how="left",
+            )
+            df["distance"] = merged["distance"]
+        else:
+            distances = dist_results["distance"].to_numpy()
+            dist_list = distances.tolist()
+            if len(dist_list) != n_images:
+                logger.warning(
+                    "dist_results['distance'] length (%d) does not match n_images (%d); "
+                    "distance column omitted to avoid misalignment.",
+                    len(dist_list),
+                    n_images,
+                )
+            else:
+                df["distance"] = dist_list
+
+    if include_embeddings is True and isinstance(embeddings, np.ndarray) and embeddings.ndim == 2:
+        if embeddings.shape[0] != n_images:
             logger.warning(
-                "dist_results['distance'] length (%d) does not match n_images (%d); "
-                "distance column omitted to avoid misalignment.",
-                len(dist_list),
+                "embeddings row count (%d) does not match n_images (%d); "
+                "embedding columns omitted to avoid misalignment.",
+                embeddings.shape[0],
                 n_images,
             )
         else:
-            df["distance"] = dist_list
-
-    if include_embeddings is True and isinstance(embeddings, np.ndarray) and embeddings.ndim == 2:
-        n_dims = embeddings.shape[1]
-        for d in range(n_dims):
-            df[f"embedding_{d}"] = embeddings[:, d].tolist()
+            n_dims = embeddings.shape[1]
+            for d in range(n_dims):
+                df[f"embedding_{d}"] = embeddings[:, d].tolist()
 
     return reorder_tier_a_columns(df)

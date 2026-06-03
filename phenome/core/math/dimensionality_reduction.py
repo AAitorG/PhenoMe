@@ -194,7 +194,7 @@ def _run_dimensionality_reduction_matrix_impl(
                     out_batch.cpu().numpy() if hasattr(out_batch, "cpu") else np.asarray(out_batch)
                 )
             transformed = np.concatenate(transformed_parts, axis=0)
-            total_var = float(np.var(matrix, axis=0, ddof=1).sum())
+            total_var = float(np.var(matrix_centered, axis=0, ddof=1).sum())
             dr_obj.explained_variance_ratio_ = _compute_explained_variance_ratio(
                 transformed, total_var
             )

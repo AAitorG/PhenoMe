@@ -14,6 +14,55 @@ _GZIP_LEVEL = 4
 _PROP_CHUNK = 256
 _VL_STR = h5py.special_dtype(vlen=str)
 _METADATA_EXCLUDE_KEYS = frozenset({"mask_path"})
+_PHENOME_DTYPE_ATTR = "phenome_dtype"
+_BOOL_MISSING = np.int8(-1)
+
+
+def _property_values_for_key(prop_dicts: list[dict[str, Any]], key: str) -> list[Any]:
+    vals: list[Any] = []
+    for p in prop_dicts:
+        if isinstance(p, dict):
+            vals.append(p.get(key, np.nan))
+        else:
+            vals.append(np.nan)
+    return vals
+
+
+def _is_bool_property_column(values: list[Any]) -> bool:
+    non_missing = [
+        v for v in values if v is not None and not (isinstance(v, float) and np.isnan(v))
+    ]
+    return bool(non_missing) and all(isinstance(v, bool) for v in non_missing)
+
+
+def _serialize_property_column(
+    prop_dicts: list[dict[str, Any]],
+    key: str,
+) -> tuple[np.ndarray, str | None]:
+    """Return (column array, phenome_dtype hint) for HDF5 storage."""
+    values = _property_values_for_key(prop_dicts, key)
+    if _is_bool_property_column(values):
+        col = np.array(
+            [
+                np.int8(1) if v is True else np.int8(0) if v is False else _BOOL_MISSING
+                for v in values
+            ],
+            dtype=np.int8,
+        )
+        return col, "bool"
+    col = np.array(
+        [float(p.get(key, np.nan)) if isinstance(p, dict) else np.nan for p in prop_dicts],
+        dtype=np.float32,
+    )
+    return col, None
+
+
+def _restore_property_value(raw: Any, phenome_dtype: str | None) -> Any:
+    if phenome_dtype == "bool":
+        if raw == _BOOL_MISSING or raw is None:
+            return np.nan
+        return bool(int(raw))
+    return float(raw)
 
 
 def decode(value: Any) -> str:
@@ -213,21 +262,20 @@ def append_properties_group(
             all_keys.update(p.keys())
 
     for key in sorted(all_keys):
-        col = np.array(
-            [float(p.get(key, np.nan)) if isinstance(p, dict) else np.nan for p in prop_dicts],
-            dtype=np.float32,
-        )
+        col, phenome_dtype = _serialize_property_column(prop_dicts, key)
         if key not in grp:
             ds = grp.create_dataset(
                 key,
                 shape=(0,),
                 maxshape=(None,),
-                dtype=np.float32,
+                dtype=col.dtype,
                 chunks=(_PROP_CHUNK,),
                 compression="gzip",
                 compression_opts=_GZIP_LEVEL,
-                fillvalue=np.nan,
+                fillvalue=_BOOL_MISSING if phenome_dtype == "bool" else np.nan,
             )
+            if phenome_dtype:
+                ds.attrs[_PHENOME_DTYPE_ATTR] = phenome_dtype
             ds.resize(n_old, axis=0)
         else:
             ds = cast(h5py.Dataset, grp[key])
@@ -235,7 +283,8 @@ def append_properties_group(
         cur_size = ds.shape[0]
         ds.resize(n_new_total, axis=0)
         if cur_size < n_old:
-            fill = np.full(n_old - cur_size, np.nan, dtype=np.float32)
+            fill_val = _BOOL_MISSING if phenome_dtype == "bool" else np.nan
+            fill = np.full(n_old - cur_size, fill_val, dtype=col.dtype)
             ds[cur_size:n_old] = fill
 
         ds[n_old:n_new_total] = col
@@ -269,19 +318,18 @@ def write_properties_group(
         if isinstance(p, dict):
             all_keys.update(p.keys())
     for key in sorted(all_keys):
-        col = np.array(
-            [float(p.get(key, np.nan)) if isinstance(p, dict) else np.nan for p in prop_dicts],
-            dtype=np.float32,
-        )
-        grp.create_dataset(
+        col, phenome_dtype = _serialize_property_column(prop_dicts, key)
+        ds = grp.create_dataset(
             key,
             data=col,
             maxshape=(None,),
             chunks=(_PROP_CHUNK,),
             compression="gzip",
             compression_opts=_GZIP_LEVEL,
-            fillvalue=np.nan,
+            fillvalue=_BOOL_MISSING if phenome_dtype == "bool" else np.nan,
         )
+        if phenome_dtype:
+            ds.attrs[_PHENOME_DTYPE_ATTR] = phenome_dtype
 
 
 def read_properties_group(
@@ -294,8 +342,11 @@ def read_properties_group(
         ds = cast(h5py.Dataset, grp[key])
         actual = min(n, ds.shape[0])
         values = ds[:actual]
+        phenome_dtype = ds.attrs.get(_PHENOME_DTYPE_ATTR)
+        if isinstance(phenome_dtype, bytes):
+            phenome_dtype = phenome_dtype.decode("utf-8")
         for i, v in enumerate(values):
-            result[i][key] = float(v)
+            result[i][key] = _restore_property_value(v, phenome_dtype)
     return result
 
 

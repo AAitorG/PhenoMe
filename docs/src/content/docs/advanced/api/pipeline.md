@@ -27,9 +27,10 @@ plot_pca, plot_tsne, plot_umap, and related methods.
 - **Eager**: When no checkpoint is used, embeddings live in ``results.embeddings`` (np.ndarray).
 - **Lazy**: When a checkpoint is active (``self._db``), ``results.embeddings`` is ``None``;
   embeddings are read on demand via ``get_embeddings()`` from the HDF5 file.
-- **Temporal**: Rows from ``process_temporal_images()`` are in-memory only
-  (``self._temporal_embeddings``) when ``_db`` is open; merged with checkpoint data in
-  ``get_embeddings()``.
+- **Temporal**: Rows from ``process_temporal_images()`` use ``self._temporal_embeddings``
+  while ``_db`` is open; ``get_embeddings()`` merges them with checkpoint rows by index.
+  After ``checkpoint_context()`` exits with temporal data present, the merged array is
+  copied to ``results.embeddings`` and the temporal buffer is cleared.
 
 **Args:**
 
@@ -226,7 +227,8 @@ PhenoMe.process_images(
     checkpoint_path: str | None = None,
     force_rgb: bool = True,
     save_every: int = 5,
-    lazy_checkpoint: bool = True
+    lazy_checkpoint: bool = True,
+    force_reprocess: bool = False
 ) -> None
 ```
 
@@ -287,6 +289,9 @@ and checkpointing for resumable processing.
 - **`lazy_checkpoint`** (`bool`): If True and checkpoint_path is set, enable lazy
   loading (embeddings not kept in-memory). If False, load all embeddings
   after processing. Default: True.
+- **`force_reprocess`** (`bool`): If True and ``checkpoint_path`` already exists, delete
+  that file and process all requested images from scratch (no resume).
+  Default: False.
 
 **Returns:**
 
@@ -463,9 +468,16 @@ Return embeddings for the given row indices.
 
 When a checkpoint / HDF5 database is active (``self._db`` is not None),
 only the requested rows are read from disk — the core of the lazy-loading
-strategy.  When temporal embeddings exist (from process_temporal_images),
-they are merged with checkpoint data. When no database is active, slices
-``results.embeddings``.
+strategy.  When temporal embeddings exist (from ``process_temporal_images``),
+rows with index ``>= self._temporal_start_idx`` are read from
+``self._temporal_embeddings``; earlier rows come from the checkpoint.
+
+When no database is active, returns ``results.embeddings`` (optionally sliced).
+If that array holds only checkpoint rows (length ``_temporal_start_idx``) and
+temporal embeddings are still in memory, they are appended to form a full
+``(n_images, D)`` array. If ``results.embeddings`` already has ``n_images`` rows
+(e.g. materialized on ``checkpoint_context`` exit), temporal data is not appended
+again.
 
 **Args:**
 
@@ -820,9 +832,19 @@ ensure the HDF5 file handle is released (e.g. before moving or deleting
 the file, or when opening multiple checkpoints in sequence).
 
 **Embeddings:** While the context is open, lazy embeddings are read from the
-HDF5 file via ``get_embeddings()``. After exit, ``self._db`` is closed and
-``results.embeddings`` remains ``None``; call ``load_results(..., lazy_checkpoint=True)``
-again (or another ``checkpoint_context``) before using ``get_embeddings()``.
+HDF5 file via ``get_embeddings()``. On exit, if temporal embeddings were loaded
+in memory (``process_temporal_images`` while the checkpoint was open), the merged
+full embedding matrix is copied to ``results.embeddings`` and
+``self._temporal_embeddings`` is cleared. Otherwise ``results.embeddings`` may
+stay ``None``; call ``load_results(..., lazy_checkpoint=True)`` or enter another
+``checkpoint_context`` before using ``get_embeddings()`` again.
+
+**Args:**
+
+- **`path`**: Checkpoint HDF5 path. If None, uses the path from the last
+  ``load_results`` / ``process_images`` session when available.
+- **`lazy_checkpoint`**: If True, keep the HDF5 file open for on-demand reads
+  inside the context. Default: True.
 
 **Example:**
 

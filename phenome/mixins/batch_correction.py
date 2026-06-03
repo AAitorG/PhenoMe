@@ -283,7 +283,10 @@ class PhenoMeBatchCorrection:
             for r, global_i in enumerate(logical.tolist()):
                 row = props[global_i]
                 if not isinstance(row, dict):
-                    continue
+                    raise TypeError(
+                        f"Property row at index {global_i} is not a dict; "
+                        "cannot apply batch correction."
+                    )
                 for j, k in enumerate(keys):
                     row[k] = float(corrected[r, j])
 

@@ -911,6 +911,9 @@ class CheckpointManager:
             dim = int(self._file.attrs.get("embedding_dim", 0))
             return np.empty((0, dim), dtype=np.float32)
 
+        if indices.min() < 0:
+            raise IndexError(f"Negative embedding index {indices.min()} is not allowed.")
+
         if indices.max() >= n_emb:
             raise IndexError(f"Index {indices.max()} out of committed range [0, {n_emb - 1}].")
 
@@ -1369,6 +1372,7 @@ class CheckpointManager:
                 return _normalize_path_for_storage(str(p))
 
             img_paths = [_norm_only(p) for p in img_paths]
+            storage_root = os.getcwd()
 
         parent = os.path.dirname(path) or "."
         os.makedirs(parent, exist_ok=True)
