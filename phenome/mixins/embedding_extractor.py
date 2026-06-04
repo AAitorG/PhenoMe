@@ -60,7 +60,6 @@ class EmbeddingExtractor:
             - metadata: List[dict], length B.
         """
         is_split = batch_tensor.ndim == 5
-        self.model_wrapper.sync_device(self.device)
 
         if not is_split:
             flat = batch_tensor.to(self.device, non_blocking=True)
