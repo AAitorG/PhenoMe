@@ -1098,11 +1098,7 @@ class PhenoMeInteractive:
         """
         if key is None or not hasattr(self.pheno, "results") or not self.pheno.results:
             return []
-        results = self.pheno.results
-        if hasattr(results, "metadata"):
-            metadata_list = results.metadata
-        else:
-            metadata_list = list(results.get("metadata", []))
+        metadata_list = self.pheno.results.metadata
         all_vals: list[str] = []
         for meta in metadata_list:
             if isinstance(meta, dict):

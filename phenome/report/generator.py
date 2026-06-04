@@ -284,11 +284,8 @@ def _build_stats_cards(ctx: ReportContext, opts: dict[str, Any]) -> str:
     if opts.get("include_clustering") and ctx.has_embeddings:
         cluster_vals = []
         for meta_dict in ctx.results.metadata:
-            if isinstance(meta_dict, dict):
-                if "Cluster" in meta_dict:
-                    cluster_vals.append(meta_dict["Cluster"])
-                elif "cluster" in meta_dict:
-                    cluster_vals.append(meta_dict["cluster"])
+            if isinstance(meta_dict, dict) and "cluster" in meta_dict:
+                cluster_vals.append(meta_dict["cluster"])
 
         def _is_valid_cluster(c: Any) -> bool:
             if c is None:

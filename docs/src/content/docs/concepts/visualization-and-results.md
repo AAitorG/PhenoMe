@@ -39,11 +39,21 @@ pheno.plot_pca(source="properties", property_keys=["area", "intensity"])
 
 Results live in `PhenoMeResults` (`pheno.results`): `img_path`, `metadata`, `properties`, and `embeddings`.
 
+Use **attribute access** (not dict-style `results["key"]` or `results.get()`):
+
+```python
+paths = pheno.results.img_path
+meta = pheno.results.metadata
+props = pheno.results.properties
+emb = pheno.results.embeddings  # np.ndarray when eager; None if absent or lazy (HDF5)
+```
+
 ### Accessing results
 
 | Access | When to use |
 |--------|-------------|
 | `pheno.get_embeddings()` | Preferred. Loads from disk when using checkpoint/lazy; returns `None` if no embeddings. |
+| `pheno.results.embeddings` | Same underlying data when stored eagerly in memory; `None` when not computed or lazy-backed. |
 | `pheno.export_dataset_table()` | Metadata, properties, and distances as a DataFrame. Use for filtering, grouping, external analysis. |
 | `pheno.get_image_info(idx)` | Full metadata, properties, and optional distance for one image. |
 

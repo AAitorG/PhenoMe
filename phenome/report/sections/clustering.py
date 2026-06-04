@@ -35,7 +35,7 @@ def _cluster_labels_from_metadata(pipeline: "PhenoMe") -> np.ndarray | None:
         labels = []
         for m in metadata_list:
             if isinstance(m, dict):
-                val = m.get("cluster", m.get("Cluster"))
+                val = m.get("cluster")
                 labels.append(float(val) if val is not None else np.nan)
             else:
                 labels.append(np.nan)

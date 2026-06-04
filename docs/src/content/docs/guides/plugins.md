@@ -102,7 +102,7 @@ from phenome.plugins import register_report_section
 
 def my_custom_section(pipeline, title: str = "Custom Analysis") -> str:
     """Generate HTML for a custom report section."""
-    n_images = len(pipeline.results.get("img_path", []))
+    n_images = pipeline.results.n_images
     return f"""
     <section id="custom">
         <h2>{title}</h2>

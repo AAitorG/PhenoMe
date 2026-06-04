@@ -128,21 +128,6 @@ Some internal methods, such as those used for interactive plots, return DataFram
 
 ---
 
-## Migration from 1.x
-
-If you are upgrading from PhenoMe 1.x, note these standardizations:
-
-| 1.x Pattern | 2.0 Standard |
-| :--- | :--- |
-| `index`, `idx` | `image_index` |
-| `img_path`, `path` | `image_path` |
-| `df.attrs` | `return_meta=True` on distance/interpretability methods |
-| Wide per-image df (all metadata cols) | `include_metadata=True` or `export_dataset_table()` |
-| `Property`, `Score` (Title Case) | `property`, `score` (snake_case) |
-| `prototype_index` | `image_index` |
-
----
-
 ## API Helpers
 
 If you are building custom analysis tools, use these helpers from `phenome.core`:

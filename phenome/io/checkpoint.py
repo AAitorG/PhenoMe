@@ -39,13 +39,10 @@ from ._checkpoint_ops import (
 # ---------------------------------------------------------------------------
 # Version configuration: change these to bump the format or adjust compatibility.
 CHECKPOINT_FORMAT_VERSION = "2.0"  # Version written to new checkpoints
-CHECKPOINT_SUPPORTED_VERSIONS = frozenset(
-    {"2.0"}
-)  # Versions that can be loaded; add older (e.g. "2.1") for backward compat
+CHECKPOINT_SUPPORTED_VERSIONS = frozenset({"2.0"})  # Versions that can be loaded
 
 # Internal checkpoint state (e.g. property-run attempted) — not phenotypic; stored in /internal
 _INTERNAL_GROUP_NAME = "internal"
-_INTERNAL_PROPERTY_TRACKING_KEYS: frozenset[str] = frozenset({"_properties_attempted"})
 
 _CHUNK_ROWS = 128  # HDF5 chunk size (rows) for embeddings
 _GZIP_LEVEL = 4  # compression level (1-9)
@@ -66,32 +63,6 @@ _METADATA_EXCLUDE_KEYS = frozenset({"mask_path"})
 def _is_checkpoint_version_supported(version: str) -> bool:
     """Return True if the given checkpoint version can be loaded."""
     return version in CHECKPOINT_SUPPORTED_VERSIONS
-
-
-def _merge_property_and_internal_rows(
-    raw_props: list[dict[str, Any]],
-    internal_rows: list[dict[str, Any]] | None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Move :data:`_INTERNAL_PROPERTY_TRACKING_KEYS` from property rows to internal (mutates raw_props)."""
-    n = len(raw_props)
-    if internal_rows is None:
-        internal: list[dict[str, Any]] = [{} for _ in range(n)]
-    else:
-        internal = [dict(d) for d in internal_rows[:n]]
-    while len(internal) < n:
-        internal.append({})
-    for row_i in range(n):
-        for k in _INTERNAL_PROPERTY_TRACKING_KEYS:
-            if k in raw_props[row_i]:
-                v_int = internal[row_i].get(k, np.nan)
-                prefer = k not in internal[row_i] or (
-                    isinstance(v_int, (float, np.floating)) and bool(np.isnan(float(v_int)))
-                )
-                if prefer:
-                    internal[row_i][k] = raw_props[row_i].pop(k)
-                else:
-                    del raw_props[row_i][k]
-    return raw_props, internal[:n]
 
 
 def _normalize_path_for_storage(path: str) -> str:
@@ -471,11 +442,7 @@ class CheckpointManager:
         self._merged_props_internal_cache = None
 
     def _read_merged_property_internal(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-        """Return (phenotypic property dicts, per-row internal dicts); migrate legacy keys.
-
-        Old checkpoints stored :data:`_INTERNAL_PROPERTY_TRACKING_KEYS` inside ``/properties``;
-        those are moved into the internal list on read. Results never contain internal keys.
-        """
+        """Return (phenotypic property dicts, per-row internal dicts from ``/internal``)."""
         if self._merged_props_internal_cache is not None:
             return self._merged_props_internal_cache
 
@@ -515,13 +482,12 @@ class CheckpointManager:
         if _INTERNAL_GROUP_NAME in f and bool(
             list(cast(h5py.Group, f[_INTERNAL_GROUP_NAME]).keys())
         ):
-            int_from_file: list[dict[str, Any]] | None = read_internal_group(
-                cast(h5py.Group, f[_INTERNAL_GROUP_NAME]), n
-            )
+            internal = read_internal_group(cast(h5py.Group, f[_INTERNAL_GROUP_NAME]), n)
         else:
-            int_from_file = None
-        raw, internal = _merge_property_and_internal_rows(raw, int_from_file)
-        self._merged_props_internal_cache = (raw, internal)
+            internal = [{} for _ in range(n)]
+        while len(internal) < n:
+            internal.append({})
+        self._merged_props_internal_cache = (raw, internal[:n])
         return self._merged_props_internal_cache
 
     @property
@@ -1286,7 +1252,7 @@ class CheckpointManager:
 
     @staticmethod
     def write_results_to_hdf5(
-        results: Any,  # PhenoMeResults or legacy dict
+        results: PhenoMeResults,
         path: str,
         compression: str = "gzip",
         compression_level: int = _GZIP_LEVEL,
@@ -1299,9 +1265,8 @@ class CheckpointManager:
 
         Parameters
         ----------
-        results : PhenoMeResults or dict
-            Source data.  Accepted dict keys: ``'embeddings'``, ``'img_path'``,
-            ``'metadata'``, ``'properties'``.
+        results : PhenoMeResults
+            Source data (embeddings, img_path, metadata, properties).
         path : str
             Output file path.
         compression, compression_level
@@ -1309,32 +1274,18 @@ class CheckpointManager:
         processing_params : dict or None
             Written to the ``/config`` group when provided.
         internal : list of dict, optional
-            Per-row internal checkpoint state (e.g. attempted flags).
-            If not provided, and *results.properties* contains keys in
-            :data:`_INTERNAL_PROPERTY_TRACKING_KEYS`, they are moved to
-            ``/internal``.
+            Per-row internal checkpoint state (e.g. attempted flags), written to
+            ``/internal`` when non-empty.
         """
-        # Normalise: accept both PhenoMeResults and legacy dict
-        if hasattr(results, "img_path"):
-            img_paths = results.img_path
-            metadata = results.metadata
-            props = results.properties
-            embeddings = results.embeddings
-        else:
-            img_paths = results.get("img_path", [])
-            metadata = results.get("metadata", [])
-            props = results.get("properties", [])
-            embeddings = results.get("embeddings")
-            if isinstance(embeddings, list) and len(embeddings) == 0:
-                embeddings = None
+        img_paths = results.img_path
+        metadata = results.metadata
+        props = results.properties
+        embeddings = results.embeddings
 
         if len(img_paths) == 0:
             raise ValueError("Cannot save results without image paths.")
 
         n = len(img_paths)
-
-        if isinstance(embeddings, list) and embeddings:
-            embeddings = np.stack(embeddings)
 
         # Relativize paths for storage (security and portability)
         def _primary(p: Any) -> Any:
@@ -1423,23 +1374,16 @@ class CheckpointManager:
                 if metadata:
                     write_metadata_group(f, "metadata", metadata, n)
 
-                # Properties (columnar) + /internal (legacy keys lifted from property dicts)
+                # Properties (columnar) + optional /internal
                 if props:
-                    clean_props: list[dict[str, Any]] = []
-                    internal_for_write: list[dict[str, Any]] = []
-                    for i, p in enumerate(props):
-                        pd = dict(p) if isinstance(p, dict) else {}
-                        int_d: dict[str, Any] = {}
-                        if internal and i < len(internal):
-                            int_d.update(internal[i])
-                        for k in _INTERNAL_PROPERTY_TRACKING_KEYS:
-                            if k in pd:
-                                int_d[k] = pd.pop(k)
-                        clean_props.append(pd)
-                        internal_for_write.append(int_d)
+                    clean_props = [dict(p) if isinstance(p, dict) else {} for p in props]
                     write_properties_group(f, "properties", clean_props, n)
-                    if any(int_d for int_d in internal_for_write):
-                        write_internal_group(f, _INTERNAL_GROUP_NAME, internal_for_write, n)
+                    if internal:
+                        internal_for_write = [
+                            dict(internal[i]) if i < len(internal) else {} for i in range(n)
+                        ]
+                        if any(int_d for int_d in internal_for_write):
+                            write_internal_group(f, _INTERNAL_GROUP_NAME, internal_for_write, n)
                     f.attrs["n_committed_props"] = n
                 else:
                     f.attrs["n_committed_props"] = 0
@@ -1553,20 +1497,11 @@ class CheckpointManager:
                 if stored_dim > 0 and ds.shape[1] != stored_dim:
                     raise ValueError("embedding_dim attribute does not match dataset shape.")
 
-            # Properties (migrate internal keys from legacy /properties storage)
+            # Properties (phenotypic only; internal flags live in /internal, not PhenoMeResults)
             properties: list[dict[str, Any]] = []
             if "properties" in f and n_prop > 0:
                 actual_prop = min(n_prop, n)
-                raw = read_properties_group(cast(h5py.Group, f["properties"]), actual_prop)
-                if _INTERNAL_GROUP_NAME in f and list(
-                    cast(h5py.Group, f[_INTERNAL_GROUP_NAME]).keys()
-                ):
-                    int_h5 = read_internal_group(
-                        cast(h5py.Group, f[_INTERNAL_GROUP_NAME]), actual_prop
-                    )
-                else:
-                    int_h5 = None
-                properties, _ = _merge_property_and_internal_rows(raw, int_h5)
+                properties = read_properties_group(cast(h5py.Group, f["properties"]), actual_prop)
             if len(properties) < n:
                 properties.extend([{} for _ in range(n - len(properties))])
 

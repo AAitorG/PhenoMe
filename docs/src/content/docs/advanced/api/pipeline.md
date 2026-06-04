@@ -1321,6 +1321,12 @@ PhenoMeAnalysis.detect_outliers(
 
 Detect outliers based on distance to centroid.
 
+When *source* is ``'embeddings'`` and *normalize* is True (default), embeddings
+are L2-normalized and group centroids use the **arithmetic mean** (not necessarily
+a unit vector). Euclidean distance to that centroid is not the same as angular
+distance to the mean direction; consider property-based or combined sources when
+a different geometry is needed.
+
 **Args:**
 
 - **`method`**: ``'z-score'`` or ``'iqr'``.
@@ -1402,7 +1408,10 @@ Find images closest to each group centroid.
 - **`property_keys`**: Property subset when *source='properties'*.
 - **`filters`**: Optional metadata filters.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).
-- **`metric`**: ``'euclidean'`` or ``'cosine'``.
+- **`metric`**: ``'euclidean'`` or ``'cosine'``. With ``metric='euclidean'``, the
+  group centroid is the arithmetic mean (even when embeddings are
+  L2-normalized). With ``metric='cosine'``, the centroid direction is
+  L2-normalized before ranking by similarity.
 - **`normalize`**: Whether to normalize data before finding prototypes (default: True).
   For embeddings, uses L2 normalization. For properties, uses StandardScaler.
 - **`plot`**: If True (default), shows one matplotlib figure per group: subplots for
@@ -2110,14 +2119,10 @@ Print distance summary statistics without plotting. Safe to use when enable_plot
 
 ## Class `PhenoMeResults`
 
-Typed container for per-image phenotyping data.
+Typed container for per-image phenotyping data (``PhenoMe.results``).
 
-Replaces the plain ``Dict[str, Any]`` that was previously used as
-``PhenoMe.results``.  It exposes a fully dict-compatible
-interface (``__getitem__``, ``__setitem__``, ``get``, ``__contains__``,
-``__iter__``) so that all existing mixin code keeps working without any
-changes.  On top of that it provides typed attributes and convenience
-properties for cleaner client code.
+Access fields via attributes: ``results.img_path``, ``results.metadata``,
+``results.properties``, and ``results.embeddings``.
 
 **Embeddings lifecycle**
 ``embeddings`` tracks the eager copy held by the pipeline:
@@ -2210,33 +2215,6 @@ Reset all fields to empty state.
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-get">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeresults-get"><code>get</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMeResults.get(
-    self,
-    key: 'str',
-    default: 'Any' = None
-) -> Any
-```
-
-</div>
-
-<div class="api-body">
-
-Dict-style .get() with default.
-
-</div>
-
-</div>
-
 <div class="api-method" role="region" aria-labelledby="api-phenomeresults-has_properties">
 
 <div class="api-method-header">
@@ -2275,56 +2253,6 @@ PhenoMeResults.image_name(
 <div class="api-body">
 
 Return the basename of the primary path for image *idx*.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-items">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeresults-items"><code>items</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMeResults.items(
-    self
-) -> Iterator[tuple[str, Any]]
-```
-
-</div>
-
-<div class="api-body">
-
-Yield ``(key, value)`` pairs for each valid key.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-keys">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeresults-keys"><code>keys</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMeResults.keys(
-    self
-) -> Iterable[str]
-```
-
-</div>
-
-<div class="api-body">
-
-Return the valid dict-style keys for this results container.
 
 </div>
 
@@ -2497,31 +2425,6 @@ machine or directory.
   stored paths.  Special value "relative" indicates that stored
   paths are already relative and just need to be joined with
   *data_dir*.
-
-</div>
-
-</div>
-
-<div class="api-method" role="region" aria-labelledby="api-phenomeresults-values">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenomeresults-values"><code>values</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMeResults.values(
-    self
-) -> Iterator[Any]
-```
-
-</div>
-
-<div class="api-body">
-
-Yield values for each valid key.
 
 </div>
 

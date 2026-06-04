@@ -5,27 +5,20 @@ Results container module.
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
-
-# Keys recognised by the dict-compatible interface.
-_VALID_KEYS = frozenset({"img_path", "metadata", "properties", "embeddings"})
 
 
 class PhenoMeResults:
     """@section Results container
     @order 5
 
-    Typed container for per-image phenotyping data.
+    Typed container for per-image phenotyping data (``PhenoMe.results``).
 
-    Replaces the plain ``Dict[str, Any]`` that was previously used as
-    ``PhenoMe.results``.  It exposes a fully dict-compatible
-    interface (``__getitem__``, ``__setitem__``, ``get``, ``__contains__``,
-    ``__iter__``) so that all existing mixin code keeps working without any
-    changes.  On top of that it provides typed attributes and convenience
-    properties for cleaner client code.
+    Access fields via attributes: ``results.img_path``, ``results.metadata``,
+    ``results.properties``, and ``results.embeddings``.
 
     Embeddings lifecycle
     --------------------
@@ -119,74 +112,6 @@ class PhenoMeResults:
         if self.embeddings is not None and self.embeddings.ndim == 2:
             return int(self.embeddings.shape[1])
         return 0
-
-    # ------------------------------------------------------------------
-    # Dict-compatible interface
-    # ------------------------------------------------------------------
-
-    def __getitem__(self, key: str) -> Any:
-        if key == "img_path":
-            return self.img_path
-        if key == "metadata":
-            return self.metadata
-        if key == "properties":
-            return self.properties
-        if key == "embeddings":
-            # Legacy code expects [] when embeddings are absent/lazy.
-            # Return the array if present, else an empty list for compatibility.
-            return self.embeddings if self.embeddings is not None else []
-        raise KeyError(key)
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        if key == "img_path":
-            self.img_path = (
-                [list(p) if isinstance(p, (list, tuple)) else str(p) for p in value]
-                if value is not None
-                else []
-            )
-        elif key == "metadata":
-            self.metadata = [dict(m) if isinstance(m, dict) else {} for m in value]
-        elif key == "properties":
-            self.properties = [dict(p) if isinstance(p, dict) else {} for p in value]
-        elif key == "embeddings":
-            # Accept np.ndarray or the empty-list sentinel from legacy code.
-            if isinstance(value, np.ndarray):
-                self.embeddings = value
-            elif value is None or (isinstance(value, list) and len(value) == 0):
-                self.embeddings = None
-            else:
-                # Non-empty list (legacy in-progress buffer) — kept for compatibility,
-                # but warn: use pipeline._emb_buffer instead.
-                self.embeddings = None
-        else:
-            raise KeyError(f"Unknown results key '{key}'. Valid keys: {sorted(_VALID_KEYS)}")
-
-    def __contains__(self, key: object) -> bool:
-        return key in _VALID_KEYS
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(_VALID_KEYS)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Dict-style .get() with default."""
-        try:
-            return self[key]
-        except KeyError:
-            return default
-
-    def keys(self) -> Iterable[str]:
-        """Return the valid dict-style keys for this results container."""
-        return _VALID_KEYS
-
-    def items(self) -> Iterator[tuple[str, Any]]:
-        """Yield ``(key, value)`` pairs for each valid key."""
-        for k in _VALID_KEYS:
-            yield k, self[k]
-
-    def values(self) -> Iterator[Any]:
-        """Yield values for each valid key."""
-        for k in _VALID_KEYS:
-            yield self[k]
 
     # ------------------------------------------------------------------
     # Helpers

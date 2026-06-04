@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 
 
 def prepare_embedding_dataframe(
-    results: PhenoMeResults | dict,
+    results: PhenoMeResults,
     transformed: np.ndarray,
     indices: list[int],
     names: list[str],
@@ -32,7 +32,7 @@ def prepare_embedding_dataframe(
     Internal visualization helper — not part of the stable Tier-A API contract.
 
     Args:
-        results: PhenoMeResults or dict with 'img_path', 'metadata', 'properties'.
+        results: PhenoMeResults with img_path, metadata, properties.
         transformed: np.ndarray, shape (n_samples, n_components), coordinate matrix.
         indices: List[int], length n_samples. Image indices for each row.
         names: List[str], length n_components. Column names (e.g. ['Component 1', 'Component 2']).
@@ -45,9 +45,7 @@ def prepare_embedding_dataframe(
 
     df = pd.DataFrame({n: transformed[:, i] for i, n in enumerate(names)})
 
-    img_path = (
-        results.img_path if isinstance(results, PhenoMeResults) else results.get("img_path", [])
-    )
+    img_path = results.img_path
     df["Image"] = [path_basename(img_path[i]) for i in indices]
     df["Index"] = indices
 
@@ -59,9 +57,7 @@ def prepare_embedding_dataframe(
             metadata_df = metadata_df.drop(columns=duplicate_cols)
         df = pd.concat([df, metadata_df], axis=1)
 
-    props_list = (
-        results.properties if isinstance(results, PhenoMeResults) else results.get("properties", [])
-    )
+    props_list = results.properties
     if props_list:
         prop_keys: set[str] = set()
         for i in indices:
@@ -81,7 +77,7 @@ def prepare_embedding_dataframe(
 
 
 def build_export_dataframe(
-    results: PhenoMeResults | dict,
+    results: PhenoMeResults,
     dist_results: pd.DataFrame | None = None,
     include_embeddings: bool | Literal["separate"] = False,
 ) -> pd.DataFrame:
@@ -91,8 +87,7 @@ def build_export_dataframe(
     optionally embeddings as columns.
 
     Args:
-        results: PhenoMeResults or dict with 'img_path', 'metadata', 'properties',
-            and optionally 'embeddings'.
+        results: PhenoMeResults with img_path, metadata, properties, and optionally embeddings.
         dist_results: Optional DataFrame from compute_reference_distances. Expected columns:
             'distance': float32. Adds a 'distance' column when provided.
         include_embeddings: If True, adds embedding columns (embedding_0, embedding_1, ...).
@@ -102,16 +97,8 @@ def build_export_dataframe(
         Tier-A DataFrame with image_index, image_path, metadata keys, property keys,
         distance (if dist_results provided), and embedding columns (if requested).
     """
-    if isinstance(results, PhenoMeResults):
-        embeddings = results.embeddings
-    else:
-        embeddings = results.get("embeddings")
-        if isinstance(embeddings, list) and len(embeddings) == 0:
-            embeddings = None
-
-    n_images = len(
-        results.img_path if isinstance(results, PhenoMeResults) else results.get("img_path", [])
-    )
+    embeddings = results.embeddings
+    n_images = results.n_images
     if n_images == 0:
         return pd.DataFrame()
 

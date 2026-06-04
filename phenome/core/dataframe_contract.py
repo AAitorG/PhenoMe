@@ -43,14 +43,12 @@ def is_per_image_df(df: pd.DataFrame) -> bool:
     return not df[IMAGE_INDEX].duplicated().any()
 
 
-def _img_path_list(results: PhenoMeResults | dict[str, Any]) -> list[str]:
-    if isinstance(results, PhenoMeResults):
-        return list(results.img_path)
-    return list(results.get("img_path", []))
+def _img_path_list(results: PhenoMeResults) -> list[str]:
+    return list(results.img_path)
 
 
 def per_image_dataframe(
-    results: PhenoMeResults | dict[str, Any],
+    results: PhenoMeResults,
     indices: Sequence[int] | None = None,
     include_metadata: bool = False,
     include_image_name: bool = True,
@@ -125,15 +123,13 @@ def get_all_metadata_keys_from_df(df: pd.DataFrame) -> list[str]:
 
 def append_property_columns(
     df: pd.DataFrame,
-    results: PhenoMeResults | dict[str, Any],
+    results: PhenoMeResults,
     property_keys: list[str] | None = None,
     *,
     indices: Sequence[int] | None = None,
 ) -> pd.DataFrame:
     """Add property columns to a Tier-A DataFrame."""
-    props_list = (
-        results.properties if isinstance(results, PhenoMeResults) else results.get("properties", [])
-    )
+    props_list = results.properties
     if not props_list:
         return df
 

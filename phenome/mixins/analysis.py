@@ -283,7 +283,7 @@ class PhenoMeAnalysis:
                     len(sil_matrix),
                 )
 
-        # Store cluster labels in results['metadata'] for downstream use
+        # Store cluster labels in results.metadata for downstream use
         metadata_list = self.results.metadata
         while len(metadata_list) < n_total:
             metadata_list.append({})
@@ -463,27 +463,28 @@ class PhenoMeAnalysis:
             }
         )
 
+        drivers = results.pop("drivers", [])
+        df = pd.DataFrame(columns=["feature", "weight"]) if not drivers else pd.DataFrame(drivers)
+        meta = {k: v for k, v in results.items() if k != "dr_object"}
+
         logger.info(
             "Multivariate Interpretability (%s, %s, %s): R^2=%.2f, %d drivers found.",
             format_dr_method(method),
             comp_col,
             model_type,
-            results["r2"],
-            len(results["drivers"]),
+            meta.get("r2", 0.0),
+            len(df),
         )
 
         results.pop("interpretability_fig", None)
         fig = _display_multivariate_interpretability(
-            results,
+            df,
+            meta,
             plot=plot,
             return_fig=return_fig,
             top_k=top_k,
             figsize=figsize,
         )
-
-        drivers = results.pop("drivers", [])
-        df = pd.DataFrame(columns=["feature", "weight"]) if not drivers else pd.DataFrame(drivers)
-        meta = {k: v for k, v in results.items() if k != "dr_object"}
 
         return pack_df_meta_fig(df, meta, fig, return_meta=return_meta, return_fig=return_fig)
 
@@ -505,6 +506,12 @@ class PhenoMeAnalysis:
         plot: bool = True,
     ) -> pd.DataFrame:
         """Detect outliers based on distance to centroid.
+
+        When *source* is ``'embeddings'`` and *normalize* is True (default), embeddings
+        are L2-normalized and group centroids use the **arithmetic mean** (not necessarily
+        a unit vector). Euclidean distance to that centroid is not the same as angular
+        distance to the mean direction; consider property-based or combined sources when
+        a different geometry is needed.
 
         Args:
             method: ``'z-score'`` or ``'iqr'``.
@@ -1285,7 +1292,10 @@ class PhenoMeAnalysis:
             property_keys: Property subset when *source='properties'*.
             filters: Optional metadata filters.
             exclude: Optional metadata exclusions (same structure as filters).
-            metric: ``'euclidean'`` or ``'cosine'``.
+            metric: ``'euclidean'`` or ``'cosine'``. With ``metric='euclidean'``, the
+                group centroid is the arithmetic mean (even when embeddings are
+                L2-normalized). With ``metric='cosine'``, the centroid direction is
+                L2-normalized before ranking by similarity.
             normalize: Whether to normalize data before finding prototypes (default: True).
                 For embeddings, uses L2 normalization. For properties, uses StandardScaler.
             plot: If True (default), shows one matplotlib figure per group: subplots for

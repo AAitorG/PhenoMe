@@ -2,26 +2,21 @@
 Results metadata access and filtering.
 
 Provides functions to read metadata from pipeline results and filter indices.
-Accepts both [PhenoMeResults](pipeline.md#class-phenomeresults) instances and legacy dicts.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-
-def _metadata_list(results: Any) -> list[dict[str, Any]]:
-    """Extract the metadata list from either a PhenoMeResults or a dict."""
-    if hasattr(results, "metadata"):
-        return list(results.metadata)
-    return list(results.get("metadata", []))
+from .pipeline_results import PhenoMeResults
 
 
-def _img_path_list(results: Any) -> list[Any]:
-    """Extract the img_path list from either a PhenoMeResults or a dict."""
-    if hasattr(results, "img_path"):
-        return list(results.img_path)
-    return list(results.get("img_path", []))
+def _metadata_list(results: PhenoMeResults) -> list[dict[str, Any]]:
+    return list(results.metadata)
+
+
+def _img_path_list(results: PhenoMeResults) -> list[Any]:
+    return list(results.img_path)
 
 
 def get_metadata_value_from_dict(meta_dict: dict[str, Any], key: str) -> Any:
@@ -37,11 +32,11 @@ def get_metadata_value_from_dict(meta_dict: dict[str, Any], key: str) -> Any:
     return _get_value_case_insensitive(meta_dict, key)
 
 
-def get_metadata_value(results: Any, idx: int, key: str) -> Any:
+def get_metadata_value(results: PhenoMeResults, idx: int, key: str) -> Any:
     """Safely fetch a metadata value for an image index.
 
     Args:
-        results: PhenoMeResults or pipeline results dict.
+        results: PhenoMeResults instance.
         idx: Image index.
         key: Metadata key name (case-insensitive).
 
@@ -54,14 +49,14 @@ def get_metadata_value(results: Any, idx: int, key: str) -> Any:
     return None
 
 
-def get_all_metadata_keys(results: Any) -> list[str]:
+def get_all_metadata_keys(results: PhenoMeResults) -> list[str]:
     """Get sorted unique metadata keys present in results.
 
     Deduplicates by lowercase so 'Drug' and 'drug' yield a single key.
     Uses first-occurrence casing for display.
 
     Args:
-        results: PhenoMeResults or pipeline results dict.
+        results: PhenoMeResults instance.
 
     Returns:
         Sorted list of unique metadata keys.
@@ -77,7 +72,7 @@ def get_all_metadata_keys(results: Any) -> list[str]:
     return sorted(key_by_lower.values())
 
 
-def _row_matches_criteria(results: Any, idx: int, normalized: dict[str, Any]) -> bool:
+def _row_matches_criteria(results: PhenoMeResults, idx: int, normalized: dict[str, Any]) -> bool:
     """Return True if row at idx matches all criteria (for include or exclude)."""
     for key_lower, allowed in normalized.items():
         if allowed is None:
@@ -93,7 +88,7 @@ def _row_matches_criteria(results: Any, idx: int, normalized: dict[str, Any]) ->
 
 
 def filter_indices(
-    results: Any,
+    results: PhenoMeResults,
     filters: dict[str, Any | list[Any]] | None = None,
     exclude: dict[str, Any | list[Any]] | None = None,
 ) -> list[int]:
@@ -161,7 +156,7 @@ def filter_indices(
 
 
 def build_metadata_columns(
-    results: Any,
+    results: PhenoMeResults,
     indices: list[int] | None = None,
     capitalize: bool = False,
     keys: list[str] | None = None,
@@ -169,7 +164,7 @@ def build_metadata_columns(
     """Build dict of metadata columns suitable for DataFrame creation.
 
     Args:
-        results: PhenoMeResults or pipeline results dict.
+        results: PhenoMeResults instance.
         indices: Optional list of image indices. If None, uses all images.
         capitalize: Whether to capitalize column names.
         keys: Optional list of metadata keys to include. If None, uses all keys.

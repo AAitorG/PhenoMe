@@ -1293,7 +1293,7 @@ array instead.
 
 ```python
 CheckpointManager.write_results_to_hdf5(
-    results: 'Any',
+    results: 'PhenoMeResults',
     path: 'str',
     compression: 'str' = 'gzip',
     compression_level: 'int' = 4,
@@ -1312,9 +1312,8 @@ Uses a temporary file + ``os.replace`` for crash safety.
 
 **Parameters:**
 
-- **`results`** (`PhenoMeResults or dict`):
-  Source data.  Accepted dict keys: ``'embeddings'``, ``'img_path'``,
-  ``'metadata'``, ``'properties'``.
+- **`results`** (`PhenoMeResults`):
+  Source data (embeddings, img_path, metadata, properties).
 - **`path`** (`str`):
   Output file path.
   compression, compression_level
@@ -1322,10 +1321,8 @@ Uses a temporary file + ``os.replace`` for crash safety.
 - **`processing_params`** (`dict or None`):
   Written to the ``/config`` group when provided.
 - **`internal`** (`list of dict, optional`):
-  Per-row internal checkpoint state (e.g. attempted flags).
-  If not provided, and *results.properties* contains keys in
-  :data:`_INTERNAL_PROPERTY_TRACKING_KEYS`, they are moved to
-  ``/internal``.
+  Per-row internal checkpoint state (e.g. attempted flags), written to
+  ``/internal`` when non-empty.
 
 </div>
 

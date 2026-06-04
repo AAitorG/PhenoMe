@@ -85,7 +85,7 @@ The pipeline uses attributes to track file state and versioning.
 
 ### Internal Tracking Flags
 
-The `/internal/` group stores flags that help the pipeline resume interrupted runs. These are not considered phenotypic data and are filtered out of `PhenoMeResults`.
+The `/internal/` group stores flags that help the pipeline resume interrupted runs. These are not considered phenotypic data and are filtered out of `PhenoMeResults`. Internal flags must be written to `/internal` at save time; storing them only inside `/properties` is not supported (v1.3.0+).
 
 | Flag | Type | Description |
 | :--- | :--- | :--- |

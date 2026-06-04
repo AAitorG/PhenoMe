@@ -234,9 +234,9 @@ class FileDiscovery:
                 if on_missing_metadata == "drop":
                     continue
 
-            row: dict[str, Any] = {"file_path": meta.get("file_path", meta.get("filepath", path))}
+            row: dict[str, Any] = {"file_path": meta.get("file_path", path)}
             for k, v in meta.items():
-                if k.lower() not in ("file_path", "filepath"):
+                if k.lower() != "file_path":
                     row[k.lower()] = v
             rows.append(row)
 
@@ -262,7 +262,7 @@ class FileDiscovery:
                     group_key = matching[0]
                 else:
                     # Deduce: first metadata key that is not a system key
-                    sys_keys = {"channel_index", "file_path", "filepath"}
+                    sys_keys = {"channel_index", "file_path"}
                     group_key = next(
                         (k for k in rows[0] if k not in sys_keys),
                         None,

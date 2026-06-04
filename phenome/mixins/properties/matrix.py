@@ -11,12 +11,13 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 from ..._logging import get_logger
+from ...core.pipeline_results import PhenoMeResults
 
 logger = get_logger(__name__)
 
 
 def detect_nan_properties(
-    results: Any,
+    results: PhenoMeResults,
     property_keys: list[str] | None = None,
     indices: list[int] | None = None,
     count_missing_key_as_nan: bool = True,
@@ -33,9 +34,7 @@ def detect_nan_properties(
     Returns:
         Tuple of (nan_counts, nan_indices).
     """
-    properties_list = (
-        results.properties if hasattr(results, "properties") else results.get("properties", [])
-    )
+    properties_list = results.properties
     if property_keys is None:
         keys = sorted(properties_list[0].keys()) if properties_list else []
     else:
@@ -45,12 +44,7 @@ def detect_nan_properties(
         return {}, {}
 
     if indices is None:
-        n_samples = (
-            len(results.img_path)
-            if hasattr(results, "img_path")
-            else len(results.get("img_path", []))
-        )
-        indices = list(range(n_samples))
+        indices = list(range(results.n_images))
 
     nan_counts: dict[str, int] = {}
     nan_indices: dict[str, list[int]] = {}
@@ -89,7 +83,7 @@ def detect_nan_properties(
 
 
 def warn_if_nan_properties(
-    results: Any,
+    results: PhenoMeResults,
     property_keys: list[str] | None = None,
     indices: list[int] | None = None,
     count_missing_key_as_nan: bool = True,
@@ -105,9 +99,7 @@ def warn_if_nan_properties(
     if not affected:
         return
 
-    n_total = (
-        len(results.img_path) if hasattr(results, "img_path") else len(results.get("img_path", []))
-    )
+    n_total = results.n_images
     samples_affected = (
         len({idx for indices_list in nan_indices.values() for idx in indices_list})
         if nan_indices
@@ -125,7 +117,7 @@ def warn_if_nan_properties(
 
 
 def get_property_matrix(
-    results: Any,
+    results: PhenoMeResults,
     cache: dict[str, Any] | None = None,
     indices: list[int] | None = None,
     property_keys: list[str] | None = None,
@@ -145,9 +137,7 @@ def get_property_matrix(
     Returns:
         Tuple of (matrix, valid_indices, used_keys, updated_cache).
     """
-    properties_list = (
-        results.properties if hasattr(results, "properties") else results.get("properties", [])
-    )
+    properties_list = results.properties
 
     if property_keys is None:
         if not properties_list:
@@ -168,12 +158,7 @@ def get_property_matrix(
         raise ValueError("No numeric properties available for 'properties' source.")
 
     if indices is None:
-        n_samples = (
-            len(results.img_path)
-            if hasattr(results, "img_path")
-            else len(results.get("img_path", []))
-        )
-        indices = list(range(n_samples))
+        indices = list(range(results.n_images))
 
     def extract_property_array(key: str) -> np.ndarray:
         return np.array(
@@ -195,13 +180,11 @@ def get_property_matrix(
 def normalize_property_matrix(
     matrix: np.ndarray,
     keys: list[str],
-    results: dict,
+    results: PhenoMeResults,
     cache: dict[str, Any] | None = None,
 ) -> tuple[np.ndarray, dict[str, Any] | None]:
     """Normalize property matrix using cached StandardScaler."""
-    n_samples = (
-        len(results.img_path) if hasattr(results, "img_path") else len(results.get("img_path", []))
-    )
+    n_samples = results.n_images
     cache_valid = (
         cache is not None
         and cache.get("keys") == tuple(keys)
@@ -210,9 +193,7 @@ def normalize_property_matrix(
     )
 
     if not cache_valid:
-        properties_list = (
-            results.properties if hasattr(results, "properties") else results.get("properties", [])
-        )
+        properties_list = results.properties
         all_indices = list(range(n_samples))
 
         def extract_array(key: str) -> np.ndarray:

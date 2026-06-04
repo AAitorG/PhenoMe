@@ -12,37 +12,24 @@ from .pipeline_results import PhenoMeResults
 logger = get_logger(__name__)
 
 
-def validate_results(results: PhenoMeResults | dict) -> bool:
+def validate_results(results: PhenoMeResults) -> bool:
     """Check that pipeline results have consistent lengths across all arrays.
 
     Logs a warning if any mismatch is found.  Useful for debugging after
     load_results or load_committed_results.
 
     Args:
-        results: PhenoMeResults instance or legacy dict with 'embeddings',
-            'img_path', 'metadata', 'properties'.
+        results: PhenoMeResults instance.
 
     Returns:
         True if all lengths are consistent (or results are empty), False otherwise.
     """
-    # Normalise: accept both PhenoMeResults and legacy dicts
-    if isinstance(results, PhenoMeResults):
-        n_paths = results.n_images
-        n_meta = len(results.metadata)
-        n_props = len(results.properties)
-        emb = results.embeddings
-    else:
-        n_paths = len(results.get("img_path", []))
-        n_meta = len(results.get("metadata", []))
-        n_props = len(results.get("properties", []))
-        emb = results.get("embeddings")
+    n_paths = results.n_images
+    n_meta = len(results.metadata)
+    n_props = len(results.properties)
+    emb = results.embeddings
 
-    if isinstance(emb, np.ndarray):
-        n_emb = emb.shape[0] if emb.ndim > 0 else 0
-    elif isinstance(emb, list):
-        n_emb = len(emb)
-    else:
-        n_emb = 0
+    n_emb = (emb.shape[0] if emb.ndim > 0 else 0) if isinstance(emb, np.ndarray) else 0
 
     ref = n_paths
     consistent = True

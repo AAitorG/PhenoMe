@@ -186,7 +186,7 @@ class MetadataBase(ABC):
         """Build stable key for checkpoint matching.
 
         Uses the unique ID when present and non-path-like; otherwise delegates
-        to metadata_to_stable_key for backward compatibility.
+        to metadata_to_stable_key for a JSON-based stable key.
         """
         from ..core.property_utils import metadata_to_stable_key
 
