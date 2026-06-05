@@ -83,7 +83,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `MetadataBase` | Base class for metadata extraction with configurable columns and ID handling. | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/#metadatabase) |
 | `PathTemplateMetadata` | Metadata extractor from path template with capture groups. | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/#pathtemplatemetadata) |
 | `PhenoMe` | Main class for phenotyping analysis using deep learning embeddings. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#class-phenome) |
-| `PhenoMeResults` | Typed container for per-image phenotyping data. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#class-phenomeresults) |
+| `PhenoMeResults` | Typed container for per-image phenotyping data (``PhenoMe.results``). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#class-phenomeresults) |
 
 ---
 
@@ -244,7 +244,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `optimize_property_types` | Reduce memory usage of property values. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `per_image_dataframe` | Build a Tier-A per-image DataFrame. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `PhenoMeProtocol` | Protocol describing attributes and methods mixins expect from PhenoMe. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
-| `PhenoMeResults` | Typed container for per-image phenotyping data. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `PhenoMeResults` | Typed container for per-image phenotyping data (``PhenoMe.results``). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `prepare_embedding_dataframe` | Create a DataFrame with embedding/reduction coordinates, metadata, and properties. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `reorder_tier_a_columns` | Place Tier-A id columns first, then metadata, then remaining columns. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `run_dimensionality_reduction` | Run dimensionality reduction using pipeline data and return DataFrame. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |

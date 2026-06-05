@@ -24,6 +24,10 @@ class EmbeddingExtractor:
 
     Handles both combined mode (single embedding per image) and split mode
     (concatenate embeddings from each channel).
+
+    In split mode, each channel embedding is L2-normalized before concatenation
+    so channels contribute equally. Use combined mode when channels should be
+    fused into a single model input instead.
     """
 
     def __init__(self, model_wrapper: ModelWrapper, device: torch.device):
@@ -35,6 +39,7 @@ class EmbeddingExtractor:
         """
         self.model_wrapper = model_wrapper
         self.device = device
+        self.model_wrapper.sync_device(device)
 
     def extract_batch(
         self,
@@ -65,13 +70,15 @@ class EmbeddingExtractor:
                 [it.get("metadata", {}) for it in items],
             )
 
-        # Split mode: concatenate embeddings from each channel
+        # Split mode: L2-normalize each channel embedding, then concatenate
         batch_sz, n_ch, _c, _h, _w = batch_tensor.shape
         per_img: list[list[np.ndarray]] = [[] for _ in range(batch_sz)]
 
         for ch in range(n_ch):
             flat = batch_tensor[:, ch].to(self.device, non_blocking=True)
-            toks = self.model_wrapper.extract_embeddings(flat).float().cpu().numpy()
+            toks = self.model_wrapper.extract_embeddings(flat).float()
+            toks = torch.nn.functional.normalize(toks, dim=-1)
+            toks = toks.cpu().numpy()
             for i in range(batch_sz):
                 per_img[i].append(toks[i])
 

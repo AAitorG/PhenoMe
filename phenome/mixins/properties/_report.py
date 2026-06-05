@@ -2,8 +2,6 @@
 DataFrame and report helpers for property computation.
 """
 
-from typing import Any
-
 import numpy as np
 import pandas as pd
 
@@ -13,6 +11,7 @@ from ...core.dataframe_contract import (
     append_property_columns,
     per_image_dataframe,
 )
+from ...core.pipeline_results import PhenoMeResults
 
 logger = get_logger(__name__)
 
@@ -52,7 +51,7 @@ def parse_grouped_stats_dataframe(
 
 
 def build_properties_dataframe(
-    results: Any,
+    results: PhenoMeResults,
     properties: list[str] | None = None,
     include_metadata: bool = False,
 ) -> pd.DataFrame:
@@ -67,9 +66,7 @@ def build_properties_dataframe(
         DataFrame with ``image_index``, ``image_path``, ``image_name``, optional metadata,
         and property values.
     """
-    properties_list = (
-        results.properties if hasattr(results, "properties") else results.get("properties", [])
-    )
+    properties_list = results.properties
     if properties is None or (isinstance(properties, list) and len(properties) == 0):
         properties = list(properties_list[0].keys()) if properties_list else []
 

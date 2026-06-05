@@ -50,12 +50,11 @@ def _path_to_id_single(path: str, data_dir: str | None) -> str:
         except ValueError:
             pass
 
-    # Fallback: OS-agnostic unique ID without exposing absolute host paths.
-    # When data_dir is not provided, we cannot definitively know where the
-    # dataset root begins. To perfectly guarantee we do not expose host path
-    # elements (which breaks cross-device checkpoints), we must fall back
-    # to using only the target file's stem.
+    # Fallback: include parent directory + stem for disambiguation without full abs path.
+    parent = os.path.basename(os.path.dirname(path_norm))
     fallback_stem = os.path.splitext(os.path.basename(path_norm))[0]
+    if parent and parent not in (".", ""):
+        return _sanitize_id(f"{parent}/{fallback_stem}")
     return _sanitize_id(fallback_stem)
 
 
@@ -187,7 +186,7 @@ class MetadataBase(ABC):
         """Build stable key for checkpoint matching.
 
         Uses the unique ID when present and non-path-like; otherwise delegates
-        to metadata_to_stable_key for backward compatibility.
+        to metadata_to_stable_key for a JSON-based stable key.
         """
         from ..core.property_utils import metadata_to_stable_key
 

@@ -4,6 +4,25 @@ All notable changes to PhenoMe are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] – 2026-06
+
+### Changed
+
+- **Breaking:** `PhenoMeResults` is attribute-only (`results.embeddings`, `results.img_path`, …); dict-style `__getitem__`, `get`, `keys`, etc. removed
+- **Breaking:** Absent or lazy embeddings are `None`, not `[]`
+- **Breaking:** `CheckpointManager.write_results_to_hdf5` requires `PhenoMeResults` (not a plain dict)
+- **Breaking:** HDF5 checkpoints must store internal tracking flags under `/internal`; keys embedded only in `/properties` are no longer migrated on load
+- **Breaking:** Multivariate interpretability display helpers accept `DataFrame` + meta dict only (no dict/tuple result shims)
+- Metadata discovery uses `file_path` only (no `filepath` alias)
+- Cluster metadata in reports uses lowercase `cluster` only (no `Cluster` alias)
+- `normalize_by_dtype_max` and `TypeMaxNorm` share `resolve_intensity_scale`; signed integer images use min-max scaling to [0, 1]
+- Split-channel embedding extraction L2-normalizes each channel vector before concatenation
+- Property matrix normalization uses per-column NaN-aware mean/std instead of listwise-complete rows
+
+### Fixed
+
+- Signed integer images no longer divide by dtype max without shifting negative values
+
 ## [1.2.0] – 2026-05
 
 ### Added

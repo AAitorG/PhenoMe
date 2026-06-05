@@ -144,7 +144,13 @@ class DataFrameMetadata(MetadataBase):
             for row_ix in range(len(self._df)):
                 val = self._df.iloc[row_ix][self._filename_columns[0]]
                 for key in filename_identifier_keys(val):
-                    key_to_row_ix.setdefault(key, row_ix)
+                    if key in key_to_row_ix and key_to_row_ix[key] != row_ix:
+                        raise ValueError(
+                            f"Duplicate metadata filename key {key!r} at rows "
+                            f"{key_to_row_ix[key]} and {row_ix} in column "
+                            f"{self._filename_columns[0]!r}."
+                        )
+                    key_to_row_ix[key] = row_ix
             self._key_to_row_ix = key_to_row_ix
             self._stem_to_row_ch = None
         else:
@@ -162,9 +168,21 @@ class DataFrameMetadata(MetadataBase):
                 for ch_idx, col in enumerate(self._filename_columns):
                     val_str = str(self._df.iloc[row_ix][col]).strip()
                     for key in filename_identifier_keys(val_str):
-                        stem_to_row_ch.setdefault(key, (row_ix, ch_idx))
+                        if key in stem_to_row_ch and stem_to_row_ch[key] != (row_ix, ch_idx):
+                            prev_row, prev_ch = stem_to_row_ch[key]
+                            raise ValueError(
+                                f"Duplicate metadata filename key {key!r} at rows "
+                                f"({prev_row}, ch {prev_ch}) and ({row_ix}, ch {ch_idx})."
+                            )
+                        stem_to_row_ch[key] = (row_ix, ch_idx)
                     stem = _stem(val_str)
-                    stem_to_row_ch.setdefault(stem, (row_ix, ch_idx))
+                    if stem in stem_to_row_ch and stem_to_row_ch[stem] != (row_ix, ch_idx):
+                        prev_row, prev_ch = stem_to_row_ch[stem]
+                        raise ValueError(
+                            f"Duplicate metadata filename stem {stem!r} at rows "
+                            f"({prev_row}, ch {prev_ch}) and ({row_ix}, ch {ch_idx})."
+                        )
+                    stem_to_row_ch[stem] = (row_ix, ch_idx)
             self._stem_to_row_ch = stem_to_row_ch
 
     def _extract(self, path: str) -> dict[str, Any]:

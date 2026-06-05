@@ -8,7 +8,7 @@ import pandas as pd
 from ...core import get_all_metadata_keys, get_metadata_value_from_dict
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
 from .._components import generate_info_box, generate_plot_container
-from ..helpers import apply_dark_theme, plotly_to_html_fragment
+from ..helpers import apply_dark_theme, plotly_to_html_fragment, safe_html
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -115,7 +115,9 @@ def generate_distance_section(
     if len(valid_distances) == 0:
         return (generate_info_box("No valid distances computed.", "warning"), None)
 
-    filter_desc = ", ".join([f"{k}={v}" for k, v in reference_filters.items()])
+    filter_desc = ", ".join(
+        [f"{safe_html(str(k))}={safe_html(str(v))}" for k, v in reference_filters.items()]
+    )
     n_ref = int(dist_results["is_reference"].sum())
 
     if not color_by:

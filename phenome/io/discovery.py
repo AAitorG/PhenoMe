@@ -180,8 +180,13 @@ class FileDiscovery:
         # Support both directory (recursive walk) and glob pattern
         if "*" in data_dir or "?" in data_dir:
             raw_fnames = sorted(glob(data_dir))
+            ext_set = None if extensions is None else {e.lower() for e in extensions}
             fnames = []
             for fp in raw_fnames:
+                if not os.path.isfile(fp):
+                    continue
+                if ext_set is not None and os.path.splitext(fp)[1].lower() not in ext_set:
+                    continue
                 if os.path.islink(fp):
                     logger.warning("Skipping symlink: %s", fp)
                     continue
@@ -229,9 +234,9 @@ class FileDiscovery:
                 if on_missing_metadata == "drop":
                     continue
 
-            row: dict[str, Any] = {"file_path": meta.get("file_path", meta.get("filepath", path))}
+            row: dict[str, Any] = {"file_path": meta.get("file_path", path)}
             for k, v in meta.items():
-                if k.lower() not in ("file_path", "filepath"):
+                if k.lower() != "file_path":
                     row[k.lower()] = v
             rows.append(row)
 
@@ -257,11 +262,16 @@ class FileDiscovery:
                     group_key = matching[0]
                 else:
                     # Deduce: first metadata key that is not a system key
-                    sys_keys = {"channel_index", "file_path", "filepath"}
+                    sys_keys = {"channel_index", "file_path"}
                     group_key = next(
                         (k for k in rows[0] if k not in sys_keys),
                         None,
                     )
+            if group_key is None:
+                raise ValueError(
+                    "Multi-channel files detected (channel_index present) but no grouping "
+                    "column found. Set group_by on the metadata source (e.g. filename or id)."
+                )
             if group_key is not None:
                 n_files = len(rows)
                 groups: dict[str, list[dict[str, Any]]] = defaultdict(list)

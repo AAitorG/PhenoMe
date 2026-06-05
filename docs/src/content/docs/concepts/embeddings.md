@@ -39,6 +39,10 @@ For custom models see [Vision model wrappers](/PhenoMe/advanced/api/model-wrappe
 
 Use `get_embeddings()` for lazy-safe access. For full HDF5 storage details, see the [Database protocol](/PhenoMe/advanced/database_protocol/).
 
+## Distances and centroids
+
+Analysis methods (`compute_reference_distances`, `detect_outliers`, `find_prototypes`) L2-normalize embeddings by default. Centroid distances use the **arithmetic mean** of vectors in the group; that mean is not generally a unit vector, so Euclidean distance to the centroid is not the same as angular (cosine) distance to the mean direction. For angular comparisons on normalized embeddings, use `distance_type='cosine'` in reference-distance calls or `metric='cosine'` in prototype search.
+
 ## Temporal images (in-memory)
 
 Use `process_temporal_images()` to add new images **temporarily** to an existing analysis without re-running `process_images`. Temporal images are kept in memory only (not persisted to checkpoint) and are tagged with `metadata['source'] = 'NEW'`. Call `clear_temporal_data()` to remove them. See [Temporal images](/PhenoMe/workflows/#5-temporal-images-testing-new-data-quickly).

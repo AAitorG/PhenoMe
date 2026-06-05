@@ -256,6 +256,12 @@ def create_intensity_function(stat_name: str, stat_func: Callable[[np.ndarray], 
         if image2d is None:
             return {f"intensity_{stat_name}": np.nan}
 
+        if image2d.ndim != 2:
+            raise ValueError(
+                f"Expected 2D image array (H, W), got shape {image2d.shape}. "
+                "Pass a single-channel slice or convert multi-channel data first."
+            )
+
         # Special handling for variance/std (need at least 2 pixels)
         if stat_name in ("variance", "std") and image2d.size < 2:
             return {f"intensity_{stat_name}": np.nan}
@@ -649,6 +655,11 @@ def _get_masked_intensity(image2d: np.ndarray, mask2d: np.ndarray) -> np.ndarray
     Returns:
         np.ndarray shape (n_pixels,) or None if invalid (shape mismatch, empty mask).
     """
+    if image2d.ndim != 2:
+        raise ValueError(
+            f"Expected 2D image array (H, W), got shape {image2d.shape}. "
+            "Pass a single-channel slice or convert multi-channel data first."
+        )
     if image2d.shape != mask2d.shape:
         return None
 

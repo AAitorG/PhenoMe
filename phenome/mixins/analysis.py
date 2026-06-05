@@ -283,7 +283,7 @@ class PhenoMeAnalysis:
                     len(sil_matrix),
                 )
 
-        # Store cluster labels in results['metadata'] for downstream use
+        # Store cluster labels in results.metadata for downstream use
         metadata_list = self.results.metadata
         while len(metadata_list) < n_total:
             metadata_list.append({})
@@ -463,27 +463,28 @@ class PhenoMeAnalysis:
             }
         )
 
+        drivers = results.pop("drivers", [])
+        df = pd.DataFrame(columns=["feature", "weight"]) if not drivers else pd.DataFrame(drivers)
+        meta = {k: v for k, v in results.items() if k != "dr_object"}
+
         logger.info(
             "Multivariate Interpretability (%s, %s, %s): R^2=%.2f, %d drivers found.",
             format_dr_method(method),
             comp_col,
             model_type,
-            results["r2"],
-            len(results["drivers"]),
+            meta.get("r2", 0.0),
+            len(df),
         )
 
         results.pop("interpretability_fig", None)
         fig = _display_multivariate_interpretability(
-            results,
+            df,
+            meta,
             plot=plot,
             return_fig=return_fig,
             top_k=top_k,
             figsize=figsize,
         )
-
-        drivers = results.pop("drivers", [])
-        df = pd.DataFrame(columns=["feature", "weight"]) if not drivers else pd.DataFrame(drivers)
-        meta = {k: v for k, v in results.items() if k != "dr_object"}
 
         return pack_df_meta_fig(df, meta, fig, return_meta=return_meta, return_fig=return_fig)
 
@@ -505,6 +506,12 @@ class PhenoMeAnalysis:
         plot: bool = True,
     ) -> pd.DataFrame:
         """Detect outliers based on distance to centroid.
+
+        When *source* is ``'embeddings'`` and *normalize* is True (default), embeddings
+        are L2-normalized and group centroids use the **arithmetic mean** (not necessarily
+        a unit vector). Euclidean distance to that centroid is not the same as angular
+        distance to the mean direction; consider property-based or combined sources when
+        a different geometry is needed.
 
         Args:
             method: ``'z-score'`` or ``'iqr'``.
@@ -569,7 +576,7 @@ class PhenoMeAnalysis:
 
         n_samples = len(data)
         outlier_mask = np.zeros(n_samples, dtype=bool)
-        distances = np.zeros(n_samples, dtype=np.float32)
+        distances = np.full(n_samples, np.nan, dtype=np.float32)
 
         device = self.device
 
@@ -656,15 +663,14 @@ class PhenoMeAnalysis:
 
                 if len(found_cols) == 1:
                     actual_group_by = found_cols[0]
-                    for gv, gdf in df.groupby(actual_group_by):
+                    for gv, gdf in df.groupby(actual_group_by, dropna=False):
                         groups[gv] = gdf.index.to_numpy()
                 else:
                     actual_group_by = found_cols
-                    # Composite grouping: combine values with '-' separator
                     df["_composite_group"] = (
-                        df[found_cols].fillna("N/A").astype(str).agg("-".join, axis=1)
+                        df[found_cols].fillna("N/A").astype(str).agg(" | ".join, axis=1)
                     )
-                    for gv, gdf in df.groupby("_composite_group"):
+                    for gv, gdf in df.groupby("_composite_group", dropna=False):
                         groups[gv] = gdf.index.to_numpy()
         else:
             groups["all"] = np.arange(n_samples)
@@ -706,7 +712,7 @@ class PhenoMeAnalysis:
                         val_str = str(val) if val is not None and val != "" else "N/A"
                         group_vals.append(val_str)
                         row[k] = val
-                    group_val = "-".join(group_vals)
+                    group_val = " | ".join(group_vals)
                 else:
                     # Single column
                     val = get_metadata_value_from_dict(info, actual_group_by)
@@ -1192,9 +1198,8 @@ class PhenoMeAnalysis:
             pop_std = rest_df[property_keys].std()
             pop_std = pop_std.where(pop_std >= 1e-10, np.nan)
             gmean = gdf[property_keys].mean()
-            n_group = len(gdf)
             with np.errstate(divide="ignore", invalid="ignore"):
-                zs = (gmean - pop_mean) / (pop_std / np.sqrt(n_group))
+                zs = (gmean - pop_mean) / pop_std
             for prop in property_keys:
                 s = zs[prop]
                 if pd.notna(s):
@@ -1287,7 +1292,10 @@ class PhenoMeAnalysis:
             property_keys: Property subset when *source='properties'*.
             filters: Optional metadata filters.
             exclude: Optional metadata exclusions (same structure as filters).
-            metric: ``'euclidean'`` or ``'cosine'``.
+            metric: ``'euclidean'`` or ``'cosine'``. With ``metric='euclidean'``, the
+                group centroid is the arithmetic mean (even when embeddings are
+                L2-normalized). With ``metric='cosine'``, the centroid direction is
+                L2-normalized before ranking by similarity.
             normalize: Whether to normalize data before finding prototypes (default: True).
                 For embeddings, uses L2 normalization. For properties, uses StandardScaler.
             plot: If True (default), shows one matplotlib figure per group: subplots for
@@ -1364,7 +1372,7 @@ class PhenoMeAnalysis:
                                     if val is not None:
                                         break
                             row_vals.append(str(val) if val is not None else "N/A")
-                        group_labels[i] = "-".join(row_vals)
+                        group_labels[i] = " | ".join(row_vals)
             else:
                 if cluster_col:
                     logger.warning("No matching columns found. Treating as one group.")
@@ -1437,10 +1445,8 @@ class PhenoMeAnalysis:
                 elif len(found_cols) == 1:
                     row[found_cols[0]] = grp
                 else:
-                    # Multi-column: split composite label
-                    # composite labels were built as "-".join(row_vals)
-                    # where row_vals are str(val) or "N/A"
-                    vals = group_name.split("-")
+                    # Multi-column: split composite label (built with " | " separator)
+                    vals = group_name.split(" | ")
                     for col_name, val in zip(found_cols, vals, strict=False):
                         row[col_name] = val
 
@@ -1457,7 +1463,7 @@ class PhenoMeAnalysis:
             for group_vals, group_df in df.groupby(plot_group_cols, sort=False):
                 indices = group_df[IMAGE_INDEX].tolist()
                 if isinstance(group_vals, tuple):
-                    group_name = "-".join(map(str, group_vals))
+                    group_name = " | ".join(map(str, group_vals))
                 else:
                     group_name = str(group_vals)
 

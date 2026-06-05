@@ -46,7 +46,7 @@ def optimize_property_types(img_props: dict[str, Any]) -> dict[str, Any]:
 def metadata_to_stable_key(
     meta: dict[str, Any],
     exclude_keys: set[str] | None = None,
-    prefer_id_column: str | None = "id",
+    prefer_id_column: str = "id",
 ) -> str:
     """Build a deterministic, portable key from metadata for matching across devices.
 
@@ -61,8 +61,8 @@ def metadata_to_stable_key(
         meta: Metadata dict for one image.
         exclude_keys: Additional keys to exclude. Path-like values are always
             excluded regardless of key name (detected heuristically).
-        prefer_id_column: If set (default "id"), use this column's value when
-            present and non-path-like. Set to None for legacy behavior.
+        prefer_id_column: Metadata column to prefer when present and non-path-like
+            (default ``"id"``).
 
     Returns:
         str: Deterministic JSON string (sort_keys=True) suitable as a stable identifier,
@@ -77,12 +77,11 @@ def metadata_to_stable_key(
             "Metadata must be a non-empty dict for stable matching. "
             "Ensure your metadata_fn extracts atomic identifiers (e.g. drug, time, crop_name)."
         )
-    if prefer_id_column is not None:
-        for k, v in meta.items():
-            if str(k).lower() == prefer_id_column.lower() and v is not None:
-                v_str = str(v).strip()
-                if v_str and not _is_path_like_value(v_str):
-                    return v_str
+    for k, v in meta.items():
+        if str(k).lower() == prefer_id_column.lower() and v is not None:
+            v_str = str(v).strip()
+            if v_str and not _is_path_like_value(v_str):
+                return v_str
     exclude_keys_set = exclude_keys or set()
     exclude_keys_lower = {str(k).lower() for k in exclude_keys_set}
     # Keep only non-path, non-excluded keys; normalize to lowercase for portability

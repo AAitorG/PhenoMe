@@ -40,9 +40,23 @@ def generate_overview_section(
         if key not in meta_df.columns:
             continue
 
-        counts = meta_df[key].value_counts().reset_index()
+        counts = meta_df[key].value_counts(dropna=True).reset_index()
         counts.columns = [key.capitalize(), "Count"]
-        counts["Percentage"] = (counts["Count"] / n_images * 100).round(1)
+        non_null = int(meta_df[key].notna().sum())
+        missing = n_images - non_null
+        if non_null > 0:
+            counts["Percentage"] = (counts["Count"] / non_null * 100).round(1)
+        else:
+            counts["Percentage"] = 0.0
+        if missing > 0:
+            missing_row = pd.DataFrame(
+                {
+                    key.capitalize(): ["Missing"],
+                    "Count": [missing],
+                    "Percentage": [round(missing / n_images * 100, 1)],
+                }
+            )
+            counts = pd.concat([counts, missing_row], ignore_index=True)
 
         if len(counts) > 10:
             top_counts = counts.head(10)

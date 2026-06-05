@@ -1098,11 +1098,7 @@ class PhenoMeInteractive:
         """
         if key is None or not hasattr(self.pheno, "results") or not self.pheno.results:
             return []
-        results = self.pheno.results
-        if hasattr(results, "metadata"):
-            metadata_list = results.metadata
-        else:
-            metadata_list = list(results.get("metadata", []))
+        metadata_list = self.pheno.results.metadata
         all_vals: list[str] = []
         for meta in metadata_list:
             if isinstance(meta, dict):
@@ -1663,7 +1659,6 @@ class PhenoMeInteractive:
             "x": x_col,
             "y": y_col,
             "hover_data": hover_cols,
-            "custom_data": ["Index"],
             "width": EMBEDDING_FIG_WIDTH_PX,
             "height": EMBEDDING_FIG_HEIGHT_PX,
         }
@@ -1680,10 +1675,6 @@ class PhenoMeInteractive:
                 }
 
         fig = px.scatter_3d(**kwargs) if z_col else px.scatter(**kwargs)
-
-        if hover_cols:
-            ht_parts = [f"{col}=%{{customdata[{i}]}}" for i, col in enumerate(hover_cols)]
-            fig.update_traces(hovertemplate="<br>".join(ht_parts) + "<extra></extra>")
 
         marker_size = self.point_size_slider.value
         opacity = self.opacity_slider.value

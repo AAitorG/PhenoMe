@@ -94,9 +94,10 @@ class PhenoMe(
     - **Eager**: When no checkpoint is used, embeddings live in ``results.embeddings`` (np.ndarray).
     - **Lazy**: When a checkpoint is active (``self._db``), ``results.embeddings`` is ``None``;
       embeddings are read on demand via ``get_embeddings()`` from the HDF5 file.
-    - **Temporal**: Rows from ``process_temporal_images()`` are in-memory only
-      (``self._temporal_embeddings``) when ``_db`` is open; merged with checkpoint data in
-      ``get_embeddings()``.
+    - **Temporal**: Rows from ``process_temporal_images()`` use ``self._temporal_embeddings``
+      while ``_db`` is open; ``get_embeddings()`` merges them with checkpoint rows by index.
+      After ``checkpoint_context()`` exits with temporal data present, the merged array is
+      copied to ``results.embeddings`` and the temporal buffer is cleared.
 
     Args:
         device: Optional torch.device for GPU-accelerated analysis operations.
@@ -282,9 +283,16 @@ class PhenoMe(
 
         When a checkpoint / HDF5 database is active (``self._db`` is not None),
         only the requested rows are read from disk — the core of the lazy-loading
-        strategy.  When temporal embeddings exist (from process_temporal_images),
-        they are merged with checkpoint data. When no database is active, slices
-        ``results.embeddings``.
+        strategy.  When temporal embeddings exist (from ``process_temporal_images``),
+        rows with index ``>= self._temporal_start_idx`` are read from
+        ``self._temporal_embeddings``; earlier rows come from the checkpoint.
+
+        When no database is active, returns ``results.embeddings`` (optionally sliced).
+        If that array holds only checkpoint rows (length ``_temporal_start_idx``) and
+        temporal embeddings are still in memory, they are appended to form a full
+        ``(n_images, D)`` array. If ``results.embeddings`` already has ``n_images`` rows
+        (e.g. materialized on ``checkpoint_context`` exit), temporal data is not appended
+        again.
 
         Args:
             indices: Optional row index or sequence of row indices (0-based).
@@ -344,8 +352,20 @@ class PhenoMe(
             return out
 
         emb = self.results.embeddings
+        temporal_emb = self._temporal_embeddings
+        has_temporal = (
+            temporal_emb is not None and temporal_emb.ndim == 2 and temporal_emb.shape[0] > 0
+        )
         if emb is None or len(emb) == 0:
-            return None
+            if not has_temporal:
+                return None
+            emb = temporal_emb
+        elif has_temporal and temporal_emb is not None:
+            # Merge only when results hold checkpoint rows; skip if already materialized
+            # (e.g. after checkpoint_context exit wrote the full merged array).
+            n_ckpt_rows = int(self._temporal_start_idx)
+            if len(emb) == n_ckpt_rows and n_ckpt_rows + len(temporal_emb) == n_total:
+                emb = np.concatenate([emb, temporal_emb], axis=0)
         if indices_arr is None:
             return emb
         return emb[indices_arr]
@@ -495,6 +515,7 @@ class PhenoMe(
         force_rgb: bool = True,
         save_every: int = 5,
         lazy_checkpoint: bool = True,
+        force_reprocess: bool = False,
     ) -> None:
         """Extract embeddings from images using a pretrained or custom model.
 
@@ -548,6 +569,9 @@ class PhenoMe(
             lazy_checkpoint (bool): If True and checkpoint_path is set, enable lazy
                 loading (embeddings not kept in-memory). If False, load all embeddings
                 after processing. Default: True.
+            force_reprocess (bool): If True and ``checkpoint_path`` already exists, delete
+                that file and process all requested images from scratch (no resume).
+                Default: False.
 
         Returns:
             None. Modifies `self.results` in-place with embeddings, metadata, and paths.
@@ -607,6 +631,7 @@ class PhenoMe(
                 cur_params,
                 filtered_data,
                 lazy=lazy_checkpoint,
+                force_reprocess=force_reprocess,
             )
         )
         n_pre_existing = ckpt.n_committed if ckpt is not None else 0
@@ -1275,9 +1300,18 @@ class PhenoMe(
         the file, or when opening multiple checkpoints in sequence).
 
         **Embeddings:** While the context is open, lazy embeddings are read from the
-        HDF5 file via ``get_embeddings()``. After exit, ``self._db`` is closed and
-        ``results.embeddings`` remains ``None``; call ``load_results(..., lazy_checkpoint=True)``
-        again (or another ``checkpoint_context``) before using ``get_embeddings()``.
+        HDF5 file via ``get_embeddings()``. On exit, if temporal embeddings were loaded
+        in memory (``process_temporal_images`` while the checkpoint was open), the merged
+        full embedding matrix is copied to ``results.embeddings`` and
+        ``self._temporal_embeddings`` is cleared. Otherwise ``results.embeddings`` may
+        stay ``None``; call ``load_results(..., lazy_checkpoint=True)`` or enter another
+        ``checkpoint_context`` before using ``get_embeddings()`` again.
+
+        Args:
+            path: Checkpoint HDF5 path. If None, uses the path from the last
+                ``load_results`` / ``process_images`` session when available.
+            lazy_checkpoint: If True, keep the HDF5 file open for on-demand reads
+                inside the context. Default: True.
 
         Example:
             pheno.find_files("path/to/images")
@@ -1291,6 +1325,11 @@ class PhenoMe(
         finally:
             if self._db is not None:
                 try:
+                    if self._temporal_embeddings is not None and len(self._temporal_embeddings) > 0:
+                        ckpt_emb = self.get_embeddings()
+                        if ckpt_emb is not None and len(ckpt_emb) > 0:
+                            self.results.embeddings = ckpt_emb
+                            self._temporal_embeddings = None
                     self._db.close()
                 except OSError as e:
                     logger.debug("Error closing checkpoint in context exit: %s", e)
@@ -1640,6 +1679,7 @@ class PhenoMe(
         cur_params: dict[str, Any],
         filtered_data: list[dict[str, Any]],
         lazy: bool = True,
+        force_reprocess: bool = False,
     ) -> tuple[
         CheckpointManager | None,
         set | None,
@@ -1659,10 +1699,16 @@ class PhenoMe(
             cur_params: Current processing parameters.
             filtered_data: List of images to be processed.
             lazy: If True, keep the checkpoint file open for lazy loading.
+            force_reprocess: If True and the checkpoint file exists, delete it and return
+                with no resume (all images in ``filtered_data`` will be processed).
 
         Returns:
             Tuple of (ckpt, requested_paths, requested_meta_keys, filtered_data, cur_params).
             ``cur_params`` may differ from the input when the checkpoint overrides ``channels``.
+
+        Raises:
+            RuntimeError: If the checkpoint has committed rows but none match the current
+                run's metadata keys or paths (unless ``force_reprocess`` removed the file).
         """
         if checkpoint_path is None:
             return None, None, None, filtered_data, cur_params
@@ -1671,6 +1717,19 @@ class PhenoMe(
         requested_meta_keys: set | None = None
 
         if not os.path.isfile(checkpoint_path):
+            return None, requested_paths, None, filtered_data, cur_params
+
+        if force_reprocess:
+            logger.warning(
+                "force_reprocess=True: removing existing checkpoint at %s and starting fresh.",
+                checkpoint_path,
+            )
+            try:
+                os.remove(checkpoint_path)
+            except OSError as e:
+                raise RuntimeError(
+                    f"Could not remove checkpoint for force_reprocess: {checkpoint_path}"
+                ) from e
             return None, requested_paths, None, filtered_data, cur_params
 
         ckpt = CheckpointManager(checkpoint_path, lazy=lazy)
@@ -1726,6 +1785,13 @@ class PhenoMe(
                     already_meta_keys=already_meta_keys,
                 )
                 n_skipped = n_before - len(filtered_data)
+                if ckpt.n_committed > 0 and n_skipped == 0:
+                    ckpt.close()
+                    raise RuntimeError(
+                        "Checkpoint has committed rows but none match current metadata keys. "
+                        "Call find_files at the new location and load_results(), or pass "
+                        "force_reprocess=True to start fresh."
+                    )
                 logger.info(
                     "Found %d committed images; skipping %d (already in checkpoint), %d to process.",
                     ckpt.n_committed,
@@ -1745,11 +1811,11 @@ class PhenoMe(
                 )
                 n_skipped = n_before - len(filtered_data)
                 if ckpt.n_committed > 0 and n_skipped == 0:
-                    logger.warning(
-                        "Checkpoint contains %d images, but NONE match your current files.\n"
-                        "This usually means the dataset has moved. Call find_files at the "
-                        "new location first, then load_results.",
-                        ckpt.n_committed,
+                    ckpt.close()
+                    raise RuntimeError(
+                        "Checkpoint has committed rows but none match your current files. "
+                        "Call find_files at the new location and load_results(), or pass "
+                        "force_reprocess=True to start fresh."
                     )
                 logger.info(
                     "Found %d committed images; skipping %d (already in checkpoint), %d to process.",
@@ -1853,13 +1919,20 @@ class PhenoMe(
         if (requested_paths is not None or requested_meta_keys is not None) and paths:
             if requested_meta_keys is not None:
                 indices = []
+                key_failures = 0
                 for i, meta in enumerate(metadata):
                     try:
                         key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
                         if key in requested_meta_keys:
                             indices.append(i)
                     except ValueError:
-                        pass
+                        key_failures += 1
+                if key_failures:
+                    logger.warning(
+                        "%d checkpoint row(s) could not be keyed for metadata filter; "
+                        "those rows were excluded.",
+                        key_failures,
+                    )
             else:
                 if current_requested_data:
                     current_path_lookup = _build_unique_path_lookup(

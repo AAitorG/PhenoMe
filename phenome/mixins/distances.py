@@ -73,6 +73,11 @@ class PhenoMeDistances:
                 or 'combined' for the normalized concatenation of both.
             mode: 'centroid' computes distance to mean embedding of reference,
                 'all_to_all' computes min distance to any reference image.
+                When *source* is ``'embeddings'`` (L2-normalized by default), the
+                centroid is the **arithmetic mean** of reference vectors (not necessarily
+                unit length). Euclidean distance to that centroid differs from angular
+                distance to the mean direction; use ``distance_type='cosine'`` for
+                angular comparisons on normalized embeddings.
             distance_type: 'euclidean' (default) or 'cosine'.  Cosine distance
                 is ``1 - cosine_similarity``, range [0, 2].  Zero-norm vectors
                 produce a distance of 1.
@@ -171,6 +176,7 @@ class PhenoMeDistances:
                 raise ValueError(
                     "No embeddings available for distance computation. Run process_images() first."
                 )
+            embeddings = cast(PhenoMeProtocol, self)._normalize_embeddings_l2(embeddings)
             ref_indices_mapped = [
                 i for i, orig_idx in enumerate(filtered_indices) if orig_idx in ref_indices
             ]

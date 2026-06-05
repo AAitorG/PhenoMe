@@ -26,7 +26,9 @@ class PhenoMeDataset(Dataset):
         file_list: List of dicts with 'file_path' and 'metadata' keys.
         transform: Optional torchvision transforms to apply.
         channel_mode: 'split' or 'combined'.
-            - 'split': Each selected channel is processed independently and concatenated at embedding level.
+            - 'split': Each selected channel is processed independently. Embeddings are
+              L2-normalized per channel and concatenated (see ``EmbeddingExtractor``).
+              Prefer 'combined' when the model should see a single fused multi-channel input.
             - 'combined': Selected channels are merged into a single image. When ``force_rgb=True``
               only the first 3 selected channels are used (extras discarded, fewer padded to 3).
               When ``force_rgb=False`` all selected channels are kept as-is.
@@ -190,15 +192,11 @@ def collate_fn(batch: list[Any]) -> Any:
         # Ensure all items in the batch have the same number of channels by padding with zero tensors if needed
         max_ch = max(len(imgs) for imgs in images)
         if any(len(imgs) != max_ch for imgs in images):
-            new_images = []
-            for imgs in images:
-                if len(imgs) < max_ch:
-                    # Pad with zeros
-                    pad_val = torch.zeros_like(imgs[0])
-                    imgs = imgs + [pad_val] * (max_ch - len(imgs))
-                new_images.append(imgs)
-            images = tuple(new_images)
-
+            channel_counts = [len(imgs) for imgs in images]
+            raise ValueError(
+                "Split-mode batch contains images with mismatched channel counts "
+                f"{channel_counts}. Ensure channel selection is consistent across samples."
+            )
         stacked_per_item = [torch.stack(imgs) for imgs in images]
         batch_tensor = torch.stack(stacked_per_item)  # (B, N_ch, C, H, W)
     else:

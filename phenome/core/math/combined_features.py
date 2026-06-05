@@ -53,6 +53,11 @@ def build_combined_features(
     if len(prop_valid_indices) == 0:
         raise ValueError("No valid samples after filtering NaNs for properties (combined source).")
 
+    if len(indices) != len(set(indices)):
+        raise ValueError(
+            "Duplicate indices in combined feature construction; "
+            "each sample index must appear at most once."
+        )
     prop_valid_arr = np.asarray(prop_valid_indices, dtype=np.int64)
     idx_map = {orig_idx: pos for pos, orig_idx in enumerate(indices)}
     try:

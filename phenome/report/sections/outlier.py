@@ -77,7 +77,7 @@ def generate_outlier_section(
 
         rows = []
         for _, row in top_outliers.iterrows():
-            file_path = row.get("image_path", row.get("file_path", ""))
+            file_path = row.get("image_path", "")
             if isinstance(file_path, list):
                 file_path = file_path[0] if file_path else ""
             path_str = str(file_path)
