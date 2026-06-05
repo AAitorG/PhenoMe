@@ -2,8 +2,8 @@
 Transforms and transform builder for the phenotyping pipeline.
 
 Includes both NumPy-based image utilities (ensure_hwc, scale_minmax,
-quantile_normalize, normalize_by_dtype_max) and PyTorch transforms (TypeMaxNorm,
-PadToSize, TransformBuilder).
+quantile_normalize, resolve_intensity_scale, normalize_by_dtype_max) and PyTorch
+transforms (TypeMaxNorm, PadToSize, TransformBuilder).
 """
 
 import numpy as np
@@ -75,25 +75,78 @@ def quantile_normalize(img: np.ndarray, quantile: float = 0.99) -> np.ndarray:
     return img
 
 
-def _dtype_scale_max(dtype: np.dtype) -> float | None:
-    """Return full-scale max for integer dtypes, or None to infer from data."""
-    kind = dtype.kind
-    if kind == "u":
-        if dtype.itemsize == 1:
-            return 255.0
-        if dtype.itemsize == 2:
-            return 65535.0
-        return float(np.iinfo(dtype).max)
-    if kind == "i":
-        return float(np.iinfo(dtype).max)
+STANDARD_INT_SCALES = (255.0, 65535.0, 4_294_967_295.0)
+
+
+def _numpy_dtype(dtype: np.dtype | torch.dtype) -> np.dtype:
+    """Map NumPy or PyTorch dtype to NumPy dtype for scale lookup."""
+    if isinstance(dtype, np.dtype):
+        return dtype
+    if isinstance(dtype, torch.dtype):
+        torch_to_numpy = {
+            torch.uint8: np.uint8,
+            torch.int8: np.int8,
+            torch.int16: np.int16,
+            torch.int32: np.int32,
+            torch.int64: np.int64,
+            torch.float16: np.float32,
+            torch.float32: np.float32,
+            torch.float64: np.float64,
+            torch.bfloat16: np.float32,
+        }
+        np_type = torch_to_numpy.get(dtype)
+        if np_type is not None:
+            return np.dtype(np_type)
+    return np.dtype(np.float64)
+
+
+def _dtype_scale_max(dtype: np.dtype | torch.dtype) -> float | None:
+    """Return nominal full-scale max for integer dtypes, or None for floats."""
+    np_dtype = _numpy_dtype(dtype)
+    if np_dtype.kind in ("u", "i"):
+        return float(np.iinfo(np_dtype).max)
     return None
 
 
+def resolve_intensity_scale(
+    data_max: float,
+    data_min: float,
+    dtype: np.dtype | torch.dtype,
+) -> tuple[str, float]:
+    """Infer how to normalize image intensities to [0, 1].
+
+    Uses observed value range first (handles misplaced dtypes and float32 loads),
+    then falls back to nominal dtype scale or data max.
+
+    Args:
+        data_max: Maximum pixel value in the image.
+        data_min: Minimum pixel value in the image.
+        dtype: Stored array or tensor dtype.
+
+    Returns:
+        Tuple of (mode, scale) where mode is ``identity``, ``minmax``, or ``divide``.
+        For ``minmax``, scale is unused; for ``divide``, scale is the divisor.
+    """
+    if data_max <= 1.0:
+        return "identity", 1.0
+    if data_min < 0:
+        return "minmax", 0.0
+    for scale in STANDARD_INT_SCALES:
+        if data_max <= scale:
+            return "divide", scale
+    dtype_scale = _dtype_scale_max(dtype)
+    if dtype_scale is not None:
+        return "divide", dtype_scale
+    return "divide", data_max
+
+
 def normalize_by_dtype_max(img: np.ndarray) -> np.ndarray:
-    """Normalize an image to [0, 1] based on dtype-inferred maximum.
+    """Normalize an image to [0, 1] using effective intensity scale inference.
 
     Images already in [0, 1] (max <= 1.0) are returned unchanged.
-    uint8 images divide by 255; uint16 by 65535; other types use dtype max or / mx.
+    Non-negative images use the smallest standard bit-depth scale (255, 65535, …)
+    that fits the data max, so misplaced dtypes (e.g. uint8 stored as int16) scale
+    correctly. Signed images with negative values use min-max scaling.
 
     Args:
         img: np.ndarray, any shape.
@@ -102,13 +155,15 @@ def normalize_by_dtype_max(img: np.ndarray) -> np.ndarray:
         np.ndarray: Same shape, dtype float64. Values in [0, 1].
     """
     out = img.astype(np.float64) if img.dtype != np.float64 else img.copy()
-    mx = out.max()
-    if mx <= 1.0:
+    mx, mn = float(out.max()), float(out.min())
+    mode, scale = resolve_intensity_scale(mx, mn, img.dtype)
+    if mode == "identity":
         return out
-    scale = _dtype_scale_max(img.dtype)
-    if scale is not None:
-        return out / scale
-    return out / mx
+    if mode == "minmax":
+        if mx > mn:
+            return (out - mn) / (mx - mn)
+        return np.zeros_like(out)
+    return out / scale
 
 
 # =============================================================================
@@ -117,28 +172,30 @@ def normalize_by_dtype_max(img: np.ndarray) -> np.ndarray:
 
 
 class TypeMaxNorm:
-    """Normalize image by its dtype-inferred maximum (255 or 65535).
+    """Normalize image by effective intensity scale (shared with normalize_by_dtype_max).
 
-    PyTorch transform for normalizing images based on their maximum value.
+    PyTorch transform for normalizing images to [0, 1] using value-range inference
+    with dtype fallback, matching the NumPy normalization helper.
     """
 
     def __call__(self, img: torch.Tensor) -> torch.Tensor:
         """Normalize image tensor.
 
         Args:
-            img: torch.Tensor, shape (C, H, W) or (B, C, H, W). Values in [0, 255] or [0, 65535].
+            img: torch.Tensor, shape (C, H, W) or (B, C, H, W).
 
         Returns:
             torch.Tensor: Same shape. Values in [0, 1].
         """
-        mx = img.max()
-        if mx <= 1:
+        mx, mn = img.max().item(), img.min().item()
+        mode, scale = resolve_intensity_scale(mx, mn, img.dtype)
+        if mode == "identity":
             return img
-        if mx <= 255:
-            return img / 255.0
-        if mx <= 65535:
-            return img / 65535.0
-        return img / mx
+        if mode == "minmax":
+            if mx > mn:
+                return (img - mn) / (mx - mn)
+            return torch.zeros_like(img)
+        return img / scale
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}()"

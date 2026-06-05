@@ -29,8 +29,9 @@ This package provides reusable components for building and extending phenotyping
 **Image transforms:**
 - `TransformBuilder`: Compose PyTorch transforms (resize, pad, normalize).
 - `PadToSize`: Pad image to specified size.
-- `TypeMaxNorm`: Normalize by dtype max value.
-- `normalize_by_dtype_max`: Normalize array by dtype maximum.
+- `TypeMaxNorm`: Normalize by effective intensity scale.
+- `normalize_by_dtype_max`: Normalize array by effective intensity scale.
+- `resolve_intensity_scale`: Infer normalization mode and divisor from dtype and data range.
 - `scale_minmax`: Min-max scaling.
 - `quantile_normalize`: Quantile-based normalization.
 
@@ -76,6 +77,7 @@ from .transforms import (
     TypeMaxNorm,
     normalize_by_dtype_max,
     quantile_normalize,
+    resolve_intensity_scale,
     scale_minmax,
 )
 
@@ -104,6 +106,7 @@ __all__ = [
     "make_dataframe_metadata_fn",
     "normalize_by_dtype_max",
     "quantile_normalize",
+    "resolve_intensity_scale",
     "scale_minmax",
     "set_determinism",
 ]
