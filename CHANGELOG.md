@@ -17,7 +17,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Cluster metadata in reports uses lowercase `cluster` only (no `Cluster` alias)
 - `normalize_by_dtype_max` and `TypeMaxNorm` share `resolve_intensity_scale`; signed integer images use min-max scaling to [0, 1]
 - Split-channel embedding extraction L2-normalizes each channel vector before concatenation
-- Property matrix normalization uses per-column NaN-aware mean/std instead of listwise-complete rows
 
 ### Fixed
 

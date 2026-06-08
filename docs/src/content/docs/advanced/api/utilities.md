@@ -1431,10 +1431,12 @@ normalize_by_dtype_max(
 ) -> ndarray
 ```
 
-Normalize an image to [0, 1] based on dtype-inferred maximum.
+Normalize an image to [0, 1] using effective intensity scale inference.
 
 Images already in [0, 1] (max <= 1.0) are returned unchanged.
-uint8 images divide by 255; uint16 by 65535; other types use dtype max or / mx.
+Non-negative images use the smallest standard bit-depth scale (255, 65535, …)
+that fits the data max, so misplaced dtypes (e.g. uint8 stored as int16) scale
+correctly. Signed images with negative values use min-max scaling.
 
 **Args:**
 
@@ -1443,6 +1445,33 @@ uint8 images divide by 255; uint16 by 65535; other types use dtype max or / mx.
 **Returns:**
 
   np.ndarray: Same shape, dtype float64. Values in [0, 1].
+
+
+### `resolve_intensity_scale`
+
+```python
+resolve_intensity_scale(
+    data_max: float,
+    data_min: float,
+    dtype: numpy.dtype | torch.dtype
+) -> tuple
+```
+
+Infer how to normalize image intensities to [0, 1].
+
+Uses observed value range first (handles misplaced dtypes and float32 loads),
+then falls back to nominal dtype scale or data max.
+
+**Args:**
+
+- **`data_max`**: Maximum pixel value in the image.
+- **`data_min`**: Minimum pixel value in the image.
+- **`dtype`**: Stored array or tensor dtype.
+
+**Returns:**
+
+  Tuple of (mode, scale) where mode is ``identity``, ``minmax``, or ``divide``.
+  For ``minmax``, scale is unused; for ``divide``, scale is the divisor.
 
 
 ## Transforms — `TransformBuilder`

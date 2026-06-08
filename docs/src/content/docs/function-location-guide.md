@@ -172,14 +172,15 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `make_dataframe_metadata_fn` | Build metadata function using a dataframe for metadata lookup. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#make_dataframe_metadata_fn) · [Experiment Details](/PhenoMe/guides/experiment-details/) · [Metadata](/PhenoMe/advanced/api/metadata/) |
 | `MetadataBase` | Base class for metadata extraction with configurable columns and ID handling. | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/#metadatabase) |
 | `ModelWrapper` | Base wrapper for vision model embedding extraction. | 🔧 | [Model Wrappers](/PhenoMe/advanced/api/model-wrapper/#class-modelwrapper) |
-| `normalize_by_dtype_max` | Normalize an image to [0, 1] based on dtype-inferred maximum. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `normalize_by_dtype_max` | Normalize an image to [0, 1] using effective intensity scale inference. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `PadToSize` | Pad image (C, H, W) equally on all sides to pad_size. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `PathTemplateMetadata` | Metadata extractor from path template with capture groups. | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/#pathtemplatemetadata) |
 | `quantile_normalize` | Apply quantile normalization to each channel independently. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#quantile_normalize) |
+| `resolve_intensity_scale` | Infer how to normalize image intensities to [0, 1]. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#resolve_intensity_scale) |
 | `scale_minmax` | Apply min-max scaling to each channel independently. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `set_determinism` | Set random seeds for reproducibility across all frameworks. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#set_determinism) |
 | `TransformBuilder` | Builds torchvision transform pipelines for image preprocessing. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#transforms--transformbuilder) |
-| `TypeMaxNorm` | Normalize image by its dtype-inferred maximum (255 or 65535). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `TypeMaxNorm` | Normalize image by effective intensity scale (shared with normalize_by_dtype_max). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 
 ---
 
