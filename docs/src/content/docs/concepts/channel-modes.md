@@ -9,6 +9,8 @@ Microscopy images often have multiple channels (e.g. DAPI for the nucleus, GFP f
 
 Each channel is processed **separately**, then results are combined. This ensures the model captures channel-specific information (e.g. if only one protein changes localisation).
 
+When using split mode, PhenoMe **L2-normalizes each channel vector** before concatenation. This ensures that channels with different dynamic ranges or feature densities contribute equally to the final embedding.
+
 ## Combined mode (recommended for brightfield / RGB)
 
 All channels are treated as a single colour image and processed together.

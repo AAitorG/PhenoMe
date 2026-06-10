@@ -436,6 +436,12 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
                     member_heading_level="###",
                 ),
                 CompoundBlock(
+                    kind="function",
+                    function_module="phenome.utils.transforms",
+                    function_name="resolve_intensity_scale",
+                    member_heading_level="###",
+                ),
+                CompoundBlock(
                     kind="class",
                     class_module="phenome.utils.transforms",
                     class_name="TransformBuilder",
