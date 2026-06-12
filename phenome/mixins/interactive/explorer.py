@@ -1951,6 +1951,11 @@ class PhenoMeInteractive:
         if self.fig_widget is None or self._cached_df is None:
             return
 
+        # Plotly keeps box/lasso dimming in trace-level selectedpoints/unselected
+        # state. Recoloring markers while that browser state is stale can leave
+        # every point dimmed or invisible until the whole figure is rebuilt.
+        self._clear_plotly_selection_visuals(reset_dragmode=False)
+
         color_by = self.color_dropdown.value
         df = self._cached_df
 
