@@ -173,7 +173,7 @@ Index(['file_path', 'mask_path'], dtype='object')
 ```python
 PhenoMe.set_file_df(
     self,
-    file_df: pandas.DataFrame
+    file_df: pandas.core.frame.DataFrame
 ) -> DataFrame
 ```
 
@@ -220,7 +220,7 @@ PhenoMe.process_images(
     channel_mode: Literal['split', 'combined'] = 'split',
     channels: list[int] | None = None,
     preprocessing_fn: collections.abc.Callable[[numpy.ndarray], numpy.ndarray] | None = None,
-    custom_transformations: typing.Any | None = None,
+    custom_transformations: Optional[Any] = None,
     append: bool = False,
     resize_size: int | None = 224,
     pad_size: int | None = None,
@@ -352,13 +352,13 @@ With filtering and checkpoint:
 PhenoMe.process_temporal_images(
     self,
     model_wrapper: phenome.utils.model_wrapper.ModelWrapper,
-    files: str | list[str] | pandas.DataFrame,
+    files: str | list[str] | pandas.core.frame.DataFrame,
     batch_size: int = 32,
     num_workers: int = 4,
     channel_mode: Optional[Literal['split', 'combined']] = None,
     channels: list[int] | None = None,
     preprocessing_fn: collections.abc.Callable[[numpy.ndarray], numpy.ndarray] | None = None,
-    custom_transformations: typing.Any | None = None,
+    custom_transformations: Optional[Any] = None,
     resize_size: int | None = None,
     pad_size: int | None = None,
     force_rgb: bool | None = None,
@@ -507,7 +507,7 @@ again.
 PhenoMe.get_image_info(
     self,
     idx: int,
-    distance_results: pandas.DataFrame | None = None
+    distance_results: pandas.core.frame.DataFrame | None = None
 ) -> dict
 ```
 
@@ -916,7 +916,7 @@ and pass the same reference_filters used for distance analysis.
 PhenoMe.export_dataset_table(
     self,
     output_path: str | None = None,
-    dist_results: pandas.DataFrame | None = None,
+    dist_results: pandas.core.frame.DataFrame | None = None,
     include_embeddings: Union[bool, Literal['separate']] = False,
     export_format: Literal['csv', 'parquet', 'excel'] = 'csv'
 ) -> DataFrame
@@ -960,7 +960,7 @@ Export the dataset as a table (CSV, Parquet, or Excel).
 ```python
 PhenoMeProperties.compute_properties(
     self,
-    metadata_config: typing.Any | None = None,
+    metadata_config: Optional[Any] = None,
     property_preset: str | None = None,
     additional_property_functions: dict[str, collections.abc.Callable | list[collections.abc.Callable]] | None = None,
     checkpoint_path: str | None = None,
@@ -1103,7 +1103,7 @@ Uses `_build_properties_dataframe` from computed
 ```python
 PhenoMeProperties.top_properties_different_from_reference(
     self,
-    df: pandas.DataFrame,
+    df: pandas.core.frame.DataFrame,
     reference_group: dict[str, typing.Any],
     k: int = 5,
     properties: list[str] | None = None,
@@ -1234,8 +1234,8 @@ PhenoMeAnalysis.compute_clustering(
     n_clusters: int = 5,
     clustering_method: Literal['kmeans', 'dbscan', 'gmm'] = 'kmeans',
     property_keys: list[str] | None = None,
-    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
-    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
+    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
     random_state: int | None = None,
     normalize: bool = True,
     reduce_dim: int | None = 100,
@@ -1244,7 +1244,7 @@ PhenoMeAnalysis.compute_clustering(
     dbscan_eps: float | None = None,
     dbscan_min_samples: int | None = None,
     include_metadata: bool = False
-) -> pandas.DataFrame | tuple[pandas.DataFrame, float | None]
+) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, float | None]
 ```
 
 </div>
@@ -1451,7 +1451,7 @@ PhenoMeAnalysis.analyze_group_enrichment(
     figsize: tuple[int, int] = (10, 6),
     title: str | None = None,
     correct_multiple_testing: bool = True
-) -> pandas.DataFrame | tuple[pandas.DataFrame, Any]
+) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, Any]
 ```
 
 </div>
@@ -1522,7 +1522,7 @@ PhenoMeAnalysis.compute_component_correlation(
     plot: bool = True,
     return_fig: bool = False,
     figsize: tuple[int, int] = (10, 6)
-) -> pandas.DataFrame | tuple[pandas.DataFrame, Any]
+) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, Any]
 ```
 
 </div>
@@ -1658,7 +1658,7 @@ PhenoMeAnalysis.summarize_embedding_property_correlations(
     embedding_shape: tuple[int, int] | None = None,
     n_properties: int | None = None,
     correlation_method: str = 'pearson'
-) -> pandas.DataFrame | tuple[pandas.DataFrame, Any | None]
+) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, Optional[Any]]
 ```
 
 </div>
@@ -1720,6 +1720,7 @@ PhenoMeAnalysis.compute_multivariate_interpretability(
     exclude: dict[str, typing.Any] | None = None,
     normalize: bool = True,
     cv: int = 5,
+    stratify_by: str | None = None,
     rf_n_estimators: int = 100,
     seed: int | None = None,
     plot: bool = True,
@@ -1727,7 +1728,7 @@ PhenoMeAnalysis.compute_multivariate_interpretability(
     return_meta: bool = False,
     top_k: int = 10,
     figsize: tuple[int, int] = (10, 8)
-) -> pandas.DataFrame | tuple[pandas.DataFrame, dict[str, Any]] | tuple[pandas.DataFrame, Any] | tuple[pandas.DataFrame, dict[str, Any], Any]
+) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, dict[str, Any]] | tuple[pandas.core.frame.DataFrame, Any] | tuple[pandas.core.frame.DataFrame, dict[str, Any], Any]
 ```
 
 </div>
@@ -1739,6 +1740,14 @@ Explain a dimensionality reduction component using LASSO or Random Forest.
 Calculates which phenotypic properties (features) best explain the variability
 seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 
+Workflow: dimensionality reduction is run on the full filtered embedding set
+first; regression then relates classical properties to the resulting axis
+coordinates. For transductive methods (t-SNE, UMAP), axis coordinates depend on
+all samples, so the returned ``r2`` (LASSO) describes descriptive on-axis alignment
+on the same dataset—not independent generalization to new plates or refit
+embeddings. Prefer ``drivers`` for hypothesis generation; interpret ``r2`` as an
+effect-size-style summary unless DR and evaluation are nested with proper holdouts.
+
 **Args:**
 
 - **`method`**: Dimensionality reduction method ('pca', 'tsne', or 'umap').
@@ -1749,9 +1758,14 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 - **`property_keys`**: Subset of properties to use as features.
 - **`filters`**: Optional metadata filters.
 - **`exclude`**: Optional metadata exclusions.
-- **`normalize`**: Whether to normalize features before regression (default: True).
-  Uses StandardScaler for properties to ensure comparable coefficients.
+- **`normalize`**: Whether to normalize embeddings before dimensionality reduction
+  (default: True). Property features are scaled fold-wise inside the LASSO
+  pipeline (not globally) to avoid cross-validation leakage.
 - **`cv`**: Number of cross-validation folds (only for 'lasso').
+- **`stratify_by`**: Optional metadata key (e.g. ``"Treatment"``, ``"Batch"``) to
+  stratify LASSO folds by class balance. Requires at least ``cv`` samples
+  per class; otherwise falls back to unstratified KFold. Balances folds for
+  ``lambda`` selection but does not correct global t-SNE/UMAP target leakage.
 - **`rf_n_estimators`**: Number of trees (only for 'random_forest').
 - **`seed`**: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
 - **`plot`**: If True (default), show an interactive Plotly bar chart of top drivers.
@@ -1768,8 +1782,9 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 
   pd.DataFrame or tuple, depending on *return_meta* and *return_fig*:
   - Default: ``drivers_df`` with columns ``feature``, ``weight``.
-  - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2, n_samples,
-  n_features, method, model_type, target_component.
+  - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2 (descriptive
+  on-axis fit for globally fit DR targets), n_samples, n_features, method,
+  model_type, target_component.
   - ``return_fig=True``: ``(drivers_df, fig)`` or ``(drivers_df, meta, fig)`` when
   *return_meta* is also True.
 
@@ -1794,7 +1809,7 @@ PhenoMe.generate_report(
     self,
     output_path: str = 'pheno_report.html',
     title: str = 'PhenoMe Analysis Report',
-    config: typing.Any | None = None,
+    config: Optional[Any] = None,
     **overrides: Any
 ) -> str
 ```
@@ -1840,7 +1855,7 @@ or use **overrides to tweak individual settings (e.g. include_plots=False).
 _ImageDisplayMixin.image_preview_png_bytes(
     self,
     idx: int,
-    distance_results: pandas.DataFrame | None = None,
+    distance_results: pandas.core.frame.DataFrame | None = None,
     channels: int | list | None = None,
     title_fields: list[str] | None = None,
     show_extra_info: bool = False,
@@ -1886,8 +1901,8 @@ _DRPlotsMixin.plot_centroids(
     group_by: str | list[str],
     method: Literal['pca', 'tsne', 'umap'] = 'pca',
     n_components: int = 2,
-    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
-    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
+    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
     show_points: bool = True,
@@ -1922,7 +1937,7 @@ Plot centroids of groups in reduced embedding space.
 _ImageDisplayMixin.plot_image_by_index(
     self,
     idx: int,
-    distance_results: pandas.DataFrame | None = None,
+    distance_results: pandas.core.frame.DataFrame | None = None,
     channels: int | list | None = None,
     figsize: tuple = (6, 6),
     title_fields: list[str] | None = None,
@@ -1981,8 +1996,8 @@ _DRPlotsMixin.plot_pca(
     figsize: tuple[int, int] = (10, 8),
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
-    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
-    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
+    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
     hover_features: list[str] | None = None,
     return_fig: bool = False,
     render_mode: Literal['auto', 'svg', 'webgl'] = 'webgl',
@@ -2020,8 +2035,8 @@ _DRPlotsMixin.plot_tsne(
     figsize: tuple[int, int] = (10, 8),
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
-    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
-    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
+    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
     hover_features: list[str] | None = None,
     return_fig: bool = False,
     render_mode: Literal['auto', 'svg', 'webgl'] = 'webgl',
@@ -2060,8 +2075,8 @@ _DRPlotsMixin.plot_umap(
     figsize: tuple[int, int] = (10, 8),
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
-    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
-    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
+    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
     hover_features: list[str] | None = None,
     return_fig: bool = False,
     render_mode: Literal['auto', 'svg', 'webgl'] = 'webgl',
@@ -2093,7 +2108,7 @@ Plot UMAP of embeddings, properties, or combined features (Plotly, WebGL by defa
 ```python
 _DistancePlotsMixin.print_distance_summary(
     self,
-    distance_results: pandas.DataFrame,
+    distance_results: pandas.core.frame.DataFrame,
     group_by: str | None = None,
     dist_range: tuple = (0, 100)
 ) -> None

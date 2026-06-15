@@ -128,7 +128,7 @@ nan_counts = df.select_dtypes(include=["number"]).isna().sum()
 print("Properties with NaNs:", nan_counts[nan_counts > 0].to_dict())
 
 for idx in df[df["area"].isna()].index[:5]:
-    print(pheno.get_image_info(idx)["img_path"])
+    print(pheno.get_image_info(idx)["image_path"])
 ```
 
 Fixes:

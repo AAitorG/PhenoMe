@@ -180,6 +180,23 @@ GPU-accelerated. Switch to Spearman for outliers or dose-response
 curves; switch to distance correlation or mutual information when
 linear metrics miss obvious structure.
 
+Pass the correlation type via `correlation_method` (not `method`, which selects the
+dimensionality reduction: `pca`, `tsne`, or `umap`):
+
+```python
+pheno.compute_component_correlation(
+    method="pca",
+    correlation_method="spearman",
+    plot=False,
+)
+```
+
+Valid values: `"pearson"` (default), `"spearman"`, `"distance_correlation"`,
+`"mutual_info"`. Distance correlation requires the optional `dcor` package
+(`pip install dcor`). See the
+[`compute_component_correlation` API](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_component_correlation)
+for the full parameter list.
+
 - **Tutorial**: [04 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb).
 
 ## See also

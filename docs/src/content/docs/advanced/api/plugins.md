@@ -75,7 +75,7 @@ For built-in metadata classes, see `phenome.metadata`.
 ```python
 register_property(
     name: str,
-    fn: collections.abc.Callable[[typing.Any | None, typing.Any | None], dict[str, float | int]]
+    fn: collections.abc.Callable[[typing.Optional[typing.Any], typing.Optional[typing.Any]], dict[str, float | int]]
 ) -> None
 ```
 
@@ -94,7 +94,7 @@ Use with compute_properties via get_property(name) or pass the function directly
 ```python
 get_property(
     name: str
-) -> collections.abc.Callable[[Any | None, Any | None], dict[str, float | int]] | None
+) -> collections.abc.Callable[[Optional[Any], Optional[Any]], dict[str, float | int]] | None
 ```
 
 Get a registered property function by name.

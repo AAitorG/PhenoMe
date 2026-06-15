@@ -1348,7 +1348,7 @@ Finds image files and extracts metadata from directories.
 ```python
 FileDiscovery.inspect_data(
     self,
-    file_df: pandas.DataFrame
+    file_df: pandas.core.frame.DataFrame
 ) -> DataFrame
 ```
 
