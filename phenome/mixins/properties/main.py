@@ -85,7 +85,11 @@ class PhenoMeProperties:
     def get_available_property_keys(self) -> list[str]:
         """Return sorted list of property keys stored in results."""
         properties_list = self.results.properties
-        return sorted(properties_list[0].keys()) if properties_list else []
+        keys: set[str] = set()
+        for props in properties_list:
+            if isinstance(props, dict):
+                keys.update(props.keys())
+        return sorted(keys)
 
     def transfer_metadata_to_properties(self, columns: str | list[str]) -> None:
         """Transfer specified metadata columns to properties.

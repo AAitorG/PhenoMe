@@ -59,7 +59,7 @@ def build_properties_dataframe(
 
     Args:
         results: Pipeline results with ``properties`` and ``img_path``.
-        properties: Property column names. If None, inferred from first row.
+        properties: Property column names. If None, inferred from all property rows.
         include_metadata: If True, include metadata columns with raw key casing.
 
     Returns:
@@ -68,7 +68,10 @@ def build_properties_dataframe(
     """
     properties_list = results.properties
     if properties is None or (isinstance(properties, list) and len(properties) == 0):
-        properties = list(properties_list[0].keys()) if properties_list else []
+        properties = []
+        for props in properties_list:
+            if isinstance(props, dict):
+                properties.extend(k for k in props if k not in properties)
 
     if not properties_list:
         logger.warning("No properties found in results. Run compute_properties first.")
