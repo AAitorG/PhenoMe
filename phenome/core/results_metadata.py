@@ -6,7 +6,7 @@ Provides functions to read metadata from pipeline results and filter indices.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -239,17 +239,38 @@ def resolve_result_keys(
     return found_cols
 
 
-def get_result_value(results: PhenoMeResults, idx: int, key: str) -> Any:
-    """Fetch a value from metadata or properties at *idx* (metadata first)."""
-    metadata_list = _metadata_list(results)
-    if idx < len(metadata_list):
-        val = get_metadata_value_from_dict(metadata_list[idx], key)
+def _get_value_from_stores(
+    results: PhenoMeResults,
+    idx: int,
+    key: str,
+    store_order: tuple[str, ...],
+) -> Any:
+    """Fetch *key* from the first store in *store_order* that has a non-None value."""
+    for store_key in store_order:
+        store = getattr(results, store_key, None) or []
+        if idx >= len(store) or not isinstance(store[idx], dict):
+            continue
+        val = get_metadata_value_from_dict(store[idx], key)
         if val is not None:
             return val
-    props_list = list(results.properties)
-    if idx < len(props_list) and isinstance(props_list[idx], dict):
-        return get_metadata_value_from_dict(props_list[idx], key)
     return None
+
+
+def get_result_value(
+    results: PhenoMeResults,
+    idx: int,
+    key: str,
+    *,
+    prefer: Literal["metadata", "properties"] = "metadata",
+) -> Any:
+    """Fetch a value from metadata or properties at *idx*.
+
+    Args:
+        prefer: ``"metadata"`` checks metadata then properties (outlier grouping).
+            ``"properties"`` checks properties then metadata (composite prototypes).
+    """
+    store_order = ("metadata", "properties") if prefer == "metadata" else ("properties", "metadata")
+    return _get_value_from_stores(results, idx, key, store_order)
 
 
 def collect_metadata_labels(
@@ -299,7 +320,7 @@ def build_index_group_labels(
         for i in range(n_total):
             row_vals = []
             for k in found_cols:
-                val = get_result_value(results, i, k)
+                val = get_result_value(results, i, k, prefer="properties")
                 row_vals.append(str(val) if val is not None else "N/A")
             group_labels[i] = " | ".join(row_vals)
 

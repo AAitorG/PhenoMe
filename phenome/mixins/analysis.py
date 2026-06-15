@@ -23,7 +23,6 @@ from ..core import (
     compute_rf_interpretability,
     compute_spearman_correlation,
     filter_indices,
-    get_metadata_value_from_dict,
     run_dimensionality_reduction,
     run_dimensionality_reduction_matrix,
 )
@@ -45,6 +44,7 @@ from ..core.results_metadata import (
     build_index_group_labels,
     build_subset_groups,
     collect_metadata_labels,
+    get_result_value,
     resolve_result_keys,
 )
 from ..utils.display_names import (
@@ -666,19 +666,13 @@ class PhenoMeAnalysis:
             }
 
             if actual_group_by:
-                info = self.get_image_info(idx)  # type: ignore[attr-defined]
                 if isinstance(actual_group_by, list):
-                    # Multi-column composite
-                    group_vals = []
-                    for k in actual_group_by:
-                        val = get_metadata_value_from_dict(info, k)
-                        val_str = str(val) if val is not None and val != "" else "N/A"
-                        group_vals.append(val_str)
+                    vals = [get_result_value(self.results, idx, k) for k in actual_group_by]
+                    group_val = " | ".join(str(v) if v is not None else "N/A" for v in vals)
+                    for k, val in zip(actual_group_by, vals, strict=True):
                         row[k] = val
-                    group_val = " | ".join(group_vals)
                 else:
-                    # Single column
-                    val = get_metadata_value_from_dict(info, actual_group_by)
+                    val = get_result_value(self.results, idx, actual_group_by)
                     group_val = "N/A" if val is None or val == "" else val
                     row[actual_group_by] = val
 
