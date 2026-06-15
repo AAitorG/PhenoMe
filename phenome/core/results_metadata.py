@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
+from .._logging import get_logger
 from .pipeline_results import PhenoMeResults
+
+logger = get_logger(__name__)
 
 
 def _metadata_list(results: PhenoMeResults) -> list[dict[str, Any]]:
@@ -199,3 +204,138 @@ def _get_value_case_insensitive(meta_dict: dict[str, Any], key: str) -> Any:
         if k.lower() == key_lower:
             return v
     return None
+
+
+def _find_result_key(results: PhenoMeResults, col: str) -> str | None:
+    """Case-insensitive lookup of *col* in properties then metadata stores."""
+    for store_key in ("properties", "metadata"):
+        store = getattr(results, store_key, None) or []
+        if not store or not isinstance(store[0], dict):
+            continue
+        for k in store[0]:
+            if k.lower() == col.lower():
+                return k
+    return None
+
+
+def resolve_result_keys(
+    results: PhenoMeResults,
+    requested: str | list[str],
+    *,
+    missing_key_log: str = "Grouping key '%s' not found.",
+) -> list[str]:
+    """Resolve case-insensitive keys across properties and metadata stores.
+
+    Logs a warning and skips keys that are not found (same behavior as analysis mixins).
+    """
+    requested_cols = [requested] if isinstance(requested, str) else list(requested)
+    found_cols: list[str] = []
+    for col in requested_cols:
+        found_key = _find_result_key(results, col)
+        if found_key:
+            found_cols.append(found_key)
+        else:
+            logger.warning(missing_key_log, col)
+    return found_cols
+
+
+def get_result_value(results: PhenoMeResults, idx: int, key: str) -> Any:
+    """Fetch a value from metadata or properties at *idx* (metadata first)."""
+    metadata_list = _metadata_list(results)
+    if idx < len(metadata_list):
+        val = get_metadata_value_from_dict(metadata_list[idx], key)
+        if val is not None:
+            return val
+    props_list = list(results.properties)
+    if idx < len(props_list) and isinstance(props_list[idx], dict):
+        return get_metadata_value_from_dict(props_list[idx], key)
+    return None
+
+
+def collect_metadata_labels(
+    results: PhenoMeResults,
+    indices: list[int],
+    key: str,
+) -> np.ndarray:
+    """Collect per-sample metadata labels for stratified CV or similar."""
+    return np.asarray(
+        [get_metadata_value(results, idx, key) for idx in indices],
+        dtype=object,
+    )
+
+
+def build_index_group_labels(
+    results: PhenoMeResults,
+    requested_cols: list[str],
+    n_total: int,
+) -> tuple[list[Any], list[str]]:
+    """Build per-image group labels and resolved column names.
+
+    Returns ``(labels_per_image, found_cols)`` where ``labels_per_image[i]`` is the
+    group label for global image index *i*. Single-column groups use raw store values;
+    multi-column groups use ``" | "``-joined strings with ``"N/A"`` for missing values.
+    """
+    found_cols = resolve_result_keys(
+        results,
+        requested_cols,
+        missing_key_log="Column '%s' not found.",
+    )
+    group_labels: list[Any] = [None] * n_total
+
+    if not found_cols:
+        return group_labels, found_cols
+
+    if len(found_cols) == 1:
+        k = found_cols[0]
+        for store_key in ("properties", "metadata"):
+            store = getattr(results, store_key, None) or []
+            if not store or not isinstance(store[0], dict) or k not in store[0]:
+                continue
+            for i, entry in enumerate(store):
+                if i < n_total and isinstance(entry, dict):
+                    group_labels[i] = entry.get(k)
+            break
+    else:
+        for i in range(n_total):
+            row_vals = []
+            for k in found_cols:
+                val = get_result_value(results, i, k)
+                row_vals.append(str(val) if val is not None else "N/A")
+            group_labels[i] = " | ".join(row_vals)
+
+    return group_labels, found_cols
+
+
+def build_subset_groups(
+    results: PhenoMeResults,
+    valid_indices: list[int],
+    found_cols: list[str],
+) -> tuple[dict[Any, np.ndarray], str | list[str] | None]:
+    """Map group values to relative row indices within *valid_indices*.
+
+    Used by outlier detection where grouping is over the filtered sample matrix.
+    """
+    import pandas as pd
+
+    n_samples = len(valid_indices)
+    if not found_cols:
+        return {"all": np.arange(n_samples)}, None
+
+    group_data: dict[str, list[Any]] = {}
+    for k in found_cols:
+        group_data[k] = [get_result_value(results, i, k) for i in valid_indices]
+
+    df = pd.DataFrame(group_data)
+    groups: dict[Any, np.ndarray] = {}
+
+    if len(found_cols) == 1:
+        actual_group_by: str | list[str] | None = found_cols[0]
+        for gv, gdf in df.groupby(actual_group_by, dropna=False):
+            groups[gv] = gdf.index.to_numpy()
+    else:
+        actual_group_by = found_cols
+        df["_composite_group"] = df[found_cols].fillna("N/A").astype(str).agg(" | ".join, axis=1)
+        for gv, gdf in df.groupby("_composite_group", dropna=False):
+            groups[gv] = gdf.index.to_numpy()
+
+    return groups, actual_group_by

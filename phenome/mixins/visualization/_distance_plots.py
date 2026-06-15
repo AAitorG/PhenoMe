@@ -235,3 +235,44 @@ class _DistancePlotsMixin:
             return
         df, group_col, _ = prepared
         self._log_distance_group_stats(group_col, df)
+
+
+def _log_embedding_property_correlation_summary(
+    summary: pd.DataFrame, order_by: str, top_k: int | None
+) -> None:
+    """Log a plain-text table of the top property correlation rows."""
+    want = ("property", "mean_abs", "std", "max_abs", "min_abs")
+    columns = [c for c in want if c in summary.columns]
+    if not columns or "property" not in columns:
+        logger.info("Property correlation summary is empty; nothing to log.")
+        return
+    view = summary[columns].copy()
+    if top_k is not None:
+        view = view.head(int(top_k))
+    n = len(view)
+    top_note = f" (showing {n} of {len(summary)} properties)" if n < len(summary) else ""
+    sep = "─" * 88
+    num_cols = [c for c in columns if c not in ("property",)]
+
+    def _fmt_num_cell(v: object) -> str:
+        try:
+            x = float(v)
+        except (TypeError, ValueError):
+            return "—"
+        if not np.isfinite(x):
+            return "—"
+        return f"{x:.4f}"
+
+    out = view.copy()
+    for c in num_cols:
+        out[c] = out[c].map(_fmt_num_cell)
+    block = out.to_string(index=False, col_space=2)
+    logger.info(
+        "%s\nEmbedding-property correlations  (ordered by %s)%s\n%s\n%s\n%s",
+        sep,
+        order_by,
+        top_note,
+        sep,
+        block,
+        sep,
+    )

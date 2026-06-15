@@ -65,6 +65,32 @@ class _MetadataStratifiedKFold(BaseCrossValidator):
         yield from skf.split(x, self.labels)
 
 
+def prepare_interpretability_inputs(
+    y: np.ndarray,
+    dr_indices: list[int],
+    matrix: np.ndarray,
+    prop_indices: list[int],
+) -> tuple[np.ndarray, np.ndarray, list[int]] | None:
+    """Align DR target to property rows and drop non-finite samples.
+
+    Returns ``(matrix, y, prop_indices)`` or ``None`` when no valid rows remain.
+    """
+    from .combined_features import align_rows_by_global_indices
+
+    if len(matrix) < len(y):
+        y = align_rows_by_global_indices(dr_indices, y, prop_indices)
+
+    finite_mask = np.isfinite(y) & np.isfinite(matrix).all(axis=1)
+    if not finite_mask.all():
+        matrix = matrix[finite_mask]
+        y = y[finite_mask]
+        prop_indices = [idx for idx, keep in zip(prop_indices, finite_mask, strict=True) if keep]
+
+    if len(matrix) == 0:
+        return None
+    return matrix, y, prop_indices
+
+
 def _min_samples_for_lasso_cv(cv: int) -> int:
     """Minimum n so the smallest outer-CV training fold can run inner LassoCV."""
     if cv <= 1:

@@ -395,3 +395,100 @@ def print_top_properties_vs_reference(
         logger.info("%s", "-" * tw)
 
     logger.info("%s", "=" * tw)
+
+
+def resolve_dataframe_columns(
+    df: pd.DataFrame,
+    requested: str | list[str],
+) -> list[str]:
+    """Resolve column names case-insensitively against *df* columns."""
+    requested_cols = [requested] if isinstance(requested, str) else list(requested)
+    resolved_cols: list[str] = []
+    for col in requested_cols:
+        found = None
+        if col in df.columns:
+            found = col
+        else:
+            for variant in (col.capitalize(), col.lower()):
+                if variant in df.columns:
+                    found = variant
+                    break
+        if found:
+            resolved_cols.append(found)
+        else:
+            raise ValueError(f"Group column '{col}' not found. Columns: {list(df.columns)}")
+    return resolved_cols
+
+
+def compute_leave_one_out_zscore_enrichment(
+    working_df: pd.DataFrame,
+    group_col: str,
+    property_keys: list[str],
+    resolved_cols: list[str],
+    *,
+    correct_fdr: bool = True,
+) -> pd.DataFrame:
+    """Leave-one-group-out z-score enrichment with optional Benjamini-Hochberg FDR."""
+    all_groups = sorted(working_df[group_col].unique())
+    skipped_small = sum(1 for g in all_groups if len(working_df[working_df[group_col] == g]) < 3)
+    if skipped_small > 0:
+        logger.info(
+            "Skipped %d group(s) with < 3 samples; z-score enrichment requires at least 3.",
+            skipped_small,
+        )
+
+    rows = []
+    for grp in all_groups:
+        gdf = working_df[working_df[group_col] == grp]
+        if len(gdf) < 3:
+            continue
+        rest_df = working_df[working_df[group_col] != grp]
+        if rest_df.empty:
+            continue
+        pop_mean = rest_df[property_keys].mean()
+        pop_std = rest_df[property_keys].std()
+        pop_std = pop_std.where(pop_std >= 1e-10, np.nan)
+        gmean = gdf[property_keys].mean()
+        with np.errstate(divide="ignore", invalid="ignore"):
+            zs = (gmean - pop_mean) / pop_std
+        for prop in property_keys:
+            s = zs[prop]
+            if pd.notna(s):
+                rows.append(
+                    {
+                        "Group": grp,
+                        "property": prop,
+                        "score": float(s),
+                        "mean_group": float(gmean[prop]),
+                        "mean_pop": float(pop_mean[prop]),
+                    }
+                )
+
+    if not rows:
+        return pd.DataFrame(
+            columns=[*resolved_cols, "property", "score", "mean_group", "mean_pop", "abs_score"]
+        )
+
+    edf = pd.DataFrame(rows)
+    mapping = working_df.drop_duplicates(group_col).set_index(group_col)[resolved_cols]
+    edf = edf.join(mapping, on="Group")
+    edf["abs_score"] = edf["score"].abs()
+
+    if correct_fdr:
+        from scipy.stats import norm
+
+        p_values = 2.0 * norm.sf(edf["abs_score"].values)
+        edf["p_value"] = p_values
+        n_tests = len(p_values)
+        ranks = np.argsort(np.argsort(p_values)) + 1
+        bh_threshold = ranks / n_tests * 0.05
+        sorted_p = np.sort(p_values)
+        sorted_bh = np.sort(bh_threshold)
+        max_k = 0
+        for k in range(n_tests):
+            if sorted_p[k] <= sorted_bh[k]:
+                max_k = k + 1
+        critical = sorted_p[max_k - 1] if max_k > 0 else 0.0
+        edf["significant"] = edf["p_value"] <= critical
+
+    return edf.sort_values(["Group", "abs_score"], ascending=[True, False])
