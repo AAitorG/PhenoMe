@@ -102,11 +102,7 @@ def property_stats_by_group(
     ]
 
     if group_by is not None:
-        group_cols = [k.lower() for k in group_by]
-        invalid_keys = [k for k in group_by if k.lower() not in df.columns]
-        if invalid_keys:
-            available = ", ".join(metadata_cols_list) if metadata_cols_list else "none"
-            raise ValueError(f"Invalid group_by keys: {invalid_keys}. Available: {available}")
+        group_cols = resolve_dataframe_columns(df, group_by)
     else:
         group_cols = metadata_cols_list[:2]
 
@@ -178,15 +174,15 @@ def top_properties_different_from_reference(
     if k < 0:
         raise ValueError(f"k must be non-negative, got {k}")
 
-    for col in reference_group:
-        if col not in df.columns:
-            raise ValueError(
-                f"reference_group key '{col}' not in DataFrame columns. "
-                f"Grouping columns: {grouping_cols}"
-            )
+    requested_ref_keys = list(reference_group.keys())
+    resolved_ref_keys = resolve_dataframe_columns(df, requested_ref_keys)
+    resolved_ref = {
+        resolved: reference_group[requested]
+        for requested, resolved in zip(requested_ref_keys, resolved_ref_keys, strict=True)
+    }
 
     mask = pd.Series([True] * len(df), index=df.index)
-    for col, val in reference_group.items():
+    for col, val in resolved_ref.items():
         mask = mask & (df[col] == val)
     ref_rows = df[mask]
     if len(ref_rows) == 0:
@@ -428,7 +424,14 @@ def compute_leave_one_out_zscore_enrichment(
     *,
     correct_fdr: bool = True,
 ) -> pd.DataFrame:
-    """Leave-one-group-out z-score enrichment with optional Benjamini-Hochberg FDR."""
+    """Leave-one-group-out z-score enrichment with optional Benjamini-Hochberg FDR.
+
+    Z-scores are descriptive effect sizes: (mean_group - mean_pop) / std_pop.
+    When *correct_fdr* is True, p-values come from Welch two-sample t-tests
+    (group vs leave-one-out rest) per property, with Benjamini-Hochberg FDR.
+    """
+    from scipy.stats import ttest_ind
+
     all_groups = sorted(working_df[group_col].unique())
     skipped_small = sum(1 for g in all_groups if len(working_df[working_df[group_col] == g]) < 3)
     if skipped_small > 0:
@@ -454,6 +457,11 @@ def compute_leave_one_out_zscore_enrichment(
         for prop in property_keys:
             s = zs[prop]
             if pd.notna(s):
+                g_vals = gdf[prop].dropna()
+                r_vals = rest_df[prop].dropna()
+                p_val = np.nan
+                if len(g_vals) >= 2 and len(r_vals) >= 2:
+                    _, p_val = ttest_ind(g_vals, r_vals, equal_var=False)
                 rows.append(
                     {
                         "Group": grp,
@@ -461,34 +469,42 @@ def compute_leave_one_out_zscore_enrichment(
                         "score": float(s),
                         "mean_group": float(gmean[prop]),
                         "mean_pop": float(pop_mean[prop]),
+                        "p_value": float(p_val) if pd.notna(p_val) else np.nan,
                     }
                 )
 
     if not rows:
-        return pd.DataFrame(
-            columns=[*resolved_cols, "property", "score", "mean_group", "mean_pop", "abs_score"]
-        )
+        empty_cols = [
+            *resolved_cols,
+            "property",
+            "score",
+            "mean_group",
+            "mean_pop",
+            "p_value",
+            "abs_score",
+        ]
+        if correct_fdr:
+            empty_cols.append("significant")
+        return pd.DataFrame(columns=empty_cols)
 
     edf = pd.DataFrame(rows)
-    mapping = working_df.drop_duplicates(group_col).set_index(group_col)[resolved_cols]
-    edf = edf.join(mapping, on="Group")
+    dedup = working_df.drop_duplicates(subset=group_col, keep="first")
+    meta = dedup[resolved_cols].copy()
+    meta.insert(0, "Group", dedup[group_col].values)
+    edf = edf.merge(meta, on="Group", how="left")
     edf["abs_score"] = edf["score"].abs()
 
     if correct_fdr:
-        from scipy.stats import norm
-
-        p_values = 2.0 * norm.sf(edf["abs_score"].values)
-        edf["p_value"] = p_values
-        n_tests = len(p_values)
-        ranks = np.argsort(np.argsort(p_values)) + 1
-        bh_threshold = ranks / n_tests * 0.05
-        sorted_p = np.sort(p_values)
-        sorted_bh = np.sort(bh_threshold)
-        max_k = 0
-        for k in range(n_tests):
-            if sorted_p[k] <= sorted_bh[k]:
-                max_k = k + 1
-        critical = sorted_p[max_k - 1] if max_k > 0 else 0.0
-        edf["significant"] = edf["p_value"] <= critical
+        edf["significant"] = False
+        valid_mask = edf["p_value"].notna()
+        n_tests = int(valid_mask.sum())
+        if n_tests > 0:
+            p_values = edf.loc[valid_mask, "p_value"].values
+            sorted_p = np.sort(p_values)
+            thresholds = (np.arange(1, n_tests + 1) / n_tests) * 0.05
+            comparisons = sorted_p <= thresholds
+            max_k = int(np.max(np.where(comparisons)[0]) + 1) if comparisons.any() else 0
+            critical = sorted_p[max_k - 1] if max_k > 0 else 0.0
+            edf.loc[valid_mask, "significant"] = edf.loc[valid_mask, "p_value"] <= critical
 
     return edf.sort_values(["Group", "abs_score"], ascending=[True, False])

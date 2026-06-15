@@ -14,6 +14,7 @@ from sklearn.linear_model import LassoCV
 from sklearn.metrics import r2_score
 from sklearn.model_selection import BaseCrossValidator, KFold, StratifiedKFold, cross_val_predict
 from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from ..._logging import get_logger
 
@@ -289,7 +290,8 @@ def compute_rf_interpretability(
     """Explain a target variable y using a Random Forest model on features x.
 
     Unlike LASSO, Random Forest captures non-linear relationships. Weights in 'drivers'
-    correspond to Gini feature importances (always non-negative).
+    correspond to Gini feature importances (always non-negative). Features are
+    standardized before fitting so importances are comparable across property scales.
     The R2 score is calculated out-of-bag (OOB) to give a generalized estimate on the
     fixed target ``y`` supplied by the caller.
 
@@ -326,7 +328,10 @@ def compute_rf_interpretability(
         )
         return {"r2": 0.0, "drivers": [], "n_samples": len(y_clean), "n_features": n_features}
 
-    # Use out-of-bag score to prevent inflated R2 values from Random Forest overfitting
+    # Standardize features so Gini importances are not dominated by property scale
+    scaler = StandardScaler()
+    x_scaled = scaler.fit_transform(x_clean)
+
     model = RandomForestRegressor(
         n_estimators=n_estimators,
         random_state=seed,
@@ -334,8 +339,7 @@ def compute_rf_interpretability(
         oob_score=True,
     )
 
-    # We do not strictly need scaling for Random Forest, but we can fit it directly
-    model.fit(x_clean, y_clean)
+    model.fit(x_scaled, y_clean)
 
     # Get OOB R2 score instead of standard training score
     r2 = float(model.oob_score_)

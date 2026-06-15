@@ -251,7 +251,7 @@ def compute_distance_correlation(
 
     x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=4)
     if x_clean is None or y_clean is None:
-        return np.nan if x.ndim == 1 else np.full(x.shape[1], np.nan)
+        return np.array(np.nan) if x.ndim == 1 else np.full(x.shape[1], np.nan)
 
     # dcor requires float64 for numerical stability
     x_clean = x_clean.astype(np.float64)
@@ -357,7 +357,7 @@ def compute_mutual_info(
     # sklearn default n_neighbors=3 requires at least 4 valid samples
     x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=4)
     if x_clean is None:
-        return np.nan if x.ndim == 1 else np.full(x.shape[1], np.nan)
+        return np.array(np.nan) if x.ndim == 1 else np.full(x.shape[1], np.nan)
 
     if x.ndim == 1:
         try:

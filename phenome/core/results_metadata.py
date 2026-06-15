@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 import numpy as np
+import pandas as pd
 
 from .._logging import get_logger
 from .pipeline_results import PhenoMeResults
@@ -206,15 +207,57 @@ def _get_value_case_insensitive(meta_dict: dict[str, Any], key: str) -> Any:
     return None
 
 
-def _find_result_key(results: PhenoMeResults, col: str) -> str | None:
-    """Case-insensitive lookup of *col* in properties then metadata stores."""
-    for store_key in ("properties", "metadata"):
-        store = getattr(results, store_key, None) or []
-        if not store or not isinstance(store[0], dict):
+def _is_missing_store_value(val: Any) -> bool:
+    """True when a store value should be treated as absent (try next store)."""
+    if val is None:
+        return True
+    if isinstance(val, str) and val == "":
+        return True
+    if isinstance(val, (float, np.floating)) and np.isnan(val):
+        return True
+    try:
+        return bool(pd.isna(val))
+    except (TypeError, ValueError):
+        return False
+
+
+def normalize_group_value(val: Any) -> Any:
+    """Normalize a single grouping value for consistent group keys.
+
+    Maps None, empty strings, and NaN to ``"N/A"``; other values are unchanged.
+    """
+    if _is_missing_store_value(val):
+        return "N/A"
+    return val
+
+
+def build_composite_group_series(df: pd.DataFrame, cols: list[str]) -> pd.Series:
+    """Build ``" | "``-joined composite group labels with ``"N/A"`` for missing values."""
+    normalized = df[cols].apply(lambda series: series.map(normalize_group_value))
+    return normalized.astype(str).agg(" | ".join, axis=1)
+
+
+def _collect_store_keys(results: PhenoMeResults, store_key: str) -> dict[str, str]:
+    """Map lowercase key names to first-occurrence canonical names in a store."""
+    key_by_lower: dict[str, str] = {}
+    store = getattr(results, store_key, None) or []
+    for entry in store:
+        if not isinstance(entry, dict):
             continue
-        for k in store[0]:
-            if k.lower() == col.lower():
-                return k
+        for k in entry:
+            kl = k.lower()
+            if kl not in key_by_lower:
+                key_by_lower[kl] = k
+    return key_by_lower
+
+
+def _find_result_key(results: PhenoMeResults, col: str) -> str | None:
+    """Case-insensitive lookup of *col* across all rows in metadata then properties."""
+    col_lower = col.lower()
+    for store_key in ("metadata", "properties"):
+        key_by_lower = _collect_store_keys(results, store_key)
+        if col_lower in key_by_lower:
+            return key_by_lower[col_lower]
     return None
 
 
@@ -251,7 +294,7 @@ def _get_value_from_stores(
         if idx >= len(store) or not isinstance(store[idx], dict):
             continue
         val = get_metadata_value_from_dict(store[idx], key)
-        if val is not None:
+        if not _is_missing_store_value(val):
             return val
     return None
 
@@ -266,8 +309,8 @@ def get_result_value(
     """Fetch a value from metadata or properties at *idx*.
 
     Args:
-        prefer: ``"metadata"`` checks metadata then properties (outlier grouping).
-            ``"properties"`` checks properties then metadata (composite prototypes).
+        prefer: ``"metadata"`` checks metadata then properties (default for grouping).
+            ``"properties"`` checks properties then metadata.
     """
     store_order = ("metadata", "properties") if prefer == "metadata" else ("properties", "metadata")
     return _get_value_from_stores(results, idx, key, store_order)
@@ -293,8 +336,8 @@ def build_index_group_labels(
     """Build per-image group labels and resolved column names.
 
     Returns ``(labels_per_image, found_cols)`` where ``labels_per_image[i]`` is the
-    group label for global image index *i*. Single-column groups use raw store values;
-    multi-column groups use ``" | "``-joined strings with ``"N/A"`` for missing values.
+    group label for global image index *i*. Values come from metadata first, then
+    properties. Missing values are normalized to ``"N/A"`` for consistent group keys.
     """
     found_cols = resolve_result_keys(
         results,
@@ -308,20 +351,14 @@ def build_index_group_labels(
 
     if len(found_cols) == 1:
         k = found_cols[0]
-        for store_key in ("properties", "metadata"):
-            store = getattr(results, store_key, None) or []
-            if not store or not isinstance(store[0], dict) or k not in store[0]:
-                continue
-            for i, entry in enumerate(store):
-                if i < n_total and isinstance(entry, dict):
-                    group_labels[i] = entry.get(k)
-            break
+        for i in range(n_total):
+            group_labels[i] = normalize_group_value(get_result_value(results, i, k))
     else:
         for i in range(n_total):
-            row_vals = []
-            for k in found_cols:
-                val = get_result_value(results, i, k, prefer="properties")
-                row_vals.append(str(val) if val is not None else "N/A")
+            row_vals = [
+                str(normalize_group_value(get_result_value(results, i, col_key)))
+                for col_key in found_cols
+            ]
             group_labels[i] = " | ".join(row_vals)
 
     return group_labels, found_cols
@@ -336,15 +373,15 @@ def build_subset_groups(
 
     Used by outlier detection where grouping is over the filtered sample matrix.
     """
-    import pandas as pd
-
     n_samples = len(valid_indices)
     if not found_cols:
         return {"all": np.arange(n_samples)}, None
 
     group_data: dict[str, list[Any]] = {}
     for k in found_cols:
-        group_data[k] = [get_result_value(results, i, k) for i in valid_indices]
+        group_data[k] = [
+            normalize_group_value(get_result_value(results, i, k)) for i in valid_indices
+        ]
 
     df = pd.DataFrame(group_data)
     groups: dict[Any, np.ndarray] = {}
@@ -355,7 +392,7 @@ def build_subset_groups(
             groups[gv] = gdf.index.to_numpy()
     else:
         actual_group_by = found_cols
-        df["_composite_group"] = df[found_cols].fillna("N/A").astype(str).agg(" | ".join, axis=1)
+        df["_composite_group"] = build_composite_group_series(df, found_cols)
         for gv, gdf in df.groupby("_composite_group", dropna=False):
             groups[gv] = gdf.index.to_numpy()
 

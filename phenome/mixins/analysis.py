@@ -25,6 +25,7 @@ from ..core import (
     filter_indices,
     run_dimensionality_reduction,
     run_dimensionality_reduction_matrix,
+    validate_results,
 )
 from ..core.dataframe_contract import (
     IMAGE_INDEX,
@@ -41,10 +42,12 @@ from ..core.math.interpretability import prepare_interpretability_inputs
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
 from ..core.results_metadata import (
+    build_composite_group_series,
     build_index_group_labels,
     build_subset_groups,
     collect_metadata_labels,
     get_result_value,
+    normalize_group_value,
     resolve_result_keys,
 )
 from ..utils.display_names import (
@@ -288,6 +291,7 @@ class PhenoMeAnalysis:
                 int(full_labels[i]) if not np.isnan(full_labels[i]) else None
             )
         self.results.metadata = metadata_list
+        validate_results(self.results)
 
         n_clusters_log = n_actual_clusters if clustering_method == "dbscan" else n_clusters
         logger.info(
@@ -668,12 +672,12 @@ class PhenoMeAnalysis:
             if actual_group_by:
                 if isinstance(actual_group_by, list):
                     vals = [get_result_value(self.results, idx, k) for k in actual_group_by]
-                    group_val = " | ".join(str(v) if v is not None else "N/A" for v in vals)
+                    group_val = " | ".join(str(normalize_group_value(v)) for v in vals)
                     for k, val in zip(actual_group_by, vals, strict=True):
                         row[k] = val
                 else:
                     val = get_result_value(self.results, idx, actual_group_by)
-                    group_val = "N/A" if val is None or val == "" else val
+                    group_val = normalize_group_value(val)
                     row[actual_group_by] = val
 
                 row["_internal_group"] = group_val
@@ -770,6 +774,7 @@ class PhenoMeAnalysis:
                     self.results.properties.pop(idx)
 
             self._property_norm_cache = None
+            validate_results(self.results)
 
             logger.info(
                 "Removed %d outliers from results. Remaining: %d images.",
@@ -979,8 +984,9 @@ class PhenoMeAnalysis:
 
         For each group, z-scores are computed against a **leave-group-out**
         population (all samples *except* the current group).  When
-        *correct_multiple_testing* is True (default), Benjamini-Hochberg FDR
-        correction is applied across all (group, property) pairs and a
+        *correct_multiple_testing* is True (default), Welch two-sample t-tests
+        (group vs leave-one-out rest) are run per property and Benjamini-Hochberg
+        FDR correction is applied across all (group, property) pairs; a
         ``significant`` column is added to the output DataFrame.
 
         Args:
@@ -998,15 +1004,15 @@ class PhenoMeAnalysis:
             top_k: Max properties per group in the figure and in the text summary (``None`` = all).
             figsize: Figure size ``(width, height)`` in inches for the Plotly layout.
             title: Optional figure title.
-            correct_multiple_testing (bool): If True (default), apply Benjamini-Hochberg
-                FDR correction across all (group, property) z-scores and add a
-                ``significant`` column (alpha = 0.05).
+            correct_multiple_testing (bool): If True (default), run Welch t-tests
+                per (group, property), apply Benjamini-Hochberg FDR, and add
+                ``p_value`` / ``significant`` columns (alpha = 0.05).
 
         Returns:
             pd.DataFrame or tuple[pd.DataFrame, Any]:
                 - If *return_fig* is False (default): pd.DataFrame with columns:
-                  [group_by columns], property, score, mean_group, mean_pop, abs_score,
-                  and optionally p_value / significant when *correct_multiple_testing* is True.
+                  [group_by columns], property, score, mean_group, mean_pop, p_value, abs_score,
+                  and optionally significant when *correct_multiple_testing* is True.
                 - If *return_fig* is True: A tuple (enrichment_df, fig).
         """
         working_df = self._build_properties_dataframe(include_metadata=True)  # type: ignore[attr-defined]
@@ -1020,8 +1026,11 @@ class PhenoMeAnalysis:
             "score",
             "mean_group",
             "mean_pop",
+            "p_value",
             "abs_score",
         ]
+        if correct_multiple_testing:
+            empty_cols.append("significant")
         if working_df.empty:
             edf = pd.DataFrame(columns=empty_cols)
             fig = self._plot_group_enrichment(  # type: ignore[attr-defined]
@@ -1037,19 +1046,20 @@ class PhenoMeAnalysis:
 
         if filters or exclude:
             indices = filter_indices(self.results, filters, exclude)
-            if IMAGE_INDEX in working_df.columns:
-                working_df = working_df[working_df[IMAGE_INDEX].isin(indices)]
-            else:
-                working_df = working_df.iloc[indices]
+            if IMAGE_INDEX not in working_df.columns:
+                raise ValueError(
+                    "Filtered group enrichment requires an 'image_index' column in the "
+                    "properties DataFrame. Rebuild with include_metadata=True or avoid "
+                    "filters/exclude on misaligned DataFrames."
+                )
+            working_df = working_df[working_df[IMAGE_INDEX].isin(indices)]
 
         # Create internal Group column for z-score calculation and plotting
         internal_group_col = "_internal_group_label_"
         if len(resolved_cols) == 1:
-            working_df[internal_group_col] = working_df[resolved_cols[0]]
+            working_df[internal_group_col] = working_df[resolved_cols[0]].map(normalize_group_value)
         else:
-            working_df[internal_group_col] = (
-                working_df[resolved_cols].astype(str).agg(" | ".join, axis=1)
-            )
+            working_df[internal_group_col] = build_composite_group_series(working_df, resolved_cols)
 
         cc = internal_group_col
         if property_keys is None:
