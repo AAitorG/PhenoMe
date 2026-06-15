@@ -16,6 +16,54 @@ from ...core.pipeline_results import PhenoMeResults
 logger = get_logger(__name__)
 
 
+def _coerce_property_value(value: Any) -> float:
+    """Return a scalar float property value, or NaN when absent/non-numeric."""
+    if value is None:
+        return np.nan
+    try:
+        return float(np.asarray(value, dtype=np.float64).reshape(-1)[0])
+    except (IndexError, TypeError, ValueError):
+        return np.nan
+
+
+def _is_nan_property_value(value: Any) -> bool:
+    """Return whether a property value is explicitly missing/NaN."""
+    if value is None:
+        return True
+    try:
+        val_f = float(np.asarray(value, dtype=np.float64).reshape(-1)[0])
+    except IndexError:
+        return True
+    except (TypeError, ValueError):
+        return False
+    return bool(np.isnan(val_f))
+
+
+def _property_value_at(
+    properties_list: list[dict[str, Any]],
+    index: int,
+    key: str,
+) -> float:
+    """Fetch one property value while preserving image/property row alignment."""
+    if index >= len(properties_list):
+        return np.nan
+    props = properties_list[index]
+    if not isinstance(props, dict):
+        return np.nan
+    return _coerce_property_value(props.get(key, np.nan))
+
+
+def _discover_property_keys(properties_list: list[dict[str, Any]]) -> list[str]:
+    """Discover property keys across all rows, including after leading empty rows."""
+    seen: dict[str, None] = {}
+    for props in properties_list:
+        if isinstance(props, dict):
+            for key in props:
+                if key not in seen:
+                    seen[key] = None
+    return list(seen)
+
+
 def detect_nan_properties(
     results: PhenoMeResults,
     property_keys: list[str] | None = None,
@@ -26,7 +74,7 @@ def detect_nan_properties(
 
     Args:
         results: Pipeline results with 'properties' and 'img_path'.
-        property_keys: Property keys to check. If None, uses all from first props dict.
+        property_keys: Property keys to check. If None, uses all keys found across rows.
         indices: Image indices to check. If None, checks all images.
         count_missing_key_as_nan: If True (default), a missing key on a row counts as NaN.
             If False, only explicit NaN / None numeric values count (absent keys are ignored).
@@ -36,7 +84,7 @@ def detect_nan_properties(
     """
     properties_list = results.properties
     if property_keys is None:
-        keys = sorted(properties_list[0].keys()) if properties_list else []
+        keys = sorted(_discover_property_keys(properties_list)) if properties_list else []
     else:
         keys = property_keys
 
@@ -65,15 +113,7 @@ def detect_nan_properties(
                 if count_missing_key_as_nan:
                     nan_idx_for_key.append(i)
                 continue
-            raw = props[key]
-            if raw is None:
-                nan_idx_for_key.append(i)
-                continue
-            try:
-                val_f = float(np.asarray(raw, dtype=np.float64).reshape(-1)[0])
-            except (TypeError, ValueError):
-                continue
-            if np.isnan(val_f):
+            if _is_nan_property_value(props[key]):
                 nan_idx_for_key.append(i)
 
         nan_counts[key] = len(nan_idx_for_key)
@@ -144,13 +184,7 @@ def get_property_matrix(
             raise ValueError("No properties available. Run compute_properties() first.")
         if not isinstance(properties_list[0], dict):
             raise ValueError(f"Properties must be dicts, got: {type(properties_list[0])}")
-        seen: dict[str, None] = {}
-        for p in properties_list:
-            if isinstance(p, dict):
-                for k in p:
-                    if k not in seen:
-                        seen[k] = None
-        keys = list(seen)
+        keys = _discover_property_keys(properties_list)
     else:
         keys = property_keys
 
@@ -160,9 +194,11 @@ def get_property_matrix(
     if indices is None:
         indices = list(range(results.n_images))
 
+    n_images = results.n_images
+
     def extract_property_array(key: str) -> np.ndarray:
         return np.array(
-            [props.get(key, np.nan) for props in properties_list],
+            [_property_value_at(properties_list, i, key) for i in range(n_images)],
             dtype=np.float32,
         )
 
@@ -198,7 +234,7 @@ def normalize_property_matrix(
 
         def extract_array(key: str) -> np.ndarray:
             return np.array(
-                [props.get(key, np.nan) for props in properties_list],
+                [_property_value_at(properties_list, i, key) for i in range(n_samples)],
                 dtype=np.float32,
             )
 

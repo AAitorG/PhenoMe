@@ -43,7 +43,7 @@ See the verification steps in [Getting started — Installation](/PhenoMe/gettin
 ### Do I need masks?
 
 - **For embeddings**: No. These are extracted directly from images.
-- **For classical properties**: Depends on the preset. The `intensity` preset works on images only (no masks). Presets like `basic`, `regionprops`, and `full` require masks for shape-based features. See [Understanding properties](/PhenoMe/concepts/property-interpretation/).
+- **For classical properties**: Depends on the preset. The `intensity` preset works on images only (no masks). Presets like `basic`, `shape`, `standard`, and `complete` require masks for shape-based features (see [Select properties — Presets](/PhenoMe/guides/select-properties/presets/)). See [Understanding properties](/PhenoMe/concepts/property-interpretation/).
 
 ### How long does processing take?
 
@@ -97,7 +97,7 @@ See [Best practices - performance](/PhenoMe/guides/best-practices/performance/#g
 1. Ensure you are using a GPU (`wrapper.device` should show `cuda:X`).
 2. Increase `batch_size` if GPU memory allows.
 3. Increase `num_workers` for data loading.
-4. Use the `intensity` preset instead of `full` if you do not need all properties.
+4. Use the `intensity` preset instead of `complete` if you do not need all properties.
 
 ### Results differ between runs. Why?
 
@@ -120,14 +120,15 @@ See [Core concepts — channel modes](/PhenoMe/concepts/channel-modes/).
 
 ### Which property preset should I use?
 
-| You have...             | Use preset        |
-|-------------------------|-------------------|
-| No masks                | `intensity`       |
-| Masks, want basic stats | `basic`           |
-| Masks, shape only       | `regionprops`     |
-| Masks, full analysis    | `full` or `full_extended` |
+| You have...                                       | Use preset   |
+|---------------------------------------------------|--------------|
+| No masks                                          | `intensity`  |
+| Masks, lightweight stats                          | `basic`      |
+| Masks, shape only                                 | `shape`      |
+| Masks, rings + axis lengths (recommended default) | `standard`   |
+| Masks, texture + QC + extended shape              | `complete`   |
 
-See [Understanding properties — choosing properties](/PhenoMe/concepts/property-interpretation/#choosing-properties).
+See [Select properties — Presets](/PhenoMe/guides/select-properties/presets/) and [Understanding properties — choosing properties](/PhenoMe/concepts/property-interpretation/#choosing-properties).
 
 ---
 

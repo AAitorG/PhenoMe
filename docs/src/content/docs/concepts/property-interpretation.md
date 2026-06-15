@@ -9,7 +9,7 @@ sidebar:
 
 
 :::tip
-This page explains **what each built-in property means**. **Preset bundles** (`basic`, `full`, …) and choosing `property_preset` are covered under [Select properties — Presets](/PhenoMe/guides/select-properties/presets/).
+This page explains **what each built-in property means**. **Preset bundles** (`basic`, `standard`, `complete`, …) and choosing `property_preset` are covered under [Select properties — Presets](/PhenoMe/guides/select-properties/presets/).
 :::
 
 ## Overview
@@ -135,7 +135,7 @@ Gray-Level Co-occurrence Matrix features computed within the masked region using
 
 - **Avoid redundancy:** `circularity` and `compactness` are inverses — use `circularity`. `aspect_ratio` and `roundness` both capture elongation; pick one unless both add value.
 - **Match your question:** Morphology → area, perimeter, eccentricity, solidity. Intensity → masked mean/std. Texture → GLCM. QC → sharpness_metric.
-- **Presets:** For which features are included in `property_preset="basic"` / `"full"` / `"full_extended"`, see [Select properties — Presets](/PhenoMe/guides/select-properties/presets/).
+- **Presets:** For which features are included in `property_preset="basic"` / `"standard"` / `"complete"` (and other valid presets), see [Select properties — Presets](/PhenoMe/guides/select-properties/presets/).
 
 ---
 

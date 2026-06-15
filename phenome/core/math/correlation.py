@@ -7,8 +7,11 @@ distance correlation; sklearn mutual_info_regression for mutual information (KNN
 """
 
 import contextlib
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 from scipy.stats import spearmanr
 from sklearn.feature_selection import mutual_info_regression
@@ -69,6 +72,72 @@ def clean_correlation_inputs(
         if ok.sum() < min_samples:
             return None, None, ok
         return x[ok, :], y[ok], ok
+
+
+def filter_valid_property_arrays(
+    props_list: list[dict[str, Any]],
+    property_keys: list[str],
+    n_samples: int,
+    min_finite: int = 3,
+) -> dict[str, np.ndarray]:
+    """Keep properties with enough finite values and non-zero variance."""
+    valid_props: dict[str, np.ndarray] = {}
+    for key in property_keys:
+        arr = np.array([p.get(key, np.nan) for p in props_list], dtype=np.float32)
+        if len(arr) != n_samples:
+            continue
+
+        finite_mask = np.isfinite(arr)
+        if finite_mask.sum() < min_finite:
+            continue
+        finite_vals = arr[finite_mask]
+        if np.ptp(finite_vals) == 0:
+            logger.info(
+                "Skipping property '%s': constant values (no variance).",
+                key,
+            )
+            continue
+
+        valid_props[key] = arr
+    return valid_props
+
+
+def compute_component_property_correlation_matrix(
+    df: pd.DataFrame,
+    prop_cols: list[str],
+    comp_cols: list[str],
+    correlation_method: str,
+    compute_pair_fn: Callable[[str, np.ndarray, np.ndarray], np.ndarray],
+    *,
+    show_progress: bool = False,
+    progress_desc: str = "Computing correlations",
+) -> pd.DataFrame:
+    """Build property-by-component correlation matrix."""
+    if correlation_method == "pearson":
+        return df[prop_cols + comp_cols].corr(method="pearson").loc[prop_cols, comp_cols]
+
+    comp_source: list[str] | Any = comp_cols
+    if show_progress:
+        from tqdm.auto import tqdm
+
+        comp_source = tqdm(comp_cols, desc=progress_desc, leave=False)
+
+    corr_data: dict[str, list[float]] = {}
+    for comp in comp_source:
+        if comp not in df.columns:
+            continue
+        comp_values = df[comp].values
+        corr_data[comp] = []
+        for prop in prop_cols:
+            prop_values = df[prop].values
+            r = compute_pair_fn(correlation_method, prop_values, comp_values)
+            r_arr = np.atleast_1d(np.asarray(r))
+            corr_data[comp].append(float(r_arr[0]) if r_arr.size > 0 else np.nan)
+
+    if not corr_data:
+        raise ValueError(f"No correlation data computed for method {correlation_method!r}.")
+
+    return pd.DataFrame(corr_data, index=prop_cols)
 
 
 def compute_pearson_correlation(
@@ -182,7 +251,7 @@ def compute_distance_correlation(
 
     x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=4)
     if x_clean is None or y_clean is None:
-        return np.nan if x.ndim == 1 else np.full(x.shape[1], np.nan)
+        return np.array(np.nan) if x.ndim == 1 else np.full(x.shape[1], np.nan)
 
     # dcor requires float64 for numerical stability
     x_clean = x_clean.astype(np.float64)
@@ -288,7 +357,7 @@ def compute_mutual_info(
     # sklearn default n_neighbors=3 requires at least 4 valid samples
     x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=4)
     if x_clean is None:
-        return np.nan if x.ndim == 1 else np.full(x.shape[1], np.nan)
+        return np.array(np.nan) if x.ndim == 1 else np.full(x.shape[1], np.nan)
 
     if x.ndim == 1:
         try:

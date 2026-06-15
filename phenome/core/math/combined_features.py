@@ -10,6 +10,17 @@ import numpy as np
 from ..protocols import PhenoMeProtocol
 
 
+def align_rows_by_global_indices(
+    source_indices: list[int] | np.ndarray,
+    values: np.ndarray,
+    keep_indices: list[int] | np.ndarray,
+) -> np.ndarray:
+    """Select rows of *values* aligned to *keep_indices* via global image indices."""
+    idx_map = {int(orig_idx): pos for pos, orig_idx in enumerate(source_indices)}
+    positions = [idx_map[int(orig_idx)] for orig_idx in keep_indices]
+    return values[positions]
+
+
 def build_combined_features(
     pipeline: PhenoMeProtocol,
     indices: list[int],
@@ -59,20 +70,18 @@ def build_combined_features(
             "each sample index must appear at most once."
         )
     prop_valid_arr = np.asarray(prop_valid_indices, dtype=np.int64)
-    idx_map = {orig_idx: pos for pos, orig_idx in enumerate(indices)}
     try:
-        pos_indices = [idx_map[orig_idx] for orig_idx in prop_valid_arr]
+        emb_aligned = align_rows_by_global_indices(indices, emb_all, prop_valid_arr)
     except KeyError as e:
         raise ValueError(
             f"Inconsistent indices when constructing combined features: "
             f"index {e.args[0]} not found in candidate indices."
         ) from e
 
-    if not pos_indices:
+    if emb_aligned.shape[0] == 0:
         raise ValueError(
             "No overlapping samples between embeddings and properties for combined source."
         )
-    emb_aligned = emb_all[pos_indices]
 
     if normalize:
         emb_aligned = pipeline._normalize_embeddings_l2(emb_aligned)

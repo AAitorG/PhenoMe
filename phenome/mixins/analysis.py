@@ -23,9 +23,9 @@ from ..core import (
     compute_rf_interpretability,
     compute_spearman_correlation,
     filter_indices,
-    get_metadata_value_from_dict,
     run_dimensionality_reduction,
     run_dimensionality_reduction_matrix,
+    validate_results,
 )
 from ..core.dataframe_contract import (
     IMAGE_INDEX,
@@ -34,8 +34,22 @@ from ..core.dataframe_contract import (
     pack_df_meta_fig,
     per_image_dataframe,
 )
+from ..core.math.correlation import (
+    compute_component_property_correlation_matrix,
+    filter_valid_property_arrays,
+)
+from ..core.math.interpretability import prepare_interpretability_inputs
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
+from ..core.results_metadata import (
+    build_composite_group_series,
+    build_index_group_labels,
+    build_subset_groups,
+    collect_metadata_labels,
+    get_result_value,
+    normalize_group_value,
+    resolve_result_keys,
+)
 from ..utils.display_names import (
     format_clustering_method,
     format_correlation_method,
@@ -43,7 +57,14 @@ from ..utils.display_names import (
 )
 from ..utils.path_utils import path_basename
 from . import _helpers
-from .visualization._distance_plots import _plot_property_correlations_plotly
+from .properties.grouping import (
+    compute_leave_one_out_zscore_enrichment,
+    resolve_dataframe_columns,
+)
+from .visualization._distance_plots import (
+    _log_embedding_property_correlation_summary,
+    _plot_property_correlations_plotly,
+)
 from .visualization._interpretability_plots import _display_multivariate_interpretability
 
 logger = get_logger(__name__)
@@ -254,34 +275,10 @@ class PhenoMeAnalysis:
 
         n_actual_clusters = int(np.nanmax(labels)) + 1 if np.any(~np.isnan(labels)) else 0
         silhouette_score_val: float | None = None
-        if return_silhouette and n_actual_clusters >= 2 and len(matrix) >= n_actual_clusters:
-            # For DBSCAN, exclude noise (NaN) for silhouette
-            mask = ~np.isnan(labels)
-            if clustering_method == "dbscan" and not np.all(mask):
-                sil_labels = labels[mask]
-                sil_matrix = matrix[mask]
-            else:
-                sil_labels = labels
-                sil_matrix = matrix
-            unique_labels = np.unique(sil_labels[~np.isnan(sil_labels)])
-            if len(unique_labels) >= 2 and len(unique_labels) <= len(sil_matrix) - 1:
-                if all(np.sum(sil_labels == u) >= 2 for u in unique_labels):
-                    try:
-                        from sklearn.metrics import silhouette_score
-
-                        silhouette_score_val = float(
-                            silhouette_score(sil_matrix, sil_labels.astype(int))
-                        )
-                    except ValueError as exc:
-                        logger.warning("Silhouette score failed: %s", exc)
-                else:
-                    logger.warning("Silhouette score skipped: need at least 2 samples per cluster.")
-            else:
-                logger.warning(
-                    "Silhouette score skipped: need 2 <= n_clusters <= n_samples-1 (got %d clusters, %d samples).",
-                    len(unique_labels),
-                    len(sil_matrix),
-                )
+        if return_silhouette:
+            silhouette_score_val = _helpers.compute_silhouette_if_valid(
+                matrix, labels, clustering_method=clustering_method
+            )
 
         # Store cluster labels in results.metadata for downstream use
         metadata_list = self.results.metadata
@@ -294,6 +291,7 @@ class PhenoMeAnalysis:
                 int(full_labels[i]) if not np.isnan(full_labels[i]) else None
             )
         self.results.metadata = metadata_list
+        validate_results(self.results)
 
         n_clusters_log = n_actual_clusters if clustering_method == "dbscan" else n_clusters
         logger.info(
@@ -330,6 +328,7 @@ class PhenoMeAnalysis:
         exclude: dict[str, Any] | None = None,
         normalize: bool = True,
         cv: int = 5,
+        stratify_by: str | None = None,
         rf_n_estimators: int = 100,
         seed: int | None = None,
         plot: bool = True,
@@ -348,6 +347,14 @@ class PhenoMeAnalysis:
         Calculates which phenotypic properties (features) best explain the variability
         seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 
+        Workflow: dimensionality reduction is run on the full filtered embedding set
+        first; regression then relates classical properties to the resulting axis
+        coordinates. For transductive methods (t-SNE, UMAP), axis coordinates depend on
+        all samples, so the returned ``r2`` (LASSO) describes descriptive on-axis alignment
+        on the same dataset—not independent generalization to new plates or refit
+        embeddings. Prefer ``drivers`` for hypothesis generation; interpret ``r2`` as an
+        effect-size-style summary unless DR and evaluation are nested with proper holdouts.
+
         Args:
             method: Dimensionality reduction method ('pca', 'tsne', or 'umap').
             component: Which component to explain (1, 2, ...).
@@ -357,9 +364,14 @@ class PhenoMeAnalysis:
             property_keys: Subset of properties to use as features.
             filters: Optional metadata filters.
             exclude: Optional metadata exclusions.
-            normalize: Whether to normalize features before regression (default: True).
-                Uses StandardScaler for properties to ensure comparable coefficients.
+            normalize: Whether to normalize embeddings before dimensionality reduction
+                (default: True). Property features are scaled fold-wise inside the LASSO
+                pipeline (not globally) to avoid cross-validation leakage.
             cv: Number of cross-validation folds (only for 'lasso').
+            stratify_by: Optional metadata key (e.g. ``"Treatment"``, ``"Batch"``) to
+                stratify LASSO folds by class balance. Requires at least ``cv`` samples
+                per class; otherwise falls back to unstratified KFold. Balances folds for
+                ``lambda`` selection but does not correct global t-SNE/UMAP target leakage.
             rf_n_estimators: Number of trees (only for 'random_forest').
             seed: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
             plot: If True (default), show an interactive Plotly bar chart of top drivers.
@@ -376,15 +388,17 @@ class PhenoMeAnalysis:
             pd.DataFrame or tuple, depending on *return_meta* and *return_fig*:
 
             - Default: ``drivers_df`` with columns ``feature``, ``weight``.
-            - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2, n_samples,
-              n_features, method, model_type, target_component.
+            - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2 (descriptive
+              on-axis fit for globally fit DR targets), n_samples, n_features, method,
+              model_type, target_component.
             - ``return_fig=True``: ``(drivers_df, fig)`` or ``(drivers_df, meta, fig)`` when
               *return_meta* is also True.
         """
         effective_seed = seed if seed is not None else getattr(self, "seed", None)
 
-        # Step 1: Run dimensionality reduction to get the target (y)
-        # We reuse the existing run_dimensionality_reduction logic
+        # Step 1: Global DR on all filtered embeddings → fixed axis coordinates (y).
+        # t-SNE/UMAP are transductive: y already encodes the full-sample layout, so any
+        # later CV in compute_lasso_interpretability cannot claim out-of-sample DR validity.
         dr_results, _, dr_obj = run_dimensionality_reduction(
             self,
             method=method,
@@ -412,12 +426,12 @@ class PhenoMeAnalysis:
         y = dr_results[comp_col].values
         valid_indices = dr_results["Index"].values.tolist()
 
-        # Step 2: Fetch the property matrix (x) for the same valid samples
-        # We use the provided normalize argument (default True) to ensure comparable features
+        # Step 2: Property matrix for the same samples. Fold-wise StandardScaler in LASSO
+        # handles normalization; skip global property scaling to avoid holdout leakage.
         matrix, prop_valid_indices, keys = self._get_property_matrix(  # type: ignore[attr-defined]
             indices=valid_indices,
             property_keys=property_keys,
-            normalize=normalize,
+            normalize=False,
             handle_nans="filter",
         )
 
@@ -426,13 +440,23 @@ class PhenoMeAnalysis:
             df = pd.DataFrame()
             return pack_df_meta_fig(df, {}, None, return_meta=return_meta, return_fig=return_fig)
 
-        # Align y with X if NaN-filtering in _get_property_matrix changed samples
-        if len(matrix) < len(y):
-            # Find the positions in the original valid_indices that were kept
-            idx_to_pos = {idx: i for i, idx in enumerate(valid_indices)}
-            # Find which positions in y correspond to the rows in matrix
-            y_aligned_indices = [idx_to_pos[idx] for idx in prop_valid_indices]
-            y = y[y_aligned_indices]
+        prepared = prepare_interpretability_inputs(y, valid_indices, matrix, prop_valid_indices)
+        if prepared is None:
+            logger.warning("No valid samples after filtering non-finite targets.")
+            df = pd.DataFrame()
+            return pack_df_meta_fig(df, {}, None, return_meta=return_meta, return_fig=return_fig)
+        matrix, y, prop_valid_indices = prepared
+
+        stratify_labels = None
+        if stratify_by is not None and model_type == "lasso":
+            stratify_labels = collect_metadata_labels(self.results, prop_valid_indices, stratify_by)
+            if len(stratify_labels) != len(matrix):
+                logger.warning(
+                    "Stratify label length mismatch (%d vs %d); ignoring stratify_by.",
+                    len(stratify_labels),
+                    len(matrix),
+                )
+                stratify_labels = None
 
         # Step 3: Run regression model
         if model_type == "lasso":
@@ -442,6 +466,7 @@ class PhenoMeAnalysis:
                 feature_names=keys,
                 cv=cv,
                 seed=effective_seed,
+                stratify=stratify_labels,
             )
         elif model_type == "random_forest":
             results = compute_rf_interpretability(
@@ -459,6 +484,7 @@ class PhenoMeAnalysis:
                 "method": method,
                 "model_type": model_type,
                 "target_component": comp_col,
+                "stratify_by": stratify_by,
                 "dr_object": dr_obj,
             }
         )
@@ -586,35 +612,17 @@ class PhenoMeAnalysis:
         def _outliers_for(
             vectors: np.ndarray, vectors_t: torch.Tensor | None = None
         ) -> tuple[np.ndarray, np.ndarray, Any]:
-            # Use pre-converted tensor if available, otherwise convert
             if vectors_t is not None:
                 vec_t = vectors_t
             else:
-                # CPU and small group slices: vectors may be a read-only view of ``data``
                 vec_t = torch.from_numpy(_helpers.numpy_for_torch(vectors)).to(device)
 
             with torch.no_grad():
-                # Compute centroid on GPU
                 centroid = torch.mean(vec_t, dim=0)
-
-                # Compute distances on GPU
                 dists_t = torch.norm(vec_t - centroid.unsqueeze(0), dim=1)
                 dists = dists_t.cpu().numpy() if device.type != "cpu" else dists_t.numpy()
 
-            if method == "z-score":
-                mu, sigma = np.mean(dists), np.std(dists, ddof=1)
-                if sigma == 0:
-                    return dists, np.zeros_like(dists, dtype=bool), mu
-                tv = mu + threshold * sigma
-                return dists, dists > tv, tv
-            if method == "iqr":
-                q1, q3 = np.percentile(dists, 25), np.percentile(dists, 75)
-                iqr = q3 - q1
-                if iqr == 0:
-                    return dists, np.zeros_like(dists, dtype=bool), q3
-                tv = q3 + threshold * iqr
-                return dists, dists > tv, tv
-            raise ValueError(f"Unknown method: {method}")
+            return _helpers.outlier_mask_from_distances(dists, method, threshold)
 
         # Build groups
         groups: dict[Any, np.ndarray] = {}
@@ -622,56 +630,15 @@ class PhenoMeAnalysis:
 
         if group_by:
             requested_cols = [group_by] if isinstance(group_by, str) else group_by
-
-            # 1. Identify which keys actually exist (similar to find_prototypes)
-            found_cols = []
-            for col in requested_cols:
-                found_key = None
-                for store_key in ("properties", "metadata"):
-                    store = getattr(self.results, store_key, None) or []
-                    if not store or not isinstance(store[0], dict):
-                        continue
-                    for k in store[0]:
-                        if k.lower() == col.lower():
-                            found_key = k
-                            break
-                    if found_key:
-                        break
-                if found_key:
-                    found_cols.append(found_key)
-                else:
-                    logger.warning("Grouping key '%s' not found.", col)
+            found_cols = resolve_result_keys(self.results, requested_cols)
 
             if not found_cols:
                 logger.warning("No matching grouping keys found. Treating as single group.")
                 groups["all"] = np.arange(n_samples)
             else:
-                # 2. Build grouping DataFrame
-                group_data = {}
-                for k in found_cols:
-                    vals = []
-                    for i in valid_indices:
-                        val = None
-                        if i < len(self.results.metadata):
-                            val = get_metadata_value_from_dict(self.results.metadata[i], k)
-                        if val is None and i < len(self.results.properties):
-                            val = get_metadata_value_from_dict(self.results.properties[i], k)
-                        vals.append(val)
-                    group_data[k] = vals
-
-                df = pd.DataFrame(group_data)
-
-                if len(found_cols) == 1:
-                    actual_group_by = found_cols[0]
-                    for gv, gdf in df.groupby(actual_group_by, dropna=False):
-                        groups[gv] = gdf.index.to_numpy()
-                else:
-                    actual_group_by = found_cols
-                    df["_composite_group"] = (
-                        df[found_cols].fillna("N/A").astype(str).agg(" | ".join, axis=1)
-                    )
-                    for gv, gdf in df.groupby("_composite_group", dropna=False):
-                        groups[gv] = gdf.index.to_numpy()
+                groups, actual_group_by = build_subset_groups(
+                    self.results, valid_indices, found_cols
+                )
         else:
             groups["all"] = np.arange(n_samples)
 
@@ -703,20 +670,14 @@ class PhenoMeAnalysis:
             }
 
             if actual_group_by:
-                info = self.get_image_info(idx)  # type: ignore[attr-defined]
                 if isinstance(actual_group_by, list):
-                    # Multi-column composite
-                    group_vals = []
-                    for k in actual_group_by:
-                        val = get_metadata_value_from_dict(info, k)
-                        val_str = str(val) if val is not None and val != "" else "N/A"
-                        group_vals.append(val_str)
+                    vals = [get_result_value(self.results, idx, k) for k in actual_group_by]
+                    group_val = " | ".join(str(normalize_group_value(v)) for v in vals)
+                    for k, val in zip(actual_group_by, vals, strict=True):
                         row[k] = val
-                    group_val = " | ".join(group_vals)
                 else:
-                    # Single column
-                    val = get_metadata_value_from_dict(info, actual_group_by)
-                    group_val = "N/A" if val is None or val == "" else val
+                    val = get_result_value(self.results, idx, actual_group_by)
+                    group_val = normalize_group_value(val)
                     row[actual_group_by] = val
 
                 row["_internal_group"] = group_val
@@ -813,6 +774,7 @@ class PhenoMeAnalysis:
                     self.results.properties.pop(idx)
 
             self._property_norm_cache = None
+            validate_results(self.results)
 
             logger.info(
                 "Removed %d outliers from results. Remaining: %d images.",
@@ -945,42 +907,17 @@ class PhenoMeAnalysis:
             for idx, col in enumerate(prop_cols):
                 df[col] = norm_matrix[:, idx]
 
-        # Compute correlation matrix based on method
-        if correlation_method == "pearson":
-            # Use pandas for Pearson (fast and handles NaNs well)
-            corr = df[prop_cols + comp_cols].corr(method="pearson").loc[prop_cols, comp_cols]
-        else:
-            # For spearman, distance correlation, mutual info: compute via core (torch/scipy)
-            use_progress = correlation_method in ("distance_correlation", "mutual_info")
-            comp_iter = (
-                tqdm(
-                    comp_cols,
-                    desc=f"Computing {format_correlation_method(correlation_method)} correlations",
-                    disable=not use_progress,
-                    leave=False,
-                )
-                if use_progress
-                else comp_cols
-            )
-
-            corr_data: dict[str, list[float]] = {}
-            for comp in comp_iter:
-                if comp not in df.columns:
-                    continue
-                comp_values = df[comp].values
-                corr_data[comp] = []
-                for prop in prop_cols:
-                    prop_values = df[prop].values
-                    r = self._compute_correlation(correlation_method, prop_values, comp_values)
-                    r_arr = np.atleast_1d(np.asarray(r))
-                    corr_data[comp].append(float(r_arr[0]) if r_arr.size > 0 else np.nan)
-
-            if not corr_data:
-                raise ValueError(
-                    f"No correlation data computed for {format_correlation_method(correlation_method)}."
-                )
-
-            corr = pd.DataFrame(corr_data, index=prop_cols)
+        corr = compute_component_property_correlation_matrix(
+            df,
+            prop_cols,
+            comp_cols,
+            correlation_method,
+            self._compute_correlation,
+            show_progress=correlation_method in ("distance_correlation", "mutual_info"),
+            progress_desc=(
+                f"Computing {format_correlation_method(correlation_method)} correlations"
+            ),
+        )
 
         if corr.empty:
             raise ValueError("Correlation matrix is empty.")
@@ -1047,8 +984,9 @@ class PhenoMeAnalysis:
 
         For each group, z-scores are computed against a **leave-group-out**
         population (all samples *except* the current group).  When
-        *correct_multiple_testing* is True (default), Benjamini-Hochberg FDR
-        correction is applied across all (group, property) pairs and a
+        *correct_multiple_testing* is True (default), Welch two-sample t-tests
+        (group vs leave-one-out rest) are run per property and Benjamini-Hochberg
+        FDR correction is applied across all (group, property) pairs; a
         ``significant`` column is added to the output DataFrame.
 
         Args:
@@ -1066,37 +1004,21 @@ class PhenoMeAnalysis:
             top_k: Max properties per group in the figure and in the text summary (``None`` = all).
             figsize: Figure size ``(width, height)`` in inches for the Plotly layout.
             title: Optional figure title.
-            correct_multiple_testing (bool): If True (default), apply Benjamini-Hochberg
-                FDR correction across all (group, property) z-scores and add a
-                ``significant`` column (alpha = 0.05).
+            correct_multiple_testing (bool): If True (default), run Welch t-tests
+                per (group, property), apply Benjamini-Hochberg FDR, and add
+                ``p_value`` / ``significant`` columns (alpha = 0.05).
 
         Returns:
             pd.DataFrame or tuple[pd.DataFrame, Any]:
                 - If *return_fig* is False (default): pd.DataFrame with columns:
-                  [group_by columns], property, score, mean_group, mean_pop, abs_score,
-                  and optionally p_value / significant when *correct_multiple_testing* is True.
+                  [group_by columns], property, score, mean_group, mean_pop, p_value, abs_score,
+                  and optionally significant when *correct_multiple_testing* is True.
                 - If *return_fig* is True: A tuple (enrichment_df, fig).
         """
         working_df = self._build_properties_dataframe(include_metadata=True)  # type: ignore[attr-defined]
 
         # Resolve group columns (case-insensitive)
-        requested_cols = [group_by] if isinstance(group_by, str) else group_by
-        resolved_cols = []
-        for col in requested_cols:
-            found = None
-            if col in working_df.columns:
-                found = col
-            else:
-                for variant in (col.capitalize(), col.lower()):
-                    if variant in working_df.columns:
-                        found = variant
-                        break
-            if found:
-                resolved_cols.append(found)
-            else:
-                raise ValueError(
-                    f"Group column '{col}' not found. Columns: {list(working_df.columns)}"
-                )
+        resolved_cols = resolve_dataframe_columns(working_df, group_by)
 
         empty_cols = [
             *resolved_cols,
@@ -1104,8 +1026,11 @@ class PhenoMeAnalysis:
             "score",
             "mean_group",
             "mean_pop",
+            "p_value",
             "abs_score",
         ]
+        if correct_multiple_testing:
+            empty_cols.append("significant")
         if working_df.empty:
             edf = pd.DataFrame(columns=empty_cols)
             fig = self._plot_group_enrichment(  # type: ignore[attr-defined]
@@ -1121,19 +1046,20 @@ class PhenoMeAnalysis:
 
         if filters or exclude:
             indices = filter_indices(self.results, filters, exclude)
-            if IMAGE_INDEX in working_df.columns:
-                working_df = working_df[working_df[IMAGE_INDEX].isin(indices)]
-            else:
-                working_df = working_df.iloc[indices]
+            if IMAGE_INDEX not in working_df.columns:
+                raise ValueError(
+                    "Filtered group enrichment requires an 'image_index' column in the "
+                    "properties DataFrame. Rebuild with include_metadata=True or avoid "
+                    "filters/exclude on misaligned DataFrames."
+                )
+            working_df = working_df[working_df[IMAGE_INDEX].isin(indices)]
 
         # Create internal Group column for z-score calculation and plotting
         internal_group_col = "_internal_group_label_"
         if len(resolved_cols) == 1:
-            working_df[internal_group_col] = working_df[resolved_cols[0]]
+            working_df[internal_group_col] = working_df[resolved_cols[0]].map(normalize_group_value)
         else:
-            working_df[internal_group_col] = (
-                working_df[resolved_cols].astype(str).agg(" | ".join, axis=1)
-            )
+            working_df[internal_group_col] = build_composite_group_series(working_df, resolved_cols)
 
         cc = internal_group_col
         if property_keys is None:
@@ -1178,72 +1104,13 @@ class PhenoMeAnalysis:
             )
             return (edf, fig) if return_fig else edf
 
-        all_groups = sorted(working_df[cc].unique())
-        skipped_small = sum(1 for g in all_groups if len(working_df[working_df[cc] == g]) < 3)
-        if skipped_small > 0:
-            logger.info(
-                "Skipped %d group(s) with < 3 samples; z-score enrichment requires at least 3.",
-                skipped_small,
-            )
-
-        rows = []
-        for grp in all_groups:
-            gdf = working_df[working_df[cc] == grp]
-            if len(gdf) < 3:
-                continue
-            rest_df = working_df[working_df[cc] != grp]
-            if rest_df.empty:
-                continue
-            pop_mean = rest_df[property_keys].mean()
-            pop_std = rest_df[property_keys].std()
-            pop_std = pop_std.where(pop_std >= 1e-10, np.nan)
-            gmean = gdf[property_keys].mean()
-            with np.errstate(divide="ignore", invalid="ignore"):
-                zs = (gmean - pop_mean) / pop_std
-            for prop in property_keys:
-                s = zs[prop]
-                if pd.notna(s):
-                    rows.append(
-                        {
-                            "Group": grp,
-                            "property": prop,
-                            "score": float(s),
-                            "mean_group": float(gmean[prop]),
-                            "mean_pop": float(pop_mean[prop]),
-                        }
-                    )
-
-        if not rows:
-            edf = pd.DataFrame(columns=empty_cols)
-        else:
-            edf = pd.DataFrame(rows)
-
-            # Map back resolved_cols from internal Group
-            mapping = working_df.drop_duplicates(internal_group_col).set_index(internal_group_col)[
-                resolved_cols
-            ]
-            edf = edf.join(mapping, on="Group")
-
-            edf["abs_score"] = edf["score"].abs()
-
-            if correct_multiple_testing:
-                from scipy.stats import norm
-
-                p_values = 2.0 * norm.sf(edf["abs_score"].values)
-                edf["p_value"] = p_values
-                n_tests = len(p_values)
-                ranks = np.argsort(np.argsort(p_values)) + 1
-                bh_threshold = ranks / n_tests * 0.05
-                sorted_p = np.sort(p_values)
-                sorted_bh = np.sort(bh_threshold)
-                max_k = 0
-                for k in range(n_tests):
-                    if sorted_p[k] <= sorted_bh[k]:
-                        max_k = k + 1
-                critical = sorted_p[max_k - 1] if max_k > 0 else 0.0
-                edf["significant"] = edf["p_value"] <= critical
-
-            edf = edf.sort_values(["Group", "abs_score"], ascending=[True, False])
+        edf = compute_leave_one_out_zscore_enrichment(
+            working_df,
+            cc,
+            property_keys,
+            resolved_cols,
+            correct_fdr=correct_multiple_testing,
+        )
 
         fig_title = title or "Group enrichment (Z-scores)"
         fig = self._plot_group_enrichment(  # type: ignore[attr-defined]
@@ -1322,60 +1189,16 @@ class PhenoMeAnalysis:
 
         # Build group labels
         n_total = len(self.results.img_path)
-        group_labels: list[Any] = [None] * n_total
         found_cols: list[str] = []
+        group_labels: list[Any] = [None] * n_total
 
         if cluster_col:
             requested_cols = [cluster_col] if isinstance(cluster_col, str) else cluster_col
-
-            # 1. Identify which keys actually exist
-            for col in requested_cols:
-                found_key = None
-                for store_key in ("properties", "metadata"):
-                    store = getattr(self.results, store_key, None) or []
-                    if not store or not isinstance(store[0], dict):
-                        continue
-                    for k in store[0]:
-                        if k.lower() == col.lower():
-                            found_key = k
-                            break
-                    if found_key:
-                        break
-                if found_key:
-                    found_cols.append(found_key)
-                else:
-                    logger.warning("Column '%s' not found.", col)
-
-            # 2. Extract values and build labels
-            if found_cols:
-                if len(found_cols) == 1:
-                    # Single column: maintain original behavior (raw values, no N/A mapping)
-                    k = found_cols[0]
-                    for store_key in ("properties", "metadata"):
-                        store = getattr(self.results, store_key, None) or []
-                        if not store or not isinstance(store[0], dict) or k not in store[0]:
-                            continue
-                        for i, entry in enumerate(store):
-                            if i < n_total and isinstance(entry, dict):
-                                group_labels[i] = entry.get(k)
-                        break
-                else:
-                    # Multiple columns: composite labels
-                    for i in range(n_total):
-                        row_vals = []
-                        for k in found_cols:
-                            val = None
-                            for store_key in ("properties", "metadata"):
-                                store = getattr(self.results, store_key, None) or []
-                                if i < len(store) and isinstance(store[i], dict):
-                                    val = store[i].get(k)
-                                    if val is not None:
-                                        break
-                            row_vals.append(str(val) if val is not None else "N/A")
-                        group_labels[i] = " | ".join(row_vals)
-            else:
-                if cluster_col:
-                    logger.warning("No matching columns found. Treating as one group.")
+            group_labels, found_cols = build_index_group_labels(
+                self.results, requested_cols, n_total
+            )
+            if not found_cols:
+                logger.warning("No matching columns found. Treating as one group.")
 
         valid_gl = [group_labels[i] for i in valid_indices]
         unique_groups: list
@@ -1561,25 +1384,9 @@ class PhenoMeAnalysis:
             raise ValueError("No properties found. Run compute_properties() first.")
 
         props_list = self.results.properties
-        valid_props: dict[str, np.ndarray] = {}
-        for key in property_keys:
-            arr = np.array([p.get(key, np.nan) for p in props_list], dtype=np.float32)
-            if len(arr) != n_samples:
-                continue
-
-            # Require at least 3 finite values and non-zero variance; skip constant properties.
-            finite_mask = np.isfinite(arr)
-            if finite_mask.sum() < 3:
-                continue
-            finite_vals = arr[finite_mask]
-            if np.ptp(finite_vals) == 0:
-                logger.info(
-                    "Skipping property '%s': constant values (no variance).",
-                    key,
-                )
-                continue
-
-            valid_props[key] = arr
+        valid_props = filter_valid_property_arrays(
+            props_list, property_keys, n_samples, min_finite=3
+        )
         if not valid_props:
             raise ValueError(f"No valid properties of length {n_samples} with finite values.")
 
@@ -1662,47 +1469,6 @@ class PhenoMeAnalysis:
         )
 
         return corrs
-
-    @staticmethod
-    def _log_embedding_property_correlation_summary(
-        summary: pd.DataFrame, order_by: str, top_k: int | None
-    ) -> None:
-        """Log a plain-text table of the top property correlation rows."""
-        want = ("property", "mean_abs", "std", "max_abs", "min_abs")
-        columns = [c for c in want if c in summary.columns]
-        if not columns or "property" not in columns:
-            logger.info("Property correlation summary is empty; nothing to log.")
-            return
-        view = summary[columns].copy()
-        if top_k is not None:
-            view = view.head(int(top_k))
-        n = len(view)
-        top_note = f" (showing {n} of {len(summary)} properties)" if n < len(summary) else ""
-        sep = "─" * 88
-        num_cols = [c for c in columns if c not in ("property",)]
-
-        def _fmt_num_cell(v: object) -> str:
-            try:
-                x = float(v)
-            except (TypeError, ValueError):
-                return "—"
-            if not np.isfinite(x):
-                return "—"
-            return f"{x:.4f}"
-
-        out = view.copy()
-        for c in num_cols:
-            out[c] = out[c].map(_fmt_num_cell)
-        block = out.to_string(index=False, col_space=2)
-        logger.info(
-            "%s\nEmbedding-property correlations  (ordered by %s)%s\n%s\n%s\n%s",
-            sep,
-            order_by,
-            top_note,
-            sep,
-            block,
-            sep,
-        )
 
     def summarize_embedding_property_correlations(
         self,
@@ -1816,7 +1582,7 @@ class PhenoMeAnalysis:
                 out_fig.show()
 
         if not plot:
-            self._log_embedding_property_correlation_summary(summary, order_by, top_k)
+            _log_embedding_property_correlation_summary(summary, order_by, top_k)
 
         if return_fig:
             return summary, out_fig

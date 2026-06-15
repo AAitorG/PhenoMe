@@ -7,6 +7,10 @@ These helpers focus on data conversion and common mathematical operations.
 
 import numpy as np
 
+from .._logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def numpy_for_torch(x: np.ndarray) -> np.ndarray:
     """Return a C-contiguous, writable array for :func:`torch.from_numpy`.
@@ -49,3 +53,65 @@ def map_to_full(values: np.ndarray, valid_indices: list[int], n_total: int) -> n
 
 # Supported metrics for ordering rows in the embedding-property summary.
 ORDER_METRICS: tuple[str, ...] = ("mean_abs", "max_abs", "mean", "std")
+
+
+def outlier_mask_from_distances(
+    dists: np.ndarray,
+    method: str,
+    threshold: float,
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """Return (distances, outlier_mask, threshold_value) for z-score or IQR methods."""
+    if method == "z-score":
+        mu, sigma = np.mean(dists), np.std(dists, ddof=1)
+        if sigma == 0:
+            return dists, np.zeros_like(dists, dtype=bool), float(mu)
+        tv = mu + threshold * sigma
+        return dists, dists > tv, float(tv)
+    if method == "iqr":
+        q1, q3 = np.percentile(dists, 25), np.percentile(dists, 75)
+        iqr = q3 - q1
+        if iqr == 0:
+            return dists, np.zeros_like(dists, dtype=bool), float(q3)
+        tv = q3 + threshold * iqr
+        return dists, dists > tv, float(tv)
+    raise ValueError(f"Unknown method: {method}")
+
+
+def compute_silhouette_if_valid(
+    matrix: np.ndarray,
+    labels: np.ndarray,
+    *,
+    clustering_method: str = "kmeans",
+) -> float | None:
+    """Compute silhouette score when cluster count and sample sizes are valid."""
+    n_actual_clusters = int(np.nanmax(labels)) + 1 if np.any(~np.isnan(labels)) else 0
+    if n_actual_clusters < 2 or len(matrix) < n_actual_clusters:
+        return None
+
+    mask = ~np.isnan(labels)
+    if clustering_method == "dbscan" and not np.all(mask):
+        sil_labels = labels[mask]
+        sil_matrix = matrix[mask]
+    else:
+        sil_labels = labels
+        sil_matrix = matrix
+
+    unique_labels = np.unique(sil_labels[~np.isnan(sil_labels)])
+    if len(unique_labels) < 2 or len(unique_labels) > len(sil_matrix) - 1:
+        logger.warning(
+            "Silhouette score skipped: need 2 <= n_clusters <= n_samples-1 (got %d clusters, %d samples).",
+            len(unique_labels),
+            len(sil_matrix),
+        )
+        return None
+    if not all(np.sum(sil_labels == u) >= 2 for u in unique_labels):
+        logger.warning("Silhouette score skipped: need at least 2 samples per cluster.")
+        return None
+
+    try:
+        from sklearn.metrics import silhouette_score
+
+        return float(silhouette_score(sil_matrix, sil_labels.astype(int)))
+    except ValueError as exc:
+        logger.warning("Silhouette score failed: %s", exc)
+        return None

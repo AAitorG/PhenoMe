@@ -32,14 +32,14 @@ metadata pipeline.
 
 To connect abstract AI patterns to real biology, compute classical physical properties (like area, brightness, and texture) and link them to your visual fingerprints.
 
-- **Tutorial:** [04 - Finding patterns and explaining results](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb)
+- **Tutorial:** [04 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb)
 - **Guide:** [Understanding properties](/PhenoMe/concepts/property-interpretation/), [Explaining AI results](/PhenoMe/concepts/embeddings-interpretability/)
 
 ## 4. Finding groups and outliers
 
 Discover hidden groups of images (clusters) within a single condition or find unusual cells (outliers) using clustering and similarity checks.
 
-- **Tutorial:** [04 - Finding patterns and explaining results](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb)
+- **Tutorial:** [04 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb)
 
 ## 5. Temporal images (testing new data quickly)
 
@@ -48,7 +48,7 @@ To see how **new** images fit into your existing pattern visualizations (PCA/t-S
 ```python
 pheno.process_temporal_images(
     wrapper,
-    image_paths=["new_data/test1.tif", "new_data/test2.tif"],
+    files=["new_data/test1.tif", "new_data/test2.tif"],
 )
 
 pheno.plot_pca(color_by="condition", hover_features=["source"])

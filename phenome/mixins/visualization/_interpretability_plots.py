@@ -27,7 +27,7 @@ def _log_multivariate_interpretability_results(
     r2 = float(meta.get("r2", 0.0))
     drivers = drivers_df.head(top_k).to_dict("records")
 
-    logger.info("Explainability Score (R2): %.2f", r2)
+    logger.info("On-axis fit (R2, descriptive): %.2f", r2)
     logger.info("Top drivers:")
     for driver in drivers:
         logger.info("  [%+.3f] %s", float(driver["weight"]), driver["feature"])
@@ -72,7 +72,7 @@ def _build_multivariate_interpretability_figure(
             labels={"weight": xaxis_title, "feature": "Phenotypic property"},
             title=(
                 f"Multivariate interpretability: {dr_method} {target} ({model_name})<br>"
-                f"<sup>Explainability score (R²): {r2:.2f} | "
+                f"<sup>On-axis fit (R², descriptive): {r2:.2f} | "
                 f"Top {len(df)} drivers by |effect|</sup>"
             ),
         )
@@ -89,7 +89,7 @@ def _build_multivariate_interpretability_figure(
             labels={"weight": xaxis_title, "feature": "Phenotypic property"},
             title=(
                 f"Multivariate interpretability: {dr_method} {target} ({model_name})<br>"
-                f"<sup>Explainability score (R²): {r2:.2f} | "
+                f"<sup>On-axis fit (R², descriptive): {r2:.2f} | "
                 f"Top {len(df)} drivers by |effect|</sup>"
             ),
         )

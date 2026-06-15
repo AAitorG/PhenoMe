@@ -6,9 +6,15 @@ Provides functions to read metadata from pipeline results and filter indices.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
+import numpy as np
+import pandas as pd
+
+from .._logging import get_logger
 from .pipeline_results import PhenoMeResults
+
+logger = get_logger(__name__)
 
 
 def _metadata_list(results: PhenoMeResults) -> list[dict[str, Any]]:
@@ -199,3 +205,195 @@ def _get_value_case_insensitive(meta_dict: dict[str, Any], key: str) -> Any:
         if k.lower() == key_lower:
             return v
     return None
+
+
+def _is_missing_store_value(val: Any) -> bool:
+    """True when a store value should be treated as absent (try next store)."""
+    if val is None:
+        return True
+    if isinstance(val, str) and val == "":
+        return True
+    if isinstance(val, (float, np.floating)) and np.isnan(val):
+        return True
+    try:
+        return bool(pd.isna(val))
+    except (TypeError, ValueError):
+        return False
+
+
+def normalize_group_value(val: Any) -> Any:
+    """Normalize a single grouping value for consistent group keys.
+
+    Maps None, empty strings, and NaN to ``"N/A"``; other values are unchanged.
+    """
+    if _is_missing_store_value(val):
+        return "N/A"
+    return val
+
+
+def build_composite_group_series(df: pd.DataFrame, cols: list[str]) -> pd.Series:
+    """Build ``" | "``-joined composite group labels with ``"N/A"`` for missing values."""
+    normalized = df[cols].apply(lambda series: series.map(normalize_group_value))
+    return normalized.astype(str).agg(" | ".join, axis=1)
+
+
+def _collect_store_keys(results: PhenoMeResults, store_key: str) -> dict[str, str]:
+    """Map lowercase key names to first-occurrence canonical names in a store."""
+    key_by_lower: dict[str, str] = {}
+    store = getattr(results, store_key, None) or []
+    for entry in store:
+        if not isinstance(entry, dict):
+            continue
+        for k in entry:
+            kl = k.lower()
+            if kl not in key_by_lower:
+                key_by_lower[kl] = k
+    return key_by_lower
+
+
+def _find_result_key(results: PhenoMeResults, col: str) -> str | None:
+    """Case-insensitive lookup of *col* across all rows in metadata then properties."""
+    col_lower = col.lower()
+    for store_key in ("metadata", "properties"):
+        key_by_lower = _collect_store_keys(results, store_key)
+        if col_lower in key_by_lower:
+            return key_by_lower[col_lower]
+    return None
+
+
+def resolve_result_keys(
+    results: PhenoMeResults,
+    requested: str | list[str],
+    *,
+    missing_key_log: str = "Grouping key '%s' not found.",
+) -> list[str]:
+    """Resolve case-insensitive keys across properties and metadata stores.
+
+    Logs a warning and skips keys that are not found (same behavior as analysis mixins).
+    """
+    requested_cols = [requested] if isinstance(requested, str) else list(requested)
+    found_cols: list[str] = []
+    for col in requested_cols:
+        found_key = _find_result_key(results, col)
+        if found_key:
+            found_cols.append(found_key)
+        else:
+            logger.warning(missing_key_log, col)
+    return found_cols
+
+
+def _get_value_from_stores(
+    results: PhenoMeResults,
+    idx: int,
+    key: str,
+    store_order: tuple[str, ...],
+) -> Any:
+    """Fetch *key* from the first store in *store_order* that has a non-None value."""
+    for store_key in store_order:
+        store = getattr(results, store_key, None) or []
+        if idx >= len(store) or not isinstance(store[idx], dict):
+            continue
+        val = get_metadata_value_from_dict(store[idx], key)
+        if not _is_missing_store_value(val):
+            return val
+    return None
+
+
+def get_result_value(
+    results: PhenoMeResults,
+    idx: int,
+    key: str,
+    *,
+    prefer: Literal["metadata", "properties"] = "metadata",
+) -> Any:
+    """Fetch a value from metadata or properties at *idx*.
+
+    Args:
+        prefer: ``"metadata"`` checks metadata then properties (default for grouping).
+            ``"properties"`` checks properties then metadata.
+    """
+    store_order = ("metadata", "properties") if prefer == "metadata" else ("properties", "metadata")
+    return _get_value_from_stores(results, idx, key, store_order)
+
+
+def collect_metadata_labels(
+    results: PhenoMeResults,
+    indices: list[int],
+    key: str,
+) -> np.ndarray:
+    """Collect per-sample metadata labels for stratified CV or similar."""
+    return np.asarray(
+        [get_metadata_value(results, idx, key) for idx in indices],
+        dtype=object,
+    )
+
+
+def build_index_group_labels(
+    results: PhenoMeResults,
+    requested_cols: list[str],
+    n_total: int,
+) -> tuple[list[Any], list[str]]:
+    """Build per-image group labels and resolved column names.
+
+    Returns ``(labels_per_image, found_cols)`` where ``labels_per_image[i]`` is the
+    group label for global image index *i*. Values come from metadata first, then
+    properties. Missing values are normalized to ``"N/A"`` for consistent group keys.
+    """
+    found_cols = resolve_result_keys(
+        results,
+        requested_cols,
+        missing_key_log="Column '%s' not found.",
+    )
+    group_labels: list[Any] = [None] * n_total
+
+    if not found_cols:
+        return group_labels, found_cols
+
+    if len(found_cols) == 1:
+        k = found_cols[0]
+        for i in range(n_total):
+            group_labels[i] = normalize_group_value(get_result_value(results, i, k))
+    else:
+        for i in range(n_total):
+            row_vals = [
+                str(normalize_group_value(get_result_value(results, i, col_key)))
+                for col_key in found_cols
+            ]
+            group_labels[i] = " | ".join(row_vals)
+
+    return group_labels, found_cols
+
+
+def build_subset_groups(
+    results: PhenoMeResults,
+    valid_indices: list[int],
+    found_cols: list[str],
+) -> tuple[dict[Any, np.ndarray], str | list[str] | None]:
+    """Map group values to relative row indices within *valid_indices*.
+
+    Used by outlier detection where grouping is over the filtered sample matrix.
+    """
+    n_samples = len(valid_indices)
+    if not found_cols:
+        return {"all": np.arange(n_samples)}, None
+
+    group_data: dict[str, list[Any]] = {}
+    for k in found_cols:
+        group_data[k] = [
+            normalize_group_value(get_result_value(results, i, k)) for i in valid_indices
+        ]
+
+    df = pd.DataFrame(group_data)
+    groups: dict[Any, np.ndarray] = {}
+
+    if len(found_cols) == 1:
+        actual_group_by: str | list[str] | None = found_cols[0]
+        for gv, gdf in df.groupby(actual_group_by, dropna=False):
+            groups[gv] = gdf.index.to_numpy()
+    else:
+        actual_group_by = found_cols
+        df["_composite_group"] = build_composite_group_series(df, found_cols)
+        for gv, gdf in df.groupby("_composite_group", dropna=False):
+            groups[gv] = gdf.index.to_numpy()
+
+    return groups, actual_group_by

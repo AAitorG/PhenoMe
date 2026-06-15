@@ -21,6 +21,7 @@ from .core import (
     metadata_to_stable_key,
     validate_results,
 )
+from .core.dataframe_contract import IMAGE_INDEX
 from .io import CheckpointManager, FileDiscovery
 from .io._path_utils import _resolve_results_hdf5_path
 from .io.checkpoint_alignment import (
@@ -907,8 +908,17 @@ class PhenoMe(
                     info[k] = v
 
         if distance_results is not None and "distance" in distance_results.columns:
-            info["distance"] = distance_results.at[idx, "distance"]
-            info["is_reference"] = distance_results.at[idx, "is_reference"]
+            if IMAGE_INDEX in distance_results.columns:
+                matched = distance_results.loc[distance_results[IMAGE_INDEX] == idx]
+                if not matched.empty:
+                    row = matched.iloc[0]
+                    info["distance"] = row["distance"]
+                    if "is_reference" in distance_results.columns:
+                        info["is_reference"] = row["is_reference"]
+            else:
+                info["distance"] = distance_results.at[idx, "distance"]
+                if "is_reference" in distance_results.columns:
+                    info["is_reference"] = distance_results.at[idx, "is_reference"]
         return info
 
     def get_available_metadata_keys(self) -> list[str]:

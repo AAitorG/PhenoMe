@@ -1462,8 +1462,9 @@ Compute z-score enrichment of properties per group (e.g. cluster labels).
 
 For each group, z-scores are computed against a **leave-group-out**
 population (all samples *except* the current group).  When
-*correct_multiple_testing* is True (default), Benjamini-Hochberg FDR
-correction is applied across all (group, property) pairs and a
+*correct_multiple_testing* is True (default), Welch two-sample t-tests
+(group vs leave-one-out rest) are run per property and Benjamini-Hochberg
+FDR correction is applied across all (group, property) pairs; a
 ``significant`` column is added to the output DataFrame.
 
 **Args:**
@@ -1482,16 +1483,16 @@ correction is applied across all (group, property) pairs and a
 - **`top_k`**: Max properties per group in the figure and in the text summary (``None`` = all).
 - **`figsize`**: Figure size ``(width, height)`` in inches for the Plotly layout.
 - **`title`**: Optional figure title.
-- **`correct_multiple_testing`** (`bool`): If True (default), apply Benjamini-Hochberg
-  FDR correction across all (group, property) z-scores and add a
-  ``significant`` column (alpha = 0.05).
+- **`correct_multiple_testing`** (`bool`): If True (default), run Welch t-tests
+  per (group, property), apply Benjamini-Hochberg FDR, and add
+  ``p_value`` / ``significant`` columns (alpha = 0.05).
 
 **Returns:**
 
   pd.DataFrame or tuple[pd.DataFrame, Any]:
   - If *return_fig* is False (default): pd.DataFrame with columns:
-  [group_by columns], property, score, mean_group, mean_pop, abs_score,
-  and optionally p_value / significant when *correct_multiple_testing* is True.
+  [group_by columns], property, score, mean_group, mean_pop, p_value, abs_score,
+  and optionally significant when *correct_multiple_testing* is True.
   - If *return_fig* is True: A tuple (enrichment_df, fig).
 
 </div>
@@ -1720,6 +1721,7 @@ PhenoMeAnalysis.compute_multivariate_interpretability(
     exclude: dict[str, typing.Any] | None = None,
     normalize: bool = True,
     cv: int = 5,
+    stratify_by: str | None = None,
     rf_n_estimators: int = 100,
     seed: int | None = None,
     plot: bool = True,
@@ -1739,6 +1741,14 @@ Explain a dimensionality reduction component using LASSO or Random Forest.
 Calculates which phenotypic properties (features) best explain the variability
 seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 
+Workflow: dimensionality reduction is run on the full filtered embedding set
+first; regression then relates classical properties to the resulting axis
+coordinates. For transductive methods (t-SNE, UMAP), axis coordinates depend on
+all samples, so the returned ``r2`` (LASSO) describes descriptive on-axis alignment
+on the same dataset—not independent generalization to new plates or refit
+embeddings. Prefer ``drivers`` for hypothesis generation; interpret ``r2`` as an
+effect-size-style summary unless DR and evaluation are nested with proper holdouts.
+
 **Args:**
 
 - **`method`**: Dimensionality reduction method ('pca', 'tsne', or 'umap').
@@ -1749,9 +1759,14 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 - **`property_keys`**: Subset of properties to use as features.
 - **`filters`**: Optional metadata filters.
 - **`exclude`**: Optional metadata exclusions.
-- **`normalize`**: Whether to normalize features before regression (default: True).
-  Uses StandardScaler for properties to ensure comparable coefficients.
+- **`normalize`**: Whether to normalize embeddings before dimensionality reduction
+  (default: True). Property features are scaled fold-wise inside the LASSO
+  pipeline (not globally) to avoid cross-validation leakage.
 - **`cv`**: Number of cross-validation folds (only for 'lasso').
+- **`stratify_by`**: Optional metadata key (e.g. ``"Treatment"``, ``"Batch"``) to
+  stratify LASSO folds by class balance. Requires at least ``cv`` samples
+  per class; otherwise falls back to unstratified KFold. Balances folds for
+  ``lambda`` selection but does not correct global t-SNE/UMAP target leakage.
 - **`rf_n_estimators`**: Number of trees (only for 'random_forest').
 - **`seed`**: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
 - **`plot`**: If True (default), show an interactive Plotly bar chart of top drivers.
@@ -1768,8 +1783,9 @@ seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 
   pd.DataFrame or tuple, depending on *return_meta* and *return_fig*:
   - Default: ``drivers_df`` with columns ``feature``, ``weight``.
-  - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2, n_samples,
-  n_features, method, model_type, target_component.
+  - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2 (descriptive
+  on-axis fit for globally fit DR targets), n_samples, n_features, method,
+  model_type, target_component.
   - ``return_fig=True``: ``(drivers_df, fig)`` or ``(drivers_df, meta, fig)`` when
   *return_meta* is also True.
 
