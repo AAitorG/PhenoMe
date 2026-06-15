@@ -71,16 +71,14 @@ formula of classical biology.
 You get two critical pieces of information per axis:
 
 <div class="card-stack">
-  <Card title="Explainability score (R²)" icon="approve-check">
-    *Did the neural network find something novel, or is it just looking
-    at known classical features?*
+  <Card title="On-axis fit (R²)" icon="approve-check">
+    *How well do classical properties track this axis on the same dataset?*
 
-    - **High R² (e.g. 0.85)** — 85% of what the model sees along this
-      axis can be explained by standard features (size, shape, texture).
-      You successfully "opened the black box".
-    - **Low R² (e.g. 0.15)** — classical features cannot explain the
-      axis. The foundation model has likely found a sub-resolution
-      texture, novel phenotype, or hidden interaction.
+    - **High R² (e.g. 0.85)** — variation along the axis aligns strongly with
+      combinations of standard features (size, shape, texture). Useful for
+      hypothesis generation about what the layout may reflect.
+    - **Low R² (e.g. 0.15)** — classical features weakly track the axis; the
+      embedding may encode patterns outside the current property vocabulary.
   </Card>
 
   <Card title="Drivers (weights / importances)" icon="random">
@@ -93,6 +91,16 @@ You get two critical pieces of information per axis:
   </Card>
 </div>
 
+<Aside type="caution">
+  Dimensionality reduction (t-SNE, UMAP, and global PCA) is computed on the
+  full filtered set **before** LASSO. For transductive layouts, axis coordinates
+  already depend on all samples, so R² is a **descriptive on-axis fit**, not an
+  unbiased out-of-sample generalization metric. Treat **drivers** (coefficients /
+  importances) as the primary exploratory output; do not cite R² as validated
+  predictive performance unless you hold out batches or use nested DR on train
+  folds only (feasible for PCA, not standard t-SNE/UMAP).
+</Aside>
+
 ### LASSO regression (sparse linear)
 
 **LASSO** (L1-regularised regression) identifies a small subset of
@@ -100,12 +108,14 @@ properties that linearly combine to explain the axis. It shrinks
 irrelevant properties to exactly zero weight.
 
 - **Best for**: primary drivers in a human-readable formula.
-- **Output**: an R² score and a list of weights.
-- **Example**: "t-SNE axis 1 is explained (R² = 0.85) by `[+0.65] Area,
-  [-0.42] Circularity, [+0.15] Texture Entropy`."
+- **Output**: descriptive on-axis R² and a list of weights.
+- **Example**: "t-SNE axis 1 is associated (on-axis R² = 0.85) with
+  `[+0.65] Area, [-0.42] Circularity, [+0.15] Texture Entropy`."
 
 ```python
 results = pheno.compute_multivariate_interpretability(model_type="lasso")
+# Optional: balance LASSO folds by treatment or batch (when each class has >= cv samples)
+# results = pheno.compute_multivariate_interpretability(model_type="lasso", stratify_by="Treatment")
 # Default: shows an interactive driver bar chart. Use plot=False for a logger text summary only.
 ```
 
@@ -120,9 +130,10 @@ fitted model. If omitted, PhenoMe falls back to the pipeline's
 **Random forest** captures non-linear relationships and interactions
 linear models miss.
 
-- **Best for**: when LASSO gives a low R² but you still suspect
+- **Best for**: when LASSO gives a low on-axis R² but you still suspect
   classical properties hold the answer.
-- **Output**: R² plus non-negative feature importances.
+- **Output**: OOB R² (same global-DR caveat for the target axis) plus
+  non-negative feature importances.
 
 ```python
 results = pheno.compute_multivariate_interpretability(model_type="random_forest")

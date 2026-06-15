@@ -23,6 +23,7 @@ from ..core import (
     compute_rf_interpretability,
     compute_spearman_correlation,
     filter_indices,
+    get_metadata_value,
     get_metadata_value_from_dict,
     run_dimensionality_reduction,
     run_dimensionality_reduction_matrix,
@@ -330,6 +331,7 @@ class PhenoMeAnalysis:
         exclude: dict[str, Any] | None = None,
         normalize: bool = True,
         cv: int = 5,
+        stratify_by: str | None = None,
         rf_n_estimators: int = 100,
         seed: int | None = None,
         plot: bool = True,
@@ -348,6 +350,14 @@ class PhenoMeAnalysis:
         Calculates which phenotypic properties (features) best explain the variability
         seen in a deep learning embedding dimension (the target, usually t-SNE 1 or 2).
 
+        Workflow: dimensionality reduction is run on the full filtered embedding set
+        first; regression then relates classical properties to the resulting axis
+        coordinates. For transductive methods (t-SNE, UMAP), axis coordinates depend on
+        all samples, so the returned ``r2`` (LASSO) describes descriptive on-axis alignment
+        on the same dataset—not independent generalization to new plates or refit
+        embeddings. Prefer ``drivers`` for hypothesis generation; interpret ``r2`` as an
+        effect-size-style summary unless DR and evaluation are nested with proper holdouts.
+
         Args:
             method: Dimensionality reduction method ('pca', 'tsne', or 'umap').
             component: Which component to explain (1, 2, ...).
@@ -357,9 +367,14 @@ class PhenoMeAnalysis:
             property_keys: Subset of properties to use as features.
             filters: Optional metadata filters.
             exclude: Optional metadata exclusions.
-            normalize: Whether to normalize features before regression (default: True).
-                Uses StandardScaler for properties to ensure comparable coefficients.
+            normalize: Whether to normalize embeddings before dimensionality reduction
+                (default: True). Property features are scaled fold-wise inside the LASSO
+                pipeline (not globally) to avoid cross-validation leakage.
             cv: Number of cross-validation folds (only for 'lasso').
+            stratify_by: Optional metadata key (e.g. ``"Treatment"``, ``"Batch"``) to
+                stratify LASSO folds by class balance. Requires at least ``cv`` samples
+                per class; otherwise falls back to unstratified KFold. Balances folds for
+                ``lambda`` selection but does not correct global t-SNE/UMAP target leakage.
             rf_n_estimators: Number of trees (only for 'random_forest').
             seed: Random seed for reproducibility. If None, uses the pipeline's ``seed`` when set.
             plot: If True (default), show an interactive Plotly bar chart of top drivers.
@@ -376,15 +391,17 @@ class PhenoMeAnalysis:
             pd.DataFrame or tuple, depending on *return_meta* and *return_fig*:
 
             - Default: ``drivers_df`` with columns ``feature``, ``weight``.
-            - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2, n_samples,
-              n_features, method, model_type, target_component.
+            - ``return_meta=True``: ``(drivers_df, meta)``; *meta* includes r2 (descriptive
+              on-axis fit for globally fit DR targets), n_samples, n_features, method,
+              model_type, target_component.
             - ``return_fig=True``: ``(drivers_df, fig)`` or ``(drivers_df, meta, fig)`` when
               *return_meta* is also True.
         """
         effective_seed = seed if seed is not None else getattr(self, "seed", None)
 
-        # Step 1: Run dimensionality reduction to get the target (y)
-        # We reuse the existing run_dimensionality_reduction logic
+        # Step 1: Global DR on all filtered embeddings → fixed axis coordinates (y).
+        # t-SNE/UMAP are transductive: y already encodes the full-sample layout, so any
+        # later CV in compute_lasso_interpretability cannot claim out-of-sample DR validity.
         dr_results, _, dr_obj = run_dimensionality_reduction(
             self,
             method=method,
@@ -412,12 +429,12 @@ class PhenoMeAnalysis:
         y = dr_results[comp_col].values
         valid_indices = dr_results["Index"].values.tolist()
 
-        # Step 2: Fetch the property matrix (x) for the same valid samples
-        # We use the provided normalize argument (default True) to ensure comparable features
+        # Step 2: Property matrix for the same samples. Fold-wise StandardScaler in LASSO
+        # handles normalization; skip global property scaling to avoid holdout leakage.
         matrix, prop_valid_indices, keys = self._get_property_matrix(  # type: ignore[attr-defined]
             indices=valid_indices,
             property_keys=property_keys,
-            normalize=normalize,
+            normalize=False,
             handle_nans="filter",
         )
 
@@ -428,11 +445,37 @@ class PhenoMeAnalysis:
 
         # Align y with X if NaN-filtering in _get_property_matrix changed samples
         if len(matrix) < len(y):
-            # Find the positions in the original valid_indices that were kept
             idx_to_pos = {idx: i for i, idx in enumerate(valid_indices)}
-            # Find which positions in y correspond to the rows in matrix
             y_aligned_indices = [idx_to_pos[idx] for idx in prop_valid_indices]
             y = y[y_aligned_indices]
+
+        # Drop rows with non-finite DR targets before regression / stratification
+        finite_mask = np.isfinite(y) & np.isfinite(matrix).all(axis=1)
+        if not finite_mask.all():
+            matrix = matrix[finite_mask]
+            y = y[finite_mask]
+            prop_valid_indices = [
+                idx for idx, keep in zip(prop_valid_indices, finite_mask, strict=True) if keep
+            ]
+
+        if len(matrix) == 0:
+            logger.warning("No valid samples after filtering non-finite targets.")
+            df = pd.DataFrame()
+            return pack_df_meta_fig(df, {}, None, return_meta=return_meta, return_fig=return_fig)
+
+        stratify_labels = None
+        if stratify_by is not None and model_type == "lasso":
+            stratify_labels = np.asarray(
+                [get_metadata_value(self.results, idx, stratify_by) for idx in prop_valid_indices],
+                dtype=object,
+            )
+            if len(stratify_labels) != len(matrix):
+                logger.warning(
+                    "Stratify label length mismatch (%d vs %d); ignoring stratify_by.",
+                    len(stratify_labels),
+                    len(matrix),
+                )
+                stratify_labels = None
 
         # Step 3: Run regression model
         if model_type == "lasso":
@@ -442,6 +485,7 @@ class PhenoMeAnalysis:
                 feature_names=keys,
                 cv=cv,
                 seed=effective_seed,
+                stratify=stratify_labels,
             )
         elif model_type == "random_forest":
             results = compute_rf_interpretability(
@@ -459,6 +503,7 @@ class PhenoMeAnalysis:
                 "method": method,
                 "model_type": model_type,
                 "target_component": comp_col,
+                "stratify_by": stratify_by,
                 "dr_object": dr_obj,
             }
         )

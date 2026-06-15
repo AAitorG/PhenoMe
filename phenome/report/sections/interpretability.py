@@ -84,15 +84,30 @@ def generate_interpretability_section(
 
     interpretation = ""
     if r2 >= 0.7:
-        interpretation = f"The {model_name} model shows high explainability ({r2:.2f}), suggesting that most of what the deep learning model sees along this axis is captured by classical features."
+        interpretation = (
+            f"The {model_name} model shows strong on-axis alignment ({r2:.2f}): "
+            "classical features track much of the variation along this axis on the "
+            "same dataset (descriptive; not out-of-sample validation)."
+        )
     elif r2 >= 0.3:
-        interpretation = f"The {model_name} model shows moderate explainability ({r2:.2f}), suggesting that classical features partially capture the phenotypic variation in this dimension."
+        interpretation = (
+            f"The {model_name} model shows moderate on-axis alignment ({r2:.2f}): "
+            "classical features partially track variation along this axis."
+        )
     else:
-        interpretation = f"The {model_name} model shows low explainability ({r2:.2f}), suggesting that the neural network has found novel phenotypic patterns that classical features cannot fully describe."
+        interpretation = (
+            f"The {model_name} model shows weak on-axis alignment ({r2:.2f}): "
+            "classical features weakly track this axis; the embedding may encode "
+            "patterns outside the current property set."
+        )
 
     algorithm_desc = ""
     if model_type == "lasso":
-        algorithm_desc = "LASSO regression with cross-validation. This identifies a sparse set of features that linearly combine to explain the axis."
+        algorithm_desc = (
+            "LASSO with 5-fold CV for λ selection and fold-wise scaling. "
+            "R² summarizes descriptive fit to a globally defined DR axis; see documentation "
+            "for interpretation limits with t-SNE/UMAP."
+        )
     else:
         algorithm_desc = "Random Forest regressor. This captures non-linear relationships between features and the axis, providing Gini importance weights."
 
@@ -101,7 +116,7 @@ def generate_interpretability_section(
     using classical phenotypic properties. This captures how multiple features work together to define the "deep" phenotype.</p>
 
     <div class="info-box info">
-        <strong>Explainability Score (R²): {r2:.2f} ({model_name})</strong><br>
+        <strong>On-axis fit (R², descriptive): {r2:.2f} ({model_name})</strong><br>
         {interpretation}
         <br><small>Computed on {n_samples} samples using {algorithm_desc}</small>
     </div>
