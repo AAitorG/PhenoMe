@@ -173,7 +173,7 @@ Index(['file_path', 'mask_path'], dtype='object')
 ```python
 PhenoMe.set_file_df(
     self,
-    file_df: pandas.core.frame.DataFrame
+    file_df: pandas.DataFrame
 ) -> DataFrame
 ```
 
@@ -220,7 +220,7 @@ PhenoMe.process_images(
     channel_mode: Literal['split', 'combined'] = 'split',
     channels: list[int] | None = None,
     preprocessing_fn: collections.abc.Callable[[numpy.ndarray], numpy.ndarray] | None = None,
-    custom_transformations: Optional[Any] = None,
+    custom_transformations: typing.Any | None = None,
     append: bool = False,
     resize_size: int | None = 224,
     pad_size: int | None = None,
@@ -352,13 +352,13 @@ With filtering and checkpoint:
 PhenoMe.process_temporal_images(
     self,
     model_wrapper: phenome.utils.model_wrapper.ModelWrapper,
-    files: str | list[str] | pandas.core.frame.DataFrame,
+    files: str | list[str] | pandas.DataFrame,
     batch_size: int = 32,
     num_workers: int = 4,
     channel_mode: Optional[Literal['split', 'combined']] = None,
     channels: list[int] | None = None,
     preprocessing_fn: collections.abc.Callable[[numpy.ndarray], numpy.ndarray] | None = None,
-    custom_transformations: Optional[Any] = None,
+    custom_transformations: typing.Any | None = None,
     resize_size: int | None = None,
     pad_size: int | None = None,
     force_rgb: bool | None = None,
@@ -507,7 +507,7 @@ again.
 PhenoMe.get_image_info(
     self,
     idx: int,
-    distance_results: pandas.core.frame.DataFrame | None = None
+    distance_results: pandas.DataFrame | None = None
 ) -> dict
 ```
 
@@ -916,7 +916,7 @@ and pass the same reference_filters used for distance analysis.
 PhenoMe.export_dataset_table(
     self,
     output_path: str | None = None,
-    dist_results: pandas.core.frame.DataFrame | None = None,
+    dist_results: pandas.DataFrame | None = None,
     include_embeddings: Union[bool, Literal['separate']] = False,
     export_format: Literal['csv', 'parquet', 'excel'] = 'csv'
 ) -> DataFrame
@@ -960,7 +960,7 @@ Export the dataset as a table (CSV, Parquet, or Excel).
 ```python
 PhenoMeProperties.compute_properties(
     self,
-    metadata_config: Optional[Any] = None,
+    metadata_config: typing.Any | None = None,
     property_preset: str | None = None,
     additional_property_functions: dict[str, collections.abc.Callable | list[collections.abc.Callable]] | None = None,
     checkpoint_path: str | None = None,
@@ -1103,7 +1103,7 @@ Uses `_build_properties_dataframe` from computed
 ```python
 PhenoMeProperties.top_properties_different_from_reference(
     self,
-    df: pandas.core.frame.DataFrame,
+    df: pandas.DataFrame,
     reference_group: dict[str, typing.Any],
     k: int = 5,
     properties: list[str] | None = None,
@@ -1234,8 +1234,8 @@ PhenoMeAnalysis.compute_clustering(
     n_clusters: int = 5,
     clustering_method: Literal['kmeans', 'dbscan', 'gmm'] = 'kmeans',
     property_keys: list[str] | None = None,
-    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
-    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
+    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
     random_state: int | None = None,
     normalize: bool = True,
     reduce_dim: int | None = 100,
@@ -1244,7 +1244,7 @@ PhenoMeAnalysis.compute_clustering(
     dbscan_eps: float | None = None,
     dbscan_min_samples: int | None = None,
     include_metadata: bool = False
-) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, float | None]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, float | None]
 ```
 
 </div>
@@ -1451,7 +1451,7 @@ PhenoMeAnalysis.analyze_group_enrichment(
     figsize: tuple[int, int] = (10, 6),
     title: str | None = None,
     correct_multiple_testing: bool = True
-) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, Any]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, Any]
 ```
 
 </div>
@@ -1462,8 +1462,9 @@ Compute z-score enrichment of properties per group (e.g. cluster labels).
 
 For each group, z-scores are computed against a **leave-group-out**
 population (all samples *except* the current group).  When
-*correct_multiple_testing* is True (default), Benjamini-Hochberg FDR
-correction is applied across all (group, property) pairs and a
+*correct_multiple_testing* is True (default), Welch two-sample t-tests
+(group vs leave-one-out rest) are run per property and Benjamini-Hochberg
+FDR correction is applied across all (group, property) pairs; a
 ``significant`` column is added to the output DataFrame.
 
 **Args:**
@@ -1482,16 +1483,16 @@ correction is applied across all (group, property) pairs and a
 - **`top_k`**: Max properties per group in the figure and in the text summary (``None`` = all).
 - **`figsize`**: Figure size ``(width, height)`` in inches for the Plotly layout.
 - **`title`**: Optional figure title.
-- **`correct_multiple_testing`** (`bool`): If True (default), apply Benjamini-Hochberg
-  FDR correction across all (group, property) z-scores and add a
-  ``significant`` column (alpha = 0.05).
+- **`correct_multiple_testing`** (`bool`): If True (default), run Welch t-tests
+  per (group, property), apply Benjamini-Hochberg FDR, and add
+  ``p_value`` / ``significant`` columns (alpha = 0.05).
 
 **Returns:**
 
   pd.DataFrame or tuple[pd.DataFrame, Any]:
   - If *return_fig* is False (default): pd.DataFrame with columns:
-  [group_by columns], property, score, mean_group, mean_pop, abs_score,
-  and optionally p_value / significant when *correct_multiple_testing* is True.
+  [group_by columns], property, score, mean_group, mean_pop, p_value, abs_score,
+  and optionally significant when *correct_multiple_testing* is True.
   - If *return_fig* is True: A tuple (enrichment_df, fig).
 
 </div>
@@ -1522,7 +1523,7 @@ PhenoMeAnalysis.compute_component_correlation(
     plot: bool = True,
     return_fig: bool = False,
     figsize: tuple[int, int] = (10, 6)
-) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, Any]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, Any]
 ```
 
 </div>
@@ -1658,7 +1659,7 @@ PhenoMeAnalysis.summarize_embedding_property_correlations(
     embedding_shape: tuple[int, int] | None = None,
     n_properties: int | None = None,
     correlation_method: str = 'pearson'
-) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, Optional[Any]]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, Any | None]
 ```
 
 </div>
@@ -1728,7 +1729,7 @@ PhenoMeAnalysis.compute_multivariate_interpretability(
     return_meta: bool = False,
     top_k: int = 10,
     figsize: tuple[int, int] = (10, 8)
-) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, dict[str, Any]] | tuple[pandas.core.frame.DataFrame, Any] | tuple[pandas.core.frame.DataFrame, dict[str, Any], Any]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, dict[str, Any]] | tuple[pandas.DataFrame, Any] | tuple[pandas.DataFrame, dict[str, Any], Any]
 ```
 
 </div>
@@ -1809,7 +1810,7 @@ PhenoMe.generate_report(
     self,
     output_path: str = 'pheno_report.html',
     title: str = 'PhenoMe Analysis Report',
-    config: Optional[Any] = None,
+    config: typing.Any | None = None,
     **overrides: Any
 ) -> str
 ```
@@ -1855,7 +1856,7 @@ or use **overrides to tweak individual settings (e.g. include_plots=False).
 _ImageDisplayMixin.image_preview_png_bytes(
     self,
     idx: int,
-    distance_results: pandas.core.frame.DataFrame | None = None,
+    distance_results: pandas.DataFrame | None = None,
     channels: int | list | None = None,
     title_fields: list[str] | None = None,
     show_extra_info: bool = False,
@@ -1901,8 +1902,8 @@ _DRPlotsMixin.plot_centroids(
     group_by: str | list[str],
     method: Literal['pca', 'tsne', 'umap'] = 'pca',
     n_components: int = 2,
-    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
-    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
+    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
     show_points: bool = True,
@@ -1937,7 +1938,7 @@ Plot centroids of groups in reduced embedding space.
 _ImageDisplayMixin.plot_image_by_index(
     self,
     idx: int,
-    distance_results: pandas.core.frame.DataFrame | None = None,
+    distance_results: pandas.DataFrame | None = None,
     channels: int | list | None = None,
     figsize: tuple = (6, 6),
     title_fields: list[str] | None = None,
@@ -1996,8 +1997,8 @@ _DRPlotsMixin.plot_pca(
     figsize: tuple[int, int] = (10, 8),
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
-    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
-    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
+    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
     hover_features: list[str] | None = None,
     return_fig: bool = False,
     render_mode: Literal['auto', 'svg', 'webgl'] = 'webgl',
@@ -2035,8 +2036,8 @@ _DRPlotsMixin.plot_tsne(
     figsize: tuple[int, int] = (10, 8),
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
-    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
-    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
+    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
     hover_features: list[str] | None = None,
     return_fig: bool = False,
     render_mode: Literal['auto', 'svg', 'webgl'] = 'webgl',
@@ -2075,8 +2076,8 @@ _DRPlotsMixin.plot_umap(
     figsize: tuple[int, int] = (10, 8),
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     property_keys: list[str] | None = None,
-    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
-    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
+    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
     hover_features: list[str] | None = None,
     return_fig: bool = False,
     render_mode: Literal['auto', 'svg', 'webgl'] = 'webgl',
@@ -2108,7 +2109,7 @@ Plot UMAP of embeddings, properties, or combined features (Plotly, WebGL by defa
 ```python
 _DistancePlotsMixin.print_distance_summary(
     self,
-    distance_results: pandas.core.frame.DataFrame,
+    distance_results: pandas.DataFrame,
     group_by: str | None = None,
     dist_range: tuple = (0, 100)
 ) -> None

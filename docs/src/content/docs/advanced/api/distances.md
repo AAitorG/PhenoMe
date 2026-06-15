@@ -35,8 +35,8 @@ Expects the following attributes from the pipeline:
 PhenoMeDistances.compute_reference_distances(
     self,
     reference_filters: dict[str, typing.Any],
-    filters: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
-    exclude: dict[str, typing.Union[typing.Any, list[typing.Any]]] | None = None,
+    filters: dict[str, typing.Any | list[typing.Any]] | None = None,
+    exclude: dict[str, typing.Any | list[typing.Any]] | None = None,
     source: Literal['embeddings', 'properties', 'combined'] = 'embeddings',
     mode: Literal['centroid', 'all_to_all'] = 'centroid',
     distance_type: Literal['euclidean', 'cosine'] = 'euclidean',
@@ -49,7 +49,7 @@ PhenoMeDistances.compute_reference_distances(
     return_meta: bool = False,
     include_metadata: bool = False,
     points: Optional[Literal['all', 'outliers', False]] = None
-) -> pandas.core.frame.DataFrame | tuple[pandas.core.frame.DataFrame, dict[str, Any]] | tuple[pandas.core.frame.DataFrame, Any] | tuple[pandas.core.frame.DataFrame, dict[str, Any], Any]
+) -> pandas.DataFrame | tuple[pandas.DataFrame, dict[str, Any]] | tuple[pandas.DataFrame, Any] | tuple[pandas.DataFrame, dict[str, Any], Any]
 ```
 
 </div>
