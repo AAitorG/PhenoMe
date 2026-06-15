@@ -22,7 +22,7 @@ tifffile==2026.6.1
 h5py==3.16.0
 
 # Visualization
-matplotlib==3.10.9
+matplotlib==3.11.0
 plotly==6.8.0
 
 # UI & interactivity
@@ -30,14 +30,14 @@ ipywidgets==8.1.8
 anywidget==0.11.0
 
 # Jupyter
-ipykernel==7.2.0
+ipykernel==7.3.0
 jupyterlab==4.5.8
 nbformat==5.10.4
 jupyterlab_widgets==3.0.16
 
 # Utilities
 joblib==1.5.3
-tqdm==4.68.1
+tqdm==4.68.2
 
 # Optional stack (CPU-compatible)
 umap-learn==0.5.12
