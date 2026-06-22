@@ -17,7 +17,7 @@ jobs:
       pages: write
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Cache npm dependencies
         uses: actions/cache@v5
