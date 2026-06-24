@@ -8,7 +8,7 @@
 
 ### 🗺️ Navigation
 
-**[✨ Features](#-features)** | **[🚀 Quick Start](#-quick-start)** | **[📦 Installation](#-installation)** | **[📖 Documentation](https://AAitorG.github.io/PhenoMe/)** | **[📜 Citation](#citation)**
+**[✨ Features](#-features)** | **[🚀 Quick Start](#-quick-start)** | **[📦 Installation](#-installation)** | **[📖 Documentation](https://AAitorG.github.io/PhenoMe/)** | **[📜 Citation](#-citation)**
 
 ---
 
