@@ -251,10 +251,19 @@ def _collect_store_keys(results: PhenoMeResults, store_key: str) -> dict[str, st
     return key_by_lower
 
 
-def _find_result_key(results: PhenoMeResults, col: str) -> str | None:
-    """Case-insensitive lookup of *col* across all rows in metadata then properties."""
+def _find_result_key(
+    results: PhenoMeResults,
+    col: str,
+    *,
+    prefer: Literal["metadata", "properties"] = "metadata",
+) -> str | None:
+    """Case-insensitive lookup of *col* across stores.
+
+    Store walk order follows *prefer* (default metadata then properties).
+    """
     col_lower = col.lower()
-    for store_key in ("metadata", "properties"):
+    store_order = ("metadata", "properties") if prefer == "metadata" else ("properties", "metadata")
+    for store_key in store_order:
         key_by_lower = _collect_store_keys(results, store_key)
         if col_lower in key_by_lower:
             return key_by_lower[col_lower]
@@ -266,15 +275,18 @@ def resolve_result_keys(
     requested: str | list[str],
     *,
     missing_key_log: str = "Grouping key '%s' not found.",
+    prefer: Literal["metadata", "properties"] = "metadata",
 ) -> list[str]:
     """Resolve case-insensitive keys across properties and metadata stores.
 
     Logs a warning and skips keys that are not found (same behavior as analysis mixins).
+    Default *prefer* is metadata-first (outlier grouping); pass ``"properties"`` for
+    prototype-style resolution.
     """
     requested_cols = [requested] if isinstance(requested, str) else list(requested)
     found_cols: list[str] = []
     for col in requested_cols:
-        found_key = _find_result_key(results, col)
+        found_key = _find_result_key(results, col, prefer=prefer)
         if found_key:
             found_cols.append(found_key)
         else:
@@ -309,8 +321,8 @@ def get_result_value(
     """Fetch a value from metadata or properties at *idx*.
 
     Args:
-        prefer: ``"metadata"`` checks metadata then properties (default for grouping).
-            ``"properties"`` checks properties then metadata.
+        prefer: ``"metadata"`` checks metadata then properties (default for outlier
+            grouping). ``"properties"`` checks properties then metadata (prototypes).
     """
     store_order = ("metadata", "properties") if prefer == "metadata" else ("properties", "metadata")
     return _get_value_from_stores(results, idx, key, store_order)
@@ -332,17 +344,24 @@ def build_index_group_labels(
     results: PhenoMeResults,
     requested_cols: list[str],
     n_total: int,
+    *,
+    prefer: Literal["metadata", "properties"] = "metadata",
 ) -> tuple[list[Any], list[str]]:
     """Build per-image group labels and resolved column names.
 
     Returns ``(labels_per_image, found_cols)`` where ``labels_per_image[i]`` is the
-    group label for global image index *i*. Values come from metadata first, then
-    properties. Missing values are normalized to ``"N/A"`` for consistent group keys.
+    group label for global image index *i*.
+
+    Default *prefer* is metadata-first (outlier grouping). Pass ``prefer="properties"``
+    for prototype finding. Single-column labels keep raw store values (including
+    ``None`` for noise / unlabeled). Multi-column labels normalize missing parts to
+    ``"N/A"`` and join with ``" | "``.
     """
     found_cols = resolve_result_keys(
         results,
         requested_cols,
         missing_key_log="Column '%s' not found.",
+        prefer=prefer,
     )
     group_labels: list[Any] = [None] * n_total
 
@@ -352,11 +371,11 @@ def build_index_group_labels(
     if len(found_cols) == 1:
         k = found_cols[0]
         for i in range(n_total):
-            group_labels[i] = normalize_group_value(get_result_value(results, i, k))
+            group_labels[i] = get_result_value(results, i, k, prefer=prefer)
     else:
         for i in range(n_total):
             row_vals = [
-                str(normalize_group_value(get_result_value(results, i, col_key)))
+                str(normalize_group_value(get_result_value(results, i, col_key, prefer=prefer)))
                 for col_key in found_cols
             ]
             group_labels[i] = " | ".join(row_vals)

@@ -42,6 +42,7 @@ from ..core.math.interpretability import prepare_interpretability_inputs
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
 from ..core.results_metadata import (
+    _is_missing_store_value,
     build_composite_group_series,
     build_index_group_labels,
     build_subset_groups,
@@ -1054,6 +1055,17 @@ class PhenoMeAnalysis:
                 )
             working_df = working_df[working_df[IMAGE_INDEX].isin(indices)]
 
+        # Drop unlabeled rows before N/A normalization so missing labels are not
+        # turned into a synthetic enrichment group.
+        missing_mask = working_df[resolved_cols].map(_is_missing_store_value).any(axis=1)
+        n_dropped = int(missing_mask.sum())
+        if n_dropped:
+            logger.warning(
+                "Excluding %d samples with missing group labels from enrichment.",
+                n_dropped,
+            )
+        working_df = working_df.loc[~missing_mask].copy()
+
         # Create internal Group column for z-score calculation and plotting
         internal_group_col = "_internal_group_label_"
         if len(resolved_cols) == 1:
@@ -1195,7 +1207,7 @@ class PhenoMeAnalysis:
         if cluster_col:
             requested_cols = [cluster_col] if isinstance(cluster_col, str) else cluster_col
             group_labels, found_cols = build_index_group_labels(
-                self.results, requested_cols, n_total
+                self.results, requested_cols, n_total, prefer="properties"
             )
             if not found_cols:
                 logger.warning("No matching columns found. Treating as one group.")
