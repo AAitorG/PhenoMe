@@ -19,11 +19,11 @@ scikit-image==0.26.0
 # Image processing & file I/O
 opencv-python==5.0.0.93
 pillow==12.3.0
-tifffile==2026.6.1
+tifffile==2026.7.14
 h5py==3.16.0
 
 # Visualization
-matplotlib==3.11.0
+matplotlib==3.11.1
 plotly==6.9.0
 
 # UI & interactivity
@@ -38,7 +38,7 @@ jupyterlab_widgets==3.0.16
 
 # Utilities
 joblib==1.5.3
-tqdm==4.68.4
+tqdm==4.69.0
 
 # Optional stack (CPU-compatible)
 umap-learn==0.5.12
