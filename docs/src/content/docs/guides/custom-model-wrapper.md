@@ -85,7 +85,7 @@ pm.find_files("path/to/images")
 pm.process_images(wrapper, resize_size=224)
 
 # 4. Access results
-print(f"Extracted {len(pm.embeddings)} embeddings")
+print(f"Extracted {len(pm.results.embeddings)} embeddings")
 ```
 
 ---

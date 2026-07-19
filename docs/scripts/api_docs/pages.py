@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import inspect
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 from .docstring import escape_md_body, parse_doc_meta
 from .introspection import collect_class_members, iter_module_entries
-from .loader import import_module
+from .loader import import_module, repo_root
 from .rendering import (
     render_dataclass_summary,
     render_init_block,
@@ -18,6 +19,7 @@ from .signatures import callable_sig_str
 from .sorting import member_sort_key, section_rank
 
 _GITHUB_BLOB = "https://github.com/AAitorG/PhenoMe/blob/main"
+_GITHUB_TREE = "https://github.com/AAitorG/PhenoMe/tree/main"
 
 _TIER_LABELS: dict[str, tuple[str, str]] = {
     # (human label, CSS-friendly variant name)
@@ -54,13 +56,25 @@ def _tier_badge(tier: str) -> str:
 
 
 def _source_link(module_name: str) -> str:
-    """Return a GitHub permalink to the module source file.
+    """Return a GitHub permalink to the module source.
 
-    Used in the auto-generated pages to point readers at the docstrings
-    they should edit to change the page.
+    Resolves via the imported module's ``__file__`` so package modules
+    (``…/__init__.py``) link correctly instead of a nonexistent ``….py``.
+    Package directories use a ``tree`` URL; single-file modules use ``blob``.
     """
     if not module_name:
         return ""
+    try:
+        mod = import_module(module_name)
+        file_path = getattr(mod, "__file__", None)
+        if file_path:
+            path = Path(file_path).resolve()
+            rel = path.relative_to(repo_root().resolve())
+            if path.name == "__init__.py":
+                return f"{_GITHUB_TREE}/{rel.parent.as_posix()}"
+            return f"{_GITHUB_BLOB}/{rel.as_posix()}"
+    except Exception:
+        pass
     rel = module_name.replace(".", "/")
     return f"{_GITHUB_BLOB}/{rel}.py"
 

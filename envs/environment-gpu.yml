@@ -1,5 +1,5 @@
 # PhenoMe — GPU-oriented Conda environment
-# PyTorch: pip install torch torchvision from PyPI
+# CUDA availability depends on the torch wheel pip installs for your platform.
 #
 # From repo root: conda env create -f envs/environment-gpu.yml
 # Activate: conda activate phenome-gpu

@@ -20,7 +20,7 @@ extractors, and report sections. It also exports builtin property functions.
 - `get_report_sections`: Retrieve all registered report sections.
 
 **Builtin properties:**
-- `get_blob_properties`: Wrapper around scikit-image `regionprops` for blob analysis.
+- `get_blob_properties`: Difference of Gaussians blob detection via scikit-image `blob_dog`.
 - `my_custom_max_intensity`: Example custom property function.
 
 **Example: Register custom property**

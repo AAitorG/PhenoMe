@@ -9,7 +9,7 @@ tableOfContents:
 <p><span class="api-tier api-tier--public">Tier: Public API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.metadata`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/metadata.py) (multiple classes).
+This page is rebuilt from docstrings in [`phenome.metadata`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/metadata) (multiple classes).
 :::
 
 **See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/)
@@ -34,12 +34,13 @@ annotate visualizations.
 ```python
 from phenome import PhenoMe, PathTemplateMetadata
 
-# Extract batch and sample ID from paths like: batch_1/sample_42.tif
-metadata_fn = PathTemplateMetadata(template=r"batch_(?P<batch>\d+)/sample_(?P<sample_id>\d+)")
+# Extract batch and sample ID from paths like: .../batch_1/sample_42.tif
+# Use (field) placeholders — not raw regex named groups.
+metadata_fn = PathTemplateMetadata(template=r".../batch_(batch)/sample_(sample_id).*")
 
 pm = PhenoMe()
 df = pm.find_files("images/", metadata_fn=metadata_fn)
-print(df.columns)  # ['file_path', 'batch', 'sample_id']
+print(df.columns)  # includes file_path, batch, sample_id, ...
 ```
 
 **Functional helpers:**
