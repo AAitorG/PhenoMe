@@ -34,7 +34,7 @@ jobs:
           restore-keys: ${{ runner.os }}-pip-
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           # Astro 6 + Starlight 0.38 require Node >=22.12 (see docs/package.json engines)
           node-version: "22"
