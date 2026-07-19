@@ -76,7 +76,7 @@ pip install -r envs/requirements-cpu.txt -e .
 <br>
 
 > **💡 Full instructions, verification, and troubleshooting:**
-> See the [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) guide for GPU setup details, verification commands, and first-analysis walkthroughs.
+> See the [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) guide for install details, verification commands, and first-analysis walkthroughs.
 
 ---
 

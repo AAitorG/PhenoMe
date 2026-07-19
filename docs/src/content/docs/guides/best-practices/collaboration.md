@@ -10,7 +10,8 @@ sidebar:
 Generate a self-contained bundle:
 
 ```python
-pheno.save_results("experiment_2026_01.h5")
+# Directory form writes phenome_results.h5
+pheno.save_results("phenome_results.h5")
 
 pheno.generate_report(
     output_path="experiment_2026_01/report.html",
@@ -28,7 +29,7 @@ A collaborator reloads it with:
 ```python
 pheno = PhenoMe()
 pheno.find_files("/path/to/experiment_2026_01/images")
-pheno.load_results("experiment_2026_01/phenome_results.h5")
+pheno.load_results("phenome_results.h5")
 ```
 
 :::tip

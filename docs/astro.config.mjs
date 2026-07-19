@@ -20,15 +20,16 @@ export default defineConfig({
     remotePatterns: [],
     domains: [],
   },
+  // Redirect keys are site-root paths (no `base`); Astro prefixes `base` itself.
   redirects: {
-    [`${base}guides/property-reference/`]: `${base}concepts/property-interpretation/`,
-    [`${base}guides/interpretability/`]: `${base}concepts/embeddings-interpretability/`,
-    [`${base}concepts/image-properties-and-presets/`]: `${base}concepts/property-interpretation/`,
-    [`${base}concepts/interpretability/`]: `${base}concepts/embeddings-interpretability/`,
-    [`${base}guides/custom-properties/`]: `${base}guides/select-properties/`,
-    [`${base}guides/custom-properties/presets/`]: `${base}guides/select-properties/presets/`,
-    [`${base}guides/custom-properties/writing-functions/`]: `${base}guides/select-properties/writing-functions/`,
-    [`${base}guides/custom-properties/advanced-recipes/`]: `${base}guides/select-properties/advanced-recipes/`,
+    "/guides/property-reference/": `${base}concepts/property-interpretation/`,
+    "/guides/interpretability/": `${base}concepts/embeddings-interpretability/`,
+    "/concepts/image-properties-and-presets/": `${base}concepts/property-interpretation/`,
+    "/concepts/interpretability/": `${base}concepts/embeddings-interpretability/`,
+    "/guides/custom-properties/": `${base}guides/select-properties/`,
+    "/guides/custom-properties/presets/": `${base}guides/select-properties/presets/`,
+    "/guides/custom-properties/writing-functions/": `${base}guides/select-properties/writing-functions/`,
+    "/guides/custom-properties/advanced-recipes/": `${base}guides/select-properties/advanced-recipes/`,
   },
   integrations: [
     starlight({

@@ -99,7 +99,7 @@ Quick reference for maintainers: which file to edit for each type of change.
 | Bump version | `pyproject.toml` → `[project].version` (canonical; `phenome.__version__` reads it after install) |
 | Add/change dependencies | `pyproject.toml` → `[project].dependencies` or `[project.optional-dependencies]` |
 | Update conda environment | `envs/environment-cpu.yml` / `envs/environment-gpu.yml` – adjust pins under `dependencies:` / `pip:` |
-| Update pip pins | `envs/requirements-base.txt` (shared); `torch` / index in `envs/requirements-cpu.txt` / `envs/requirements-gpu.txt` |
+| Update pip pins | `envs/requirements-base.txt` (shared torch + stack); GPU-only extras (e.g. `torchdr`) in `envs/requirements-gpu.txt` |
 | Document a new API | Docstrings in `phenome/` (generated pages) and/or narrative `docs/src/content/docs/advanced/api/` |
 | Add a guide or tutorial | `docs/src/content/docs/guides/` |
 | Record a release | `CHANGELOG.md` – move [Unreleased] items under `[X.Y.Z] – YYYY-MM-DD` |
@@ -113,7 +113,7 @@ Open an issue on GitHub for questions or discussions.
 
 The API reference pages (in `docs/src/content/docs/advanced/api/`) are **auto-generated** from Python docstrings. To update them:
 
-1. **Edit docstrings** in `phenome/` source files (e.g., `phenome/pipeline.py`, `phenome/mixins/visualization.py`)
+1. **Edit docstrings** in `phenome/` source files (e.g., `phenome/pipeline.py`, `phenome/mixins/visualization/`)
 2. **Test locally** (optional, to preview changes):
    ```bash
    cd docs

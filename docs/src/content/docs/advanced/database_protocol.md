@@ -167,4 +167,4 @@ When a checkpoint is active, `get_embeddings()` reads only the requested rows fr
 
 ### Loading Results
 
-Call `find_files` first, then `load_results(path)` (for example the `.h5` file path or a directory containing `phenome_results.h5`). The pipeline uses the file list from `find_files` to resolve paths so the checkpoint works on any machine.
+Call `find_files` first, then `load_results(path)` (for example an `.h5` file path, or a directory path **with a trailing slash** such as `results/` → `results/phenome_results.h5`). A path without a trailing separator is treated as a file basename (`results` → `results.h5`). The pipeline uses the file list from `find_files` to resolve paths so the checkpoint works on any machine.
