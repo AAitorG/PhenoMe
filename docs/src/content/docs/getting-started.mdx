@@ -114,7 +114,7 @@ Pass the same `device` into `load_dinov2_model(...)` and `PhenoMe(...)`.
 
 | Symptom | Suggestion |
 |---------|------------|
-| `torch` not found or wrong CUDA | Reinstall torch from PyTorch instructions; match driver and wheel. |
+| `torch` not found or wrong CUDA | Reinstall torch from [PyTorch get started](https://pytorch.org/get-started/locally/); match driver and wheel. |
 | `opencv` / `h5py` build errors | Use conda-forge or the full conda env file. |
 | Import works but GPU not used | `import torch; print(torch.cuda.is_available())`; ensure `device` is passed into `PhenoMe(...)`. |
 

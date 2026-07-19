@@ -1,5 +1,6 @@
-# Shared pins (GPU-only extras: envs/requirements-gpu.txt and envs/environment-gpu.yml).
-# Included by envs/requirements-cpu.txt / envs/requirements.txt.
+# Shared pins for CPU and GPU stacks (torch/torchvision from PyPI — no CUDA index URL).
+# Included by envs/requirements-cpu.txt and envs/requirements-gpu.txt.
+# GPU-only extras (torchdr) live in envs/requirements-gpu.txt / environment-gpu.yml.
 # Python 3.12+ (matches pyproject.toml requires-python and CI).
 
 # Numerical computing

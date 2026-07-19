@@ -9,7 +9,7 @@ tableOfContents:
 <p><span class="api-tier api-tier--internal">Tier: Internal API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.plugins`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/plugins.py) (module).
+This page is rebuilt from docstrings in [`phenome.plugins`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/plugins) (module).
 :::
 
 **See also:** [Plugins guide](/PhenoMe/guides/plugins/) · [Properties](/PhenoMe/advanced/api/properties/)
@@ -35,7 +35,7 @@ extractors, and report sections. It also exports builtin property functions.
 - `get_report_sections`: Retrieve all registered report sections.
 
 **Builtin properties:**
-- `get_blob_properties`: Wrapper around scikit-image `regionprops` for blob analysis.
+- `get_blob_properties`: Difference of Gaussians blob detection via scikit-image `blob_dog`.
 - `my_custom_max_intensity`: Example custom property function.
 
 **Example: Register custom property**
