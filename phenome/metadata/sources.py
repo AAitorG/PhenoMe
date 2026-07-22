@@ -26,7 +26,7 @@ class DefaultMetadata(MetadataBase):
 
     def _extract(self, path: str) -> dict[str, Any]:
         """Return ``file_path`` and filename stem for ``path``."""
-        filename_stem = os.path.splitext(os.path.basename(path))[0]
+        filename_stem = strip_known_extension(os.path.basename(path))
         return {"file_path": path, "filename": filename_stem}
 
 
@@ -103,7 +103,7 @@ class PathTemplateMetadata(MetadataBase):
         if match:
             meta: dict[str, Any] = dict(match.groupdict())
             meta["file_path"] = path
-            meta["filename"] = os.path.splitext(os.path.basename(path))[0]
+            meta["filename"] = strip_known_extension(os.path.basename(path))
             return dict(meta)
         return {}
 

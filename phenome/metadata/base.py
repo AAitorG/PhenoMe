@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from ..core.property_utils import _is_path_like_value
+from ..utils.path_utils import strip_known_extension
 
 
 def _sanitize_id(raw: str) -> str:
@@ -44,7 +45,7 @@ def _path_to_id_single(path: str, data_dir: str | None) -> str:
                 else:
                     parts = rel.split("/")
                     if parts:
-                        parts[-1] = os.path.splitext(parts[-1])[0]
+                        parts[-1] = strip_known_extension(parts[-1])
                     raw = "/".join(parts)
                     return _sanitize_id(raw)
         except ValueError:
@@ -52,7 +53,7 @@ def _path_to_id_single(path: str, data_dir: str | None) -> str:
 
     # Fallback: include parent directory + stem for disambiguation without full abs path.
     parent = os.path.basename(os.path.dirname(path_norm))
-    fallback_stem = os.path.splitext(os.path.basename(path_norm))[0]
+    fallback_stem = strip_known_extension(os.path.basename(path_norm))
     if parent and parent not in (".", ""):
         return _sanitize_id(f"{parent}/{fallback_stem}")
     return _sanitize_id(fallback_stem)
