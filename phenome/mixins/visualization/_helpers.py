@@ -11,6 +11,11 @@ from ...core import get_all_metadata_keys
 
 logger = get_logger(__name__)
 
+# Shared styling for signed horizontal bar charts (correlation / enrichment / LASSO).
+# Center (x=0) line and bar outlines use the same dark stroke so near-zero bars stay visible.
+BAR_ZERO_LINE_COLOR = "#444444"
+BAR_ZERO_LINE_WIDTH = 1
+
 
 def handle_figure_output(fig: Any, plot: bool, return_fig: bool) -> Any:
     """Handle standard logic for Plotly figure display and return.

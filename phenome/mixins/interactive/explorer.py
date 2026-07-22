@@ -2251,11 +2251,29 @@ class PhenoMeInteractive:
         """Load box/lasso selection as a compact thumbnail grid (single/double-click differ)."""
         self.img_output.children = (self._img_loading_placeholder,)
         raw = list(self._multi_selected_indices)
+        # Membership snapshot so overlapping loads cannot paint a stale subset.
+        selection_at_load = tuple(sorted(set(raw)))
         max_n = THUMBNAIL_GRID_MAX_IMAGES
-        indices = raw[:max_n]
-        truncated = len(raw) > max_n
+        truncated = len(selection_at_load) > max_n
+        if truncated:
+            # Random subset of unique indices; sorted membership keeps the draw
+            # stable across Plotly merge order for the same selection set.
+            rng = np.random.default_rng(DR_RANDOM_STATE)
+            indices = sorted(rng.choice(selection_at_load, size=max_n, replace=False).tolist())
+        elif len(raw) == len(selection_at_load):
+            indices = raw
+        else:
+            indices = list(selection_at_load)
         seq_at_load = self._compute_seq
         ds = THUMBNAIL_DOWNSAMPLE
+
+        def _selection_still_current() -> bool:
+            if self._compute_seq != seq_at_load:
+                return False
+            if self._selected_point_index is not None:
+                return False
+            current = tuple(sorted(set(self._multi_selected_indices)))
+            return bool(current) and current == selection_at_load
 
         def _load_one_png_b64(idx: int) -> tuple[int, str | None]:
             try:
@@ -2271,9 +2289,7 @@ class PhenoMeInteractive:
 
         def _load_multi_task() -> None:
             try:
-                if self._compute_seq != seq_at_load:
-                    return
-                if not self._multi_selected_indices or self._selected_point_index is not None:
+                if not _selection_still_current():
                     return
 
                 n_workers = min(8, max(1, len(indices)))
@@ -2289,9 +2305,7 @@ class PhenoMeInteractive:
                     b64_list.append(b64)
 
                 def _update_ui() -> None:
-                    if self._compute_seq != seq_at_load:
-                        return
-                    if not self._multi_selected_indices or self._selected_point_index is not None:
+                    if not _selection_still_current():
                         return
                     if not b64_list:
                         self._set_image_panel_idle()
@@ -2303,11 +2317,11 @@ class PhenoMeInteractive:
                     grid.thumb_size_px = THUMBNAIL_SIZE_PX
                     gti = self._grid_trace_index
                     grid.grid_focus_index = gti if (gti is not None and gti in idx_list) else -1
-                    extra = f" (showing first {max_n})" if truncated else ""
+                    extra = f" (random subset of {max_n})" if truncated else ""
                     note = widgets.HTML(
                         value=(
                             f'<div style="font-size:10px;color:#64748B;margin:0 0 2px 0;">'
-                            f"{len(raw):,} selected{extra} — <b>single</b> click: highlight in plot · "
+                            f"{len(selection_at_load):,} selected{extra} — <b>single</b> click: highlight in plot · "
                             f"<b>double</b> click: full image</div>"
                         ),
                         layout=widgets.Layout(width="100%"),
@@ -3213,13 +3227,14 @@ class PhenoMeInteractive:
             )
             return
         preview = self._multi_selected_indices[: min(20, n)]
-        extra = "" if n <= 20 else f" <i>(+{n - 20:,} more)</i>"
+        extra = "" if n <= 20 else f' <span style="color:#475569;">(+{n - 20:,} more)</span>'
         ids_html = ", ".join(
-            f'<code style="background:#EEF2F7;padding:1px 4px;border-radius:3px;">{i}</code>'
+            f'<code style="background:#E2E8F0;color:#0f172a;font-weight:600;'
+            f'padding:1px 4px;border-radius:3px;">{i}</code>'
             for i in preview
         )
         self._selection_summary.value = (
-            f'<div style="font-size:11px;color:#334155;line-height:1.5;">'
+            f'<div style="font-size:11px;color:#0f172a;line-height:1.5;">'
             f"<b>{n:,}</b> points selected: {ids_html}{extra}</div>"
         )
 

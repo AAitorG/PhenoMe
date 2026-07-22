@@ -10,6 +10,7 @@ from plotly.graph_objects import Figure
 
 from ..._logging import get_logger
 from ...utils.display_names import format_dr_method
+from ._helpers import BAR_ZERO_LINE_COLOR, BAR_ZERO_LINE_WIDTH
 
 logger = get_logger(__name__)
 
@@ -94,6 +95,10 @@ def _build_multivariate_interpretability_figure(
             ),
         )
 
+    fig.update_traces(
+        marker_line_color=BAR_ZERO_LINE_COLOR,
+        marker_line_width=BAR_ZERO_LINE_WIDTH,
+    )
     fig.update_layout(
         width=figsize[0] * 100 if figsize else None,
         height=figsize[1] * 100 if figsize else None,
@@ -102,9 +107,13 @@ def _build_multivariate_interpretability_figure(
         showlegend=False,
         margin={"l": 20, "r": 20, "t": 80, "b": 40},
         coloraxis_colorbar={"title": color_bar_title},
+        xaxis={
+            "zeroline": True,
+            "zerolinecolor": BAR_ZERO_LINE_COLOR,
+            "zerolinewidth": BAR_ZERO_LINE_WIDTH,
+        },
     )
 
-    fig.add_vline(x=0, line_width=1, line_color="black")
     return fig
 
 

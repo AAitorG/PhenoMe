@@ -10,6 +10,7 @@ from plotly.graph_objects import Figure
 from plotly.subplots import make_subplots
 
 from ..._logging import get_logger
+from ._helpers import BAR_ZERO_LINE_COLOR, BAR_ZERO_LINE_WIDTH
 
 logger = get_logger(__name__)
 
@@ -116,6 +117,7 @@ def _build_component_correlation_figure(
             "cmin": -w_max,
             "cmax": w_max,
             "showscale": show_scale,
+            "line": {"color": BAR_ZERO_LINE_COLOR, "width": BAR_ZERO_LINE_WIDTH},
         }
         if show_scale:
             # Anchor in full-figure paper coords so the bar spans the entire plot height
@@ -185,7 +187,12 @@ def _build_component_correlation_figure(
         yanchor="middle",
         font={"size": 14, "color": "#1a1a1a", "family": "Arial, sans-serif"},
     )
-    fig.update_xaxes(range=[-w_max * 1.08, w_max * 1.08])
+    fig.update_xaxes(
+        range=[-w_max * 1.08, w_max * 1.08],
+        zeroline=True,
+        zerolinecolor=BAR_ZERO_LINE_COLOR,
+        zerolinewidth=BAR_ZERO_LINE_WIDTH,
+    )
     for r in range(1, n_comp):
         fig.update_xaxes(title_text="", row=r, col=1)
     fig.update_xaxes(title_text="Correlation", row=n_comp, col=1)
