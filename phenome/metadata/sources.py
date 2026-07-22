@@ -10,7 +10,11 @@ from typing import Any
 
 import pandas as pd
 
-from ..utils.path_utils import filename_identifier_keys, normalize_identifier_path
+from ..utils.path_utils import (
+    filename_identifier_keys,
+    stem_identifier_path,
+    strip_known_extension,
+)
 from .base import MetadataBase
 
 
@@ -157,12 +161,6 @@ class DataFrameMetadata(MetadataBase):
             self._lookup_df = None
             self._key_to_row_ix = None
 
-            def _stem(s: Any) -> str:
-                normalized = normalize_identifier_path(s)
-                if os.path.splitext(normalized)[1]:
-                    normalized = os.path.splitext(normalized)[0]
-                return str(normalized)
-
             stem_to_row_ch: dict[str, tuple] = {}
             for row_ix in range(len(self._df)):
                 for ch_idx, col in enumerate(self._filename_columns):
@@ -175,7 +173,7 @@ class DataFrameMetadata(MetadataBase):
                                 f"({prev_row}, ch {prev_ch}) and ({row_ix}, ch {ch_idx})."
                             )
                         stem_to_row_ch[key] = (row_ix, ch_idx)
-                    stem = _stem(val_str)
+                    stem = stem_identifier_path(val_str)
                     if stem in stem_to_row_ch and stem_to_row_ch[stem] != (row_ix, ch_idx):
                         prev_row, prev_ch = stem_to_row_ch[stem]
                         raise ValueError(
@@ -192,7 +190,7 @@ class DataFrameMetadata(MetadataBase):
     def _extract_with_data_dir(self, path: str, data_dir: str | None = None) -> dict[str, Any]:
         """Look up metadata for ``path`` using partial-path-aware filename keys."""
         filename = os.path.basename(path)
-        filename_stem = os.path.splitext(filename)[0]
+        filename_stem = strip_known_extension(filename)
         lookup_keys = filename_identifier_keys(path, data_dir or self._data_dir)
 
         if not self._multi_channel:
