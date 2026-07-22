@@ -45,7 +45,7 @@ The checkpoint (HDF5) already stores configuration and results. When
 
 - **Results**: embeddings, `img_path`, metadata, properties.
 - **Processing params**: `channel_mode`, `resize_size`, `pad_size`,
-  `force_rgb` (and `batch_size` when set).
+  `force_rgb`, `l2_normalize_channels` (and `batch_size` when set).
 
 The HDF5 file is self-contained for processing parameters and data. For
 full reproducibility, also document parameters **not** stored in the

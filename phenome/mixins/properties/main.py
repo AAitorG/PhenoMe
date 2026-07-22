@@ -483,7 +483,7 @@ class PhenoMeProperties:
         indices: list[int] | None = None,
         property_keys: list[str] | None = None,
         normalize: bool = True,
-        handle_nans: Literal["filter", "impute", "warn"] = "filter",
+        handle_nans: Literal["filter", "impute", "warn", "keep", "drop_columns"] = "filter",
     ) -> tuple[np.ndarray, list[int], list[str]]:
         """Build property matrix from numeric properties."""
         matrix, valid_indices, keys, cache = _get_property_matrix_fn(

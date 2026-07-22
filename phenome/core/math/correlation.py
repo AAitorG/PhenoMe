@@ -47,13 +47,18 @@ def clean_correlation_inputs(
         - y_clean: np.ndarray or None. Shape (n_valid,).
         - valid_mask: np.ndarray, shape (n_samples,), dtype bool. True where both x and y are finite.
     """
-    # Drop rows where either x or y has NaN/inf; require min_samples valid pairs
+    # Drop rows where either x or y has NaN/inf; require min_samples valid pairs.
+    # Log at debug only: callers (e.g. compute_component_correlation) already emit a
+    # single summary of missing properties; warning here spams once per pair.
     y_ok = np.isfinite(y)
     if x.ndim == 1:
         ok = np.isfinite(x) & y_ok
-        n_dropped = y.shape[0] - ok.sum()
+        n_dropped = int(y.shape[0] - ok.sum())
         if n_dropped > 0:
-            logger.warning(f"Dropped {n_dropped} sample(s) due to NaN/inf values in inputs.")
+            logger.debug(
+                "Dropped %d sample(s) due to NaN/inf values in correlation inputs.",
+                n_dropped,
+            )
 
         if ok.sum() < min_samples:
             return None, None, ok
@@ -62,11 +67,12 @@ def clean_correlation_inputs(
         # For 2D x: drop entire row if any feature is non-finite
         x_ok = np.isfinite(x).all(axis=1)
         ok = x_ok & y_ok
-        n_dropped = y.shape[0] - ok.sum()
+        n_dropped = int(y.shape[0] - ok.sum())
         if n_dropped > 0:
-            logger.warning(
-                f"Dropped {n_dropped} sample(s) due to NaN/inf values (listwise deletion). "
-                f"Consider handling missing values beforehand to preserve statistical power."
+            logger.debug(
+                "Dropped %d sample(s) due to NaN/inf values in correlation inputs "
+                "(listwise deletion across features).",
+                n_dropped,
             )
 
         if ok.sum() < min_samples:

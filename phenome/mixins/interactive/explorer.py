@@ -1108,31 +1108,22 @@ class PhenoMeInteractive:
         return sorted(set(all_vals), key=str)
 
     def _sync_embed_filters_from_widgets(self) -> None:
-        """Set ``initial_filters`` / ``initial_exclude`` from UI state or constructor overrides."""
+        """Resolve the explicitly active filter/exclude sets for the next compute.
+
+        The field/value controls are an editor: their contents become active only
+        after the user presses ``Add Filter`` / ``Add Exclude``.  Previously this
+        method also folded the editor's current values into the request.  Changing
+        fields, searching, or clearing an already-added condition could therefore
+        silently add a different condition back on the next compute.
+        """
         ui_filters = dict(self._ui_filters) if self._ui_filters else None
         ui_exclude = dict(self._ui_exclude) if self._ui_exclude else None
 
-        fk = self.filter_key_dropdown.value
-        fv = list(self.filter_value_select.value)
-        if fk and fv:
-            if ui_filters is None:
-                ui_filters = {}
-            if fk not in ui_filters:
-                ui_filters[fk] = fv
-
-        ek = self.exclude_key_dropdown.value
-        ev = list(self.exclude_value_select.value)
-        if ek and ev:
-            if ui_exclude is None:
-                ui_exclude = {}
-            if ek not in ui_exclude:
-                ui_exclude[ek] = ev
-
         self.initial_filters = (
-            self._constructor_filters if self._constructor_filters is not None else ui_filters
+            dict(self._constructor_filters) if self._constructor_filters is not None else ui_filters
         )
         self.initial_exclude = (
-            self._constructor_exclude if self._constructor_exclude is not None else ui_exclude
+            dict(self._constructor_exclude) if self._constructor_exclude is not None else ui_exclude
         )
 
     def _apply_filter_search_filter(self, *, select_default: bool = False) -> None:
@@ -1319,14 +1310,14 @@ class PhenoMeInteractive:
     # ------------------------------------------------------------------
     # Compute (expensive - dimensionality reduction)
     # ------------------------------------------------------------------
-    def _compute_embedding(self) -> float:
+    def _compute_embedding(self, request: dict[str, Any]) -> float:
         """Run dimensionality reduction and populate ``self._cached_df``."""
-        method_label = self.method_dropdown.value
-        method_key = method_label.lower().replace("-", "")
-        n_dims = self.dim_toggle.value
-        source = self.source_dropdown.value
-
-        self._sync_embed_filters_from_widgets()
+        method_label = request["method_label"]
+        method_key = request["method_key"]
+        n_dims = request["n_dims"]
+        source = request["source"]
+        filters = request["filters"]
+        exclude = request["exclude"]
 
         t0 = time.time()
         try:
@@ -1335,8 +1326,8 @@ class PhenoMeInteractive:
                 method=method_key,
                 n_components=n_dims,
                 source=source,
-                filters=self.initial_filters,
-                exclude=self.initial_exclude,
+                filters=filters,
+                exclude=exclude,
                 device=self.pheno.device,
                 use_gpu=getattr(self.pheno, "use_gpu_for_dr", True),
             )
@@ -1362,8 +1353,8 @@ class PhenoMeInteractive:
         self._cached_method = method_label
         self._cached_source = source
         self._cached_ndims = n_dims
-        self._cached_filters = self.initial_filters
-        self._cached_exclude = self.initial_exclude
+        self._cached_filters = filters
+        self._cached_exclude = exclude
         self._cached_dr_obj = dr_obj
 
         # Refresh highlight options now that we have a new DataFrame
@@ -1372,9 +1363,10 @@ class PhenoMeInteractive:
         self._update_color_options()
 
         self._refresh_index_row_map()
-        self._compute_seq += 1
-
-        # Recomputation invalidates the previous multi-selection (row positions shift).
+        # Recomputation invalidates all selection state: a pipeline index can still
+        # exist in the new embedding, but its old FigureWidget callback/coordinates
+        # must never be applied to the new figure.
+        self._selected_point_index = None
         self._multi_selected_indices = []
         self._grid_trace_index = None
         self._single_view_from_grid = False
@@ -2251,11 +2243,29 @@ class PhenoMeInteractive:
         """Load box/lasso selection as a compact thumbnail grid (single/double-click differ)."""
         self.img_output.children = (self._img_loading_placeholder,)
         raw = list(self._multi_selected_indices)
+        # Membership snapshot so overlapping loads cannot paint a stale subset.
+        selection_at_load = tuple(sorted(set(raw)))
         max_n = THUMBNAIL_GRID_MAX_IMAGES
-        indices = raw[:max_n]
-        truncated = len(raw) > max_n
+        truncated = len(selection_at_load) > max_n
+        if truncated:
+            # Random subset of unique indices; sorted membership keeps the draw
+            # stable across Plotly merge order for the same selection set.
+            rng = np.random.default_rng(DR_RANDOM_STATE)
+            indices = sorted(rng.choice(selection_at_load, size=max_n, replace=False).tolist())
+        elif len(raw) == len(selection_at_load):
+            indices = raw
+        else:
+            indices = list(selection_at_load)
         seq_at_load = self._compute_seq
         ds = THUMBNAIL_DOWNSAMPLE
+
+        def _selection_still_current() -> bool:
+            if self._compute_seq != seq_at_load:
+                return False
+            if self._selected_point_index is not None:
+                return False
+            current = tuple(sorted(set(self._multi_selected_indices)))
+            return bool(current) and current == selection_at_load
 
         def _load_one_png_b64(idx: int) -> tuple[int, str | None]:
             try:
@@ -2271,9 +2281,7 @@ class PhenoMeInteractive:
 
         def _load_multi_task() -> None:
             try:
-                if self._compute_seq != seq_at_load:
-                    return
-                if not self._multi_selected_indices or self._selected_point_index is not None:
+                if not _selection_still_current():
                     return
 
                 n_workers = min(8, max(1, len(indices)))
@@ -2289,9 +2297,7 @@ class PhenoMeInteractive:
                     b64_list.append(b64)
 
                 def _update_ui() -> None:
-                    if self._compute_seq != seq_at_load:
-                        return
-                    if not self._multi_selected_indices or self._selected_point_index is not None:
+                    if not _selection_still_current():
                         return
                     if not b64_list:
                         self._set_image_panel_idle()
@@ -2303,11 +2309,11 @@ class PhenoMeInteractive:
                     grid.thumb_size_px = THUMBNAIL_SIZE_PX
                     gti = self._grid_trace_index
                     grid.grid_focus_index = gti if (gti is not None and gti in idx_list) else -1
-                    extra = f" (showing first {max_n})" if truncated else ""
+                    extra = f" (random subset of {max_n})" if truncated else ""
                     note = widgets.HTML(
                         value=(
                             f'<div style="font-size:10px;color:#64748B;margin:0 0 2px 0;">'
-                            f"{len(raw):,} selected{extra} — <b>single</b> click: highlight in plot · "
+                            f"{len(selection_at_load):,} selected{extra} — <b>single</b> click: highlight in plot · "
                             f"<b>double</b> click: full image</div>"
                         ),
                         layout=widgets.Layout(width="100%"),
@@ -2359,9 +2365,16 @@ class PhenoMeInteractive:
                 return
 
             self._last_click_time = t_now
+            # A click callback is deferred so Plotly can finish its event.  If a
+            # new compute starts before that callback runs, the callback belongs
+            # to the retired FigureWidget and must not select a point in the new
+            # embedding.
+            seq_at_click = self._compute_seq
 
             def _apply_click_safe() -> None:
                 try:
+                    if self._compute_seq != seq_at_click:
+                        return
                     self._image_error_msg = None
                     self._single_view_from_grid = False
                     # Plot click: full single-image inspect; clears thumbnail-traceback ring.
@@ -2397,6 +2410,7 @@ class PhenoMeInteractive:
         """
         if self.fig_widget is None or self._cached_df is None:
             return
+        seq_at_selection = self._compute_seq
         if getattr(trace, "name", "") in (
             SELECTION_OVERLAY_NAME,
             MULTI_SELECT_OVERLAY_NAME,
@@ -2428,6 +2442,9 @@ class PhenoMeInteractive:
         if not selected_ids:
             return
 
+        if self._compute_seq != seq_at_selection:
+            return
+
         # Merge across traces (deduplicate). Selections from multiple traces arrive via
         # consecutive callbacks; replace-on-different-trace gives best UX.
         t_now = time.time()
@@ -2446,6 +2463,8 @@ class PhenoMeInteractive:
         self._multi_selected_indices = merged
 
         def _do() -> None:
+            if self._compute_seq != seq_at_selection:
+                return
             # Any new box/lasso: drop plot inspect, clear thumbnail traceback, show grid.
             self._selected_point_index = None
             self._single_view_from_grid = False
@@ -2476,8 +2495,9 @@ class PhenoMeInteractive:
         if t_now - self._last_deselect_time < 0.08:
             return
         self._last_deselect_time = t_now
-
-        self._clear_all_selections(reset_dragmode=False)
+        seq_at_deselect = self._compute_seq
+        if self._compute_seq == seq_at_deselect:
+            self._clear_all_selections(reset_dragmode=False)
 
     def _get_per_trace_masks(self, row_mask: np.ndarray) -> list[np.ndarray]:
         """Map a boolean mask over cached DataFrame rows to per-trace boolean arrays."""
@@ -2841,6 +2861,38 @@ class PhenoMeInteractive:
         if self._compute_thread is not None and self._compute_thread.is_alive():
             return
 
+        # Capture a complete, immutable request before starting the worker.  Widget
+        # callbacks continue to run while DR is in progress, so reading controls in
+        # the worker could otherwise combine a new method with old filters (or vice
+        # versa).  Advancing the sequence here also makes any in-flight image preview
+        # callback harmless before the old FigureWidget is replaced.
+        self._sync_embed_filters_from_widgets()
+        method_label = self.method_dropdown.value
+        compute_request: dict[str, Any] = {
+            "method_label": method_label,
+            "method_key": method_label.lower().replace("-", ""),
+            "n_dims": self.dim_toggle.value,
+            "source": self.source_dropdown.value,
+            "filters": (
+                {k: list(v) if isinstance(v, list) else v for k, v in self.initial_filters.items()}
+                if self.initial_filters
+                else None
+            ),
+            "exclude": (
+                {k: list(v) if isinstance(v, list) else v for k, v in self.initial_exclude.items()}
+                if self.initial_exclude
+                else None
+            ),
+        }
+        self._compute_seq += 1
+        self._selected_point_index = None
+        self._multi_selected_indices = []
+        self._grid_trace_index = None
+        self._single_view_from_grid = False
+        self._selection_download_area.value = ""
+        if self._thumb_grid is not None:
+            self._thumb_grid.grid_focus_index = -1
+
         compute_done = threading.Event()
         t_start = time.time()
         self.compute_button.disabled = True
@@ -2862,7 +2914,7 @@ class PhenoMeInteractive:
             ticker.start()
             elapsed = 0.0
             try:
-                elapsed = self._compute_embedding()
+                elapsed = self._compute_embedding(compute_request)
 
                 def _display_new_fig() -> None:
                     try:
@@ -3058,6 +3110,7 @@ class PhenoMeInteractive:
         fk = self.filter_key_dropdown.value
         fv = list(self.filter_value_select.value)
         if fk and fv:
+            self._constructor_filters = None
             self._ui_filters[fk] = fv
             self._update_filter_summary()
             self.status_label.value = status_html(f"Added filter: {fk}", "ok")
@@ -3067,6 +3120,7 @@ class PhenoMeInteractive:
         ek = self.exclude_key_dropdown.value
         ev = list(self.exclude_value_select.value)
         if ek and ev:
+            self._constructor_exclude = None
             self._ui_exclude[ek] = ev
             self._update_exclude_summary()
             self.status_label.value = status_html(f"Added exclude: {ek}", "ok")
@@ -3213,13 +3267,14 @@ class PhenoMeInteractive:
             )
             return
         preview = self._multi_selected_indices[: min(20, n)]
-        extra = "" if n <= 20 else f" <i>(+{n - 20:,} more)</i>"
+        extra = "" if n <= 20 else f' <span style="color:#475569;">(+{n - 20:,} more)</span>'
         ids_html = ", ".join(
-            f'<code style="background:#EEF2F7;padding:1px 4px;border-radius:3px;">{i}</code>'
+            f'<code style="background:#E2E8F0;color:#0f172a;font-weight:600;'
+            f'padding:1px 4px;border-radius:3px;">{i}</code>'
             for i in preview
         )
         self._selection_summary.value = (
-            f'<div style="font-size:11px;color:#334155;line-height:1.5;">'
+            f'<div style="font-size:11px;color:#0f172a;line-height:1.5;">'
             f"<b>{n:,}</b> points selected: {ids_html}{extra}</div>"
         )
 

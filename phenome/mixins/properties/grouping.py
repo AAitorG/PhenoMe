@@ -21,9 +21,11 @@ from ._grouping_table import (
     _trunc_center,
 )
 from ._report import (
+    _NEAR_ZERO_STD,
     compute_property_statistics,
     parse_grouped_stats_dataframe,
     tier_a_property_columns,
+    welch_ttest_pvalue,
 )
 
 _TIER_A_EXCLUDE = set(TIER_A_EXCLUDE_FROM_PROPERTIES)
@@ -430,8 +432,6 @@ def compute_leave_one_out_zscore_enrichment(
     When *correct_fdr* is True, p-values come from Welch two-sample t-tests
     (group vs leave-one-out rest) per property, with Benjamini-Hochberg FDR.
     """
-    from scipy.stats import ttest_ind
-
     all_groups = sorted(working_df[group_col].unique())
     skipped_small = sum(1 for g in all_groups if len(working_df[working_df[group_col] == g]) < 3)
     if skipped_small > 0:
@@ -450,7 +450,7 @@ def compute_leave_one_out_zscore_enrichment(
             continue
         pop_mean = rest_df[property_keys].mean()
         pop_std = rest_df[property_keys].std()
-        pop_std = pop_std.where(pop_std >= 1e-10, np.nan)
+        pop_std = pop_std.where(pop_std >= _NEAR_ZERO_STD, np.nan)
         gmean = gdf[property_keys].mean()
         with np.errstate(divide="ignore", invalid="ignore"):
             zs = (gmean - pop_mean) / pop_std
@@ -459,9 +459,7 @@ def compute_leave_one_out_zscore_enrichment(
             if pd.notna(s):
                 g_vals = gdf[prop].dropna()
                 r_vals = rest_df[prop].dropna()
-                p_val = np.nan
-                if len(g_vals) >= 2 and len(r_vals) >= 2:
-                    _, p_val = ttest_ind(g_vals, r_vals, equal_var=False)
+                p_val = welch_ttest_pvalue(g_vals.to_numpy(), r_vals.to_numpy())
                 rows.append(
                     {
                         "Group": grp,
@@ -469,7 +467,7 @@ def compute_leave_one_out_zscore_enrichment(
                         "score": float(s),
                         "mean_group": float(gmean[prop]),
                         "mean_pop": float(pop_mean[prop]),
-                        "p_value": float(p_val) if pd.notna(p_val) else np.nan,
+                        "p_value": p_val,
                     }
                 )
 

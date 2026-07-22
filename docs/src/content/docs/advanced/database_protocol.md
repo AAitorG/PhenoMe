@@ -27,7 +27,7 @@ Under the HDF5 root **`/`**:
 - **`/metadata/`:** one column-dataset per metadata key (e.g. drug, time, id).
 - **`/properties/`:** one column-dataset per computed property (e.g. area, mean intensity).
 - **`/internal/`:** one column-dataset per internal tracking flag (e.g. `_properties_attempted`).
-- **`/config`:** group with **attributes only** (`channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `channels`); no full filesystem paths.
+- **`/config`:** group with **attributes only** (`channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `l2_normalize_channels`, `channels`); no full filesystem paths.
 
 ## 1. File structure
 
@@ -56,7 +56,7 @@ Unlike older versions that used JSON blobs, v2.0 stores metadata and properties 
 
 | Path | Description |
 | :--- | :--- |
-| `/config` | Group containing non-path pipeline settings (e.g., `channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `channels`) as HDF5 attributes. Always present. **Never stores full paths** (e.g. `data_dir`) for security and portability. |
+| `/config` | Group containing non-path pipeline settings (e.g., `channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `l2_normalize_channels`, `channels`) as HDF5 attributes. Always present. **Never stores full paths** (e.g. `data_dir`) for security and portability. |
 
 ---
 
@@ -93,7 +93,26 @@ The `/internal/` group stores flags that help the pipeline resume interrupted ru
 
 ### Config Attributes
 
-`/config` contains non-path pipeline settings only (`channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `channels`). Full paths (e.g. `data_dir`) are never stored.
+`/config` stores non-path pipeline settings used when embeddings were produced.
+Resume / reprocess validates these against the current `process_images` call.
+Full paths (e.g. `data_dir`) are never stored.
+
+| Attribute / dataset | Type | Description |
+| :--- | :--- | :--- |
+| `channel_mode` | `str` attr | `'split'` or `'combined'`. |
+| `resize_size` | `str` attr | Target square resize size, or `"none"` when resizing was skipped. |
+| `pad_size` | `str` attr | Minimum pad size before resize, or `"none"` when padding was skipped. |
+| `force_rgb` | `bool` attr | Whether grayscale inputs were expanded to 3-channel RGB for the model. |
+| `l2_normalize_channels` | `bool` attr | In split mode: whether each channel embedding was L2-normalized before concatenation (equal channel contribution). Default when absent on older files: `True` (current split-mode behavior). Ignored for combined mode. |
+| `channels` | `int` dataset `(C,)` | Optional channel index subset. Absent when all channels were used. |
+
+Example:
+
+```python
+with h5py.File("results.h5", "r") as f:
+    cfg = f["config"].attrs
+    print(cfg.get("channel_mode"), cfg.get("l2_normalize_channels", True))
+```
 
 ---
 
@@ -137,7 +156,17 @@ def load_pipeline_data(checkpoint_path):
                 row = {key: prop_grp[key][i] for key in prop_grp.keys()}
                 properties.append(row)
 
-    return abs_paths, metadata, embeddings, properties
+        # Processing config (attrs; absent keys use PhenoMe defaults on resume)
+        config = {}
+        if "config" in f:
+            cfg = f["config"]
+            for key in cfg.attrs:
+                config[key] = cfg.attrs[key]
+            if "channels" in cfg:
+                config["channels"] = cfg["channels"][:].tolist()
+            config.setdefault("l2_normalize_channels", True)
+
+    return abs_paths, metadata, embeddings, properties, config
 ```
 
 ---
@@ -162,7 +191,7 @@ When a checkpoint is active, `get_embeddings()` reads only the requested rows fr
 | **metadata** | Per-image metadata, **columnar format** (`/metadata/`) |
 | **properties** | Computed scalar properties, **columnar format** (`/properties/`) |
 | **internal** | Internal tracking flags, **columnar format** (`/internal/`) |
-| **config** | Non-path pipeline settings only. Full paths (e.g. `data_dir`) are **never** stored. |
+| **config** | Non-path processing settings as `/config` attributes (`channel_mode`, `resize_size`, …). Full paths (e.g. `data_dir`) are **never** stored. |
 | **version** | Checkpoint format version (`"2.0"`) |
 
 ### Loading Results

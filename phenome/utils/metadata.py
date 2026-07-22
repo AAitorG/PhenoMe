@@ -9,8 +9,9 @@ name for file identifiers is ``filename`` across all helpers.
 - [get_metadata_from_path](utilities.md#api-get_metadata_from_path): Build extractor from a path template. Adds ``filename`` key.
 - [make_dataframe_metadata_fn](utilities.md#api-make_dataframe_metadata_fn): Look up metadata from a DataFrame. Supports
   a single filename column (default ``"filename"``) or a list of columns for
-  multi-channel data. Accepts filenames with or without extension; only the last
-  dot is treated as the extension.
+  multi-channel data. Accepts filenames with or without extension; only known
+  image/data extensions are stripped, so names with dots but no extension
+  (e.g. ``my.image``) are preserved.
 
 These functions are thin wrappers over `phenome.metadata` classes.
 For OOP usage with configurable columns and auto-generated IDs, use
@@ -117,8 +118,9 @@ def make_dataframe_metadata_fn(
 
     1. **Single file per sample** (default): Pass a single column name as
        `filename_column`. The dataframe must contain that column with image
-       filenames; both stems (e.g. ``'my_image'``) and full names with
-       extension (e.g. ``'my_image.tif'``) are accepted. Each row is one image.
+       filenames; both stems (e.g. ``'my_image'``, ``'my.image'``) and full
+       names with extension (e.g. ``'my_image.tif'``) are accepted. Each row
+       is one image.
 
     2. **Multiple channels in separate files**: Pass a list of column names
        in channel order, e.g. ``['ch0', 'ch1', 'ch2']``. Each column holds
@@ -140,8 +142,9 @@ def make_dataframe_metadata_fn(
         filename_column: Column name(s) for filenames. Single string (default
             ``"filename"``) for one image per row, or list of column names for
             multi-channel. Accepts filenames with or without extension. Only
-            the last dot is treated as the extension; internal dots (e.g. in
-            ``'plate.A01.well'``) are preserved.
+            known image/data extensions (e.g. ``.tif``, ``.png``) are stripped;
+            names that contain dots but no extension (e.g. ``'my.image'``,
+            ``'plate.A01.well'``) are preserved as-is.
 
     Returns:
         Callable[[str], Dict[str, Any]]: Function (path) -> dict. Adds
@@ -171,6 +174,12 @@ def make_dataframe_metadata_fn(
         >>> fn_ext = make_dataframe_metadata_fn(df_ext, filename_column='filename')
         >>> fn_ext('/data/img1.tif')['cond']
         'A'
+
+    Example (filename with dots, no extension):
+        >>> df_dots = pd.DataFrame({'filename': ['my.image'], 'cond': ['A']})
+        >>> fn_dots = make_dataframe_metadata_fn(df_dots)
+        >>> fn_dots('/data/my.image.tif')['filename']
+        'my.image'
 
     Example (multi-channel, one column per channel):
         >>> df = pd.DataFrame({

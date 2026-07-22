@@ -61,8 +61,12 @@ def read_image(path: str | list[str]) -> np.ndarray:
     elif path_lower.endswith(".nii.gz") or path_lower.endswith(".nii"):
         try:
             import nibabel as nib
+            from nibabel.spatialimages import SpatialImage
 
-            img = nib.load(path).get_fdata()
+            nii = nib.load(path)
+            if not isinstance(nii, SpatialImage):
+                raise TypeError(f"Unsupported NIfTI type: {type(nii).__name__}")
+            img = nii.get_fdata()
         except ImportError as e:
             raise ImportError("nibabel is required to read NIfTI files.") from e
         except Exception as e:

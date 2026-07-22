@@ -27,8 +27,9 @@ class PhenoMeDataset(Dataset):
         transform: Optional torchvision transforms to apply.
         channel_mode: 'split' or 'combined'.
             - 'split': Each selected channel is processed independently. Embeddings are
-              L2-normalized per channel and concatenated (see ``EmbeddingExtractor``).
-              Prefer 'combined' when the model should see a single fused multi-channel input.
+              L2-normalized per channel by default and concatenated (see
+              ``EmbeddingExtractor`` / ``l2_normalize_channels``). Prefer 'combined'
+              when the model should see a single fused multi-channel input.
             - 'combined': Selected channels are merged into a single image. When ``force_rgb=True``
               only the first 3 selected channels are used (extras discarded, fewer padded to 3).
               When ``force_rgb=False`` all selected channels are kept as-is.

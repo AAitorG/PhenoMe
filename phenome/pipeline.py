@@ -514,6 +514,7 @@ class PhenoMe(
         pad_size: int | None = None,
         checkpoint_path: str | None = None,
         force_rgb: bool = True,
+        l2_normalize_channels: bool = True,
         save_every: int = 5,
         lazy_checkpoint: bool = True,
         force_reprocess: bool = False,
@@ -543,8 +544,8 @@ class PhenoMe(
                 reduced to 0 to avoid multiprocessing issues. Default: 4.
             filters (dict or None): Include only rows matching criteria.
                 Format: `{column: [value1, value2, ...]}`. Default: None (no filtering).
-            exclude (dict or None): Exclude rows matching criteria. Same format as `filters`.
-                Default: None.
+            exclude (dict or None): Exclude rows matching *any* criterion (OR across
+                fields). Same value format as `filters`. Default: None.
             channel_mode (str): How to handle multi-channel images. One of:
                 - 'split': Process each channel separately (default).
                 - 'combined': Process all channels as RGB or grayscale.
@@ -565,6 +566,10 @@ class PhenoMe(
                 processing. If file exists, processing resumes from last checkpoint.
                 If None, embeddings stored in-memory. Default: None.
             force_rgb (bool): If True, convert grayscale to RGB before model. Default: True.
+            l2_normalize_channels (bool): In ``channel_mode='split'``, L2-normalize each
+                channel embedding before concatenation so channels contribute equally.
+                Set False to preserve raw channel magnitudes (one channel may dominate).
+                Ignored in combined mode. Default: True.
             save_every (int): Save checkpoint every N batches (when using checkpoint_path).
                 Default: 5.
             lazy_checkpoint (bool): If True and checkpoint_path is set, enable lazy
@@ -622,6 +627,7 @@ class PhenoMe(
             resize_size=resize_size,
             pad_size=pad_size,
             force_rgb=force_rgb,
+            l2_normalize_channels=l2_normalize_channels,
             preprocessing_fn=preprocessing_fn,
         )
         all_requested_data = list(filtered_data)
@@ -706,6 +712,7 @@ class PhenoMe(
         resize_size: int | None = None,
         pad_size: int | None = None,
         force_rgb: bool | None = None,
+        l2_normalize_channels: bool | None = None,
         extensions: list[str] | None = None,
     ) -> None:
         """Process new images in-memory (temporary) and append to the current session.
@@ -762,6 +769,7 @@ class PhenoMe(
             resize_size=resize_size,
             pad_size=pad_size,
             force_rgb=force_rgb,
+            l2_normalize_channels=l2_normalize_channels,
         )
 
         tr = PhenoMeResults()
@@ -783,7 +791,9 @@ class PhenoMe(
             batch_size=batch_size,
             num_workers=num_workers,
         )
-        self._run_embedding_extraction(model_wrapper, dl, results=tr, emb_buffer=tb)
+        self._run_embedding_extraction(
+            model_wrapper, dl, results=tr, emb_buffer=tb, cur_params=cur_params
+        )
         if not tb:
             return
 
@@ -1398,6 +1408,7 @@ class PhenoMe(
         resize_size: int | None,
         pad_size: int | None,
         force_rgb: bool,
+        l2_normalize_channels: bool,
         preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any], str | None]:
         """Prepare state and filtered data for process_images. Returns (filtered_data, cur_params, final_data_dir).
@@ -1460,6 +1471,7 @@ class PhenoMe(
             "resize_size": resize_size,
             "pad_size": pad_size,
             "force_rgb": force_rgb,
+            "l2_normalize_channels": l2_normalize_channels,
         }
         self.preprocessing_fn = preprocessing_fn
         self._processing_params = cur_params
@@ -1504,6 +1516,7 @@ class PhenoMe(
         resize_size: int | None = None,
         pad_size: int | None = None,
         force_rgb: bool | None = None,
+        l2_normalize_channels: bool | None = None,
     ) -> dict[str, Any]:
         """Resolve processing params from base dict and overrides.
 
@@ -1521,6 +1534,11 @@ class PhenoMe(
             "resize_size": resize_size if resize_size is not None else _v("resize_size", 224),
             "pad_size": pad_size if pad_size is not None else base.get("pad_size"),
             "force_rgb": force_rgb if force_rgb is not None else _v("force_rgb", True),
+            "l2_normalize_channels": (
+                l2_normalize_channels
+                if l2_normalize_channels is not None
+                else _v("l2_normalize_channels", True)
+            ),
         }
 
     def _create_dataloader(
@@ -1588,7 +1606,14 @@ class PhenoMe(
             results = self.results
         if emb_buffer is None:
             emb_buffer = self._emb_buffer
-        extractor = EmbeddingExtractor(model_wrapper, self.device)
+        do_l2 = True
+        if cur_params is not None and cur_params.get("l2_normalize_channels") is not None:
+            do_l2 = bool(cur_params["l2_normalize_channels"])
+        extractor = EmbeddingExtractor(
+            model_wrapper,
+            self.device,
+            l2_normalize_channels=do_l2,
+        )
         return extractor.extract_from_dataloader(
             dataloader=dataloader,
             results=results,
@@ -1634,7 +1659,8 @@ class PhenoMe(
         """Filter DataFrame based on metadata filters and exclusions.
 
         Both filters and exclude use the same format: metadata key -> single value
-        or list of values. They can be used together; exclude is applied after filters.
+        or list of values. Include fields are intersected; exclusion fields are
+        combined, so a row matching any exclusion is removed after filtering.
         """
         fdf: pd.DataFrame = file_df.copy()
         if filters:
@@ -1649,13 +1675,13 @@ class PhenoMe(
                     )
                     fdf = fdf[mask]
         if exclude:
-            exclude_mask = pd.Series(True, index=fdf.index)
+            exclude_mask = pd.Series(False, index=fdf.index)
             for key, excluded in exclude.items():
                 cols = [c for c in fdf.columns if c.lower() == key.lower()]
                 if cols:
                     col = cols[0]
                     excluded_list = excluded if isinstance(excluded, list) else [excluded]
-                    exclude_mask = exclude_mask & fdf[col].isin(excluded_list)
+                    exclude_mask = exclude_mask | fdf[col].isin(excluded_list)
             fdf = fdf[~exclude_mask]
         logger.debug("Processing %d images after filtering.", len(fdf))
         return fdf

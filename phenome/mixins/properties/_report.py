@@ -2,6 +2,8 @@
 DataFrame and report helpers for property computation.
 """
 
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -14,6 +16,9 @@ from ...core.dataframe_contract import (
 from ...core.pipeline_results import PhenoMeResults
 
 logger = get_logger(__name__)
+
+# Near-zero sample std: Z-scores and Welch p-values are undefined / unreliable.
+_NEAR_ZERO_STD = 1e-10
 
 
 def parse_grouped_stats_dataframe(
@@ -104,6 +109,34 @@ def compute_property_statistics(
         else:
             stats.update({f"{prop}_{s}": np.nan for s in ("mean", "std", "min", "max")})
     return stats
+
+
+def welch_ttest_pvalue(g_vals: np.ndarray, r_vals: np.ndarray) -> float:
+    """Welch two-sample t-test p-value, or NaN when the statistic is undefined.
+
+    SciPy warns (and can return spuriously significant p-values) when samples are
+    constant or nearly identical due to moment catastrophic cancellation. Skip the
+    test when both sides lack usable variance; otherwise silence that warning for
+    the one-sided near-constant case where Welch remains defined.
+    """
+    from scipy.stats import ttest_ind
+
+    g_arr = np.asarray(g_vals, dtype=float)
+    r_arr = np.asarray(r_vals, dtype=float)
+    if g_arr.size < 2 or r_arr.size < 2:
+        return float(np.nan)
+    g_std = float(np.std(g_arr, ddof=1))
+    r_std = float(np.std(r_arr, ddof=1))
+    if g_std < _NEAR_ZERO_STD and r_std < _NEAR_ZERO_STD:
+        return float(np.nan)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="Precision loss occurred in moment calculation",
+            category=RuntimeWarning,
+        )
+        _, p_val = ttest_ind(g_arr, r_arr, equal_var=False)
+    return float(p_val) if pd.notna(p_val) else float(np.nan)
 
 
 def tier_a_property_columns(df: pd.DataFrame) -> list[str]:

@@ -10,6 +10,52 @@ import os
 import posixpath
 from typing import Any
 
+# Only these suffixes are treated as file extensions when building match keys.
+# Other dots (e.g. ``my.image``, ``plate.A01.well``) stay part of the stem.
+_KNOWN_FILE_EXTENSIONS = frozenset(
+    {
+        ".tif",
+        ".tiff",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".bmp",
+        ".gif",
+        ".webp",
+        ".npy",
+        ".npz",
+        ".czi",
+        ".nd2",
+        ".nii",
+        ".hdf5",
+        ".h5",
+        # Common bioimaging / slide formats
+        ".lsm",
+        ".oib",
+        ".oif",
+        ".ims",
+        ".dv",
+        ".mrc",
+        ".st",
+        ".ndpi",
+        ".svs",
+        ".jp2",
+        ".fits",
+        ".dcm",
+        ".lif",
+        ".vsi",
+        ".flex",
+    }
+)
+# Gzip-compressed images: strip only ``.gz`` so stems stay disambiguated
+# (``file.nii.gz`` -> ``file.nii``, not ``file``, which would collide with ``file.tif``).
+# OME-TIFF (``*.ome.tif``) is handled by the normal ``.tif``/``.tiff`` strip, leaving ``*.ome``.
+_COMPRESSED_FILE_EXTENSIONS = (
+    ".nii.gz",
+    ".tiff.gz",
+    ".tif.gz",
+)
+
 
 def path_repr(fname: str | list[str] | tuple) -> str:
     """Stable string representation for checkpoint deduplication and file_df alignment.
@@ -53,13 +99,37 @@ def normalize_identifier_path(path: Any) -> str:
     return normalized
 
 
+def strip_known_extension(name: str) -> str:
+    """Strip a known image/file extension; leave other dots in the name intact.
+
+    ``my.image.tif`` -> ``my.image``; ``my.image`` stays ``my.image``.
+    ``sample.ome.tif`` -> ``sample.ome``; ``file.nii.gz`` -> ``file.nii``.
+    """
+    if not name:
+        return name
+    lower = name.lower()
+    for compressed in _COMPRESSED_FILE_EXTENSIONS:
+        if lower.endswith(compressed):
+            # Drop only the compression suffix (``.gz``).
+            return name[: -len(".gz")]
+    root, ext = posixpath.splitext(name)
+    if ext.lower() in _KNOWN_FILE_EXTENSIONS:
+        return root
+    return name
+
+
 def stem_identifier_path(path: Any) -> str:
-    """Return a normalized path identifier without the final extension."""
+    """Return a normalized path identifier without a known file extension.
+
+    Unlike ``os.path.splitext``, only recognized image/data extensions are
+    removed, so names that contain dots but no extension (e.g. ``my.image``)
+    are preserved.
+    """
     normalized = normalize_identifier_path(path)
     if not normalized:
         return ""
     parent = posixpath.dirname(normalized)
-    stem = posixpath.splitext(posixpath.basename(normalized))[0]
+    stem = strip_known_extension(posixpath.basename(normalized))
     return f"{parent}/{stem}" if parent else stem
 
 
@@ -68,6 +138,7 @@ def filename_identifier_keys(path: Any, root: str | None = None) -> list[str]:
 
     Keys prefer root-relative paths, then the provided value, then basename
     fallbacks. Absolute roots are used only in memory to derive relative keys.
+    Stem keys strip only known image/data extensions (not arbitrary suffixes).
     """
     raw = str(path).strip()
     if not raw:

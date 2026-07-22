@@ -159,8 +159,9 @@ Supports two modes:
 
 1. **Single file per sample** (default): Pass a single column name as
    `filename_column`. The dataframe must contain that column with image
-   filenames; both stems (e.g. ``'my_image'``) and full names with
-   extension (e.g. ``'my_image.tif'``) are accepted. Each row is one image.
+   filenames; both stems (e.g. ``'my_image'``, ``'my.image'``) and full
+   names with extension (e.g. ``'my_image.tif'``) are accepted. Each row
+   is one image.
 
 2. **Multiple channels in separate files**: Pass a list of column names
    in channel order, e.g. ``['ch0', 'ch1', 'ch2']``. Each column holds
@@ -183,8 +184,9 @@ filename column already identifies the image.
 - **`filename_column`**: Column name(s) for filenames. Single string (default
   ``"filename"``) for one image per row, or list of column names for
   multi-channel. Accepts filenames with or without extension. Only
-  the last dot is treated as the extension; internal dots (e.g. in
-  ``'plate.A01.well'``) are preserved.
+  known image/data extensions (e.g. ``.tif``, ``.png``) are stripped;
+  names that contain dots but no extension (e.g. ``'my.image'``,
+  ``'plate.A01.well'``) are preserved as-is.
 
 **Returns:**
 
@@ -222,6 +224,16 @@ filename column already identifies the image.
 >>> fn_ext = make_dataframe_metadata_fn(df_ext, filename_column='filename')
 >>> fn_ext('/data/img1.tif')['cond']
 'A'
+
+```
+
+**Example (filename with dots, no extension):**
+
+```python
+>>> df_dots = pd.DataFrame({'filename': ['my.image'], 'cond': ['A']})
+>>> fn_dots = make_dataframe_metadata_fn(df_dots)
+>>> fn_dots('/data/my.image.tif')['filename']
+'my.image'
 
 ```
 
@@ -334,6 +346,7 @@ Version configuration (Constants section):
     resize_size          str  attribute  ("none" when absent)
     pad_size             str  attribute  ("none" when absent)
     force_rgb            bool attribute
+    l2_normalize_channels bool attribute — default True when absent (legacy)
     channels             (C,) int8 dataset — absent when all channels used
 
 Root attributes
@@ -351,6 +364,7 @@ Root attributes
         intensity  = f["properties/intensity_mean_ch0"][:]  # float32 array
         embeddings = f["embeddings"][:]             # (N, D) float32
         channel_mode = f["config"].attrs["channel_mode"]
+        l2_ch = f["config"].attrs.get("l2_normalize_channels", True)
 
 **Parameters:**
 
@@ -363,8 +377,8 @@ Root attributes
 - **`processing_params`** (`dict or None`):
   Pipeline parameters used to produce embeddings
   (``channel_mode``, ``channels``, ``resize_size``, ``pad_size``,
-  ``force_rgb``).  Stored in ``/config`` so that a resumed run can
-  verify the same settings are being used.
+  ``force_rgb``, ``l2_normalize_channels``).  Stored in ``/config`` so that
+  a resumed run can verify the same settings are being used.
 
 ### Other
 

@@ -10,6 +10,7 @@ from plotly.graph_objects import Figure
 from plotly.subplots import make_subplots
 
 from ..._logging import get_logger
+from ._helpers import BAR_ZERO_LINE_COLOR, BAR_ZERO_LINE_WIDTH
 
 logger = get_logger(__name__)
 
@@ -143,6 +144,7 @@ def _build_group_enrichment_figure(
             "cmin": -w_row,
             "cmax": w_row,
             "showscale": False,
+            "line": {"color": BAR_ZERO_LINE_COLOR, "width": BAR_ZERO_LINE_WIDTH},
         }
         fig.add_trace(
             go.Bar(
@@ -193,7 +195,14 @@ def _build_group_enrichment_figure(
     for r, s_display in enumerate(prepared, start=1):
         w_row = float(s_display.abs().max()) if len(s_display) else 1e-9
         w_row = w_row if w_row >= 1e-9 else 1e-9
-        fig.update_xaxes(range=[-w_row * 1.08, w_row * 1.08], row=r, col=1)
+        fig.update_xaxes(
+            range=[-w_row * 1.08, w_row * 1.08],
+            zeroline=True,
+            zerolinecolor=BAR_ZERO_LINE_COLOR,
+            zerolinewidth=BAR_ZERO_LINE_WIDTH,
+            row=r,
+            col=1,
+        )
     for r in range(1, n_grp):
         fig.update_xaxes(title_text="", row=r, col=1)
     fig.update_xaxes(title_text="Z-score (per row)", row=n_grp, col=1)
