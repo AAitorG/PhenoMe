@@ -79,7 +79,7 @@ def get_all_metadata_keys(results: PhenoMeResults) -> list[str]:
 
 
 def _row_matches_criteria(results: PhenoMeResults, idx: int, normalized: dict[str, Any]) -> bool:
-    """Return True if row at idx matches all criteria (for include or exclude)."""
+    """Return True if row at idx matches every criterion (include semantics)."""
     for key_lower, allowed in normalized.items():
         if allowed is None:
             continue
@@ -91,6 +91,26 @@ def _row_matches_criteria(results: PhenoMeResults, idx: int, normalized: dict[st
             if value != allowed:
                 return False
     return True
+
+
+def _row_matches_any_criterion(
+    results: PhenoMeResults, idx: int, normalized: dict[str, Any]
+) -> bool:
+    """Return True when a row matches at least one exclusion criterion.
+
+    Values belonging to one key are ORed (``drug in ["A", "B"]``), and
+    separate exclusion fields are also ORed.  This lets users incrementally add
+    independent exclusions without having to construct an impossible combined
+    row, such as ``drug=A`` *and* ``replicate=2``.
+    """
+    for key_lower, excluded in normalized.items():
+        if excluded is None:
+            continue
+        value = get_metadata_value(results, idx, key_lower)
+        excluded_values = excluded if isinstance(excluded, list) else [excluded]
+        if value in excluded_values:
+            return True
+    return False
 
 
 def filter_indices(
@@ -105,8 +125,9 @@ def filter_indices(
     structure but removes matching rows. Empty or None filters return all
     indices. Key matching is case-insensitive.
 
-    Order: apply filters first (include only matching), then remove rows
-    matching exclude.
+    Order: apply filters first (include only matching), then remove rows matching
+    any exclude criterion. Include fields are intersected (AND); exclude fields
+    are combined (OR), while values within a field are ORed in both cases.
 
     Args:
         results: PhenoMeResults or pipeline results dict with img_path and metadata.
@@ -115,7 +136,8 @@ def filter_indices(
             Example: {'condition': 'Control', 'time': ['24h', '48h']}.
         exclude: Optional dict mapping metadata keys to excluded value(s).
             Same format as filters (single value or list). Can be used together
-            with filters; applied after filters. Matching rows are removed.
+            with filters; applied after filters. A row matching *any* exclusion
+            field is removed.
             Example: {'condition': 'BadBatch', 'plate': 'P1'}.
 
     Returns:
@@ -158,7 +180,7 @@ def filter_indices(
             f"Exclude key(s) {unknown_ex} not found in metadata. Known keys: {sorted(known_keys)}",
             stacklevel=2,
         )
-    return [i for i in filtered if not _row_matches_criteria(results, i, normalized_exclude)]
+    return [i for i in filtered if not _row_matches_any_criterion(results, i, normalized_exclude)]
 
 
 def build_metadata_columns(

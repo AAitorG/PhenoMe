@@ -250,7 +250,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `reorder_tier_a_columns` | Place Tier-A id columns first, then metadata, then remaining columns. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `run_dimensionality_reduction` | Run dimensionality reduction using pipeline data and return DataFrame. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `run_dimensionality_reduction_matrix` | Run dimensionality reduction on a raw matrix (pure, no pipeline). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
-| `TIER_A_EXCLUDE_FROM_PROPERTIES` | frozenset() -> empty frozenset object | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `TIER_A_EXCLUDE_FROM_PROPERTIES` | Build an immutable unordered collection of unique elements. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `validate_results` | Check that pipeline results have consistent lengths across all arrays. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 
 ---

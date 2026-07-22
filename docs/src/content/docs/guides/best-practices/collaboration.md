@@ -54,7 +54,7 @@ files, and reproducibility of data lineage across machines.
 **What the checkpoint already provides.** The HDF5 from `save_results()`
 or `checkpoint_path` stores:
 
-- `processing_params` (`channel_mode`, `resize_size`, `pad_size`, `force_rgb`).
+- `processing_params` (`channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `l2_normalize_channels`).
 - `version` (format version).
 - Embeddings, metadata, properties.
 

@@ -226,6 +226,7 @@ PhenoMe.process_images(
     pad_size: int | None = None,
     checkpoint_path: str | None = None,
     force_rgb: bool = True,
+    l2_normalize_channels: bool = True,
     save_every: int = 5,
     lazy_checkpoint: bool = True,
     force_reprocess: bool = False
@@ -262,8 +263,8 @@ and checkpointing for resumable processing.
   reduced to 0 to avoid multiprocessing issues. Default: 4.
 - **`filters`** (`dict or None`): Include only rows matching criteria.
   Format: `{column: [value1, value2, ...]}`. Default: None (no filtering).
-- **`exclude`** (`dict or None`): Exclude rows matching criteria. Same format as `filters`.
-  Default: None.
+- **`exclude`** (`dict or None`): Exclude rows matching *any* criterion (OR across
+  fields). Same value format as `filters`. Default: None.
 - **`channel_mode`** (`str`): How to handle multi-channel images. One of:
   - 'split': Process each channel separately (default).
   - 'combined': Process all channels as RGB or grayscale.
@@ -284,6 +285,10 @@ and checkpointing for resumable processing.
   processing. If file exists, processing resumes from last checkpoint.
   If None, embeddings stored in-memory. Default: None.
 - **`force_rgb`** (`bool`): If True, convert grayscale to RGB before model. Default: True.
+- **`l2_normalize_channels`** (`bool`): In ``channel_mode='split'``, L2-normalize each
+  channel embedding before concatenation so channels contribute equally.
+  Set False to preserve raw channel magnitudes (one channel may dominate).
+  Ignored in combined mode. Default: True.
 - **`save_every`** (`int`): Save checkpoint every N batches (when using checkpoint_path).
   Default: 5.
 - **`lazy_checkpoint`** (`bool`): If True and checkpoint_path is set, enable lazy
@@ -362,6 +367,7 @@ PhenoMe.process_temporal_images(
     resize_size: int | None = None,
     pad_size: int | None = None,
     force_rgb: bool | None = None,
+    l2_normalize_channels: bool | None = None,
     extensions: list[str] | None = None
 ) -> None
 ```

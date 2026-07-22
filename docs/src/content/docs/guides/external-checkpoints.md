@@ -72,6 +72,21 @@ root level:
   - `[any]` (strings / floats) - drug, dose, condition, ...
 - `/properties/` (Group) - optional.
   - `[any]` (float32) - cell area, intensity, texture, ...
+- `/config/` (Group) - optional but recommended when embeddings were
+  produced with PhenoMe-compatible settings. Attributes only (no full
+  paths):
+
+  | Attribute / dataset | Type | Description |
+  |--------------------|------|-------------|
+  | `channel_mode` | str | `'split'` or `'combined'`. |
+  | `resize_size` | str | Square resize size, or `"none"`. |
+  | `pad_size` | str | Pad size, or `"none"`. |
+  | `force_rgb` | bool | Grayscale expanded to RGB. |
+  | `l2_normalize_channels` | bool | Split mode: L2 each channel before concat. Absent → treated as `True`. |
+  | `channels` | int dataset `(C,)` | Optional channel subset; omit if all channels. |
+
+  See [HDF5 database protocol](/PhenoMe/advanced/database_protocol/) for the
+  full `/config` contract.
 
 ## 3. Full example
 
@@ -116,6 +131,14 @@ with h5py.File("external_results.h5", "w") as f:
     props = f.create_group("properties")
     props.create_dataset("cell_area", data=cell_area)
 
+    # Optional: record how embeddings were produced (PhenoMe resume / reproducibility)
+    cfg = f.create_group("config")
+    cfg.attrs["channel_mode"] = "split"
+    cfg.attrs["resize_size"] = "224"
+    cfg.attrs["pad_size"] = "none"
+    cfg.attrs["force_rgb"] = True
+    cfg.attrs["l2_normalize_channels"] = True
+
 from phenome.pipeline import PhenoMe
 
 pipeline = PhenoMe()
@@ -139,6 +162,8 @@ with h5py.File("external_results.h5", "r") as f:
     print("embedding_dim     :", f.attrs["embedding_dim"])
     print("n_committed_props :", f.attrs["n_committed_props"])
     print("keys              :", list(f.keys()))
+    if "config" in f:
+        print("config attrs      :", dict(f["config"].attrs))
 ```
 
 ## 4. Common variants

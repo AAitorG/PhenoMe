@@ -26,25 +26,37 @@ class EmbeddingExtractor:
     (concatenate embeddings from each channel).
 
     In split mode, each channel embedding is L2-normalized before concatenation
-    so channels contribute equally. Use combined mode when channels should be
-    fused into a single model input instead.
+    by default so channels contribute equally. Set ``l2_normalize_channels=False``
+    to preserve raw channel magnitudes (one channel may then dominate). Use
+    combined mode when channels should be fused into a single model input instead.
     """
 
-    def __init__(self, model_wrapper: ModelWrapper, device: torch.device):
+    def __init__(
+        self,
+        model_wrapper: ModelWrapper,
+        device: torch.device,
+        *,
+        l2_normalize_channels: bool = True,
+    ):
         """Initialize the extractor.
 
         Args:
             model_wrapper: ModelWrapper instance for vision model feature extraction.
             device: Device to run inference on.
+            l2_normalize_channels: If True (default), L2-normalize each split-mode
+                channel embedding before concatenation.
         """
         self.model_wrapper = model_wrapper
         self.device = device
+        self.l2_normalize_channels = l2_normalize_channels
         self.model_wrapper.sync_device(device)
 
     def extract_batch(
         self,
         batch_tensor: torch.Tensor,
         items: tuple,
+        *,
+        l2_normalize_channels: bool | None = None,
     ) -> tuple[np.ndarray, list[str], list[dict]]:
         """Process one batch and return embeddings, paths, and metadata.
 
@@ -52,6 +64,8 @@ class EmbeddingExtractor:
             batch_tensor: torch.Tensor, shape (B, C, H, W) combined mode or
                 (B, N_ch, C, H, W) split mode (concatenate channel embeddings).
             items: Tuple of item dicts from dataset. Each dict has 'file_path', 'metadata'.
+            l2_normalize_channels: Override for split-mode per-channel L2. If None,
+                uses the extractor's ``l2_normalize_channels`` setting.
 
         Returns:
             Tuple of (embeddings, paths, metadata):
@@ -70,14 +84,20 @@ class EmbeddingExtractor:
                 [it.get("metadata", {}) for it in items],
             )
 
-        # Split mode: L2-normalize each channel embedding, then concatenate
+        do_l2 = (
+            self.l2_normalize_channels
+            if l2_normalize_channels is None
+            else bool(l2_normalize_channels)
+        )
+        # Split mode: optionally L2-normalize each channel embedding, then concatenate
         batch_sz, n_ch, _c, _h, _w = batch_tensor.shape
         per_img: list[list[np.ndarray]] = [[] for _ in range(batch_sz)]
 
         for ch in range(n_ch):
             flat = batch_tensor[:, ch].to(self.device, non_blocking=True)
             toks = self.model_wrapper.extract_embeddings(flat).float()
-            toks = torch.nn.functional.normalize(toks, dim=-1)
+            if do_l2:
+                toks = torch.nn.functional.normalize(toks, dim=-1)
             toks = toks.cpu().numpy()
             for i in range(batch_sz):
                 per_img[i].append(toks[i])
@@ -129,13 +149,21 @@ class EmbeddingExtractor:
         use_ckpt = checkpoint_path is not None
         batch_count = 0
         skipped_batches = 0
+        # Do not default to True here — that would override l2_normalize_channels=False.
+        l2_override: bool | None = None
+        if cur_params is not None and cur_params.get("l2_normalize_channels") is not None:
+            l2_override = bool(cur_params["l2_normalize_channels"])
 
         for batch_tensor, items in tqdm(dataloader, desc="Processing batches"):
             if batch_tensor is None:
                 skipped_batches += 1
                 continue
 
-            batch_embeddings, batch_paths, batch_meta = self.extract_batch(batch_tensor, items)
+            batch_embeddings, batch_paths, batch_meta = self.extract_batch(
+                batch_tensor,
+                items,
+                l2_normalize_channels=l2_override,
+            )
 
             if use_ckpt and checkpoint_path is not None:
                 if ckpt is None:

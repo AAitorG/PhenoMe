@@ -162,6 +162,7 @@ class CheckpointManager:
         resize_size          str  attribute  ("none" when absent)
         pad_size             str  attribute  ("none" when absent)
         force_rgb            bool attribute
+        l2_normalize_channels bool attribute — default True when absent (legacy)
         channels             (C,) int8 dataset — absent when all channels used
 
     Root attributes
@@ -180,6 +181,7 @@ class CheckpointManager:
             intensity  = f["properties/intensity_mean_ch0"][:]  # float32 array
             embeddings = f["embeddings"][:]             # (N, D) float32
             channel_mode = f["config"].attrs["channel_mode"]
+            l2_ch = f["config"].attrs.get("l2_normalize_channels", True)
 
     Parameters
     ----------
@@ -192,8 +194,8 @@ class CheckpointManager:
     processing_params : dict or None
         Pipeline parameters used to produce embeddings
         (``channel_mode``, ``channels``, ``resize_size``, ``pad_size``,
-        ``force_rgb``).  Stored in ``/config`` so that a resumed run can
-        verify the same settings are being used.
+        ``force_rgb``, ``l2_normalize_channels``).  Stored in ``/config`` so that
+        a resumed run can verify the same settings are being used.
     """
 
     FORMAT_VERSION = CHECKPOINT_FORMAT_VERSION  # Same as module constant; used when writing
@@ -204,6 +206,7 @@ class CheckpointManager:
         "resize_size",
         "pad_size",
         "force_rgb",
+        "l2_normalize_channels",
     )
 
     # Path-like keys never written to /config (safeguard if _PARAM_KEYS is extended).
@@ -328,6 +331,9 @@ class CheckpointManager:
                         params[key] = int(val)
                     else:
                         params[key] = val
+        # Older checkpoints omit this key; default matches current split-mode behavior.
+        if params and "l2_normalize_channels" not in params:
+            params["l2_normalize_channels"] = True
         return params if params else None
 
     def set_processing_params(self, params: dict[str, Any]) -> None:
@@ -374,6 +380,13 @@ class CheckpointManager:
         for key in self._PARAM_KEYS:
             sv = stored.get(key)
             cv = current_params.get(key)
+
+            # Legacy checkpoints omit this key; treat missing as the current default.
+            if key == "l2_normalize_channels":
+                if sv is None:
+                    sv = True
+                if cv is None:
+                    cv = True
 
             # Normalize sequence types for safe comparison
             if isinstance(sv, (list, tuple, np.ndarray)):
