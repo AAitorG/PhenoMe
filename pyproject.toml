@@ -56,21 +56,19 @@ dependencies = [
     "ipywidgets",
     "anywidget",
     "pillow",
-]
-
-[project.optional-dependencies]
-full = [
     "umap-learn==0.5.12",
-    "dcor==0.7",
-    "pykeops==2.3; sys_platform != 'win32'",
-    "torchdr>=0.1,<0.5",
     "nibabel>=5.2.0,<6",
-]
-notebook = [
+    "dcor==0.7",
     "ipykernel>=6.29",
     "jupyterlab>=4.0",
     "jupyterlab_widgets>=3.0",
     "nbformat>=5.9",
+]
+
+[project.optional-dependencies]
+full = [
+    "pykeops==2.3; sys_platform != 'win32'",
+    "torchdr>=0.1,<0.5",
 ]
 dev = [
     "codespell>=2.4",
