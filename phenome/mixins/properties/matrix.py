@@ -3,6 +3,9 @@ Property matrix construction and NaN handling.
 
 Provides _get_property_matrix, _normalize_property_matrix, _handle_nan_matrix,
 and _detect_nan_properties. Used by PhenoMeProperties and PhenoMeAnalysis.
+
+``handle_nans`` modes: ``filter`` (drop rows), ``drop_columns`` (drop NaN
+properties), ``impute``, ``warn``, ``keep``.
 """
 
 from typing import Any, Literal
@@ -162,7 +165,7 @@ def get_property_matrix(
     indices: list[int] | None = None,
     property_keys: list[str] | None = None,
     normalize: bool = True,
-    handle_nans: Literal["filter", "impute", "warn"] = "filter",
+    handle_nans: Literal["filter", "impute", "warn", "keep", "drop_columns"] = "filter",
 ) -> tuple[np.ndarray, list[int], list[str], dict[str, Any] | None]:
     """Build property matrix from numeric properties.
 
@@ -173,6 +176,9 @@ def get_property_matrix(
         property_keys: Property keys to use. If None, auto-detects.
         normalize: Whether to normalize using StandardScaler.
         handle_nans: How to handle NaN values.
+            ``filter`` drops samples (rows) with any NaN.
+            ``drop_columns`` drops properties (columns) with any NaN and keeps samples.
+            ``impute`` / ``warn`` / ``keep`` leave sample count unchanged.
 
     Returns:
         Tuple of (matrix, valid_indices, used_keys, updated_cache).
@@ -205,10 +211,19 @@ def get_property_matrix(
     arrays = [extract_property_array(k) for k in keys]
     matrix = np.stack([arr[indices] for arr in arrays], axis=1).astype(np.float32)
 
+    # Drop NaN columns before normalize so the scaler matches the returned keys.
+    if handle_nans == "drop_columns":
+        matrix, indices, keys = handle_nan_matrix(matrix, indices, keys, handle_nans)
+        if matrix.size == 0 or matrix.shape[1] == 0:
+            return matrix.reshape(len(indices), 0), indices, keys, cache
+        if normalize:
+            matrix, cache = normalize_property_matrix(matrix, keys, results, cache)
+        return matrix, indices, keys, cache
+
     if normalize:
         matrix, cache = normalize_property_matrix(matrix, keys, results, cache)
 
-    matrix, valid_indices = handle_nan_matrix(matrix, indices, keys, handle_nans)
+    matrix, valid_indices, keys = handle_nan_matrix(matrix, indices, keys, handle_nans)
 
     return matrix, valid_indices, keys, cache
 
@@ -241,26 +256,45 @@ def normalize_property_matrix(
         all_arrays = [extract_array(k) for k in keys]
         all_matrix = np.stack([arr[all_indices] for arr in all_arrays], axis=1).astype(np.float32)
 
+        # Fit per-column on finite values so incomplete rows still contribute
+        # to each property's mean/scale (needed for handle_nans='keep'/pairwise).
+        n_features = all_matrix.shape[1]
+        means = np.zeros(n_features, dtype=np.float64)
+        scales = np.ones(n_features, dtype=np.float64)
+        vars_ = np.ones(n_features, dtype=np.float64)
+        zero_names: list[str] = []
+        for j in range(n_features):
+            col = all_matrix[:, j]
+            ok = np.isfinite(col)
+            if ok.sum() == 0:
+                continue
+            # Match StandardScaler (population std, ddof=0).
+            m = float(np.mean(col[ok]))
+            v = float(np.var(col[ok]))
+            s = float(np.sqrt(v)) if v > 0 else 0.0
+            means[j] = m
+            if s < 1e-12:
+                scales[j] = 1.0
+                vars_[j] = 1.0
+                zero_names.append(keys[j])
+            else:
+                scales[j] = s
+                vars_[j] = v
+
+        if zero_names:
+            logger.warning(
+                "Replacing %d zero-variance column(s) with scale=1 to avoid inf/NaN: %s",
+                len(zero_names),
+                zero_names[:10],
+            )
+
         scaler = StandardScaler()
-        non_nan_mask = ~np.isnan(all_matrix).any(axis=1)
-        if non_nan_mask.sum() > 0:
-            scaler.fit(all_matrix[non_nan_mask])
-            zero_var = scaler.var_ < 1e-12
-            if zero_var.any():
-                n_zero = int(zero_var.sum())
-                zero_names = [keys[i] for i in range(len(keys)) if zero_var[i]]
-                logger.warning(
-                    "Replacing %d zero-variance column(s) with scale=1 to avoid inf/NaN: %s",
-                    n_zero,
-                    zero_names[:10],
-                )
-                scaler.scale_[zero_var] = 1.0
-        else:
-            scaler.mean_ = np.zeros(all_matrix.shape[1], dtype=np.float32)
-            scaler.scale_ = np.ones(all_matrix.shape[1], dtype=np.float32)
-            scaler.var_ = np.ones(all_matrix.shape[1], dtype=np.float32)
-            scaler.n_features_in_ = all_matrix.shape[1]
-            scaler.feature_names_in_ = None
+        scaler.mean_ = means
+        scaler.scale_ = scales
+        scaler.var_ = vars_
+        scaler.n_features_in_ = n_features
+        scaler.feature_names_in_ = None
+        scaler.n_samples_seen_ = int(np.isfinite(all_matrix).any(axis=1).sum())
 
         cache = {
             "keys": tuple(keys),
@@ -270,11 +304,15 @@ def normalize_property_matrix(
 
     assert cache is not None, "cache must be set in cache_valid or above"
     scaler = cache["scaler"]
-    non_nan_mask = ~np.isnan(matrix).any(axis=1)
-    if non_nan_mask.sum() > 0:
-        matrix_normalized = matrix.copy()
-        matrix_normalized[non_nan_mask] = scaler.transform(matrix[non_nan_mask])
-        matrix = matrix_normalized
+    # Transform finite cells per column so rows with NaNs in other properties
+    # still receive z-scored values (pairwise-complete correlation under 'keep').
+    matrix_normalized = matrix.copy()
+    for j in range(matrix.shape[1]):
+        ok = np.isfinite(matrix[:, j])
+        if not ok.any():
+            continue
+        matrix_normalized[ok, j] = (matrix[ok, j] - scaler.mean_[j]) / scaler.scale_[j]
+    matrix = matrix_normalized
 
     return matrix, cache
 
@@ -283,15 +321,36 @@ def handle_nan_matrix(
     matrix: np.ndarray,
     indices: list[int],
     keys: list[str],
-    handle_nans: Literal["filter", "impute", "warn"],
-) -> tuple[np.ndarray, list[int]]:
-    """Handle NaN values in property matrix."""
-    has_nans = np.isnan(matrix).any()
+    handle_nans: Literal["filter", "impute", "warn", "keep", "drop_columns"],
+) -> tuple[np.ndarray, list[int], list[str]]:
+    """Handle NaN values in property matrix.
+
+    Returns:
+        Tuple of (matrix, valid_indices, used_keys). ``used_keys`` may shrink when
+        ``handle_nans='drop_columns'``.
+    """
+    has_nans = bool(np.isnan(matrix).any()) if matrix.size else False
     if not has_nans:
-        return matrix, indices
+        return matrix, indices, keys
 
     nan_counts = np.isnan(matrix).sum(axis=0)
     nan_props = {keys[i]: int(nan_counts[i]) for i in range(len(keys)) if nan_counts[i] > 0}
+
+    if handle_nans == "drop_columns":
+        col_ok = ~np.isnan(matrix).any(axis=0)
+        dropped = [keys[i] for i in range(len(keys)) if not col_ok[i]]
+        kept_keys = [keys[i] for i in range(len(keys)) if col_ok[i]]
+        matrix = matrix[:, col_ok] if matrix.ndim == 2 else matrix
+        if dropped:
+            logger.warning(
+                "Dropped %d properties with NaN values (kept %d samples, %d properties). "
+                "NaN counts: %s",
+                len(dropped),
+                len(indices),
+                len(kept_keys),
+                {k: nan_props[k] for k in dropped},
+            )
+        return matrix, indices, kept_keys
 
     if handle_nans == "filter":
         valid_mask = ~np.isnan(matrix).any(axis=1)
@@ -303,7 +362,7 @@ def handle_nan_matrix(
                 len(indices) - len(valid_indices),
                 nan_props,
             )
-        return matrix, valid_indices
+        return matrix, valid_indices, keys
 
     if handle_nans == "impute":
         matrix = np.nan_to_num(matrix, nan=0.0)
@@ -312,10 +371,13 @@ def handle_nan_matrix(
             "for missing-at-random data; consider 'filter' instead). NaN counts: %s",
             nan_props,
         )
-        return matrix, indices
+        return matrix, indices, keys
+
+    if handle_nans == "keep":
+        return matrix, indices, keys
 
     logger.warning(
         "Matrix contains NaN values. NaN counts: %s. May cause errors in ML algorithms.",
         nan_props,
     )
-    return matrix, indices
+    return matrix, indices, keys

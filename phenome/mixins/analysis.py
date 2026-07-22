@@ -429,14 +429,16 @@ class PhenoMeAnalysis:
 
         # Step 2: Property matrix for the same samples. Fold-wise StandardScaler in LASSO
         # handles normalization; skip global property scaling to avoid holdout leakage.
+        # Drop NaN properties (columns) rather than samples so sparse missing features
+        # (e.g. all-NaN blur metrics) do not wipe the whole cohort.
         matrix, prop_valid_indices, keys = self._get_property_matrix(  # type: ignore[attr-defined]
             indices=valid_indices,
             property_keys=property_keys,
             normalize=False,
-            handle_nans="filter",
+            handle_nans="drop_columns",
         )
 
-        if len(matrix) == 0:
+        if len(matrix) == 0 or matrix.shape[1] == 0 or not keys:
             logger.warning("No valid samples with properties for interpretability.")
             df = pd.DataFrame()
             return pack_df_meta_fig(df, {}, None, return_meta=return_meta, return_fig=return_fig)
@@ -896,17 +898,26 @@ class PhenoMeAnalysis:
 
             # We use the existing indices from the DataFrame to ensure alignment.
             indices = df["Index"].tolist()
-            # Normalize=True here uses the pipeline's internal StandardScaler cache.
-            # handle_nans='warn' because run_dimensionality_reduction already handled filters/NaNs.
+            # Keep NaNs for pairwise correlation (one summary below). DR may already
+            # have filtered the embedding matrix, but property columns can still miss values.
             norm_matrix, _, _ = self._get_property_matrix(  # type: ignore[attr-defined]
                 indices=indices,
                 property_keys=fetch_keys,
                 normalize=True,
-                handle_nans="warn",
+                handle_nans="keep",
             )
             # Update DataFrame with normalized values
             for idx, col in enumerate(prop_cols):
                 df[col] = norm_matrix[:, idx]
+
+        nan_counts = {
+            col: int(df[col].isna().sum()) for col in prop_cols if bool(df[col].isna().any())
+        }
+        if nan_counts:
+            logger.info(
+                "Properties with missing values (pairwise complete used for correlations): %s",
+                nan_counts,
+            )
 
         corr = compute_component_property_correlation_matrix(
             df,
@@ -1412,11 +1423,22 @@ class PhenoMeAnalysis:
                 indices=None,
                 property_keys=valid_prop_keys,
                 normalize=True,
-                handle_nans="warn",
+                handle_nans="keep",
             )
             # Update valid_props with normalized values
             for idx, key in enumerate(valid_prop_keys):
                 valid_props[key] = norm_matrix[:, idx]
+
+        nan_counts = {
+            key: int(np.isnan(arr).sum())
+            for key, arr in valid_props.items()
+            if bool(np.isnan(arr).any())
+        }
+        if nan_counts:
+            logger.info(
+                "Properties with missing values (pairwise complete used for correlations): %s",
+                nan_counts,
+            )
 
         corrs: dict[str, np.ndarray] = {}
 
