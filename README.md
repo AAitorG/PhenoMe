@@ -95,10 +95,6 @@ pip install -r envs/requirements-cpu.txt -e .
 
 ---
 
-## Author
-
-**Aitor González-Marfil** — [@AAitorG](https://github.com/AAitorG)
-
 ## 📜 Citation
 
 If you use PhenoMe in your research, please cite:
