@@ -27,6 +27,7 @@ from .io._path_utils import _resolve_results_hdf5_path
 from .io.checkpoint_alignment import (
     _build_unique_path_lookup,
     _lookup_unique_path_index,
+    build_metadata_key_index,
     filter_items_not_in_checkpoint,
     get_already_committed_metadata_keys,
     get_already_committed_paths,
@@ -1187,32 +1188,41 @@ class PhenoMe(
 
         return df
 
-    def load_results(
+    @staticmethod
+    def _checkpoint_has_embeddings(ckpt: CheckpointManager) -> bool:
+        """Return True if *ckpt* stores at least one embedding row."""
+        return bool((ckpt.embedding_dim or 0) > 0 and ckpt.n_committed > 0)
+
+    @staticmethod
+    def _checkpoint_has_property_content(ckpt: CheckpointManager) -> bool:
+        """Return True if *ckpt* stores real property columns/values.
+
+        ``n_committed_props > 0`` alone is insufficient: ``write_results_to_hdf5``
+        can set that counter for a list of empty ``{}`` rows and create an empty
+        ``/properties`` group.
+        """
+        if ckpt.n_committed_props <= 0:
+            return False
+        f = ckpt._file
+        if f is not None and "properties" in f:
+            prop_group = f["properties"]
+            if len(prop_group.keys()) > 0:
+                return True
+        props = ckpt.load_properties_all()
+        return any(isinstance(p, dict) and p for p in props)
+
+    def _open_results_checkpoint(
         self,
-        path: str | None = None,
+        path: str | None,
+        *,
+        method_name: str,
         lazy_checkpoint: bool = True,
-    ) -> None:
-        """Load and use an existing results/checkpoint file.
+    ) -> tuple[str, CheckpointManager]:
+        """Resolve and open a results HDF5 file without mutating pipeline state.
 
-        Metadata and properties are loaded immediately. Embeddings are either
-        loaded into RAM (lazy_checkpoint=False) or accessed on-demand from
-        disk (lazy_checkpoint=True).
-
-        Uses the internally stored file_df (from [find_files](pipeline.md#api-phenome-find_files) or
-        [set_file_df](pipeline.md#api-phenome-set_file_df)) to resolve paths so the checkpoint works on this
-        machine. Call find_files or set_file_df first.
-
-        Args:
-            path: Path to .h5 or .hdf5 file.
-            lazy_checkpoint: If True (default), keep the checkpoint file open.
-                If False, load all data into RAM and close the file.
-
-        Raises:
-            FileNotFoundError: If file does not exist.
-            ValueError: If file format is not recognised as HDF5.
-            RuntimeError: If file_df is not available (call find_files or set_file_df first).
-            ConcurrentCheckpointAccessError: If the checkpoint is already open in
-                another notebook or process (only one instance can access it at a time).
+        Validates ``file_df`` availability and file format, but does **not** close
+        ``self._db`` or update ``self._file_df``. Callers must validate content,
+        then call :meth:`_adopt_checkpoint_load` before setup.
         """
         filename = _resolve_results_hdf5_path(path)
         if not os.path.isfile(filename):
@@ -1222,28 +1232,37 @@ class PhenoMe(
         if fmt != "hdf5":
             raise ValueError(f"Unrecognised format for '{filename}'. Expected HDF5.")
 
-        file_df = self._require_file_df("load_results")
+        self._require_file_df(method_name)
+        ckpt = CheckpointManager(filename, lazy=lazy_checkpoint)
+        return filename, ckpt
 
-        if self._db is not None:
+    def _adopt_checkpoint_load(
+        self,
+        ckpt: CheckpointManager,
+        *,
+        method_name: str,
+    ) -> tuple[list[dict[str, Any]], set | None, set | None]:
+        """Adopt an opened checkpoint: close previous ``_db``, refresh file_df alignment.
+
+        Returns:
+            ``(current_requested_data, requested_paths, requested_meta_keys)``.
+        """
+        if self._db is not None and self._db is not ckpt:
             try:
                 self._db.close()
             except OSError as e:
                 logger.debug("Error closing checkpoint before load: %s", e)
             self._db = None
 
-        ckpt = CheckpointManager(filename, lazy=lazy_checkpoint)
         self._processing_params = ckpt.get_processing_params()
 
-        # Store for internal downstream use and initialize column metadata.
+        file_df = self._require_file_df(method_name)
         self._file_df = file_df.reset_index(drop=True).copy()
         self._init_file_df_metadata(self._file_df)
 
         current_requested_data = self._prepare_filtered_data(file_df)
-
-        # Derive requested_paths for path-based alignment
         requested_paths = {_path_repr(d["file_path"]) for d in current_requested_data}
 
-        # Derive stable metadata keys when possible for metadata-based alignment
         meta_keys_builder: set = set()
         requested_meta_keys: set | None = None
         for d in current_requested_data:
@@ -1257,22 +1276,17 @@ class PhenoMe(
         else:
             requested_meta_keys = meta_keys_builder
 
-        self._setup_lazy_results(
-            ckpt,
-            requested_paths=requested_paths,
-            requested_meta_keys=requested_meta_keys,
-            current_requested_data=current_requested_data,
-        )
+        return current_requested_data, requested_paths, requested_meta_keys
 
-        # Portability check: verify if the rebased paths actually exist
+    def _log_checkpoint_load(self, filename: str, ckpt: CheckpointManager) -> None:
+        """Emit the standard post-load summary for a checkpoint."""
         if self.results.n_images > 0:
-            sample_idx = 0
-            sample_path = self.results.primary_path(sample_idx)
+            sample_path = self.results.primary_path(0)
             if not os.path.exists(sample_path):
                 logger.warning(
                     "Image not found at: %s\n"
                     "If you moved the dataset, call find_files at the new location "
-                    "first, then load_results.",
+                    "first, then load_results / load_embeddings / load_properties.",
                     sample_path,
                 )
 
@@ -1288,24 +1302,336 @@ class PhenoMe(
         n_prop = len(prop_keys)
 
         n_emb = ckpt.n_committed
-        emb_dim = ckpt.embedding_dim
-        if n_emb > 0 and emb_dim:
-            loc = "lazy, on disk" if ckpt.lazy else "in RAM"
+        emb_dim = ckpt.embedding_dim or 0
+        # Props-only cold start closes the handle; n_committed then reads as 0.
+        if n_emb > 0 and emb_dim > 0:
+            loc = "lazy, on disk" if (ckpt.lazy and ckpt._file is not None) else "in RAM"
             emb_str = f", {emb_dim}-dim embeddings ({loc})"
         else:
             emb_str = ", no embeddings"
 
         logger.info(
-            "Loaded %d images from %s (%s)%s.\nContent: %d metadata keys %s, %d properties %s.",
+            "Loaded %d images from %s (hdf5)%s.\nContent: %d metadata keys %s, %d properties %s.",
             n_img,
             filename,
-            fmt,
             emb_str,
             n_meta,
             f"({', '.join(meta_keys[:5])}{'...' if n_meta > 5 else ''})",
             n_prop,
             f"({', '.join(prop_keys[:5])}{'...' if n_prop > 5 else ''})",
         )
+
+    def _overlay_properties_from_checkpoint(self, path: str | None) -> None:
+        """Align and overlay properties from *path* onto existing ``self.results``.
+
+        Does not replace an embeddings ``self._db`` when that handle points at a
+        different file. Properties and internal flags are loaded eagerly.
+        """
+        filename = _resolve_results_hdf5_path(path)
+        if not os.path.isfile(filename):
+            raise FileNotFoundError(f"Results file not found: {filename}")
+
+        fmt = CheckpointManager.detect_format(filename)
+        if fmt != "hdf5":
+            raise ValueError(f"Unrecognised format for '{filename}'. Expected HDF5.")
+
+        active_db = self._db
+        same_as_active = active_db is not None and os.path.abspath(
+            active_db.path
+        ) == os.path.abspath(filename)
+        if same_as_active:
+            assert active_db is not None
+            ckpt = active_db
+        else:
+            ckpt = CheckpointManager(filename, lazy=True)
+
+        try:
+            if not self._checkpoint_has_property_content(ckpt):
+                raise ValueError(
+                    f"Checkpoint '{filename}' has no property content "
+                    f"(n_committed_props={ckpt.n_committed_props}). Pass a properties "
+                    f"checkpoint from compute_properties(..., checkpoint_path=...)."
+                )
+
+            all_props = ckpt.load_properties_all()
+            all_internal = ckpt.load_internal_all()
+            ckpt_paths = ckpt.get_committed_paths_list()
+            ckpt_metadata = ckpt.get_committed_metadata_list()
+
+            image_paths = list(self.results.img_path)
+            image_metadata = (
+                list(self.results.metadata)
+                if self.results.metadata is not None
+                else [{} for _ in range(len(image_paths))]
+            )
+
+            filtered_props: list[dict[str, Any]] = []
+            filtered_internal: list[dict[str, Any]] = []
+            try:
+                id_to_idx = build_metadata_key_index(ckpt_metadata, on_duplicate="error")
+                for meta in image_metadata:
+                    key = metadata_to_stable_key(meta if isinstance(meta, dict) else {})
+                    idx = id_to_idx.get(key, -1)
+                    if 0 <= idx < len(all_props):
+                        filtered_props.append(dict(all_props[idx]))
+                        filtered_internal.append(
+                            dict(all_internal[idx]) if 0 <= idx < len(all_internal) else {}
+                        )
+                    else:
+                        filtered_props.append({})
+                        filtered_internal.append({})
+            except ValueError:
+                path_lookup = _build_unique_path_lookup(ckpt_paths)
+                filtered_props = []
+                filtered_internal = []
+                for p in image_paths:
+                    idx = _lookup_unique_path_index(path_lookup, p)
+                    if idx is not None and 0 <= idx < len(all_props):
+                        filtered_props.append(dict(all_props[idx]))
+                        filtered_internal.append(
+                            dict(all_internal[idx]) if 0 <= idx < len(all_internal) else {}
+                        )
+                    else:
+                        filtered_props.append({})
+                        filtered_internal.append({})
+
+            n = self.results.n_images
+            if len(filtered_props) < n:
+                filtered_props.extend([{} for _ in range(n - len(filtered_props))])
+            if len(filtered_internal) < n:
+                filtered_internal.extend([{} for _ in range(n - len(filtered_internal))])
+
+            n_matched = sum(1 for p in filtered_props[:n] if isinstance(p, dict) and p)
+            if n > 0 and n_matched == 0:
+                raise ValueError(
+                    f"No properties from '{filename}' matched the {n} loaded image(s). "
+                    f"Check that metadata ids (or paths) align with the embeddings "
+                    f"checkpoint / current file_df."
+                )
+            if n_matched < n:
+                logger.warning(
+                    "Properties from %s matched %d/%d images; unmatched rows get empty dicts.",
+                    filename,
+                    n_matched,
+                    n,
+                )
+
+            self.results.properties = filtered_props[:n]
+            self._ram_internal = filtered_internal[:n]
+
+            if self.results.has_properties:
+                self._warn_if_nan_properties()
+
+            prop_keys = (
+                sorted(next(p.keys() for p in filtered_props[:n] if isinstance(p, dict) and p))
+                if n_matched
+                else []
+            )
+            logger.info(
+                "Loaded properties from %s onto %d images (%d rows matched, %d property keys%s).",
+                filename,
+                n,
+                n_matched,
+                len(prop_keys),
+                f" ({', '.join(prop_keys[:5])}{'...' if len(prop_keys) > 5 else ''})"
+                if prop_keys
+                else "",
+            )
+        finally:
+            if not same_as_active:
+                try:
+                    ckpt.close()
+                except OSError as e:
+                    logger.debug("Error closing properties checkpoint after overlay: %s", e)
+
+    def load_results(
+        self,
+        path: str | None = None,
+        lazy_checkpoint: bool = True,
+    ) -> None:
+        """Load and use an existing results/checkpoint file.
+
+        Metadata and properties are loaded immediately. Embeddings are either
+        loaded into RAM (lazy_checkpoint=False) or accessed on-demand from
+        disk (lazy_checkpoint=True).
+
+        Uses the internally stored file_df (from [find_files](pipeline.md#api-phenome-find_files) or
+        [set_file_df](pipeline.md#api-phenome-set_file_df)) to resolve paths so the checkpoint works on this
+        machine. Call find_files or set_file_df first.
+
+        For separate embeddings and properties checkpoints, prefer
+        [load_embeddings](pipeline.md#api-phenome-load_embeddings) then
+        [load_properties](pipeline.md#api-phenome-load_properties).
+
+        Args:
+            path: Path to .h5 or .hdf5 file.
+            lazy_checkpoint: If True (default), keep the checkpoint file open.
+                If False, load all data into RAM and close the file.
+
+        Raises:
+            FileNotFoundError: If file does not exist.
+            ValueError: If file format is not recognised as HDF5.
+            RuntimeError: If file_df is not available (call find_files or set_file_df first).
+            ConcurrentCheckpointAccessError: If the checkpoint is already open in
+                another notebook or process (only one instance can access it at a time).
+        """
+        filename, ckpt = self._open_results_checkpoint(
+            path,
+            method_name="load_results",
+            lazy_checkpoint=lazy_checkpoint,
+        )
+        try:
+            current_requested_data, requested_paths, requested_meta_keys = (
+                self._adopt_checkpoint_load(ckpt, method_name="load_results")
+            )
+            self._setup_lazy_results(
+                ckpt,
+                requested_paths=requested_paths,
+                requested_meta_keys=requested_meta_keys,
+                current_requested_data=current_requested_data,
+            )
+            self._log_checkpoint_load(filename, ckpt)
+        except Exception:
+            if self._db is not ckpt:
+                with contextlib.suppress(OSError):
+                    ckpt.close()
+            raise
+
+    def load_embeddings(
+        self,
+        path: str | None = None,
+        lazy_checkpoint: bool = True,
+    ) -> None:
+        """Load an embeddings checkpoint into the pipeline.
+
+        Same path/file_df rebase flow as [load_results](pipeline.md#api-phenome-load_results),
+        but requires the file to contain embeddings. Sets ``self._db`` for lazy
+        ``get_embeddings()`` access when ``lazy_checkpoint=True``.
+
+        Typical two-file workflow::
+
+            pheno.find_files(data_dir)
+            pheno.load_embeddings("run_embeddings.h5")
+            pheno.load_properties("run_properties.h5")
+
+        Args:
+            path: Path to .h5 or .hdf5 embeddings checkpoint.
+            lazy_checkpoint: If True (default), keep the checkpoint file open.
+                If False, load all data into RAM and close the file.
+
+        Raises:
+            FileNotFoundError: If file does not exist.
+            ValueError: If file format is not recognised as HDF5, or the
+                checkpoint has no embeddings.
+            RuntimeError: If file_df is not available (call find_files or set_file_df first).
+            ConcurrentCheckpointAccessError: If the checkpoint is already open in
+                another notebook or process (only one instance can access it at a time).
+        """
+        filename, ckpt = self._open_results_checkpoint(
+            path,
+            method_name="load_embeddings",
+            lazy_checkpoint=lazy_checkpoint,
+        )
+        try:
+            if not self._checkpoint_has_embeddings(ckpt):
+                raise ValueError(
+                    f"Checkpoint '{filename}' has no embeddings "
+                    f"(embedding_dim={ckpt.embedding_dim or 0}, "
+                    f"n_committed={ckpt.n_committed}). "
+                    f"Pass an embeddings checkpoint from process_images(..., checkpoint_path=...)."
+                )
+
+            current_requested_data, requested_paths, requested_meta_keys = (
+                self._adopt_checkpoint_load(ckpt, method_name="load_embeddings")
+            )
+            self._setup_lazy_results(
+                ckpt,
+                requested_paths=requested_paths,
+                requested_meta_keys=requested_meta_keys,
+                current_requested_data=current_requested_data,
+            )
+            self._log_checkpoint_load(filename, ckpt)
+        except Exception:
+            if self._db is not ckpt:
+                with contextlib.suppress(OSError):
+                    ckpt.close()
+            raise
+
+    def load_properties(
+        self,
+        path: str | None = None,
+        lazy_checkpoint: bool = True,
+    ) -> None:
+        """Load a properties checkpoint into the pipeline.
+
+        When results already contain images (e.g. after
+        [load_embeddings](pipeline.md#api-phenome-load_embeddings) or
+        ``process_images``), properties are aligned by metadata key then path
+        and overlaid onto the existing rows without replacing an embeddings
+        ``self._db`` from a different file.
+
+        When no results are loaded yet, performs a full checkpoint setup like
+        [load_results](pipeline.md#api-phenome-load_results). For a
+        properties-only file, the HDF5 handle is closed after load (properties
+        are eager); ``self._db`` is kept only if that file also has embeddings.
+
+        Args:
+            path: Path to .h5 or .hdf5 properties checkpoint.
+            lazy_checkpoint: Used on cold start only. If True (default), keep
+                the file open when it also stores embeddings. Ignored when
+                overlaying onto existing results.
+
+        Raises:
+            FileNotFoundError: If file does not exist.
+            ValueError: If file format is not recognised as HDF5, or the
+                checkpoint has no property content, or overlay matches no rows.
+            RuntimeError: On cold start, if file_df is not available
+                (call find_files or set_file_df first).
+            ConcurrentCheckpointAccessError: If the checkpoint is already open in
+                another notebook or process (only one instance can access it at a time).
+        """
+        if self.results.n_images > 0:
+            self._overlay_properties_from_checkpoint(path)
+            return
+
+        filename, ckpt = self._open_results_checkpoint(
+            path,
+            method_name="load_properties",
+            lazy_checkpoint=lazy_checkpoint,
+        )
+        try:
+            if not self._checkpoint_has_property_content(ckpt):
+                raise ValueError(
+                    f"Checkpoint '{filename}' has no property content "
+                    f"(n_committed_props={ckpt.n_committed_props}). Pass a properties "
+                    f"checkpoint from compute_properties(..., checkpoint_path=...)."
+                )
+
+            current_requested_data, requested_paths, requested_meta_keys = (
+                self._adopt_checkpoint_load(ckpt, method_name="load_properties")
+            )
+            self._setup_lazy_results(
+                ckpt,
+                requested_paths=requested_paths,
+                requested_meta_keys=requested_meta_keys,
+                current_requested_data=current_requested_data,
+            )
+
+            if not self._checkpoint_has_embeddings(ckpt):
+                # Properties are already in results; no need to keep a props-only handle.
+                try:
+                    ckpt.close()
+                except OSError as e:
+                    logger.debug("Error closing properties-only checkpoint: %s", e)
+                self._db = None
+                self._db_indices = None
+
+            self._log_checkpoint_load(filename, ckpt)
+        except Exception:
+            if self._db is not ckpt:
+                with contextlib.suppress(OSError):
+                    ckpt.close()
+            raise
 
     @contextmanager
     def checkpoint_context(

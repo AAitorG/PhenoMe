@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [1.3.0] – 2026-06
 
+### Added
+
+- `PhenoMe.load_embeddings()` and `PhenoMe.load_properties()` – load separate embeddings and properties HDF5 checkpoints into one pipeline (e.g. `*_embeddings.h5` then `*_properties.h5`)
+
 ### Changed
 
 - **Breaking:** `PhenoMeResults` is attribute-only (`results.embeddings`, `results.img_path`, …); dict-style `__getitem__`, `get`, `keys`, etc. removed

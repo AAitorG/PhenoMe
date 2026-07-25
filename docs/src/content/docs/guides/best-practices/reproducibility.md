@@ -68,7 +68,9 @@ pheno.export_experiment_config(
 
 When loading: call `find_files` first, then
 `pheno.load_results("results.h5")`. The framework restores
-configuration and resolves paths automatically.
+configuration and resolves paths automatically. If embeddings and
+properties are in separate files, use `pheno.load_embeddings(...)`
+then `pheno.load_properties(...)` instead.
 
 ## Version control
 
