@@ -149,6 +149,24 @@ print(f"Loaded {pipeline.results.n_images} images.")
 pipeline.plot_tsne(color_by="drug")
 ```
 
+### Separate embeddings and properties files
+
+When embeddings and properties live in two checkpoints (common after
+`process_images(..., checkpoint_path="..._embeddings.h5")` and
+`compute_properties(..., checkpoint_path="..._properties.h5")`), load them
+in sequence:
+
+```python
+pipeline = PhenoMe()
+pipeline.find_files(DATA_DIR)
+pipeline.load_embeddings("run_embeddings.h5")
+pipeline.load_properties("run_properties.h5")
+```
+
+`load_properties` overlays properties onto the rows established by
+`load_embeddings` and keeps the embeddings file open for lazy
+`get_embeddings()` access.
+
 ### Verify the file
 
 Quick sanity check before you open it in PhenoMe:
