@@ -31,6 +31,8 @@ from ._workers import (
     _should_call_property_function,
     collect_property_names_for_stacks,
     compute_properties_worker,
+    format_channel_property_name,
+    validate_channel_names,
 )
 
 if TYPE_CHECKING:
@@ -154,6 +156,7 @@ def infer_expected_property_keys(
     property_functions: dict[str, list[Callable]],
     image_paths: list[str | list[str]],
     mask_paths: list[str | None],
+    channel_names: list[str] | None = None,
 ) -> set[str]:
     """Infer property column names using the first image/mask."""
     if not image_paths:
@@ -167,7 +170,9 @@ def infer_expected_property_keys(
     img_stack, mask_stack = _load_image_and_mask_stacks(
         img0, mask0, any_requires_image, any_requires_mask, property_functions
     )
-    return collect_property_names_for_stacks(img_stack, mask_stack, property_functions)
+    return collect_property_names_for_stacks(
+        img_stack, mask_stack, property_functions, channel_names=channel_names
+    )
 
 
 def checkpoint_rows_align_for_property_save(
@@ -327,6 +332,7 @@ def compute_properties_for_channel(
     n_channels: int,
     start_ch: int = 0,
     mask_properties_computed: set | None = None,
+    channel_names: list[str] | None = None,
 ) -> tuple[set, set, set]:
     """Compute properties for one channel, populating feature_buffers."""
     has_img_fn = any(r in ("image", "both") for r in property_functions)
@@ -396,7 +402,7 @@ def compute_properties_for_channel(
                         continue
                     mask_properties_computed.add(name)
                 else:
-                    name = f"{bname}_ch{ch}" if n_channels > 1 else bname
+                    name = format_channel_property_name(bname, ch, n_channels, channel_names)
 
                 if name not in feature_buffers:
                     feature_buffers[name] = [np.nan] * img_idx
@@ -608,6 +614,7 @@ def process_all_images(
     | None,
     n_jobs: int = 1,
     expected_property_keys: set[str] | None = None,
+    channel_names: list[str] | None = None,
 ) -> tuple[set, dict[str, list[float]], int, list[dict[str, Any]]]:
     """Process all images and compute properties."""
     any_requires_image = any(r in ("image", "both", "any") for r in property_functions)
@@ -658,6 +665,7 @@ def process_all_images(
                             property_functions,
                             any_requires_image,
                             any_requires_mask,
+                            channel_names,
                         )
                         for buf_idx, img_path, mask_path in batch_tasks
                     )
@@ -710,6 +718,7 @@ def process_all_images(
             n_mask_ch = 0 if mask_stack is None else mask_stack.shape[-1]
             start_ch, end_ch = _determine_channel_range(property_functions, n_img_ch, n_mask_ch)
             n_channels = end_ch - start_ch
+            validate_channel_names(channel_names, n_channels)
 
             all_computed: set = set()
             mask_props_done: set = set()
@@ -726,6 +735,7 @@ def process_all_images(
                     n_channels,
                     start_ch=start_ch,
                     mask_properties_computed=mask_props_done,
+                    channel_names=channel_names,
                 )
                 all_computed.update(computed)
 

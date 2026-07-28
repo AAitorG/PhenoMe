@@ -10,6 +10,7 @@ from sklearn.decomposition import PCA
 
 from ...core import get_metadata_value_from_dict
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
+from ...utils.display_names import capitalize_preserve
 from .._components import (
     generate_cluster_badge,
     generate_image_gallery,
@@ -295,8 +296,8 @@ def _generate_cluster_composition(
     )
 
     fig.update_layout(
-        title=f"Cluster Composition by {color_by.capitalize()}",
-        xaxis_title=color_by.capitalize(),
+        title=f"Cluster Composition by {capitalize_preserve(color_by)}",
+        xaxis_title=capitalize_preserve(color_by),
         yaxis_title="Cluster",
     )
     apply_dark_theme(fig)
@@ -340,7 +341,8 @@ def _generate_group_enrichment(
             direction = "High" if row["score"] > 0 else "Low"
             color = "#10b981" if row["score"] > 0 else "#ef4444"
             features_html.append(
-                f'<span style="color: {color};">{direction} {row["property"]} '
+                f'<span style="color: {color};">{direction} '
+                f"{capitalize_preserve(str(row['property']))} "
                 f"(Z: {row['score']:.2f})</span>"
             )
 

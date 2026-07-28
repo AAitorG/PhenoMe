@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from .._logging import get_logger
+from ..utils.display_names import capitalize_preserve
 from .pipeline_results import PhenoMeResults
 
 logger = get_logger(__name__)
@@ -194,7 +195,9 @@ def build_metadata_columns(
     Args:
         results: PhenoMeResults instance.
         indices: Optional list of image indices. If None, uses all images.
-        capitalize: Whether to capitalize column names.
+        capitalize: Whether to capitalize column names (first character only;
+            preserves the rest of the key, e.g. channel labels). Uses the
+            stored key spelling when resolving *keys* case-insensitively.
         keys: Optional list of metadata keys to include. If None, uses all keys.
 
     Returns:
@@ -203,12 +206,20 @@ def build_metadata_columns(
     img_paths = _img_path_list(results)
     n_images = len(img_paths)
     indices = indices if indices is not None else list(range(n_images))
-    all_keys = get_all_metadata_keys(results) if keys is None else keys
+    known_keys = get_all_metadata_keys(results)
+    known_by_lower = {str(k).lower(): k for k in known_keys}
+    if keys is None:
+        resolved_keys = list(known_keys)
+    else:
+        resolved_keys = []
+        for key in keys:
+            resolved = known_by_lower.get(str(key).lower(), key)
+            resolved_keys.append(resolved)
     metadata_list = _metadata_list(results)
 
     columns: dict[str, list[Any]] = {}
-    for key in all_keys:
-        col_key = key.capitalize() if capitalize else key
+    for key in resolved_keys:
+        col_key = capitalize_preserve(str(key)) if capitalize else key
         columns[col_key] = [
             _get_value_case_insensitive(metadata_list[i], key)
             if i < len(metadata_list) and isinstance(metadata_list[i], dict)

@@ -161,6 +161,8 @@ class PhenoMe(
         self._image_path_col: str | None = None
         self._channel_path_cols: list[str] | None = None
         self._mask_path_col: str | None = None
+        # Optional semantic labels for image channels (order = channel axis / file_path list).
+        self._channel_names: list[str] | None = None
 
         self.seed: int | None = seed
         self.use_gpu_for_dr: bool = use_gpu_for_dr
@@ -221,6 +223,7 @@ class PhenoMe(
             self._image_path_col = None
             self._channel_path_cols = None
             self._mask_path_col = None
+            self._channel_names = None
         self._batch_correction_applied = False
         self._batch_correction_last_info = None
 
@@ -376,7 +379,11 @@ class PhenoMe(
     # File discovery
     # ------------------------------------------------------------------
 
-    def set_file_df(self, file_df: pd.DataFrame) -> pd.DataFrame:
+    def set_file_df(
+        self,
+        file_df: pd.DataFrame,
+        channel_names: list[str] | None = None,
+    ) -> pd.DataFrame:
         """Set the internal file DataFrame used for processing.
 
         Validates that file_df has a 'file_path' column and optionally 'mask_path'.
@@ -386,6 +393,11 @@ class PhenoMe(
         Args:
             file_df: DataFrame with 'file_path' column (str or list of str per row).
                 May include 'mask_path' and metadata columns.
+            channel_names: Optional labels for image channels, in channel-axis order
+                (same order as list entries in ``file_path`` for multi-file samples).
+                When set, multi-channel property columns use these labels as suffixes
+                (e.g. ``intensity_entropy_DAPI`` instead of ``intensity_entropy_ch0``).
+                Default: None (integer ``_ch{idx}`` suffixes).
 
         Returns:
             The normalized DataFrame that was stored.
@@ -393,6 +405,7 @@ class PhenoMe(
         self._validate_process_images_inputs(file_df)
         self._file_df = file_df.reset_index(drop=True).copy()
         self._init_file_df_metadata(self._file_df)
+        self._channel_names = self._normalize_channel_names(channel_names)
         return self._file_df
 
     def find_files(
@@ -404,6 +417,7 @@ class PhenoMe(
         on_missing_metadata: str = "drop",
         mask_filename_column: str | None = None,
         mask_extensions: list[str] | None = None,
+        channel_names: list[str] | None = None,
     ) -> pd.DataFrame:
         """Discover image and mask files from directories, extract metadata, and cache internally.
 
@@ -435,6 +449,13 @@ class PhenoMe(
                 Default: None (standard alignment logic).
             mask_extensions (list of str or None): Extensions to try when exact mask filename
                 fails (e.g., [".png", ".tif"]). Default: None (exact filename required).
+            channel_names (list of str or None): Optional labels for image channels, in
+                channel-axis order (same order as list entries in ``file_path`` for
+                multi-file samples). When set, multi-channel property columns use these
+                labels as suffixes (e.g. ``intensity_entropy_DAPI`` instead of
+                ``intensity_entropy_ch0``). Names must be non-empty, unique
+                (case-insensitive), and contain no whitespace. Default: None
+                (integer ``_ch{idx}`` suffixes).
 
         Returns:
             pd.DataFrame: File discovery DataFrame with columns:
@@ -445,7 +466,8 @@ class PhenoMe(
 
         Raises:
             FileNotFoundError: If `image_dir` does not exist.
-            ValueError: If all files are dropped due to `on_missing_metadata='drop'`.
+            ValueError: If all files are dropped due to `on_missing_metadata='drop'`,
+                or if `channel_names` is invalid.
             RuntimeError: If metadata extraction fails or masks cannot be resolved.
 
         Example:
@@ -470,6 +492,13 @@ class PhenoMe(
             >>> print(df.columns)
             Index(['file_path', 'mask_path'], dtype='object')
 
+            Named channels for property suffixes:
+
+            >>> df = pm.find_files(
+            ...     "data/images/",
+            ...     channel_names=["DAPI", "GFP"],
+            ... )
+
         See Also:
             `set_file_df`: Manually provide a file DataFrame.
             `process_images`: Process discovered images.
@@ -490,9 +519,11 @@ class PhenoMe(
         if isinstance(df, pd.DataFrame) and not df.empty and "file_path" in df.columns:
             self._file_df = df.reset_index(drop=True).copy()
             self._init_file_df_metadata(self._file_df)
+            self._channel_names = self._normalize_channel_names(channel_names)
         elif isinstance(df, pd.DataFrame) and df.empty:
             logger.warning("find_files returned an empty DataFrame; clearing previous _file_df.")
             self._file_df = None
+            self._channel_names = None
         return df
 
     # ------------------------------------------------------------------
@@ -1806,6 +1837,39 @@ class PhenoMe(
     # ------------------------------------------------------------------
     # Internal file_df helpers
     # ------------------------------------------------------------------
+
+    def _normalize_channel_names(self, channel_names: list[str] | None) -> list[str] | None:
+        """Validate and copy optional channel labels for property suffixes.
+
+        Names must be non-empty, unique (case-insensitive), and contain no
+        whitespace. Length is checked later in ``compute_properties`` against
+        the loaded channel count.
+        """
+        if channel_names is None:
+            return None
+        if not isinstance(channel_names, (list, tuple)):
+            raise ValueError(
+                f"channel_names must be a list of strings or None, got {type(channel_names)}."
+            )
+        if len(channel_names) == 0:
+            raise ValueError("channel_names must be non-empty when provided.")
+        normalized: list[str] = []
+        seen_lower: set[str] = set()
+        for i, name in enumerate(channel_names):
+            if not isinstance(name, str):
+                raise ValueError(f"channel_names[{i}] must be a str, got {type(name)}.")
+            if not name or name != name.strip() or any(c.isspace() for c in name):
+                raise ValueError(
+                    f"channel_names[{i}]={name!r} must be a non-empty string with no whitespace."
+                )
+            key = name.lower()
+            if key in seen_lower:
+                raise ValueError(
+                    f"channel_names must be unique (case-insensitive); duplicate {name!r}."
+                )
+            seen_lower.add(key)
+            normalized.append(name)
+        return normalized
 
     def _init_file_df_metadata(self, file_df: pd.DataFrame) -> None:
         """Initialize cached column names for image and mask paths from file_df.

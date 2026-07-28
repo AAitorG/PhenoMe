@@ -145,8 +145,10 @@ class PhenoMeProperties:
         Args:
             group_by: Metadata columns to group by. If None, auto-selects first 2.
             properties: Property columns to include in aggregation. If None, auto-detects numeric.
+                Matching is case-insensitive; names must be unique ignoring case.
             print_table: If True, log a formatted mean±std table.
             print_properties: Subset of properties to show in the table. If None, shows all.
+                Matching is case-insensitive; names must be unique ignoring case.
             group_column_width_max: Maximum width for each grouping column when printing.
             content_col_width_max: Maximum width for each property statistic column when printing.
 
@@ -195,6 +197,7 @@ class PhenoMeProperties:
             reference_group: Dict mapping grouping column names to values (e.g. {"drug": "Control", "time": "60_min"}).
             k: Number of top properties per group.
             properties: Property names to consider. If None, uses all in DataFrame.
+                Matching is case-insensitive; names must be unique ignoring case.
             metric: 'cohens_d' (effect size) or 'mean_diff' (absolute mean difference).
             print_output: If True, pretty-print the results.
             group_column_width_max: Maximum width for each grouping column in the printed table.
@@ -250,7 +253,8 @@ class PhenoMeProperties:
 
         Each function receives a 2D image slice and/or mask slice and returns
         a dict[str, float]. When multiple channels exist, properties are
-        suffixed with ``_ch{idx}``.
+        suffixed with ``_ch{idx}``, or with labels from ``find_files`` /
+        ``set_file_df`` ``channel_names`` when provided (e.g. ``_DAPI``).
 
         Use ``property_preset`` for built-in property sets and
         ``additional_property_functions`` to add custom functions on top
@@ -324,8 +328,10 @@ class PhenoMeProperties:
             metadata_config=metadata_config or getattr(self, "_metadata_config", None),
         )
 
+        channel_names = getattr(self, "_channel_names", None)
+
         expected_property_keys = _compute.infer_expected_property_keys(
-            property_functions, image_paths, mask_paths
+            property_functions, image_paths, mask_paths, channel_names=channel_names
         )
 
         if force_update and not checkpoint_path:
@@ -396,6 +402,7 @@ class PhenoMeProperties:
                 path_alignment,
                 n_jobs,
                 expected_property_keys=expected_property_keys,
+                channel_names=channel_names,
             )
         )
 

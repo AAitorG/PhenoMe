@@ -12,6 +12,7 @@ from PIL import Image
 
 from ..._logging import get_logger
 from ...io import ensure_hwc, read_image
+from ...utils.display_names import capitalize_preserve
 from ...utils.transforms import scale_minmax
 from ._helpers import format_property_value as _format_property_value
 
@@ -86,10 +87,10 @@ class _ImageDisplayMixin:
                 return ("Distance", distance)
             for meta_key, meta_value in metadata.items():
                 if meta_key.lower() == field_lower:
-                    return (meta_key.capitalize(), meta_value)
+                    return (capitalize_preserve(meta_key), meta_value)
             for prop_key, prop_value in mask_properties.items():
                 if prop_key.lower() == field_lower:
-                    return (prop_key.capitalize(), prop_value)
+                    return (capitalize_preserve(prop_key), prop_value)
             return None
 
         if title_fields is not None:
@@ -150,7 +151,7 @@ class _ImageDisplayMixin:
         if metadata_info:
             lines.append("  Metadata:")
             for key, value in sorted(metadata_info.items()):
-                lines.append(f"    {key.capitalize()}: {value}")
+                lines.append(f"    {capitalize_preserve(key)}: {value}")
         if distance_info:
             if "distance" in distance_info:
                 lines.append(f"  Distance: {distance_info['distance']:.4f}")
@@ -160,12 +161,11 @@ class _ImageDisplayMixin:
             lines.append(f"{'-' * 50}")
             lines.append("  Properties:")
             for prop_name, prop_value in sorted(properties_info.items()):
+                label = capitalize_preserve(prop_name)
                 if isinstance(prop_value, (int, float, np.integer, np.floating)):
-                    lines.append(
-                        f"    {prop_name.capitalize():<30}: {_format_property_value(prop_value)}"
-                    )
+                    lines.append(f"    {label:<30}: {_format_property_value(prop_value)}")
                 else:
-                    lines.append(f"    {prop_name.capitalize():<30}: {prop_value}")
+                    lines.append(f"    {label:<30}: {prop_value}")
 
         lines.append(f"{'=' * 50}")
         return "\n".join(lines)

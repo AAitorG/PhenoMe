@@ -10,6 +10,7 @@ from plotly.graph_objects import Figure
 from plotly.subplots import make_subplots
 
 from ..._logging import get_logger
+from ...utils.display_names import capitalize_preserve
 from ._helpers import BAR_ZERO_LINE_COLOR, BAR_ZERO_LINE_WIDTH
 
 logger = get_logger(__name__)
@@ -39,7 +40,7 @@ def _log_group_enrichment_results(
     z_fmt = f"{{:+{num_w}.{fixed_decimals}f}}"
 
     # Column headers once (printed a single time above all groups)
-    props = enrichment_df["property"].astype(str)
+    props = enrichment_df["property"].astype(str).map(capitalize_preserve)
     prop_w = max(len("property"), int(props.str.len().max()))
     h1, h2, h3 = "Group_mean", "Z", "Pop_mean"
     w1 = max(len(h1), num_w)
@@ -75,7 +76,7 @@ def _log_group_enrichment_results(
             logger.info(
                 "  %-*s  %*s  %*s  %*s",
                 prop_w,
-                str(row["property"]),
+                capitalize_preserve(str(row["property"])),
                 w1,
                 fmt.format(gm),
                 w2,
@@ -149,7 +150,7 @@ def _build_group_enrichment_figure(
         fig.add_trace(
             go.Bar(
                 x=s_display.values,
-                y=s_display.index.astype(str),
+                y=[capitalize_preserve(str(lbl)) for lbl in s_display.index],
                 orientation="h",
                 marker=marker,
                 name=str(active[i - 1]),
@@ -162,7 +163,7 @@ def _build_group_enrichment_figure(
     width_px = int(figsize[0] * 100)
 
     max_label_chars = max(
-        (len(str(lbl)) for s in prepared for lbl in s.index.astype(str)),
+        (len(capitalize_preserve(str(lbl))) for s in prepared for lbl in s.index.astype(str)),
         default=8,
     )
     approx_char_px = 6.75

@@ -5,6 +5,11 @@ sidebar:
   order: 0
 ---
 
+## Available tools
+
+For a scannable capability map (formats, embeddings, DR, clustering, properties,
+distances, and more), see [Available tools](/PhenoMe/available-tools/).
+
 ## API reference
 
 The pages under [`advanced/api/`](/PhenoMe/advanced/api/pipeline/) are **auto-generated**

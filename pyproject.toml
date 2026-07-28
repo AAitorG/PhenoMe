@@ -45,6 +45,7 @@ dependencies = [
     "pandas",
     "matplotlib>=3.7",
     "plotly",
+    "kaleido",
     "scikit-learn",
     "joblib",
     "tqdm",

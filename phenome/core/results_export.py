@@ -71,7 +71,7 @@ def prepare_embedding_dataframe(
                     values.append(np.nan if val is None else val)
                 else:
                     values.append(np.nan)
-            df[k.capitalize()] = values
+            df[k] = values
 
     return df
 
