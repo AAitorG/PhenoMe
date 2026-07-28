@@ -140,6 +140,7 @@ export default defineConfig({
           collapsed: true,
           items: [
             { label: "Overview", link: "/advanced/" },
+            { label: "Available tools", link: "/available-tools/" },
             { label: "Function location", link: "/function-location-guide/" },
             {
               label: "API",
