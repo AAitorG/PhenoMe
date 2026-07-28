@@ -112,13 +112,20 @@ def contour_features(image2d, mask2d):
 
 For multi-channel images, property functions are called **once per
 channel**. The pipeline automatically suffixes property names with
-`_ch{idx}`. Single-channel images keep names unsuffixed.
+`_ch{idx}`. Pass `channel_names` to `find_files` or `set_file_df` to
+use semantic labels instead (e.g. `_DAPI`, `_GFP`). Single-channel
+images keep names unsuffixed.
 
 ```python
 def avg_intensity(image2d, mask2d):
     if image2d is None:
         return {}
     return {"avg_intensity": float(np.mean(image2d))}
+```
+
+```python
+pheno.find_files("images/", channel_names=["DAPI", "GFP"])
+# → avg_intensity_DAPI, avg_intensity_GFP after compute_properties
 ```
 
 ### Normalise per channel

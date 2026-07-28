@@ -12,6 +12,7 @@ import pandas as pd
 
 from ..._logging import get_logger
 from ...core.dataframe_contract import TIER_A_EXCLUDE_FROM_PROPERTIES
+from ...utils.display_names import capitalize_preserve
 from ._grouping_table import (
     _fit_width,
     _group_col_width_need,
@@ -19,6 +20,7 @@ from ._grouping_table import (
     _print_grouped_property_table,
     _top_eff_md_strings,
     _trunc_center,
+    match_names_case_insensitive,
 )
 from ._report import (
     _NEAR_ZERO_STD,
@@ -56,9 +58,11 @@ def property_stats_by_group(
         df: DataFrame with properties and metadata.
         group_by: Metadata columns to group by. If None, auto-selects first 2.
         properties: Property columns to include in aggregation. If None, auto-detects numeric.
+            Matching is case-insensitive; names must be unique ignoring case.
         print_table: If True, log a formatted mean±std table (after aggregating).
         print_properties: Subset of properties to show in the table. If None, shows all
             aggregated properties. (Aggregation still follows ``properties``.)
+            Matching is case-insensitive; names must be unique ignoring case.
         group_column_width_max: Maximum width for each grouping column when printing.
         content_col_width_max: Maximum width for each property statistic column when printing.
         available_property_keys: Optional list for validation warnings when printing.
@@ -85,6 +89,16 @@ def property_stats_by_group(
 
     if properties is None:
         properties = tier_a_property_columns(df)
+    else:
+        properties, unresolved = match_names_case_insensitive(
+            properties, [str(c) for c in df.columns]
+        )
+        if unresolved:
+            logger.warning(
+                "Properties not in DataFrame: %s. Available columns: %s",
+                unresolved,
+                list(df.columns),
+            )
 
     if not properties:
         logger.warning("No property columns found in DataFrame.")
@@ -162,14 +176,13 @@ def top_properties_different_from_reference(
 
     prop_names = sorted(property_stats.keys())
     if properties is not None:
-        invalid = [p for p in properties if p not in prop_names]
+        prop_names, invalid = match_names_case_insensitive(properties, prop_names)
         if invalid and available_property_keys is not None:
             logger.warning(
                 "Properties not in DataFrame: %s. Available: %s",
                 invalid,
                 available_property_keys,
             )
-        prop_names = [p for p in prop_names if p in properties]
 
     if not prop_names:
         return pd.DataFrame()
@@ -341,7 +354,7 @@ def print_top_properties_vs_reference(
     rw = _fit_width(max([len("Rank"), *r_lens]), 8, 4)
     pw_prop_need = max(
         len("Property"),
-        *(len(str(r.get("property", ""))) for _, r in result_df.iterrows()),
+        *(len(capitalize_preserve(str(r.get("property", "")))) for _, r in result_df.iterrows()),
     )
     pw_prop = _fit_width(pw_prop_need, top_property_col_width_max, 6)
     num_hdr = max(len(effect_col_header), len("Mean Diff"))
@@ -364,7 +377,7 @@ def print_top_properties_vs_reference(
     logger.info("%s", f"TOP {k} PROPERTIES DIFFERENT FROM REFERENCE: {ref_str}".center(tw))
     logger.info("%s", metric_banner.center(tw))
     logger.info("%s", "=" * tw)
-    parts = [f"{c.capitalize():^{gw}}" for c in grouping_cols] + [
+    parts = [f"{capitalize_preserve(c):^{gw}}" for c in grouping_cols] + [
         f"{'Rank':^{rw}}",
         f" | {'Property':^{pw_prop}}",
         f" | {_trunc_center(effect_col_header, pw_num)}",
@@ -385,7 +398,7 @@ def print_top_properties_vs_reference(
             rp = [
                 *gcells,
                 f"{rnk:^{rw}}",
-                f" | {_trunc_center(str(row.get('property', '')), pw_prop)}",
+                f" | {_trunc_center(capitalize_preserve(str(row.get('property', ''))), pw_prop)}",
                 f" | {_trunc_center(es, pw_num)}",
                 f" | {_trunc_center(ms, pw_num)}",
             ]
@@ -401,21 +414,11 @@ def resolve_dataframe_columns(
 ) -> list[str]:
     """Resolve column names case-insensitively against *df* columns."""
     requested_cols = [requested] if isinstance(requested, str) else list(requested)
-    resolved_cols: list[str] = []
-    for col in requested_cols:
-        found = None
-        if col in df.columns:
-            found = col
-        else:
-            for variant in (col.capitalize(), col.lower()):
-                if variant in df.columns:
-                    found = variant
-                    break
-        if found:
-            resolved_cols.append(found)
-        else:
-            raise ValueError(f"Group column '{col}' not found. Columns: {list(df.columns)}")
-    return resolved_cols
+    available = [str(c) for c in df.columns]
+    matched, unresolved = match_names_case_insensitive(requested_cols, available)
+    if unresolved:
+        raise ValueError(f"Group column(s) {unresolved} not found. Columns: {list(df.columns)}")
+    return matched
 
 
 def compute_leave_one_out_zscore_enrichment(

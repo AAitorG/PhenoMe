@@ -118,6 +118,8 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `has_embeddings` | Return True if embedding data is available (lazy or eager). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-has_embeddings) |
 | `image_preview_png_bytes` | Rasterize the same view as ``plot_image_by_index`` to PNG bytes. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-image_preview_png_bytes) |
 | `inspect_data` | Inspect image and mask dimensions, shapes, and data ranges. Delegates to FileDiscovery. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-inspect_data) |
+| `load_embeddings` | Load an embeddings checkpoint into the pipeline. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-load_embeddings) |
+| `load_properties` | Load a properties checkpoint into the pipeline. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-load_properties) |
 | `load_results` | Load and use an existing results/checkpoint file. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-load_results) |
 | `plot_centroids` | Plot centroids of groups in reduced embedding space. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_centroids) |
 | `plot_counts` | Plot count of images grouped by metadata using Plotly. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-phenomevisualization-plot_counts) |
@@ -250,7 +252,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `reorder_tier_a_columns` | Place Tier-A id columns first, then metadata, then remaining columns. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `run_dimensionality_reduction` | Run dimensionality reduction using pipeline data and return DataFrame. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `run_dimensionality_reduction_matrix` | Run dimensionality reduction on a raw matrix (pure, no pipeline). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
-| `TIER_A_EXCLUDE_FROM_PROPERTIES` | Build an immutable unordered collection of unique elements. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `TIER_A_EXCLUDE_FROM_PROPERTIES` | frozenset() -> empty frozenset object | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `validate_results` | Check that pipeline results have consistent lengths across all arrays. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 
 ---

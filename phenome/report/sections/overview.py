@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from ...utils.display_names import capitalize_preserve
 from .._components import generate_info_box
 from ..helpers import safe_html
 
@@ -41,7 +42,8 @@ def generate_overview_section(
             continue
 
         counts = meta_df[key].value_counts(dropna=True).reset_index()
-        counts.columns = [key.capitalize(), "Count"]
+        label = capitalize_preserve(key)
+        counts.columns = [label, "Count"]
         non_null = int(meta_df[key].notna().sum())
         missing = n_images - non_null
         if non_null > 0:
@@ -51,7 +53,7 @@ def generate_overview_section(
         if missing > 0:
             missing_row = pd.DataFrame(
                 {
-                    key.capitalize(): ["Missing"],
+                    label: ["Missing"],
                     "Count": [missing],
                     "Percentage": [round(missing / n_images * 100, 1)],
                 }
@@ -64,7 +66,7 @@ def generate_overview_section(
             other_pct = counts.iloc[10:]["Percentage"].sum()
             other_row = pd.DataFrame(
                 {
-                    key.capitalize(): [f"Other ({len(counts) - 10})"],
+                    label: [f"Other ({len(counts) - 10})"],
                     "Count": [other_count],
                     "Percentage": [other_pct],
                 }
@@ -74,7 +76,7 @@ def generate_overview_section(
         rows_html = "\n".join(
             [
                 f"""<tr>
-                <td>{safe_html(row[key.capitalize()])}</td>
+                <td>{safe_html(row[label])}</td>
                 <td><span class="value">{row["Count"]}</span></td>
                 <td>
                     {row["Percentage"]:.1f}%
@@ -90,12 +92,12 @@ def generate_overview_section(
         distribution_cards.append(
             f"""
         <div class="subsection">
-            <h4>{key.capitalize()} Distribution</h4>
+            <h4>{label} Distribution</h4>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th data-sortable>{key.capitalize()}</th>
+                            <th data-sortable>{label}</th>
                             <th data-sortable data-type="number">Count</th>
                             <th>Percentage</th>
                         </tr>

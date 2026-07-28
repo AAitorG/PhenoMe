@@ -10,6 +10,7 @@ from plotly.graph_objects import Figure
 from plotly.subplots import make_subplots
 
 from ..._logging import get_logger
+from ...utils.display_names import capitalize_preserve
 from ._helpers import BAR_ZERO_LINE_COLOR, BAR_ZERO_LINE_WIDTH
 
 logger = get_logger(__name__)
@@ -36,6 +37,7 @@ def _log_component_correlation_results(
         if sub.empty:
             continue
         view = sub[["Property", "Correlation"]].copy()
+        view["Property"] = view["Property"].astype(str).map(capitalize_preserve)
         prop_w = max(
             len("Property"),
             int(view["Property"].astype(str).str.len().max()),
@@ -134,7 +136,7 @@ def _build_component_correlation_figure(
         fig.add_trace(
             go.Bar(
                 x=s_display.values,
-                y=s_display.index.astype(str),
+                y=[capitalize_preserve(str(lbl)) for lbl in s_display.index],
                 orientation="h",
                 marker=marker,
                 name=active[i - 1],
@@ -149,7 +151,7 @@ def _build_component_correlation_figure(
     # Reserve left space from longest category label; fractional paper x does not track label
     # width, so we size margin in px and place the shared title with xshift in px.
     max_label_chars = max(
-        (len(str(lbl)) for s in prepared for lbl in s.index.astype(str)),
+        (len(capitalize_preserve(str(lbl))) for s in prepared for lbl in s.index.astype(str)),
         default=8,
     )
     # Tuned for a compact left strip: prior constants over-reserved space and pushed the

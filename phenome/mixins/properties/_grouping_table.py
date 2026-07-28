@@ -8,11 +8,53 @@ import numpy as np
 import pandas as pd
 
 from ..._logging import get_logger
+from ...utils.display_names import capitalize_preserve
 from ._report import parse_grouped_stats_dataframe
 
 logger = get_logger(__name__)
 
 _STATS_PROP_SUFFIX = " (\u03bc\u00b1\u03c3)"  # mean ± std
+
+
+def match_names_case_insensitive(
+    requested: list[str],
+    available: list[str],
+) -> tuple[list[str], list[str]]:
+    """Match *requested* names to *available* with case-insensitive lookup.
+
+    Property names are assumed unique ignoring case. If *available* contains
+    case-variant duplicates, raises ``ValueError``.
+
+    Matched names always use the spelling from *available* (original case),
+    never the casing from *requested*. Order follows *requested*.
+
+    Returns:
+        matched: Resolved *available* names for each successful request,
+            in *requested* order (duplicates collapsed).
+        unresolved: Requested names that matched nothing.
+    """
+    by_lower: dict[str, str] = {}
+    for name in available:
+        key = name.lower()
+        if key in by_lower and by_lower[key] != name:
+            raise ValueError(
+                f"Property names must be unique (case-insensitive); "
+                f"found both {by_lower[key]!r} and {name!r}."
+            )
+        by_lower[key] = name
+
+    matched: list[str] = []
+    matched_set: set[str] = set()
+    unresolved: list[str] = []
+    for req in requested:
+        resolved = by_lower.get(req.lower())
+        if resolved is None:
+            unresolved.append(req)
+        elif resolved not in matched_set:
+            matched_set.add(resolved)
+            matched.append(resolved)
+
+    return matched, unresolved
 
 
 def _fit_width(need: int, width_max: int, width_min: int = 6) -> int:
@@ -28,7 +70,7 @@ def _trunc_center(s: str, w: int) -> str:
 def _group_col_width_need(df: pd.DataFrame, grouping_cols: list[str]) -> int:
     if not grouping_cols:
         return 0
-    need = max(len(c.capitalize()) for c in grouping_cols)
+    need = max(len(capitalize_preserve(c)) for c in grouping_cols)
     for _, row in df.iterrows():
         need = max(need, *(len(str(row.get(c, ""))) for c in grouping_cols))
     return need
@@ -80,14 +122,13 @@ def _print_grouped_property_table(
 
     prop_names = sorted(property_stats.keys())
     if print_properties is not None:
-        invalid = [p for p in print_properties if p not in prop_names]
+        prop_names, invalid = match_names_case_insensitive(print_properties, prop_names)
         if invalid and available_property_keys is not None:
             logger.warning(
                 "Properties not in DataFrame: %s. Available: %s",
                 invalid,
                 available_property_keys,
             )
-        prop_names = [p for p in prop_names if p in print_properties]
 
     if not prop_names:
         logger.info("No properties to print.")
@@ -110,13 +151,14 @@ def _print_grouped_property_table(
     logger.info("%s", f"PROPERTY STATISTICS BY {label}".center(tw))
     logger.info("%s", "=" * tw)
 
-    parts = [f"{c.capitalize():^{gw}}" for c in grouping_cols] + [f"{'N':^{nw}}"]
+    parts = [f"{capitalize_preserve(c):^{gw}}" for c in grouping_cols] + [f"{'N':^{nw}}"]
     mname = max(4, pw - 8)
     for pn in prop_names:
+        display = capitalize_preserve(pn)
         lbl = (
-            f"{pn[: max(0, mname - 3)]}...{_STATS_PROP_SUFFIX}"
-            if len(pn) > mname
-            else f"{pn}{_STATS_PROP_SUFFIX}"
+            f"{display[: max(0, mname - 3)]}...{_STATS_PROP_SUFFIX}"
+            if len(display) > mname
+            else f"{display}{_STATS_PROP_SUFFIX}"
         )
         parts.append(f" | {lbl:^{pw}}")
     logger.info("%s", "".join(parts))

@@ -72,7 +72,8 @@ PhenoMe.find_files(
     metadata_fn: collections.abc.Callable[[str], dict[str, typing.Any]] | phenome.metadata.base.MetadataBase | None = None,
     on_missing_metadata: str = 'drop',
     mask_filename_column: str | None = None,
-    mask_extensions: list[str] | None = None
+    mask_extensions: list[str] | None = None,
+    channel_names: list[str] | None = None
 ) -> DataFrame
 ```
 
@@ -111,6 +112,13 @@ and `inspect_data()`.
   Default: None (standard alignment logic).
 - **`mask_extensions`** (`list of str or None`): Extensions to try when exact mask filename
   fails (e.g., [".png", ".tif"]). Default: None (exact filename required).
+- **`channel_names`** (`list of str or None`): Optional labels for image channels, in
+  channel-axis order (same order as list entries in ``file_path`` for
+  multi-file samples). When set, multi-channel property columns use these
+  labels as suffixes (e.g. ``intensity_entropy_DAPI`` instead of
+  ``intensity_entropy_ch0``). Names must be non-empty, unique
+  (case-insensitive), and contain no whitespace. Default: None
+  (integer ``_ch{idx}`` suffixes).
 
 **Returns:**
 
@@ -123,7 +131,8 @@ and `inspect_data()`.
 **Raises:**
 
 - **`FileNotFoundError`**: If `image_dir` does not exist.
-- **`ValueError`**: If all files are dropped due to `on_missing_metadata='drop'`.
+- **`ValueError`**: If all files are dropped due to `on_missing_metadata='drop'`,
+  or if `channel_names` is invalid.
 - **`RuntimeError`**: If metadata extraction fails or masks cannot be resolved.
 
 **Example:**
@@ -150,6 +159,13 @@ With masks:
 >>> print(df.columns)
 Index(['file_path', 'mask_path'], dtype='object')
 
+Named channels for property suffixes:
+
+>>> df = pm.find_files(
+...     "data/images/",
+...     channel_names=["DAPI", "GFP"],
+... )
+
 ```
 
 **See Also:**
@@ -173,7 +189,8 @@ Index(['file_path', 'mask_path'], dtype='object')
 ```python
 PhenoMe.set_file_df(
     self,
-    file_df: pandas.DataFrame
+    file_df: pandas.DataFrame,
+    channel_names: list[str] | None = None
 ) -> DataFrame
 ```
 
@@ -191,6 +208,11 @@ inspect_data, and related methods.
 
 - **`file_df`**: DataFrame with 'file_path' column (str or list of str per row).
   May include 'mask_path' and metadata columns.
+- **`channel_names`**: Optional labels for image channels, in channel-axis order
+  (same order as list entries in ``file_path`` for multi-file samples).
+  When set, multi-channel property columns use these labels as suffixes
+  (e.g. ``intensity_entropy_DAPI`` instead of ``intensity_entropy_ch0``).
+  Default: None (integer ``_ch{idx}`` suffixes).
 
 **Returns:**
 
@@ -792,6 +814,10 @@ Uses the internally stored file_df (from [find_files](/PhenoMe/advanced/api/pipe
 [set_file_df](/PhenoMe/advanced/api/pipeline/#api-phenome-set_file_df)) to resolve paths so the checkpoint works on this
 machine. Call find_files or set_file_df first.
 
+For separate embeddings and properties checkpoints, prefer
+[load_embeddings](/PhenoMe/advanced/api/pipeline/#api-phenome-load_embeddings) then
+[load_properties](/PhenoMe/advanced/api/pipeline/#api-phenome-load_properties).
+
 **Args:**
 
 - **`path`**: Path to .h5 or .hdf5 file.
@@ -986,7 +1012,8 @@ Compute per-image properties using presets and/or custom functions.
 
 Each function receives a 2D image slice and/or mask slice and returns
 a dict[str, float]. When multiple channels exist, properties are
-suffixed with ``_ch{idx}``.
+suffixed with ``_ch{idx}``, or with labels from ``find_files`` /
+``set_file_df`` ``channel_names`` when provided (e.g. ``_DAPI``).
 
 Use ``property_preset`` for built-in property sets and
 ``additional_property_functions`` to add custom functions on top
@@ -1079,8 +1106,10 @@ Uses `_build_properties_dataframe` from computed
 
 - **`group_by`**: Metadata columns to group by. If None, auto-selects first 2.
 - **`properties`**: Property columns to include in aggregation. If None, auto-detects numeric.
+  Matching is case-insensitive; names must be unique ignoring case.
 - **`print_table`**: If True, log a formatted mean±std table.
 - **`print_properties`**: Subset of properties to show in the table. If None, shows all.
+  Matching is case-insensitive; names must be unique ignoring case.
 - **`group_column_width_max`**: Maximum width for each grouping column when printing.
 - **`content_col_width_max`**: Maximum width for each property statistic column when printing.
 
@@ -1140,6 +1169,7 @@ Requires sample std (ddof=1) from property_stats_by_group.
 - **`reference_group`**: Dict mapping grouping column names to values (e.g. &#123;"drug": "Control", "time": "60_min"&#125;).
 - **`k`**: Number of top properties per group.
 - **`properties`**: Property names to consider. If None, uses all in DataFrame.
+  Matching is case-insensitive; names must be unique ignoring case.
 - **`metric`**: 'cohens_d' (effect size) or 'mean_diff' (absolute mean difference).
 - **`print_output`**: If True, pretty-print the results.
 - **`group_column_width_max`**: Maximum width for each grouping column in the printed table.
@@ -1888,6 +1918,113 @@ When ``show_extra_info`` is True, also emits the same details as
 
   ``(png_bytes, details_text_or_none)`` — ``details_text_or_none`` is the
   formatted extra-info block when ``show_extra_info`` is True and details exist.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenome-load_embeddings">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenome-load_embeddings"><code>load_embeddings</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMe.load_embeddings(
+    self,
+    path: str | None = None,
+    lazy_checkpoint: bool = True
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Load an embeddings checkpoint into the pipeline.
+
+Same path/file_df rebase flow as [load_results](/PhenoMe/advanced/api/pipeline/#api-phenome-load_results),
+but requires the file to contain embeddings. Sets ``self._db`` for lazy
+``get_embeddings()`` access when ``lazy_checkpoint=True``.
+
+Typical two-file workflow::
+
+    pheno.find_files(data_dir)
+    pheno.load_embeddings("run_embeddings.h5")
+    pheno.load_properties("run_properties.h5")
+
+**Args:**
+
+- **`path`**: Path to .h5 or .hdf5 embeddings checkpoint.
+- **`lazy_checkpoint`**: If True (default), keep the checkpoint file open.
+  If False, load all data into RAM and close the file.
+
+**Raises:**
+
+- **`FileNotFoundError`**: If file does not exist.
+- **`ValueError`**: If file format is not recognised as HDF5, or the
+  checkpoint has no embeddings.
+- **`RuntimeError`**: If file_df is not available (call find_files or set_file_df first).
+- **`ConcurrentCheckpointAccessError`**: If the checkpoint is already open in
+  another notebook or process (only one instance can access it at a time).
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenome-load_properties">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenome-load_properties"><code>load_properties</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMe.load_properties(
+    self,
+    path: str | None = None,
+    lazy_checkpoint: bool = True
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Load a properties checkpoint into the pipeline.
+
+When results already contain images (e.g. after
+[load_embeddings](/PhenoMe/advanced/api/pipeline/#api-phenome-load_embeddings) or
+``process_images``), properties are aligned by metadata key then path
+and overlaid onto the existing rows without replacing an embeddings
+``self._db`` from a different file.
+
+When no results are loaded yet, performs a full checkpoint setup like
+[load_results](/PhenoMe/advanced/api/pipeline/#api-phenome-load_results). For a
+properties-only file, the HDF5 handle is closed after load (properties
+are eager); ``self._db`` is kept only if that file also has embeddings.
+
+**Args:**
+
+- **`path`**: Path to .h5 or .hdf5 properties checkpoint.
+- **`lazy_checkpoint`**: Used on cold start only. If True (default), keep
+  the file open when it also stores embeddings. Ignored when
+  overlaying onto existing results.
+
+**Raises:**
+
+- **`FileNotFoundError`**: If file does not exist.
+- **`ValueError`**: If file format is not recognised as HDF5, or the
+  checkpoint has no property content, or overlay matches no rows.
+- **`RuntimeError`**: On cold start, if file_df is not available
+  (call find_files or set_file_df first).
+- **`ConcurrentCheckpointAccessError`**: If the checkpoint is already open in
+  another notebook or process (only one instance can access it at a time).
 
 </div>
 

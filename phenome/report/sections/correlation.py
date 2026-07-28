@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import plotly.graph_objects as go
 
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
+from ...utils.display_names import capitalize_preserve
 from .._components import generate_feature_tags, generate_info_box, generate_plot_container
 from ..helpers import apply_dark_theme, plotly_to_html_fragment
 
@@ -45,7 +46,7 @@ def generate_correlation_section(
     fig = go.Figure(
         go.Bar(
             x=x_col.values[::-1],
-            y=plot_df["property"].values[::-1],
+            y=[capitalize_preserve(str(p)) for p in plot_df["property"].values[::-1]],
             orientation="h",
             marker_color="#10b981",
             text=x_col.round(4).values[::-1],

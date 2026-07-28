@@ -187,8 +187,10 @@ shape descriptors, and masked min/max on top of `"standard"`.
 
 :::note
 For multi-channel images, all per-channel properties are suffixed with
-`_ch0`, `_ch1`, etc. Metadata and mask-derived shape columns are not
-duplicated per channel.
+`_ch0`, `_ch1`, etc. Pass `channel_names=["DAPI", "GFP"]` to
+`find_files` (or `set_file_df`) to use those labels instead
+(e.g. `intensity_mean_DAPI`). Metadata and mask-derived shape columns
+are not duplicated per channel.
 :::
 
 ## Usage

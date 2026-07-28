@@ -81,6 +81,40 @@ def _determine_channel_range(
     return (0, max(n_img_ch, n_mask_ch, 1))
 
 
+def format_channel_property_name(
+    bname: str,
+    ch: int,
+    n_channels: int,
+    channel_names: list[str] | None = None,
+) -> str:
+    """Build a property column name, optionally with a per-channel suffix.
+
+    Multi-channel images get ``{bname}_{label}`` where ``label`` is
+    ``channel_names[ch]`` when provided, otherwise ``ch{ch}``. Single-channel
+    images keep the base name unsuffixed.
+    """
+    if n_channels <= 1:
+        return bname
+    if channel_names is not None:
+        return f"{bname}_{channel_names[ch]}"
+    return f"{bname}_ch{ch}"
+
+
+def validate_channel_names(channel_names: list[str] | None, n_channels: int) -> None:
+    """Ensure ``channel_names`` length matches the number of image channels used.
+
+    No-op when ``channel_names`` is None or when only one channel is present
+    (suffixes are not applied for single-channel images).
+    """
+    if channel_names is None or n_channels <= 1:
+        return
+    if len(channel_names) != n_channels:
+        raise ValueError(
+            f"channel_names has length {len(channel_names)} but images have "
+            f"{n_channels} channel(s). Provide one name per channel in axis order."
+        )
+
+
 def _should_call_property_function(
     req_type: str,
     image2d: np.ndarray | None,
@@ -102,15 +136,18 @@ def collect_property_names_for_stacks(
     img_stack: np.ndarray | None,
     mask_stack: np.ndarray | None,
     property_functions: dict[str, list[Callable]],
+    channel_names: list[str] | None = None,
 ) -> set:
     """Property column names produced for these stacks (same rules as compute_properties_worker).
 
-    Uses the first image/mask pair's channel layout to infer names (including ``_ch{k}`` suffixes).
+    Uses the first image/mask pair's channel layout to infer names (including
+    ``_ch{k}`` or custom ``channel_names`` suffixes).
     """
     n_img_ch = 0 if img_stack is None else img_stack.shape[-1]
     n_mask_ch = 0 if mask_stack is None else mask_stack.shape[-1]
     start_ch, end_ch = _determine_channel_range(property_functions, n_img_ch, n_mask_ch)
     n_channels = end_ch - start_ch
+    validate_channel_names(channel_names, n_channels)
 
     names: set = set()
     mask_props_done: set = set()
@@ -167,7 +204,7 @@ def collect_property_names_for_stacks(
                             continue
                         mask_props_done.add(name)
                     else:
-                        name = f"{bname}_ch{ch}" if n_channels > 1 else bname
+                        name = format_channel_property_name(bname, ch, n_channels, channel_names)
 
                     names.add(name)
 
@@ -181,6 +218,7 @@ def compute_properties_worker(
     property_functions: dict[str, list[Callable]],
     any_requires_image: bool,
     any_requires_mask: bool,
+    channel_names: list[str] | None = None,
 ) -> tuple[int, dict[str, float], dict[str, float]]:
     """Worker for parallel property computation (module-level, picklable).
 
@@ -200,6 +238,7 @@ def compute_properties_worker(
     n_mask_ch = 0 if mask_stack is None else mask_stack.shape[-1]
     start_ch, end_ch = _determine_channel_range(property_functions, n_img_ch, n_mask_ch)
     n_channels = end_ch - start_ch
+    validate_channel_names(channel_names, n_channels)
 
     result: dict[str, float] = {}
     mask_props_done: set = set()
@@ -256,7 +295,7 @@ def compute_properties_worker(
                             continue
                         mask_props_done.add(name)
                     else:
-                        name = f"{bname}_ch{ch}" if n_channels > 1 else bname
+                        name = format_channel_property_name(bname, ch, n_channels, channel_names)
 
                     result[name] = float(value) if value is not None else np.nan
 

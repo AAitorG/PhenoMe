@@ -9,7 +9,7 @@ import plotly.express as px
 from plotly.graph_objects import Figure
 
 from ..._logging import get_logger
-from ...utils.display_names import format_dr_method
+from ...utils.display_names import capitalize_preserve, format_dr_method
 from ._helpers import BAR_ZERO_LINE_COLOR, BAR_ZERO_LINE_WIDTH
 
 logger = get_logger(__name__)
@@ -31,7 +31,11 @@ def _log_multivariate_interpretability_results(
     logger.info("On-axis fit (R2, descriptive): %.2f", r2)
     logger.info("Top drivers:")
     for driver in drivers:
-        logger.info("  [%+.3f] %s", float(driver["weight"]), driver["feature"])
+        logger.info(
+            "  [%+.3f] %s",
+            float(driver["weight"]),
+            capitalize_preserve(str(driver["feature"])),
+        )
 
 
 def _build_multivariate_interpretability_figure(
@@ -55,6 +59,7 @@ def _build_multivariate_interpretability_figure(
     model_name = "LASSO" if resolved_model_type == "lasso" else "Random Forest"
 
     df = drivers_df.head(top_k).copy()
+    df["feature"] = df["feature"].astype(str).map(capitalize_preserve)
     df["_abs"] = df["weight"].abs()
     df = df.sort_values("_abs", ascending=True).drop(columns=["_abs"])
 

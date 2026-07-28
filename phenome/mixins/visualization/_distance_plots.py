@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 
 from ..._logging import get_logger
 from ...core import build_metadata_columns, get_all_metadata_keys
-from ...utils.display_names import format_correlation_method
+from ...utils.display_names import capitalize_preserve, format_correlation_method
 
 logger = get_logger(__name__)
 
@@ -43,9 +43,10 @@ def _plot_property_correlations_plotly(
         vc = r[np.isfinite(r)]
         if len(vc) == 0:
             continue
-        y_ordered.append(pname)
+        display = capitalize_preserve(pname)
+        y_ordered.append(display)
         for v in np.abs(vc):
-            rows.append({"property": pname, "abs_correlation": float(v)})
+            rows.append({"property": display, "abs_correlation": float(v)})
 
     if not rows:
         logger.warning("No finite correlation values to plot.")
@@ -129,11 +130,9 @@ class _DistancePlotsMixin:
             return None
 
         group_keys = [group_by] if isinstance(group_by, str) else list(group_by)
-        group_keys_cap = [k.capitalize() for k in group_keys]
 
-        df = pd.DataFrame(
-            build_metadata_columns(self.results, capitalize=True, keys=group_keys_cap)
-        )
+        df = pd.DataFrame(build_metadata_columns(self.results, capitalize=True, keys=group_keys))
+        group_keys_cap = list(df.columns)
         df["Distance"] = distance_results["distance"].values
         df = df.dropna(subset=["Distance"])
 
@@ -264,6 +263,7 @@ def _log_embedding_property_correlation_summary(
         return f"{x:.4f}"
 
     out = view.copy()
+    out["property"] = out["property"].astype(str).map(capitalize_preserve)
     for c in num_cols:
         out[c] = out[c].map(_fmt_num_cell)
     block = out.to_string(index=False, col_space=2)

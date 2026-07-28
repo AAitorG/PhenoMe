@@ -21,7 +21,7 @@ Properties are numerical features extracted from images and/or masks. They quant
 - **Correlation analysis** with embeddings
 - **Statistical comparison** between experimental groups
 
-Properties are computed on the **largest connected component** of the mask when a mask is used. Multi-channel images produce per-channel properties (e.g., `intensity_mean_ch0`, `intensity_mean_ch1`).
+Properties are computed on the **largest connected component** of the mask when a mask is used. Multi-channel images produce per-channel properties (e.g., `intensity_mean_ch0`, `intensity_mean_ch1`). Pass `channel_names=["DAPI", "GFP"]` to `find_files` to get names like `intensity_mean_DAPI` instead.
 
 ---
 

@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 
 from ..._logging import get_logger
 from ...core import get_all_metadata_keys, run_dimensionality_reduction
-from ...utils.display_names import format_dr_method
+from ...utils.display_names import capitalize_preserve, format_dr_method
 from ._helpers import (
     build_hover_columns as _build_hover_columns,
 )
@@ -261,6 +261,11 @@ class _DRPlotsMixin:
             kwargs["custom_data"] = ["Index"]
         else:
             kwargs["hover_data"] = hover_cols
+            # Display labels: first-letter capitalize without mangling channel names.
+            label_cols = set(hover_cols)
+            if color_column:
+                label_cols.add(color_column)
+            kwargs["labels"] = {c: capitalize_preserve(str(c)) for c in label_cols}
         if not z_col:
             kwargs["render_mode"] = render_mode
         if z_col:

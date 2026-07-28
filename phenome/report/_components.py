@@ -10,6 +10,8 @@ from typing import Any
 
 import numpy as np
 
+from ..utils.display_names import capitalize_preserve
+
 
 def generate_navigation(nav_items: list[tuple[str, str]]) -> str:
     """Generate navigation bar HTML.
@@ -216,7 +218,7 @@ def generate_feature_tags(features: list[str], max_display: int = 50) -> str:
     Returns:
         HTML string for feature list
     """
-    display_features = features[:max_display]
+    display_features = [capitalize_preserve(str(f)) for f in features[:max_display]]
     tags = "\n".join([f'<span class="feature-tag">{escape(f)}</span>' for f in display_features])
 
     extra = ""

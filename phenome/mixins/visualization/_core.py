@@ -92,8 +92,8 @@ class PhenoMeVisualization(
             available = get_all_metadata_keys(self.results)
             raise ValueError(f"'group_by' must be non-empty. Available: {', '.join(available)}")
 
-        group_by_cap = [k.capitalize() for k in group_by]
-        df = pd.DataFrame(build_metadata_columns(self.results, capitalize=True, keys=group_by_cap))
+        df = pd.DataFrame(build_metadata_columns(self.results, capitalize=True, keys=group_by))
+        group_by_cap = list(df.columns)
         counts = df.groupby(group_by_cap, observed=True).size().reset_index(name="Count")
 
         if not plot:

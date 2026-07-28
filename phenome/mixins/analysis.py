@@ -883,7 +883,6 @@ class PhenoMeAnalysis:
             raise ValueError(f"No components found for method {method}.")
 
         avail = set(self.get_available_property_keys())  # type: ignore[attr-defined]
-        avail |= {k.capitalize() for k in avail}
         prop_cols = [c for c in df.columns if c in avail and pd.api.types.is_numeric_dtype(df[c])]
         if not prop_cols:
             raise ValueError("No numeric properties found to correlate.")
@@ -891,18 +890,13 @@ class PhenoMeAnalysis:
         # Normalize properties using the unified PhenoMeProperties helper if requested.
         # This ensures consistency and uses the internal normalization cache.
         if normalize and prop_cols:
-            raw_keys = self.get_available_property_keys()  # type: ignore[attr-defined]
-            # Map capitalized names from DataFrame back to raw keys for _get_property_matrix
-            cap_to_raw = {k.capitalize(): k for k in raw_keys}
-            fetch_keys = [cap_to_raw.get(c, c) for c in prop_cols]
-
             # We use the existing indices from the DataFrame to ensure alignment.
             indices = df["Index"].tolist()
             # Keep NaNs for pairwise correlation (one summary below). DR may already
             # have filtered the embedding matrix, but property columns can still miss values.
             norm_matrix, _, _ = self._get_property_matrix(  # type: ignore[attr-defined]
                 indices=indices,
-                property_keys=fetch_keys,
+                property_keys=prop_cols,
                 normalize=True,
                 handle_nans="keep",
             )
