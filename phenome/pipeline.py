@@ -48,6 +48,7 @@ from .utils import TransformBuilder
 from .utils.device import get_default_device, set_default_device, set_determinism
 from .utils.model_wrapper import ModelWrapper
 from .utils.path_utils import path_repr as _path_repr
+from .utils.progress import ProgressCallback
 
 logger = get_logger(__name__)
 
@@ -550,6 +551,7 @@ class PhenoMe(
         save_every: int = 5,
         lazy_checkpoint: bool = True,
         force_reprocess: bool = False,
+        progress_callback: ProgressCallback | None = None,
     ) -> None:
         """Extract embeddings from images using a pretrained or custom model.
 
@@ -610,6 +612,10 @@ class PhenoMe(
             force_reprocess (bool): If True and ``checkpoint_path`` already exists, delete
                 that file and process all requested images from scratch (no resume).
                 Default: False.
+            progress_callback (callable or None): Optional
+                ``(current, total, desc) -> None`` hook for GUI/notebook progress
+                bars. Invoked after each batch. When set, the default ``tqdm`` bar
+                is disabled. Default: None.
 
         Returns:
             None. Modifies `self.results` in-place with embeddings, metadata, and paths.
@@ -639,6 +645,18 @@ class PhenoMe(
             ...     checkpoint_path="embeddings.h5",
             ...     lazy_checkpoint=True
             ... )
+
+            With a Jupyter progress bar:
+
+            >>> from ipywidgets import IntProgress, Label, VBox
+            >>> from IPython.display import display
+            >>> bar, lab = IntProgress(max=1), Label()
+            >>> display(VBox([lab, bar]))
+            >>> def on_progress(current, total, desc):
+            ...     bar.max = max(total, 1)
+            ...     bar.value = current
+            ...     lab.value = f"{desc}: {current}/{total}"
+            >>> pm.process_images(model, progress_callback=on_progress)
 
         See Also:
             `find_files`: Discover and organize image files.
@@ -714,6 +732,7 @@ class PhenoMe(
             cur_params=cur_params,
             save_every=save_every,
             lazy_checkpoint=lazy_checkpoint,
+            progress_callback=progress_callback,
         )
 
         self._finalize_processing(
@@ -1990,6 +2009,7 @@ class PhenoMe(
         cur_params: dict[str, Any] | None = None,
         save_every: int = 5,
         lazy_checkpoint: bool = True,
+        progress_callback: ProgressCallback | None = None,
     ) -> CheckpointManager | None:
         """Run embedding extraction via EmbeddingExtractor. Thin wrapper for unit-testing."""
         if results is None:
@@ -2013,6 +2033,7 @@ class PhenoMe(
             cur_params=cur_params,
             save_every=save_every,
             lazy_checkpoint=lazy_checkpoint,
+            progress_callback=progress_callback,
         )
 
     def _build_transforms(self, resize_size: int | None, pad_size: int | None = None) -> Any:

@@ -573,6 +573,23 @@ def _rows_utils() -> list[_Row]:
                     extended=_md_link("Utilities", "/advanced/api/utilities/", None),
                 )
             )
+        elif name in ("ProgressCallback", "report_progress"):
+            rows.append(
+                _Row(
+                    import_cell=name,
+                    description=(
+                        "Type alias: ``(current, total, desc) -> None`` GUI progress hook."
+                        if name == "ProgressCallback"
+                        else _summary_line(obj)
+                    ),
+                    tier=_tier_emoji("utils", name),
+                    extended=_md_link(
+                        "Utilities",
+                        "/advanced/api/utilities/",
+                        _fragment_for_module_function("report_progress"),
+                    ),
+                )
+            )
         elif inspect.isclass(obj):
             rows.append(
                 _Row(
