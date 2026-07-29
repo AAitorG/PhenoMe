@@ -44,13 +44,6 @@ class KerasModelWrapper(ModelWrapper):
         # Initialize the base class
         super().__init__(model, device=device)
 
-        # Why pass 'device'?
-        # 1. Base class stores it in self.device.
-        # 2. Even if Keras runs on GPU, the final output must be
-        #    a PyTorch tensor on the device PhenoMe expects.
-        # 3. We use self.device in _get_embeddings to move the
-        #    result back to the correct PyTorch device.
-
     def _get_embeddings(self, tensor: torch.Tensor) -> torch.Tensor:
         # 1. Convert PyTorch tensor (B, C, H, W) to NumPy
         x_np = tensor.detach().cpu().numpy()
@@ -58,8 +51,7 @@ class KerasModelWrapper(ModelWrapper):
         # 2. Transpose to Keras format (B, H, W, C)
         x_np = np.transpose(x_np, (0, 2, 3, 1))
 
-        # 3. Run Keras inference
-        # .predict() returns a NumPy array of shape (B, D)
+        # 3. Run Keras inference and get the embeddings (B, D)
         embeddings_np = self.model.predict(x_np, verbose=0)
 
         # 4. Convert back to PyTorch tensor on the correct device
