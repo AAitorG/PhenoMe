@@ -39,6 +39,10 @@ This package provides reusable components for building and extending phenotyping
 - `get_default_device`: Get current device (CPU or GPU).
 - `set_determinism`: Enable deterministic behavior (seeds, etc.).
 
+**Progress reporting:**
+- `ProgressCallback`: Type alias for ``(current, total, desc) -> None`` GUI hooks.
+- `report_progress`: Invoke an optional progress callback (no-op when ``None``).
+
 **See Also:**
 For metadata configuration objects, see `phenome.metadata`.
 For plugin registration, see `phenome.plugins.register_property()`.
@@ -61,6 +65,7 @@ from .model_wrapper import (
     ModelWrapper,
     load_dinov2_model,
 )
+from .progress import ProgressCallback, report_progress
 from .property_factories import (
     create_blur_effect_function,
     create_concentric_ring_function,
@@ -89,6 +94,7 @@ __all__ = [
     "ModelWrapper",
     "PadToSize",
     "PathTemplateMetadata",
+    "ProgressCallback",
     "TransformBuilder",
     "TypeMaxNorm",
     "create_blur_effect_function",
@@ -106,6 +112,7 @@ __all__ = [
     "make_dataframe_metadata_fn",
     "normalize_by_dtype_max",
     "quantile_normalize",
+    "report_progress",
     "resolve_intensity_scale",
     "scale_minmax",
     "set_determinism",

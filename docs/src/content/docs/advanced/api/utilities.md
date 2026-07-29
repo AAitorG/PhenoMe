@@ -9,7 +9,7 @@ tableOfContents:
 <p><span class="api-tier api-tier--internal">Tier: Internal API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.utils.device`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/device.py), [`phenome.utils.metadata`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/metadata.py), [`phenome.io`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/io), and [`phenome.utils.transforms`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/transforms.py).
+This page is rebuilt from docstrings in [`phenome.utils.device`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/device.py), [`phenome.utils.metadata`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/metadata.py), [`phenome.io`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/io), [`phenome.utils.transforms`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/transforms.py), and [`phenome.utils.progress`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/progress.py).
 :::
 
 **See also:** [Model wrappers](/PhenoMe/advanced/api/model-wrapper/) · [HDF5 protocol](/PhenoMe/advanced/database_protocol/) · [Best practices](/PhenoMe/guides/best-practices/)
@@ -61,6 +61,35 @@ Set random seeds for reproducibility across all frameworks.
 **Args:**
 
 - **`seed`**: Random seed value
+
+
+## Progress reporting
+
+### `report_progress`
+
+```python
+report_progress(
+    callback: collections.abc.Callable[[int, int, str], None] | None,
+    current: int,
+    total: int,
+    desc: str = ''
+) -> None
+```
+
+Invoke *callback* if provided; no-op when ``None``.
+
+``ProgressCallback`` is ``Callable[[int, int, str], None]`` —
+``(current, total, desc)``. Pass the same callable to
+``PhenoMe.process_images`` / ``compute_properties`` via
+``progress_callback=...``. When a callback is set, those methods disable
+``tqdm`` so GUIs are not fighting a second progress UI.
+
+**Args:**
+
+- **`callback`**: Optional progress hook, or ``None``.
+- **`current`**: Units completed so far (batches or images).
+- **`total`**: Expected total units; may be ``0`` if unknown.
+- **`desc`**: Short stage label (e.g. ``"Processing batches"``).
 
 
 ## Metadata helpers
