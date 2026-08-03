@@ -10,7 +10,7 @@ torch==2.13.0
 torchvision==0.28.0
 
 # Tabular data
-pandas==3.0.3
+pandas==3.0.5
 
 # ML utilities
 scikit-learn==1.9.0
@@ -39,7 +39,7 @@ jupyterlab_widgets==3.0.16
 
 # Utilities
 joblib==1.5.3
-tqdm==4.69.0
+tqdm==4.70.0
 
 # Optional stack (CPU-compatible)
 umap-learn==0.5.12
