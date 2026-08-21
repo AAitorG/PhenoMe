@@ -179,7 +179,9 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `normalize_by_dtype_max` | Normalize an image to [0, 1] using effective intensity scale inference. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `PadToSize` | Pad image (C, H, W) equally on all sides to pad_size. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `PathTemplateMetadata` | Metadata extractor from path template with capture groups. | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/#pathtemplatemetadata) |
+| `ProgressCallback` | Type alias: ``(current, total, desc) -> None`` GUI progress hook. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#report_progress) |
 | `quantile_normalize` | Apply quantile normalization to each channel independently. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#quantile_normalize) |
+| `report_progress` | Invoke *callback* if provided; no-op when ``None``. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#report_progress) |
 | `resolve_intensity_scale` | Infer how to normalize image intensities to [0, 1]. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#resolve_intensity_scale) |
 | `scale_minmax` | Apply min-max scaling to each channel independently. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `set_determinism` | Set random seeds for reproducibility across all frameworks. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#set_determinism) |

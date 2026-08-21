@@ -15,6 +15,7 @@ from ..._logging import get_logger
 from ...core.pipeline_results import PhenoMeResults
 from ...core.run_log import record_step
 from ...io import CheckpointManager
+from ...utils.progress import ProgressCallback
 from . import _compute
 from ._report import build_properties_dataframe as _build_properties_dataframe_fn
 from ._report import parse_grouped_stats_dataframe as _parse_grouped_stats_dataframe_fn
@@ -249,6 +250,7 @@ class PhenoMeProperties:
         lazy_checkpoint: bool = True,
         force_update: bool = False,
         include_metadata: bool = False,
+        progress_callback: ProgressCallback | None = None,
     ) -> pd.DataFrame:
         """Compute per-image properties using presets and/or custom functions.
 
@@ -294,6 +296,10 @@ class PhenoMeProperties:
                 is set but the file does not exist yet, only an info log is emitted;
                 computation proceeds as for a new checkpoint.
             include_metadata: If True, add metadata columns to the returned DataFrame.
+            progress_callback: Optional ``(current, total, desc) -> None`` hook for
+                GUI/notebook progress bars. Invoked after each image (sequential) or
+                after each parallel batch. When set, the default ``tqdm`` bar is
+                disabled. Default: None.
 
         Returns:
             DataFrame with ``image_index``, ``image_path``, ``image_name``, property values,
@@ -305,6 +311,18 @@ class PhenoMeProperties:
                 keys are used.
             TypeError: If ``additional_property_functions`` values are not
                 callable.
+
+        Example:
+            Drive a napari/Qt progress bar from a worker thread:
+
+            >>> def on_progress(current, total, desc):
+            ...     # update Qt/napari progress on the main thread
+            ...     progress.setValue(int(100 * current / total) if total else 0)
+            ...     progress.setLabelText(desc)
+            >>> pm.compute_properties(
+            ...     property_preset="basic",
+            ...     progress_callback=on_progress,
+            ... )
         """
         record_step(
             self,
@@ -319,6 +337,7 @@ class PhenoMeProperties:
                 "lazy_checkpoint": lazy_checkpoint,
                 "force_update": force_update,
                 "include_metadata": include_metadata,
+                "progress_callback": progress_callback is not None,
             },
         )
         self.reset_properties()
@@ -419,6 +438,7 @@ class PhenoMeProperties:
                 n_jobs,
                 expected_property_keys=expected_property_keys,
                 channel_names=channel_names,
+                progress_callback=progress_callback,
             )
         )
 

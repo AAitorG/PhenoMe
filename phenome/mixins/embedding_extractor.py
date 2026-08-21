@@ -11,6 +11,7 @@ from tqdm.auto import tqdm
 from .._logging import get_logger
 from ..io import CheckpointManager
 from ..utils.model_wrapper import ModelWrapper
+from ..utils.progress import ProgressCallback, report_progress
 
 logger = get_logger(__name__)
 
@@ -147,6 +148,7 @@ class EmbeddingExtractor:
         cur_params: dict | None = None,
         save_every: int = 5,
         lazy_checkpoint: bool = True,
+        progress_callback: ProgressCallback | None = None,
     ) -> CheckpointManager | None:
         """Process all batches and populate results or checkpoint.
 
@@ -165,6 +167,9 @@ class EmbeddingExtractor:
             cur_params: Processing params for a new checkpoint.
             save_every: Checkpoint commit frequency (batches).
             lazy_checkpoint: If True (default), keep the checkpoint file open.
+            progress_callback: Optional ``(current, total, desc) -> None`` hook.
+                When set, ``tqdm`` is disabled and the callback is invoked after
+                each batch.
 
         Returns:
             The CheckpointManager used, or None.  Caller must commit and close.
@@ -177,12 +182,20 @@ class EmbeddingExtractor:
         if cur_params is not None and cur_params.get("l2_normalize_channels") is not None:
             l2_override = bool(cur_params["l2_normalize_channels"])
 
-        for batch_tensor, items in tqdm(dataloader, desc="Processing batches"):
+        total_batches = len(dataloader)
+        desc = "Processing batches"
+        disable_tqdm = progress_callback is not None
+
+        for batch_i, (batch_tensor, items) in enumerate(
+            tqdm(dataloader, desc=desc, total=total_batches, disable=disable_tqdm),
+            start=1,
+        ):
             if batch_tensor is None:
                 skipped_batches += 1
                 for it in items or ():
                     file_path = it.get("file_path", "?") if isinstance(it, dict) else "?"
                     logger.debug("Skipped image (failed load): %s", file_path)
+                report_progress(progress_callback, batch_i, total_batches, desc)
                 continue
 
             batch_embeddings, batch_paths, batch_meta = self.extract_batch(
@@ -215,6 +228,8 @@ class EmbeddingExtractor:
                     emb_buffer.append(batch_embeddings[i])
                     results.img_path.append(batch_paths[i])
                     results.metadata.append(batch_meta[i])
+
+            report_progress(progress_callback, batch_i, total_batches, desc)
 
         if skipped_batches > 0:
             logger.info("Skipped %d batches (failed image loads).", skipped_batches)

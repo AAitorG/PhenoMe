@@ -339,8 +339,9 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
                 "This page is rebuilt from docstrings in "
                 "[`phenome.utils.device`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/device.py), "
                 "[`phenome.utils.metadata`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/metadata.py), "
-                "[`phenome.io`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/io), and "
-                "[`phenome.utils.transforms`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/transforms.py).\n"
+                "[`phenome.io`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/io), "
+                "[`phenome.utils.transforms`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/transforms.py), and "
+                "[`phenome.utils.progress`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/progress.py).\n"
                 ":::"
             ),
             blocks=(
@@ -362,6 +363,14 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
                     kind="function",
                     function_module="phenome.utils.device",
                     function_name="set_determinism",
+                    member_heading_level="###",
+                ),
+                CompoundBlock(
+                    kind="function",
+                    function_module="phenome.utils.progress",
+                    function_name="report_progress",
+                    heading="Progress reporting",
+                    class_heading_prefix="##",
                     member_heading_level="###",
                 ),
                 CompoundBlock(

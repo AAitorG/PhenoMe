@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Silent run log of pipeline steps; opt-in dump via `get_run_settings()`, `export_methods_markdown()`, richer `export_experiment_config()` JSON, and `generate_report(..., include_run_settings=True)`
 - Agent/docs surface: `AGENTS.md`, [Using with LLMs](/PhenoMe/guides/using-with-llms/), [MCP for PhenoMe](/PhenoMe/guides/mcp/), and `llms.txt` / `llms-small.txt` / `llms-full.txt` on the docs site
 - `sample_size` on dimensionality-reduction plots so large sessions can subsample before loading embeddings
+- `channel_names` on `find_files` / `set_file_df` so multi-channel properties use labels like `_DAPI` instead of `_ch0`
+- Optional `progress_callback` on `process_images` and `compute_properties` for GUI/notebook progress bars (`phenome.utils.report_progress`)
 
 ### Changed
 

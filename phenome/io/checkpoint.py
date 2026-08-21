@@ -351,7 +351,9 @@ class CheckpointManager:
                 self._ram_internal = [{} for _ in range(n_img)]
         finally:
             if opened_here and not self.lazy:
-                self._file.close()
+                f = self._file
+                if f is not None:
+                    f.close()
                 self._file = None
 
     @property

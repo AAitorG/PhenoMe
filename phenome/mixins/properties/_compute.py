@@ -25,6 +25,7 @@ from ...io.checkpoint_alignment import (
     build_metadata_key_index,
 )
 from ...utils.path_utils import primary_path as _primary_path
+from ...utils.progress import ProgressCallback, report_progress
 from ...utils.property_factories import get_preset_property_functions
 from ._paths import build_file_df_lookup, resolve_image_paths, resolve_mask_paths
 from ._workers import (
@@ -809,6 +810,7 @@ def process_all_images(
     n_jobs: int = 1,
     expected_property_keys: set[str] | None = None,
     channel_names: list[str] | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> tuple[set, dict[str, list[float]], int, list[dict[str, Any]]]:
     """Process all images and compute properties."""
     any_requires_image = any(r in ("image", "both", "any") for r in property_functions)
@@ -836,6 +838,8 @@ def process_all_images(
     )
     n_to_process = len(paths_to_compute)
     paths_list = list(paths_to_compute)
+    desc = "Computing properties"
+    disable_tqdm = progress_callback is not None
 
     if n_jobs != 1:
         batch_size = (
@@ -845,8 +849,9 @@ def process_all_images(
         )
         with tqdm(
             total=n_to_process,
-            desc="Computing properties",
+            desc=desc,
             unit="img",
+            disable=disable_tqdm,
         ) as pbar:
             for batch_start in range(0, n_to_process, batch_size):
                 batch_end = min(batch_start + batch_size, n_to_process)
@@ -902,14 +907,16 @@ def process_all_images(
                         identifier_list=identifier_list,
                     )
                 pbar.update(batch_end - batch_start)
+                report_progress(progress_callback, batch_end, n_to_process, desc)
     else:
         iterable: Any = paths_list
         if n_to_process > 0:
             iterable = tqdm(
                 paths_list,
-                desc="Computing properties",
+                desc=desc,
                 total=n_to_process,
                 unit="img",
+                disable=disable_tqdm,
             )
         for buf_idx, (img_idx, img_path) in enumerate(iterable):
             mask_path = mask_paths[img_idx]
@@ -974,6 +981,8 @@ def process_all_images(
                     id_to_ckpt_idx=id_to_ckpt_idx,
                     identifier_list=identifier_list,
                 )
+
+            report_progress(progress_callback, images_computed, n_to_process, desc)
 
     return all_property_names, feature_buffers, last_committed, internal_buffer
 

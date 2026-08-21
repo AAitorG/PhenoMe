@@ -251,7 +251,8 @@ PhenoMe.process_images(
     l2_normalize_channels: bool = True,
     save_every: int = 5,
     lazy_checkpoint: bool = True,
-    force_reprocess: bool = False
+    force_reprocess: bool = False,
+    progress_callback: collections.abc.Callable[[int, int, str], None] | None = None
 ) -> None
 ```
 
@@ -319,6 +320,10 @@ and checkpointing for resumable processing.
 - **`force_reprocess`** (`bool`): If True and ``checkpoint_path`` already exists, delete
   that file and process all requested images from scratch (no resume).
   Default: False.
+- **`progress_callback`** (`callable or None`): Optional
+  ``(current, total, desc) -> None`` hook for GUI/notebook progress
+  bars. Invoked after each batch. When set, the default ``tqdm`` bar
+  is disabled. Default: None.
 
 **Returns:**
 
@@ -352,6 +357,18 @@ With filtering and checkpoint:
 ...     checkpoint_path="embeddings.h5",
 ...     lazy_checkpoint=True
 ... )
+
+With a Jupyter progress bar:
+
+>>> from ipywidgets import IntProgress, Label, VBox
+>>> from IPython.display import display
+>>> bar, lab = IntProgress(max=1), Label()
+>>> display(VBox([lab, bar]))
+>>> def on_progress(current, total, desc):
+...     bar.max = max(total, 1)
+...     bar.value = current
+...     lab.value = f"{desc}: {current}/{total}"
+>>> pm.process_images(model, progress_callback=on_progress)
 
 ```
 
@@ -1059,7 +1076,8 @@ PhenoMeProperties.compute_properties(
     n_jobs: int = 1,
     lazy_checkpoint: bool = True,
     force_update: bool = False,
-    include_metadata: bool = False
+    include_metadata: bool = False,
+    progress_callback: collections.abc.Callable[[int, int, str], None] | None = None
 ) -> DataFrame
 ```
 
@@ -1112,6 +1130,10 @@ supported.
   is set but the file does not exist yet, only an info log is emitted;
   computation proceeds as for a new checkpoint.
 - **`include_metadata`**: If True, add metadata columns to the returned DataFrame.
+- **`progress_callback`**: Optional ``(current, total, desc) -> None`` hook for
+  GUI/notebook progress bars. Invoked after each image (sequential) or
+  after each parallel batch. When set, the default ``tqdm`` bar is
+  disabled. Default: None.
 
 **Returns:**
 
@@ -1125,6 +1147,21 @@ supported.
   keys are used.
 - **`TypeError`**: If ``additional_property_functions`` values are not
   callable.
+
+**Example:**
+
+```python
+Drive a napari/Qt progress bar from a worker thread:
+
+>>> def on_progress(current, total, desc):
+...     # update Qt/napari progress on the main thread
+...     progress.setValue(int(100 * current / total) if total else 0)
+...     progress.setLabelText(desc)
+>>> pm.compute_properties(
+...     property_preset="basic",
+...     progress_callback=on_progress,
+... )
+```
 
 </div>
 
