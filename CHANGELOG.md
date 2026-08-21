@@ -4,6 +4,37 @@ All notable changes to PhenoMe are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.0] – 2026-08
+
+### Added
+
+- Optional MCP extra (`pip install "phenome[mcp]"`) and `phenome-mcp` stdio server: search docs/recipes, list the public API, inspect a folder (no embeddings), and format an exported config JSON
+- Silent run log of pipeline steps; opt-in dump via `get_run_settings()`, `export_methods_markdown()`, richer `export_experiment_config()` JSON, and `generate_report(..., include_run_settings=True)`
+- Agent/docs surface: `AGENTS.md`, [Using with LLMs](/PhenoMe/guides/using-with-llms/), [MCP for PhenoMe](/PhenoMe/guides/mcp/), and `llms.txt` / `llms-small.txt` / `llms-full.txt` on the docs site
+- `sample_size` on dimensionality-reduction plots so large sessions can subsample before loading embeddings
+
+### Changed
+
+- Checkpoint resume matches paths with portable keys (suffix/basename) only when the key is unique on both the session and the checkpoint
+- Property checkpoints can resume into a larger file: session rows map onto checkpoint indices, extra checkpoint keys are kept, and additive properties merge instead of wiping the table
+- **Breaking:** `find_files` fails closed on duplicate sample `id` values (distinct files must have distinct ids)
+- **Breaking:** multi-channel groups require integer `channel_index` values `0..n-1` with no gaps
+- **Breaking:** `correct_batches` maps blank/NaN batch labels to `__missing__` and integer-like floats to `str(int)`
+- **Breaking:** temporal data from `process_temporal_images()` is in-memory only; checkpoints never store those rows as embeddings or properties. `save_results` now skips them on both sides.
+- Default `Normalize` channel count follows dataset output when `force_rgb=False` (split → 1, explicit `channels` → `len(channels)`)
+- `collate_fn` keeps failed sample identities as `(None, item)` instead of dropping the row silently
+- Docs site copy, generated API pages, and the function-location guide updated for the new methods
+
+### Fixed
+
+- Sequential `compute_properties(..., checkpoint_path=..., n_jobs=1)` no longer crashes after `save_every` images (`tqdm` had replaced the indexable path list)
+- Aligned property resume no longer clears and rewrites the full HDF5 property table on every incremental flush (rewrite once at finalize)
+- Portable path matches no longer drop property rows when session and checkpoint canonical paths differ
+- `generate_report()` no longer overwrites existing `compute_clustering()` labels with report defaults (`n_clusters=5`); it only pre-computes clustering when none are stored
+- HTML report table headers and cluster labels are escaped
+- Default log level is unchanged: per-sample load/property failures stay at DEBUG
+- API doc generation still writes the narrative API pages if only the function-location guide fails
+
 ## [1.3.0] – 2026-06
 
 ### Added
