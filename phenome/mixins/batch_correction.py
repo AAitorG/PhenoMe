@@ -18,6 +18,7 @@ from ..core.batch_correction import (
     compute_batch_stats,
     row_batch_ids_from_metadata,
 )
+from ..core.run_log import record_step
 
 logger = get_logger(__name__)
 
@@ -103,6 +104,23 @@ class PhenoMeBatchCorrection:
         Returns:
             Dict with batch stats summary (``batches``, ``controls_per_batch``, ``method``, …).
         """
+        record_step(
+            self,
+            "correct_batches",
+            {
+                "batch_metadata_key": batch_metadata_key,
+                "method": method,
+                "source": source,
+                "property_keys": property_keys,
+                "control_filters": control_filters,
+                "inplace": inplace,
+                "checkpoint_path": checkpoint_path,
+                "chunk_size": chunk_size,
+                "force": force,
+                "ridge_multiplier": ridge_multiplier,
+                "min_controls": min_controls,
+            },
+        )
         if not force and getattr(self, "_batch_correction_applied", False):
             raise RuntimeError(
                 "Batch correction was already applied in this session. "

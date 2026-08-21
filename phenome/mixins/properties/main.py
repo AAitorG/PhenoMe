@@ -13,6 +13,7 @@ import pandas as pd
 
 from ..._logging import get_logger
 from ...core.pipeline_results import PhenoMeResults
+from ...core.run_log import record_step
 from ...io import CheckpointManager
 from . import _compute
 from ._report import build_properties_dataframe as _build_properties_dataframe_fn
@@ -305,6 +306,21 @@ class PhenoMeProperties:
             TypeError: If ``additional_property_functions`` values are not
                 callable.
         """
+        record_step(
+            self,
+            "compute_properties",
+            {
+                "metadata_config": metadata_config,
+                "property_preset": property_preset,
+                "additional_property_functions": additional_property_functions,
+                "checkpoint_path": checkpoint_path,
+                "save_every": save_every,
+                "n_jobs": n_jobs,
+                "lazy_checkpoint": lazy_checkpoint,
+                "force_update": force_update,
+                "include_metadata": include_metadata,
+            },
+        )
         self.reset_properties()
 
         if not self.results.img_path:

@@ -71,6 +71,9 @@ full = [
     "pykeops==2.3; sys_platform != 'win32'",
     "torchdr>=0.1,<0.5",
 ]
+mcp = [
+    "mcp>=2.0",
+]
 dev = [
     "codespell>=2.4",
     "interrogate>=1.7.0",
@@ -81,6 +84,10 @@ dev = [
     "types-requests",
     "types-setuptools",
 ]
+
+[project.scripts]
+phenome-mcp = "phenome.mcp.server:main"
+
 [project.urls]
 Homepage      = "https://github.com/AAitorG/PhenoMe"
 Repository    = "https://github.com/AAitorG/PhenoMe"

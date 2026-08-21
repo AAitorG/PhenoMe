@@ -28,6 +28,7 @@ from .sections.interpretability import generate_interpretability_section
 from .sections.outlier import generate_outlier_section
 from .sections.overview import generate_overview_section
 from .sections.property_stats import generate_property_stats_section
+from .sections.run_settings import generate_run_settings_section
 from .sections.visualization import generate_visualization_section
 from .styles import REPORT_CSS
 
@@ -86,6 +87,8 @@ class ReportConfig:
             makes it truly standalone. Set False to load Plotly from a CDN.
         theme: UI theme, ``"dark"`` (default) or ``"light"``, set on the
             generated HTML ``<html data-theme>`` attribute.
+        include_run_settings: If True, add a Methods / settings section from the
+            silent run log. Default False so existing reports are unchanged.
     """
 
     include_plots: bool = True
@@ -119,6 +122,7 @@ class ReportConfig:
     exclude: dict[str, Any] | None = None  # Pre-report metadata exclusions.
     offline_plotly: bool = True  # Inline Plotly JS so the report renders without internet.
     theme: Literal["dark", "light"] = "dark"  # Sets ``data-theme`` on the report HTML.
+    include_run_settings: bool = False
 
 
 def _resolve_report_options(
@@ -185,6 +189,18 @@ def _build_sections(ctx: ReportContext) -> tuple[list[tuple[str, str, str]], lis
     )
     nav_items.append(("overview", "Overview"))
     sections.append(("overview", "Dataset Overview", dataset_summary))
+
+    if opts.get("include_run_settings"):
+        getter = getattr(ctx.pipeline, "get_run_settings", None)
+        settings = getter() if callable(getter) else None
+        nav_items.append(("run-settings", "Methods / settings"))
+        sections.append(
+            (
+                "run-settings",
+                "Methods / settings",
+                generate_run_settings_section(settings),
+            )
+        )
 
     # Multivariate Interpretability
     if include_interpretability and ctx.has_embeddings and ctx.has_properties:
@@ -437,7 +453,13 @@ def generate_report(
         >>> generate_report(pheno, config=cfg, title="My Report")
     """
     from ..core import get_all_metadata_keys
+    from ..core.run_log import record_step
 
+    record_step(
+        pipeline,
+        "generate_report",
+        {"output_path": output_path, "title": title, **overrides},
+    )
     opts = _resolve_report_options(config, **overrides)
 
     metadata_keys = opts.get("metadata_keys")

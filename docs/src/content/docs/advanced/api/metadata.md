@@ -345,7 +345,7 @@ Single filename column. Auto-generates ID from path when not provided.
 Metadata extractor from path template with capture groups.
 
 Uses parentheses for capture groups, e.g. ``.../(drug)/(time)/(crop_name).*``.
-group_by is the last capture group.
+group_by is the last capture group that is not ``channel_index``.
 
 ### Construction
 
@@ -386,7 +386,7 @@ PathTemplateMetadata(
 
 <div class="api-body">
 
-Return the last capture group name, or ``filename`` if there are no groups.
+Return a sample-level capture group, never ``channel_index``.
 
 </div>
 

@@ -5,7 +5,6 @@ import json
 import os
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from datetime import datetime
 from typing import Any, Literal, cast
 
 import numpy as np
@@ -22,6 +21,7 @@ from .core import (
     validate_results,
 )
 from .core.dataframe_contract import IMAGE_INDEX
+from .core.run_log import RunLog, snapshot_environment
 from .io import CheckpointManager, FileDiscovery
 from .io._path_utils import _resolve_results_hdf5_path
 from .io.checkpoint_alignment import (
@@ -171,6 +171,15 @@ class PhenoMe(
         if seed is not None:
             set_determinism(seed)
 
+        self._run_log = RunLog(
+            init_kwargs={
+                "device": str(self.device),
+                "seed": seed,
+                "use_gpu_for_dr": use_gpu_for_dr,
+            },
+            environment=snapshot_environment(self.device),
+        )
+
         self._file_discovery = FileDiscovery()
         self._transform_builder = TransformBuilder(mean=self.mean, std=self.std)
 
@@ -228,6 +237,8 @@ class PhenoMe(
             self._channel_names = None
         self._batch_correction_applied = False
         self._batch_correction_last_info = None
+        if getattr(self, "_run_log", None) is not None:
+            self._run_log.clear_steps()
 
         if verbose:
             logger.info("Reset: All stored data cleared.")
@@ -408,6 +419,14 @@ class PhenoMe(
         self._file_df = file_df.reset_index(drop=True).copy()
         self._init_file_df_metadata(self._file_df)
         self._channel_names = self._normalize_channel_names(channel_names)
+        self._record_step(
+            "set_file_df",
+            {
+                "n_files": len(self._file_df),
+                "columns": list(self._file_df.columns),
+                "channel_names": self._channel_names,
+            },
+        )
         return self._file_df
 
     def find_files(
@@ -526,6 +545,21 @@ class PhenoMe(
             logger.warning("find_files returned an empty DataFrame; clearing previous _file_df.")
             self._file_df = None
             self._channel_names = None
+        n_files = len(df) if isinstance(df, pd.DataFrame) else 0
+        self._record_step(
+            "find_files",
+            {
+                "image_dir": image_dir,
+                "mask_dir": mask_dir,
+                "extensions": extensions,
+                "metadata_fn": metadata_fn,
+                "on_missing_metadata": on_missing_metadata,
+                "mask_filename_column": mask_filename_column,
+                "mask_extensions": mask_extensions,
+                "channel_names": channel_names,
+            },
+            extras={"n_files": n_files},
+        )
         return df
 
     # ------------------------------------------------------------------
@@ -648,6 +682,37 @@ class PhenoMe(
             `get_embeddings`: Retrieve embeddings (handles lazy loading).
             `compute_properties`: Extract morphological properties from embeddings.
         """
+        model_name = getattr(model_wrapper, "model_name", None) or getattr(
+            model_wrapper, "name", None
+        )
+        self._record_step(
+            "process_images",
+            {
+                "batch_size": batch_size,
+                "num_workers": num_workers,
+                "filters": filters,
+                "exclude": exclude,
+                "channel_mode": channel_mode,
+                "channels": channels,
+                "preprocessing_fn": preprocessing_fn,
+                "custom_transformations": custom_transformations,
+                "append": append,
+                "resize_size": resize_size,
+                "pad_size": pad_size,
+                "checkpoint_path": checkpoint_path,
+                "force_rgb": force_rgb,
+                "l2_normalize_channels": l2_normalize_channels,
+                "save_every": save_every,
+                "lazy_checkpoint": lazy_checkpoint,
+                "force_reprocess": force_reprocess,
+            },
+            extras={
+                "model": {
+                    "class": type(model_wrapper).__name__,
+                    **({"name": model_name} if model_name else {}),
+                }
+            },
+        )
 
         file_df = self._require_file_df("process_images")
         self._validate_process_images_inputs(file_df)
@@ -761,6 +826,32 @@ class PhenoMe(
         (channel_mode, channels, resize_size, etc.) are inherited from the base run
         when not specified. Temporal rows get metadata['source'] = 'NEW'.
         """
+        model_name = getattr(model_wrapper, "model_name", None) or getattr(
+            model_wrapper, "name", None
+        )
+        self._record_step(
+            "process_temporal_images",
+            {
+                "files": files,
+                "batch_size": batch_size,
+                "num_workers": num_workers,
+                "channel_mode": channel_mode,
+                "channels": channels,
+                "preprocessing_fn": preprocessing_fn,
+                "custom_transformations": custom_transformations,
+                "resize_size": resize_size,
+                "pad_size": pad_size,
+                "force_rgb": force_rgb,
+                "l2_normalize_channels": l2_normalize_channels,
+                "extensions": extensions,
+            },
+            extras={
+                "model": {
+                    "class": type(model_wrapper).__name__,
+                    **({"name": model_name} if model_name else {}),
+                }
+            },
+        )
         if self.results.n_images == 0:
             raise ValueError("No existing data. Run process_images() first.")
 
@@ -1000,6 +1091,10 @@ class PhenoMe(
             path: Explicit output path.
             compression: HDF5 compression algorithm (used only for new files).
         """
+        self._record_step(
+            "save_results",
+            {"path": path, "compression": compression},
+        )
         target_path = _resolve_results_hdf5_path(path)
 
         parent = os.path.dirname(target_path) or "."
@@ -1124,9 +1219,11 @@ class PhenoMe(
     ) -> None:
         """Export experiment configuration for reproducibility.
 
-        Writes a JSON file with parameters not stored in the HDF5 checkpoint,
-        so that analyses can be fully reproduced. Call after save_results()
-        and pass the same reference_filters used for distance analysis.
+        Writes a JSON file with init parameters, environment, processing
+        params, and silently recorded method steps. Call after the analysis
+        you want to document. Optional ``model_name`` / ``reference_filters``
+        override values already captured from ``process_images`` /
+        ``compute_reference_distances``.
 
         Args:
             path: Output path for config.json.
@@ -1137,39 +1234,19 @@ class PhenoMe(
                 provided and a checkpoint is open, uses self._db.path).
             **extra: Additional key-value pairs to include in the config.
         """
-        try:
-            from . import __version__ as pkg_version
-        except ImportError:
-            pkg_version = "unknown"
-
-        config: dict[str, Any] = {
-            "seed": self.seed,
-            "use_gpu_for_dr": self.use_gpu_for_dr,
-            "timestamp": datetime.now().isoformat(),
-            "pipeline_version": pkg_version,
-            **extra,
-        }
+        extra_fields: dict[str, Any] = dict(extra)
         if reference_filters is not None:
-            config["reference_filters"] = reference_filters
+            extra_fields["reference_filters"] = reference_filters
         if model_name is not None:
-            config["model_name"] = model_name
-
-        if self._processing_params is not None:
-            # Make JSON-serializable (e.g. numpy types -> native)
-            params_copy: dict[str, Any] = {}
-            for k, v in self._processing_params.items():
-                if v is not None and hasattr(v, "tolist"):
-                    params_copy[k] = v.tolist()
-                elif isinstance(v, bytes):
-                    params_copy[k] = v.decode("utf-8")
-                else:
-                    params_copy[k] = v
-            config["processing_params"] = params_copy
-
-        if checkpoint_path is not None:
-            config["checkpoint_path"] = checkpoint_path
-        elif self._db is not None:
-            config["checkpoint_path"] = os.path.abspath(self._db.path)
+            extra_fields["model_name"] = model_name
+        ckpt = checkpoint_path
+        if ckpt is None and self._db is not None:
+            ckpt = os.path.abspath(self._db.path)
+        config = self.get_run_settings()
+        if extra_fields:
+            config.update(extra_fields)
+        if ckpt is not None:
+            config["checkpoint_path"] = ckpt
 
         parent = os.path.dirname(path)
         if parent:
@@ -1177,6 +1254,40 @@ class PhenoMe(
         with open(path, "w") as f:
             json.dump(config, f, indent=2)
         logger.info("Experiment config saved to %s", path)
+
+    def get_run_settings(self) -> dict[str, Any]:
+        """Return the silent run log as a JSON-serializable dict.
+
+        Includes init parameters, environment, recorded method steps, and
+        processing_params when available. Does not print or write files.
+        """
+        ckpt = os.path.abspath(self._db.path) if self._db is not None else None
+        return self._run_log.to_dict(
+            processing_params=self._processing_params,
+            checkpoint_path=ckpt,
+        )
+
+    def export_methods_markdown(self, path: str) -> None:
+        """Write a markdown methods summary from the silent run log.
+
+        Opt-in companion to [export_experiment_config](pipeline.md#api-phenome-export_experiment_config)
+        for paper supplements. Does nothing unless this method is called.
+        """
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self._run_log.to_markdown())
+        logger.info("Methods markdown saved to %s", path)
+
+    def _record_step(
+        self,
+        method: str,
+        kwargs: dict[str, Any] | None = None,
+        extras: dict[str, Any] | None = None,
+    ) -> None:
+        """Append one silent run-log step. No logger output."""
+        self._run_log.record(method, kwargs, extras)
 
     def export_dataset_table(
         self,
@@ -1536,6 +1647,10 @@ class PhenoMe(
             ConcurrentCheckpointAccessError: If the checkpoint is already open in
                 another notebook or process (only one instance can access it at a time).
         """
+        self._record_step(
+            "load_results",
+            {"path": path, "lazy_checkpoint": lazy_checkpoint},
+        )
         filename, ckpt = self._open_results_checkpoint(
             path,
             method_name="load_results",

@@ -20,7 +20,6 @@ pheno.generate_report(
 
 pheno.export_experiment_config(
     "experiment_2026_01/config.json",
-    reference_filters={"condition": "Control"},
 )
 ```
 

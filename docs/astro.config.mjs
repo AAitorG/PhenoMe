@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 
 // GitHub Pages project site: https://<user>.github.io/<repo>/
 const site = "https://AAitorG.github.io";
@@ -50,6 +51,29 @@ export default defineConfig({
         },
       ],
       customCss: ["./src/styles/custom.css"],
+      plugins: [
+        starlightLlmsTxt({
+          projectName: "PhenoMe",
+          description:
+            "Dataset-agnostic phenotyping with deep learning embeddings (Python package: phenome). Defaults for logging, plots, and reports are unchanged; assistants must only pass extra parameters when the user asks.",
+          promote: [
+            "getting-started",
+            "guides/using-with-llms",
+            "workflows",
+            "faq",
+            "function-location-guide",
+            "advanced/api/pipeline",
+            "guides/mcp",
+          ],
+          exclude: [
+            "guides/developer-guide",
+            "guides/testing",
+            "guides/contributing-guide",
+            "advanced/database_protocol",
+          ],
+          rawContent: true,
+        }),
+      ],
       sidebar: [
         { label: "Home", link: "/" },
         {
@@ -58,6 +82,7 @@ export default defineConfig({
             { label: "Getting started", link: "/getting-started/" },
             { label: "Learning paths", link: "/user-paths/" },
             { label: "Common workflows", link: "/workflows/" },
+            { label: "Using with LLMs", link: "/guides/using-with-llms/" },
           ],
         },
         {
@@ -169,6 +194,7 @@ export default defineConfig({
           items: [
             { label: "Glossary", link: "/glossary/" },
             { label: "FAQ", link: "/faq/" },
+            { label: "MCP for assistants", link: "/guides/mcp/" },
           ],
         },
       ],
