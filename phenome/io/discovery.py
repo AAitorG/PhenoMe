@@ -3,7 +3,7 @@ File discovery and data inspecting for the phenotyping pipeline.
 """
 
 import os
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Callable
 from glob import glob
 from typing import Any
@@ -15,6 +15,7 @@ from tqdm.auto import tqdm
 from .._logging import get_logger
 from ..metadata.base import MetadataBase
 from ..utils.path_utils import filename_identifier_keys
+from ._discovery_ops import _merge_multichannel_groups, _raise_on_duplicate_ids
 
 __all__ = ["FileDiscovery", "ensure_hwc", "read_image"]
 
@@ -257,49 +258,7 @@ class FileDiscovery:
         # get_metadata_from_path), default "filename". If absent, deduce from row keys.
         # Note: row keys are lowercased; resolve group_key case-insensitively.
         if rows and "channel_index" in rows[0]:
-            group_key = getattr(fn, "group_by", "filename")
-            if group_key not in rows[0]:
-                # Resolve case-insensitively (row keys are lowercased)
-                group_key_lower = group_key.lower()
-                matching = [k for k in rows[0] if k.lower() == group_key_lower]
-                if matching:
-                    group_key = matching[0]
-                else:
-                    # Deduce: first metadata key that is not a system key
-                    sys_keys = {"channel_index", "file_path"}
-                    group_key = next(
-                        (k for k in rows[0] if k not in sys_keys),
-                        None,
-                    )
-            if group_key is None:
-                raise ValueError(
-                    "Multi-channel files detected (channel_index present) but no grouping "
-                    "column found. Set group_by on the metadata source (e.g. filename or id)."
-                )
-            if group_key is not None:
-                n_files = len(rows)
-                groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-                for row in rows:
-                    groups[row[group_key]].append(row)
-                merged_rows: list[dict[str, Any]] = []
-                for _, group in groups.items():
-                    group.sort(key=lambda r: r["channel_index"])
-                    first = group[0].copy()
-                    paths_list = [r["file_path"] for r in group]
-                    first["file_path"] = paths_list
-                    # Drop channel_index from merged row (no longer per-file)
-                    first.pop("channel_index", None)
-                    # Re-ensure composite ID from all channel paths when using MetadataBase
-                    meta_src = getattr(metadata_fn, "_metadata_source", metadata_fn)
-                    if isinstance(meta_src, MetadataBase):
-                        meta_src.ensure_id(first, paths_list, data_dir)
-                    merged_rows.append(first)
-                rows = merged_rows
-                logger.info(
-                    "Grouped %d channel files into %d samples (multi-channel mode).",
-                    n_files,
-                    len(rows),
-                )
+            rows = _merge_multichannel_groups(rows, fn, metadata_fn, data_dir)
 
         # Mask discovery
         rows = self._resolve_mask_paths_for_rows(
@@ -310,6 +269,7 @@ class FileDiscovery:
             mask_filename_column=mask_filename_column,
             mask_extensions=mask_extensions,
         )
+        _raise_on_duplicate_ids(rows)
 
         df = pd.DataFrame(rows)
         logger.info("DataFrame: %d files, %d columns.", len(df), len(df.columns))

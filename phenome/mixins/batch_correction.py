@@ -297,6 +297,18 @@ class PhenoMeBatchCorrection:
                 batch_metadata_key=batch_metadata_key,
                 source="properties",
             )
+            n_ckpt = int(self._temporal_start_idx) if self._db_indices is not None else n
+            n_ckpt = min(n_ckpt, int(self._db.n_committed), len(props))
+            persist = [props[i] if isinstance(props[i], dict) else {} for i in range(n_ckpt)]
+            ram_internal = getattr(self, "_ram_internal", None)
+            self._db.clear_properties()
+            if persist:
+                self._db.buffer_properties(persist)
+                if ram_internal and len(ram_internal) >= n_ckpt:
+                    self._db.buffer_internal(
+                        [dict(ram_internal[i]) if ram_internal[i] else {} for i in range(n_ckpt)]
+                    )
+                self._db.commit_properties()
             logger.info("Wrote batch correction stats to checkpoint %s", self._db.path)
 
         if checkpoint_path is not None and self._db is None:

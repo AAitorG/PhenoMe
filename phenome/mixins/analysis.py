@@ -1262,7 +1262,7 @@ class PhenoMeAnalysis:
                     gm_norm = torch.nn.functional.normalize(gm_t, dim=-1)
                     centroid_norm = torch.nn.functional.normalize(centroid_t.unsqueeze(0), dim=-1)
                     # Compute cosine similarity on GPU
-                    sims_t = torch.matmul(gm_norm, centroid_norm.T).squeeze()
+                    sims_t = torch.matmul(gm_norm, centroid_norm.T).reshape(-1)
                     sims = sims_t.cpu().numpy() if device.type != "cpu" else sims_t.numpy()
                     top = np.argsort(sims)[::-1][:n_prototypes]
                 else:

@@ -26,7 +26,7 @@ from .io import CheckpointManager, FileDiscovery
 from .io._path_utils import _resolve_results_hdf5_path
 from .io.checkpoint_alignment import (
     _build_unique_path_lookup,
-    _lookup_unique_path_index,
+    _match_path_index,
     build_metadata_key_index,
     filter_items_not_in_checkpoint,
     get_already_committed_metadata_keys,
@@ -42,12 +42,14 @@ from .mixins import (
     PhenoMeProperties,
     PhenoMeVisualization,
 )
+from .mixins._helpers import _require_embeddings_for_temporal
 from .mixins.dataset import PhenoMeDataset, collate_fn
 from .mixins.embedding_extractor import EmbeddingExtractor
 from .utils import TransformBuilder
 from .utils.device import get_default_device, set_default_device, set_determinism
 from .utils.model_wrapper import ModelWrapper
 from .utils.path_utils import path_repr as _path_repr
+from .utils.transforms import _n_channels_for_transforms
 
 logger = get_logger(__name__)
 
@@ -694,7 +696,9 @@ class PhenoMe(
                 )
             return
 
-        cur_t = custom_transformations or self._build_transforms(resize_size, pad_size)
+        cur_t = custom_transformations or self._build_transforms(
+            resize_size, pad_size, n_channels=_n_channels_for_transforms(cur_params)
+        )
         self.image_transforms = cur_t
 
         dl = self._create_dataloader(
@@ -760,6 +764,8 @@ class PhenoMe(
         if self.results.n_images == 0:
             raise ValueError("No existing data. Run process_images() first.")
 
+        _require_embeddings_for_temporal(self._db, self.embedding_dim, self.results)
+
         # Resolve to DataFrame (str→find_files; list→DataFrame; already DataFrame→use)
         if isinstance(files, pd.DataFrame):
             file_df = files
@@ -814,7 +820,9 @@ class PhenoMe(
             rs_int = None
         if ps_int is None and isinstance(ps, str) and ps.lower() == "none":
             ps_int = None
-        ct = custom_transformations or self._build_transforms(rs_int, ps_int)
+        ct = custom_transformations or self._build_transforms(
+            rs_int, ps_int, n_channels=_n_channels_for_transforms(cur_params)
+        )
         dl = self._create_dataloader(
             fdata,
             transform=ct,
@@ -1005,10 +1013,20 @@ class PhenoMe(
             # checkpoint_path to compute_properties) are included in the saved file.
             if self.results.has_properties:
                 n_db = self._db.n_committed_props + self._db.properties_buffered
-                if n_db < self.results.n_images:
+                n_ckpt_rows = int(self._temporal_start_idx)
+                if n_ckpt_rows <= 0:
+                    n_ckpt_rows = int(self._db.n_committed)
+                n_persist = min(self.results.n_images, n_ckpt_rows)
+                if n_persist < self.results.n_images:
+                    logger.info(
+                        "Skipping %d temporal property row(s) when saving checkpoint "
+                        "(temporal images are in-memory only).",
+                        self.results.n_images - n_persist,
+                    )
+                if n_db < n_persist:
                     db_indices = self._db_indices
                     if db_indices is not None and (
-                        len(db_indices) != self.results.n_images
+                        len(db_indices) != n_persist
                         or not np.array_equal(db_indices, np.arange(len(db_indices)))
                     ):
                         raise ValueError(
@@ -1016,11 +1034,35 @@ class PhenoMe(
                             "reload (non-contiguous row mapping). Recompute properties with "
                             "checkpoint_path= or export with write_results_to_hdf5()."
                         )
-                    to_buffer = self.results.properties[n_db:]
+                    to_buffer = self.results.properties[n_db:n_persist]
                     self._db.buffer_properties(to_buffer)
-                    if self._ram_internal and len(self._ram_internal) >= self.results.n_images:
-                        to_buffer_int = self._ram_internal[n_db:]
+                    if self._ram_internal and len(self._ram_internal) >= n_persist:
+                        to_buffer_int = self._ram_internal[n_db:n_persist]
                         self._db.buffer_internal(to_buffer_int)
+
+            if self._db.embeddings_buffered:
+                self._db.commit_embeddings()
+            if self._db.properties_buffered:
+                self._db.commit_properties()
+
+            if not self._db.lazy and self._db._ram_data is not None:
+                ram = self._db._ram_data
+                params = self._db._processing_params_ram
+                internal = self._db._ram_internal
+                was_open = self._db._file is not None
+                self._db.close()
+                CheckpointManager.write_results_to_hdf5(
+                    ram,
+                    target_path,
+                    compression=compression,
+                    processing_params=params,
+                    internal=internal,
+                )
+                self._db.path = target_path
+                if was_open:
+                    self._db._ensure_open()
+                logger.info("Results saved to %s", target_path)
+                return
 
             if os.path.abspath(target_path) == db_path:
                 if self._db.embeddings_buffered:
@@ -1412,11 +1454,12 @@ class PhenoMe(
                         filtered_props.append({})
                         filtered_internal.append({})
             except ValueError:
-                path_lookup = _build_unique_path_lookup(ckpt_paths)
+                ckpt_lookup = _build_unique_path_lookup(ckpt_paths)
+                session_lookup = _build_unique_path_lookup(image_paths)
                 filtered_props = []
                 filtered_internal = []
-                for p in image_paths:
-                    idx = _lookup_unique_path_index(path_lookup, p)
+                for i, p in enumerate(image_paths):
+                    idx = _match_path_index(p, ckpt_lookup, session_lookup, i)
                     if idx is not None and 0 <= idx < len(all_props):
                         filtered_props.append(dict(all_props[idx]))
                         filtered_internal.append(
@@ -2015,10 +2058,15 @@ class PhenoMe(
             lazy_checkpoint=lazy_checkpoint,
         )
 
-    def _build_transforms(self, resize_size: int | None, pad_size: int | None = None) -> Any:
+    def _build_transforms(
+        self,
+        resize_size: int | None,
+        pad_size: int | None = None,
+        n_channels: int = 3,
+    ) -> Any:
         """Build torchvision Compose applied to each image before the model forward pass."""
         self.image_transforms = self._transform_builder.build(
-            resize_size=resize_size, pad_size=pad_size
+            resize_size=resize_size, pad_size=pad_size, n_channels=n_channels
         )
         return self.image_transforms
 
@@ -2333,15 +2381,14 @@ class PhenoMe(
         self._db = ckpt
 
         paths, metadata = ckpt.load_metadata_and_paths()
-        if current_requested_data:
-            metadata = merge_metadata_from_current_run(
-                paths, metadata, current_requested_data, _path_repr
-            )
         properties = ckpt.load_properties_all()
         internal = ckpt.load_internal_all()
 
         h5_indices = np.arange(len(paths), dtype=np.int64)
 
+        # Filter on *original* checkpoint identity before overlaying current-run
+        # metadata, so a basename-only path hit cannot rewrite keys and sneak
+        # a foreign embedding into the subset.
         if (requested_paths is not None or requested_meta_keys is not None) and paths:
             if requested_meta_keys is not None:
                 indices = []
@@ -2364,10 +2411,11 @@ class PhenoMe(
                     current_path_lookup = _build_unique_path_lookup(
                         [d.get("file_path", "") for d in current_requested_data]
                     )
+                    ckpt_lookup = _build_unique_path_lookup(paths)
                     indices = [
                         i
                         for i, p in enumerate(paths)
-                        if _lookup_unique_path_index(current_path_lookup, p) is not None
+                        if _match_path_index(p, current_path_lookup, ckpt_lookup, i) is not None
                     ]
                 else:
                     indices = [
@@ -2385,9 +2433,10 @@ class PhenoMe(
                 if internal:
                     internal = [internal[i] for i in indices if i < len(internal)]
 
-        # When file_df was provided, replace checkpoint paths with file_df paths
-        # so results.img_path points to valid files on this machine.
         if current_requested_data:
+            metadata = merge_metadata_from_current_run(
+                paths, metadata, current_requested_data, _path_repr
+            )
             paths = rebase_paths_from_current_run(
                 paths, metadata, current_requested_data, _path_repr
             )

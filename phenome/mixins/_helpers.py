@@ -115,3 +115,22 @@ def compute_silhouette_if_valid(
     except ValueError as exc:
         logger.warning("Silhouette score failed: %s", exc)
         return None
+
+
+def _require_embeddings_for_temporal(db: object, embedding_dim: int, results: object) -> None:
+    """Raise unless checkpoint or in-memory embeddings cover every current row."""
+    if db is not None:
+        if embedding_dim <= 0:
+            raise ValueError(
+                "Checkpoint has no embeddings; cannot add temporal images. "
+                "Load an embeddings checkpoint first."
+            )
+        return
+    emb = getattr(results, "embeddings", None)
+    n = int(getattr(results, "n_images", 0))
+    if emb is None or not isinstance(emb, np.ndarray) or emb.ndim != 2 or emb.shape[0] != n:
+        raise ValueError(
+            "Embeddings are not loaded in memory (results.embeddings is missing "
+            "or does not match n_images). Call load_results(..., lazy_checkpoint=True) "
+            "or enter checkpoint_context() before process_temporal_images()."
+        )
