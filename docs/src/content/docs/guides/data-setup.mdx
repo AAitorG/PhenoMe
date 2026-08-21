@@ -116,7 +116,7 @@ pheno.find_files("images", mask_dir="masks")
 
 | Problem | What to check |
 |---------|---------------|
-| `plot_pca(color_by='condition')` fails | Column exists on `file_df` - run `pheno.get_available_metadata_keys()`. |
+| `plot_pca(color_by='condition')` fails | That name must be a metadata key — run `pheno.get_available_metadata_keys()`. |
 | Spreadsheet row count != image count | How overlap works - [FAQ](/PhenoMe/faq/#data-and-metadata). |
 | Filter returns no images | Exact string match and keys - [Best practices - data organization](/PhenoMe/guides/best-practices/data-organization/). |
 | Masks not found | Check mask folder and naming - [Adding experiment info — Finding masks](/PhenoMe/guides/experiment-details/mask-discovery/). |

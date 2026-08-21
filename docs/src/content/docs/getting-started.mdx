@@ -146,7 +146,7 @@ If you prefer a guided walkthrough with interactive widgets, start with
    pheno = PhenoMe(device=device, seed=42)
    ```
 
-2. **Find and inspect images**
+2. **Find your images**
 
    A simple folder is fine. For grouped experiments (conditions, drugs,
    time points) add labels via [folder patterns or spreadsheets](/PhenoMe/guides/experiment-details/).
@@ -159,7 +159,7 @@ If you prefer a guided walkthrough with interactive widgets, start with
 
    ```python
    pheno.process_images(wrapper)
-   pheno.compute_properties(property_preset="basic")
+   pheno.compute_properties(property_preset="intensity")
    ```
 
    <Aside type="tip">
@@ -172,7 +172,8 @@ If you prefer a guided walkthrough with interactive widgets, start with
    pheno.plot_pca(color_by="condition")
    ```
 
-   Replace `condition` with any metadata column in your images' DataFrame (`file_df`). Use `pheno.get_available_metadata_keys()` to list them.
+   Replace `condition` with any metadata column in your dataset. Use `pheno.get_available_metadata_keys()` to list them.
+   If you have no labels yet, call `pheno.plot_pca()` with no `color_by`.
 </Steps>
 
 ## What's next?
