@@ -2293,9 +2293,7 @@ class PhenoMeInteractive:
                             logger.warning("Thumbnail load timed out for index %s", idx)
                             rows.append((idx, None))
                         except Exception:
-                            logger.warning(
-                                "Thumbnail load failed for index %s", idx, exc_info=True
-                            )
+                            logger.warning("Thumbnail load failed for index %s", idx, exc_info=True)
                             rows.append((idx, None))
 
                 b64_list: list[str] = []
