@@ -285,7 +285,7 @@ def compute_properties_worker(
                     if not isinstance(feat_dict, dict):
                         continue
                 except Exception as exc:
-                    logger.debug("Property fn %s failed: %s", getattr(fn, "__name__", fn), exc)
+                    logger.warning("Property fn %s failed: %s", getattr(fn, "__name__", fn), exc)
                     feat_dict = {}
 
                 for bname, value in feat_dict.items():

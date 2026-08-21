@@ -348,7 +348,7 @@ class PhenoMeProperties:
             and getattr(self, "_db", None) is not None
         ):
             logger.info(
-                "Checkpoint not found. Initializing %s from active database to preserve embeddings.",
+                "Checkpoint not found. Creating new %s checkpoint.",
                 checkpoint_path,
             )
             self.save_results(path=checkpoint_path)

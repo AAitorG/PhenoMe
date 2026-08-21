@@ -288,6 +288,72 @@ class CheckpointManager:
             return 0
         return int(self._file.attrs.get("n_committed_props", 0))
 
+    def property_column_names(self) -> list[str]:
+        """Names of stored property columns, or empty if none were written."""
+        if self._file is not None and "properties" in self._file:
+            return [str(k) for k in self._file["properties"]]
+        props = self.load_properties_all()
+        keys: set[str] = set()
+        for p in props:
+            if isinstance(p, dict):
+                keys.update(str(k) for k in p)
+        return sorted(keys)
+
+    def has_property_content(self) -> bool:
+        """Return True if this file stores real property columns or values.
+
+        ``n_committed_props > 0`` alone is insufficient: writing a list of empty
+        ``{}`` rows can set that counter and create an empty ``/properties`` group.
+        """
+        if self.n_committed_props <= 0:
+            return False
+        if self.property_column_names():
+            return True
+        return any(isinstance(p, dict) and p for p in self.load_properties_all())
+
+    def reset_empty_property_counter(self) -> None:
+        """Set ``n_committed_props`` to 0 when ``/properties`` has no columns.
+
+        Saving embeddings with a list of empty ``{}`` dicts can stamp
+        ``n_committed_props = n_images`` without writing columns. Later
+        ``commit_properties`` then refuses to append because the counter
+        already equals ``n_committed``.
+        """
+        opened_here = False
+        if self._file is None:
+            if not os.path.isfile(self.path):
+                self._n_committed_props_ram = 0
+                return
+            self._ensure_open()
+            opened_here = True
+        try:
+            assert self._file is not None
+            names: list[str] = []
+            if "properties" in self._file:
+                names = [str(k) for k in self._file["properties"]]
+            if names:
+                return
+            n_attr = int(self._file.attrs.get("n_committed_props", 0))
+            self._n_committed_props_ram = 0
+            if n_attr == 0:
+                return
+            logger.warning(
+                "Checkpoint %s has n_committed_props=%d but no property columns; "
+                "resetting the counter so properties can be saved.",
+                self.path,
+                n_attr,
+            )
+            self._file.attrs["n_committed_props"] = 0
+            self._file.flush()
+            if not self.lazy and self._ram_data is not None:
+                n_img = self._ram_data.n_images
+                self._ram_data.properties = [{} for _ in range(n_img)]
+                self._ram_internal = [{} for _ in range(n_img)]
+        finally:
+            if opened_here and not self.lazy:
+                self._file.close()
+                self._file = None
+
     @property
     def embedding_dim(self) -> int | None:
         """Embedding width *D* from file attrs, or ``None`` when not set."""
@@ -1390,14 +1456,18 @@ class CheckpointManager:
                 # Properties (columnar) + optional /internal
                 if props:
                     clean_props = [dict(p) if isinstance(p, dict) else {} for p in props]
-                    write_properties_group(f, "properties", clean_props, n)
-                    if internal:
-                        internal_for_write = [
-                            dict(internal[i]) if i < len(internal) else {} for i in range(n)
-                        ]
-                        if any(int_d for int_d in internal_for_write):
-                            write_internal_group(f, _INTERNAL_GROUP_NAME, internal_for_write, n)
-                    f.attrs["n_committed_props"] = n
+                    has_keys = any(isinstance(p, dict) and p for p in clean_props)
+                    if has_keys:
+                        write_properties_group(f, "properties", clean_props, n)
+                        if internal:
+                            internal_for_write = [
+                                dict(internal[i]) if i < len(internal) else {} for i in range(n)
+                            ]
+                            if any(int_d for int_d in internal_for_write):
+                                write_internal_group(f, _INTERNAL_GROUP_NAME, internal_for_write, n)
+                        f.attrs["n_committed_props"] = n
+                    else:
+                        f.attrs["n_committed_props"] = 0
                 else:
                     f.attrs["n_committed_props"] = 0
 

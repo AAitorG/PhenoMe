@@ -1268,21 +1268,8 @@ class PhenoMe(
 
     @staticmethod
     def _checkpoint_has_property_content(ckpt: CheckpointManager) -> bool:
-        """Return True if *ckpt* stores real property columns/values.
-
-        ``n_committed_props > 0`` alone is insufficient: ``write_results_to_hdf5``
-        can set that counter for a list of empty ``{}`` rows and create an empty
-        ``/properties`` group.
-        """
-        if ckpt.n_committed_props <= 0:
-            return False
-        f = ckpt._file
-        if f is not None and "properties" in f:
-            prop_group = f["properties"]
-            if len(prop_group.keys()) > 0:
-                return True
-        props = ckpt.load_properties_all()
-        return any(isinstance(p, dict) and p for p in props)
+        """Return True if *ckpt* stores real property columns/values."""
+        return ckpt.has_property_content()
 
     def _open_results_checkpoint(
         self,

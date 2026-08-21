@@ -95,7 +95,7 @@ class PhenoMeDataset(Dataset):
                 file_path if isinstance(file_path, str) else file_path[0] if file_path else "?",
                 e,
             )
-            return None
+            return None, item
 
     def _select_channels(self, img: np.ndarray) -> np.ndarray:
         """Return a (H, W, C') view containing only the requested channels.
@@ -170,27 +170,40 @@ class PhenoMeDataset(Dataset):
 
 
 def collate_fn(batch: list[Any]) -> Any:
-    """Custom collate function that handles None values and split/combined channels.
+    """Custom collate function that handles failed loads and split/combined channels.
 
     Args:
-        batch: List of (image, item) tuples from dataset. May contain None values.
+        batch: List of (image, item) tuples from the dataset. A failed load is
+            ``(None, item)`` so the sample identity is preserved.
 
     Returns:
         Tuple of (batch_tensor, items) where batch_tensor is:
             - (B, C, H, W) for combined mode or single image
             - (B, N_ch, C, H, W) for split channel mode
-        Returns (None, None) if batch is empty after filtering.
+        If every sample failed, returns ``(None, failed_items)``.
     """
-    batch = [x for x in batch if x is not None]
-    if not batch:
-        return None, None
+    failed_items: list[Any] = []
+    ok: list[Any] = []
+    for x in batch:
+        if x is None:
+            continue
+        if isinstance(x, tuple) and len(x) == 2 and x[0] is None:
+            if x[1] is not None:
+                failed_items.append(x[1])
+            continue
+        ok.append(x)
 
-    images, items = zip(*batch, strict=True)
+    if not ok:
+        return None, tuple(failed_items)
 
-    # Check if first image is a list (split mode) or tensor/array (combined mode)
+    if failed_items:
+        for it in failed_items:
+            file_path = it.get("file_path", "?") if isinstance(it, dict) else "?"
+            logger.warning("Dropped failed sample from batch: %s", file_path)
+
+    images, items = zip(*ok, strict=True)
+
     if isinstance(images[0], list):
-        # Split mode: images is tuple of lists
-        # Ensure all items in the batch have the same number of channels by padding with zero tensors if needed
         max_ch = max(len(imgs) for imgs in images)
         if any(len(imgs) != max_ch for imgs in images):
             channel_counts = [len(imgs) for imgs in images]
@@ -201,7 +214,6 @@ def collate_fn(batch: list[Any]) -> Any:
         stacked_per_item = [torch.stack(imgs) for imgs in images]
         batch_tensor = torch.stack(stacked_per_item)  # (B, N_ch, C, H, W)
     else:
-        # Combined mode: images is tuple of tensors/arrays
         batch_tensor = torch.stack(images)  # (B, C, H, W)
 
     return batch_tensor, items
