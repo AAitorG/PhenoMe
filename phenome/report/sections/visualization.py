@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from ..._logging import get_logger
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
 from .._components import generate_info_box, generate_plot_container
-from ..helpers import apply_dark_theme, plotly_to_html_fragment
+from ..helpers import apply_report_theme, plotly_to_html_fragment
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -52,7 +52,7 @@ def generate_visualization_section(
             sample_size=sample_size,
         )
         if fig_pca:
-            apply_dark_theme(fig_pca)
+            apply_report_theme(fig_pca, opts.get("theme", "dark"))
             fig_pca.update_layout(width=None, height=None, autosize=True)
             plots_html.append(
                 generate_plot_container(
@@ -73,7 +73,7 @@ def generate_visualization_section(
             sample_size=sample_size,
         )
         if fig_tsne:
-            apply_dark_theme(fig_tsne)
+            apply_report_theme(fig_tsne, opts.get("theme", "dark"))
             fig_tsne.update_layout(width=None, height=None, autosize=True)
             plots_html.append(
                 generate_plot_container(
@@ -94,7 +94,7 @@ def generate_visualization_section(
             sample_size=sample_size,
         )
         if fig_umap:
-            apply_dark_theme(fig_umap)
+            apply_report_theme(fig_umap, opts.get("theme", "dark"))
             fig_umap.update_layout(width=None, height=None, autosize=True)
             plots_html.append(
                 generate_plot_container(

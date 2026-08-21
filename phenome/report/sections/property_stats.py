@@ -5,9 +5,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from ...utils.display_names import capitalize_preserve
 from .._components import generate_collapsible, generate_feature_tags, generate_info_box
-from ..helpers import safe_html
+from ..helpers import safe_html, safe_label
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -36,7 +35,9 @@ def generate_property_stats_section(
         if not properties_list:
             return generate_info_box("No properties computed.", "warning")
 
-        property_keys = list(properties_list[0].keys())
+        property_keys = list(ctx.property_keys) or list(ctx.results.property_keys)
+        if not property_keys:
+            return generate_info_box("No properties computed.", "warning")
 
         df = pipeline._build_properties_dataframe(property_keys, include_metadata=True)
 
@@ -66,7 +67,7 @@ def generate_property_stats_section(
             rows_html = "\n".join(
                 [
                     f"""<tr>
-                    <td>{capitalize_preserve(prop)}</td>
+                    <td>{safe_label(prop)}</td>
                     <td><span class="value">{s["mean"]:.4f}</span></td>
                     <td>{s["std"]:.4f}</td>
                     <td>{s["min"]:.4f}</td>
@@ -104,10 +105,10 @@ def generate_property_stats_section(
 
         display_cols = [c for c in stat_cols if c.endswith("_mean")][:8]
 
-        header_cells = "".join([f"<th>{capitalize_preserve(g)}</th>" for g in group_cols])
+        header_cells = "".join([f"<th>{safe_label(g)}</th>" for g in group_cols])
         header_cells += "<th>N</th>"
         header_cells += "".join(
-            [f"<th>{capitalize_preserve(c.replace('_mean', ''))}</th>" for c in display_cols]
+            [f"<th>{safe_label(c.removesuffix('_mean'))}</th>" for c in display_cols]
         )
 
         rows = []
@@ -136,7 +137,7 @@ def generate_property_stats_section(
         )
 
         return f"""
-        <p>Property statistics grouped by <strong>{", ".join(group_cols)}</strong>.
+        <p>Property statistics grouped by <strong>{", ".join(safe_label(g) for g in group_cols)}</strong>.
         Showing mean values for the most common properties.</p>
 
         <div class="{table_class}">

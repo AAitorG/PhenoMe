@@ -38,6 +38,7 @@ class ReportContext:
     has_embeddings: bool = False
     has_properties: bool = False
     embedding_dim: int = 0
+    output_path: str = "pheno_report.html"
 
     @property
     def results(self) -> "PhenoMeResults":

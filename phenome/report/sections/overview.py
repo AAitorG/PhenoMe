@@ -4,7 +4,7 @@ import pandas as pd
 
 from ...utils.display_names import capitalize_preserve
 from .._components import generate_info_box
-from ..helpers import safe_html
+from ..helpers import safe_html, safe_label
 
 
 def generate_overview_section(
@@ -92,12 +92,12 @@ def generate_overview_section(
         distribution_cards.append(
             f"""
         <div class="subsection">
-            <h4>{label} Distribution</h4>
+            <h4>{safe_label(key)} Distribution</h4>
             <div class="table-container">
                 <table>
                     <thead>
                         <tr>
-                            <th data-sortable>{label}</th>
+                            <th data-sortable>{safe_label(key)}</th>
                             <th data-sortable data-type="number">Count</th>
                             <th>Percentage</th>
                         </tr>

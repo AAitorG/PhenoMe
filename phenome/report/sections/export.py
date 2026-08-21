@@ -1,7 +1,6 @@
 """Export section generator."""
 
-import base64
-from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -36,9 +35,10 @@ def generate_export_section(
     if n_images == 0:
         return generate_info_box("No data to export.", "warning")
 
-    csv_buffer = BytesIO()
-    export_df.to_csv(csv_buffer, index=False)
-    csv_data = base64.b64encode(csv_buffer.getvalue()).decode("utf-8")
+    report_path = Path(ctx.output_path)
+    csv_path = report_path.with_name(f"{report_path.stem}_export.csv")
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    export_df.to_csv(csv_path, index=False)
 
     preview_cols = ["image_index", "image_path"]
     if "distance" in export_df.columns:
@@ -47,7 +47,7 @@ def generate_export_section(
 
     preview_df = export_df[preview_cols].head(10)
 
-    header_cells = "".join([f"<th>{c}</th>" for c in preview_cols])
+    header_cells = "".join([f"<th>{safe_html(c)}</th>" for c in preview_cols])
     rows = []
     for _, row in preview_df.iterrows():
         cells = []
@@ -83,8 +83,8 @@ def generate_export_section(
     </div>
 
     <p style="margin-top: 1.5rem;">
-        <a href="data:text/csv;base64,{csv_data}"
-           download="phenotyping_export.csv"
+        <a href="{safe_html(csv_path.name)}"
+           download="{safe_html(csv_path.name)}"
            style="display: inline-block; background: var(--primary); color: white;
                   padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none;
                   font-weight: 600; transition: background 0.2s;">

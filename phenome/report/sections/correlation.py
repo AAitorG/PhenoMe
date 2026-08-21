@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
 from ...utils.display_names import capitalize_preserve
 from .._components import generate_feature_tags, generate_info_box, generate_plot_container
-from ..helpers import apply_dark_theme, plotly_to_html_fragment
+from ..helpers import apply_report_theme, plotly_to_html_fragment
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -60,7 +60,7 @@ def generate_correlation_section(
         margin={"l": 200, "r": 40, "t": 60, "b": 40},
         height=max(400, top_k * 30),
     )
-    apply_dark_theme(fig)
+    apply_report_theme(fig, ctx.opts.get("theme", "dark"))
 
     top_features = summary_df["property"].head(10).tolist()
 

@@ -7,6 +7,7 @@ Author: Aitor González-Marfil (@AAitorG)
 """
 
 import datetime
+import os
 from dataclasses import asdict, dataclass, fields
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -450,9 +451,8 @@ def generate_report(
     opts["color_by"] = color_by
     opts["metadata_keys"] = metadata_keys
 
-    properties_list = pipeline.results.properties
-    has_properties = len(properties_list) > 0 and len(properties_list[0]) > 0
-    property_keys_list = list(properties_list[0].keys()) if has_properties else []
+    has_properties = pipeline.results.has_properties
+    property_keys_list = list(pipeline.results.property_keys)
 
     ctx = ReportContext(
         pipeline=pipeline,
@@ -463,29 +463,21 @@ def generate_report(
         has_embeddings=pipeline.has_embeddings,
         has_properties=has_properties,
         embedding_dim=pipeline.embedding_dim,
+        output_path=output_path,
     )
 
-    # Pre-calculate data if sections are included to ensure report generation is purely visualization
+    # Always run clustering with this report's options so prior cluster metadata
+    # cannot skip a different n_clusters / method / filters request.
     if opts.get("include_clustering") and pipeline.has_embeddings:
-        # Check if already computed (cluster metadata exists)
-        has_cluster = False
-        if pipeline.results.metadata:
-            # Check a sample of metadata to see if 'cluster' key exists
-            sample_size = min(100, len(pipeline.results.metadata))
-            has_cluster = any(
-                "cluster" in (m or {}) for m in pipeline.results.metadata[:sample_size]
-            )
-
-        if not has_cluster:
-            logger.info("Report: Pre-calculating clustering...")
-            pipeline.compute_clustering(
-                n_clusters=opts.get("n_clusters", 5),
-                clustering_method=opts.get("clustering_method", "kmeans"),
-                reduce_dim=opts.get("clustering_reduce_dim", 100),
-                reduce_method=opts.get("clustering_reduce_method", "pca"),
-                filters=opts.get("filters"),
-                exclude=opts.get("exclude"),
-            )
+        logger.info("Report: Pre-calculating clustering...")
+        pipeline.compute_clustering(
+            n_clusters=opts.get("n_clusters", 5),
+            clustering_method=opts.get("clustering_method", "kmeans"),
+            reduce_dim=opts.get("clustering_reduce_dim", 100),
+            reduce_method=opts.get("clustering_reduce_method", "pca"),
+            filters=opts.get("filters"),
+            exclude=opts.get("exclude"),
+        )
 
     if opts.get("include_outliers") and pipeline.has_embeddings:
         logger.info("Report: Pre-calculating outliers...")
@@ -503,8 +495,17 @@ def generate_report(
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     html_content = _assemble_html(nav_items, sections, stats_html, ctx, title, timestamp)
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
+    tmp_path = output_path + ".tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, output_path)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
     logger.info("Report generated at: %s", output_path)
     logger.info("  - %s images", f"{ctx.n_images:,}")

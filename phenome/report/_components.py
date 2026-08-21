@@ -114,7 +114,7 @@ def generate_table(
         attrs = "data-sortable" if sortable else ""
         if i in numeric_columns:
             attrs += ' data-type="number"'
-        header_cells.append(f"<th {attrs}>{h}</th>")
+        header_cells.append(f"<th {attrs}>{escape(str(h))}</th>")
 
     header_html = "<tr>" + "".join(header_cells) + "</tr>"
 

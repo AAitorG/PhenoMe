@@ -1357,11 +1357,6 @@ class PhenoMeInteractive:
         self._cached_exclude = exclude
         self._cached_dr_obj = dr_obj
 
-        # Refresh highlight options now that we have a new DataFrame
-        self._update_highlight_key_options()
-        self._update_highlight_value_options()
-        self._update_color_options()
-
         self._refresh_index_row_map()
         # Recomputation invalidates all selection state: a pipeline index can still
         # exist in the new embedding, but its old FigureWidget callback/coordinates
@@ -1654,6 +1649,8 @@ class PhenoMeInteractive:
             "width": EMBEDDING_FIG_WIDTH_PX,
             "height": EMBEDDING_FIG_HEIGHT_PX,
         }
+        if not z_col:
+            kwargs["render_mode"] = "webgl"
         if z_col:
             kwargs["z"] = z_col
 
@@ -2277,6 +2274,7 @@ class PhenoMeInteractive:
                 )
                 return idx, base64.b64encode(png).decode("ascii")
             except Exception:
+                logger.warning("Thumbnail load failed for index %s", idx, exc_info=True)
                 return idx, None
 
         def _load_multi_task() -> None:
@@ -2285,8 +2283,20 @@ class PhenoMeInteractive:
                     return
 
                 n_workers = min(8, max(1, len(indices)))
+                rows: list[tuple[int, str | None]] = []
                 with ThreadPoolExecutor(max_workers=n_workers) as pool:
-                    rows = list(pool.map(_load_one_png_b64, indices))
+                    future_map = {pool.submit(_load_one_png_b64, idx): idx for idx in indices}
+                    for fut, idx in future_map.items():
+                        try:
+                            rows.append(fut.result(timeout=30))
+                        except TimeoutError:
+                            logger.warning("Thumbnail load timed out for index %s", idx)
+                            rows.append((idx, None))
+                        except Exception:
+                            logger.warning(
+                                "Thumbnail load failed for index %s", idx, exc_info=True
+                            )
+                            rows.append((idx, None))
 
                 b64_list: list[str] = []
                 idx_list: list[int] = []
@@ -2300,7 +2310,20 @@ class PhenoMeInteractive:
                     if not _selection_still_current():
                         return
                     if not b64_list:
-                        self._set_image_panel_idle()
+                        n_fail = len(indices)
+                        self._image_error_msg = f"⚠ Error loading {n_fail} thumbnails"
+                        self.status_label.value = status_html(
+                            f"Error loading {n_fail} thumbnails", "err"
+                        )
+                        self.img_output.children = (
+                            widgets.HTML(
+                                value=(
+                                    f'<div style="padding:8px;color:#b91c1c;font-size:13px;">'
+                                    f"{html.escape(self._image_error_msg)}</div>"
+                                )
+                            ),
+                        )
+                        self._update_stats()
                         return
 
                     grid = self._ensure_thumb_grid()
@@ -2915,10 +2938,16 @@ class PhenoMeInteractive:
             elapsed = 0.0
             try:
                 elapsed = self._compute_embedding(compute_request)
+                seq_at_compute = self._compute_seq
 
                 def _display_new_fig() -> None:
                     try:
+                        if self._compute_seq != seq_at_compute:
+                            return
                         with self._click_lock:
+                            self._update_highlight_key_options()
+                            self._update_highlight_value_options()
+                            self._update_color_options()
                             self._build_figure()
                             self._display_figure()
                             # Selection is cleared on recompute; refresh UI reflections.
@@ -2950,9 +2979,12 @@ class PhenoMeInteractive:
         """Instant colour change (no recomputation)."""
         if self._cached_df is None:
             return
+        seq_at_change = self._compute_seq
         self.status_label.value = status_html("Updating colours…", "info")
 
         def _do() -> None:
+            if self._compute_seq != seq_at_change:
+                return
             try:
                 self._recolor_figure()
                 self._apply_selected_point_highlight()
@@ -2980,11 +3012,14 @@ class PhenoMeInteractive:
 
     def _on_highlight_key_changed(self, change: Any) -> None:
         """Update available values when highlight field changes."""
+        seq_at_change = self._compute_seq
         self._update_highlight_value_options()
         if not (self._highlight_active and self.fig_widget is not None):
             return
 
         def _do() -> None:
+            if self._compute_seq != seq_at_change:
+                return
             self._apply_highlight()
             self._update_highlight_status()
 
@@ -3007,8 +3042,11 @@ class PhenoMeInteractive:
         """Re-apply highlight when value changes (if highlight is active)."""
         if not self._highlight_active:
             return
+        seq_at_change = self._compute_seq
 
         def _do() -> None:
+            if self._compute_seq != seq_at_change:
+                return
             self._apply_highlight()
             self._update_highlight_status()
 

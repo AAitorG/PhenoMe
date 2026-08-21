@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any, Union
 
 import numpy as np
 
+from ..utils.display_names import capitalize_preserve
+
 if TYPE_CHECKING:
     import plotly.graph_objects as go
     from PIL import Image
@@ -30,6 +32,16 @@ PLOT_THEME = {
     "legend_font_color": "#94a3b8",
     "gridcolor": "#334155",
     "zerolinecolor": "#475569",
+}
+
+LIGHT_PLOT_THEME = {
+    "paper_bgcolor": "rgba(0,0,0,0)",
+    "plot_bgcolor": "rgba(15,23,42,0.03)",
+    "font_color": "#0f172a",
+    "title_font_color": "#0f172a",
+    "legend_font_color": "#475569",
+    "gridcolor": "#e2e8f0",
+    "zerolinecolor": "#cbd5e1",
 }
 
 # Color palette for categorical data
@@ -47,36 +59,30 @@ CATEGORY_COLORS = [
 ]
 
 
-def apply_dark_theme(fig: "go.Figure") -> "go.Figure":
-    """
-    Apply dark theme styling to a Plotly figure.
-
-    Args:
-        fig: Plotly figure to style
-
-    Returns:
-        Styled figure
-    """
+def apply_report_theme(fig: "go.Figure", theme: str = "dark") -> "go.Figure":
+    """Apply dark or light Plotly styling to match the report HTML theme."""
+    colors = LIGHT_PLOT_THEME if theme == "light" else PLOT_THEME
     fig.update_layout(
-        paper_bgcolor=PLOT_THEME["paper_bgcolor"],
-        plot_bgcolor=PLOT_THEME["plot_bgcolor"],
-        font_color=PLOT_THEME["font_color"],
-        title_font_color=PLOT_THEME["title_font_color"],
-        legend_font_color=PLOT_THEME["legend_font_color"],
+        paper_bgcolor=colors["paper_bgcolor"],
+        plot_bgcolor=colors["plot_bgcolor"],
+        font_color=colors["font_color"],
+        title_font_color=colors["title_font_color"],
+        legend_font_color=colors["legend_font_color"],
         margin={"l": 40, "r": 40, "t": 60, "b": 40},
     )
 
     try:
-        fig.update_xaxes(
-            gridcolor=PLOT_THEME["gridcolor"], zerolinecolor=PLOT_THEME["zerolinecolor"]
-        )
-        fig.update_yaxes(
-            gridcolor=PLOT_THEME["gridcolor"], zerolinecolor=PLOT_THEME["zerolinecolor"]
-        )
+        fig.update_xaxes(gridcolor=colors["gridcolor"], zerolinecolor=colors["zerolinecolor"])
+        fig.update_yaxes(gridcolor=colors["gridcolor"], zerolinecolor=colors["zerolinecolor"])
     except (AttributeError, KeyError):
-        pass  # Some figure types don't support axis updates
+        pass
 
     return fig
+
+
+def apply_dark_theme(fig: "go.Figure") -> "go.Figure":
+    """Apply dark theme styling to a Plotly figure."""
+    return apply_report_theme(fig, "dark")
 
 
 def image_to_base64(
@@ -194,6 +200,11 @@ def get_plotly_bundle(offline: bool = True) -> str:
 def safe_html(s: str) -> str:
     """Escape a string for safe insertion into HTML to prevent XSS."""
     return html_escape(str(s))
+
+
+def safe_label(s: str) -> str:
+    """Capitalize a display name and HTML-escape it for interpolation into tags."""
+    return safe_html(capitalize_preserve(str(s)))
 
 
 def truncate_path(path: str, max_length: int = 50) -> str:

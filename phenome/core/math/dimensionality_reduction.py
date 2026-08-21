@@ -306,6 +306,7 @@ def run_dimensionality_reduction(
     normalize: bool = True,
     device: str | torch.device | None = None,
     use_gpu: bool = True,
+    sample_size: int | None = None,
     **kwargs: Any,
 ) -> tuple[pd.DataFrame | None, str | None, Any | None]:
     """Run dimensionality reduction using pipeline data and return DataFrame.
@@ -328,6 +329,8 @@ def run_dimensionality_reduction(
         device: Optional torch.device. Pass pipeline.device for consistency.
         use_gpu: If True (default), use TorchDR + GPU when device is CUDA and torchdr
             is available. If False, always use sklearn/umap-learn on CPU.
+        sample_size: If set and more filtered indices remain than this cap, a
+            seeded subset is taken *before* loading embeddings or running DR.
         **kwargs: Passed to the DR method. May include ``seed``; if omitted, uses
             ``pipeline.seed`` when present.
 
@@ -342,6 +345,14 @@ def run_dimensionality_reduction(
     if not indices:
         logger.warning("No images to plot after filtering.")
         return None, None, None
+
+    if sample_size is not None and len(indices) > sample_size:
+        seed = kwargs.get("seed")
+        if seed is None:
+            seed = getattr(pipeline, "seed", None)
+        rng = np.random.default_rng(seed)
+        pick = np.sort(rng.choice(len(indices), size=int(sample_size), replace=False))
+        indices = [indices[int(i)] for i in pick]
 
     # Step 2: Fetch data matrix (embeddings, properties, or combined) for filtered indices
     if source == "embeddings":

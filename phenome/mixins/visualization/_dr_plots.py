@@ -61,15 +61,11 @@ class _DRPlotsMixin:
             normalize=normalize,
             device=self.device,
             use_gpu=getattr(self, "use_gpu_for_dr", True),
+            sample_size=sample_size,
             **dr_kwargs,
         )
         if df is None:
             return
-
-        # Optimization for large datasets: sample points if requested
-        if sample_size is not None and len(df) > sample_size:
-            seed = getattr(self, "seed", None)
-            df = df.sample(n=sample_size, random_state=seed).sort_index()
 
         if method == "pca" and dr_obj is not None:
             x_col, y_col = "PC1", "PC2"
