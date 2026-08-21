@@ -56,6 +56,8 @@ _PIPELINE_DEFAULTS: dict[str, tuple[str, int]] = {
     "load_results": ("Data lifecycle and export", 240),
     "checkpoint_context": ("Data lifecycle and export", 250),
     "export_experiment_config": ("Data lifecycle and export", 260),
+    "get_run_settings": ("Data lifecycle and export", 261),
+    "export_methods_markdown": ("Data lifecycle and export", 262),
     "export_dataset_table": ("Data lifecycle and export", 270),
     "compute_properties": ("Properties", 300),
     "property_stats_by_group": ("Properties", 310),

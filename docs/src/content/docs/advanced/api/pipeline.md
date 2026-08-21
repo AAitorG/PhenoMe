@@ -934,19 +934,78 @@ PhenoMe.export_experiment_config(
 
 Export experiment configuration for reproducibility.
 
-Writes a JSON file with parameters not stored in the HDF5 checkpoint,
-so that analyses can be fully reproduced. Call after save_results()
-and pass the same reference_filters used for distance analysis.
+Writes a JSON file with init parameters, environment, processing
+params, and silently recorded method steps. Call after the analysis
+you want to document. Optional ``model_name`` / ``reference_filters``
+override values already captured from ``process_images`` /
+``compute_reference_distances``.
 
 **Args:**
 
 - **`path`**: Output path for config.json.
 - **`reference_filters`**: Optional dict used for compute_reference_distances
-  (e.g. &#123;'condition': 'Control'&#125;). Include for full traceability.
+  (e.g. {'condition': 'Control'}). Include for full traceability.
 - **`model_name`**: Optional model identifier (e.g. 'dinov2_vitb14_reg').
 - **`checkpoint_path`**: Optional checkpoint path used during processing (if not
   provided and a checkpoint is open, uses self._db.path).
   **extra: Additional key-value pairs to include in the config.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenome-get_run_settings">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenome-get_run_settings"><code>get_run_settings</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMe.get_run_settings(
+    self
+) -> dict
+```
+
+</div>
+
+<div class="api-body">
+
+Return the silent run log as a JSON-serializable dict.
+
+Includes init parameters, environment, recorded method steps, and
+processing_params when available. Does not print or write files.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenome-export_methods_markdown">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenome-export_methods_markdown"><code>export_methods_markdown</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMe.export_methods_markdown(
+    self,
+    path: str
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Write a markdown methods summary from the silent run log.
+
+Opt-in companion to [export_experiment_config](/PhenoMe/advanced/api/pipeline/#api-phenome-export_experiment_config)
+for paper supplements. Does nothing unless this method is called.
 
 </div>
 

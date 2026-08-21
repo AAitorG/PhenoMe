@@ -59,11 +59,39 @@ def _build_unique_path_lookup(values: list[Any]) -> dict[str, int | None]:
 
 
 def _lookup_unique_path_index(lookup: dict[str, int | None], value: Any) -> int | None:
-    """Return a unique path match index, or None if absent/ambiguous."""
+    """Return a unique path match index, or None if absent/ambiguous.
+
+    Prefer :func:`_match_path_index` when both the query side and the target
+    side can have colliding basenames (subset reloads).
+    """
     for key in _portable_path_keys(value):
         idx = lookup.get(key)
         if idx is not None:
             return idx
+    return None
+
+
+def _match_path_index(
+    query_value: Any,
+    target_lookup: dict[str, int | None],
+    source_lookup: dict[str, int | None],
+    source_index: int,
+) -> int | None:
+    """Match *query_value* into *target_lookup* only on keys unique on both sides.
+
+    A portable key (suffix or basename) is accepted only when it maps to a
+    unique row in *target_lookup* **and** maps to *source_index* in
+    *source_lookup*. Basename-only hits that are unique in a subset but
+    ambiguous in the full checkpoint are skipped.
+    """
+    for key in _portable_path_keys(query_value):
+        target_idx = target_lookup.get(key)
+        source_idx = source_lookup.get(key)
+        if target_idx is None or source_idx is None:
+            continue
+        if source_idx != source_index:
+            continue
+        return target_idx
     return None
 
 
@@ -244,12 +272,14 @@ def filter_items_not_in_checkpoint(
         return result
 
     if already_paths is not None and path_repr_fn is not None:
-        portable_lookup = _build_unique_path_lookup(list(already_paths))
+        ckpt_lookup = _build_unique_path_lookup(list(already_paths))
+        current_paths = [d["file_path"] for d in items]
+        current_lookup = _build_unique_path_lookup(current_paths)
         return [
             d
-            for d in items
+            for i, d in enumerate(items)
             if path_repr_fn(d["file_path"]) not in already_paths
-            and _lookup_unique_path_index(portable_lookup, d["file_path"]) is None
+            and _match_path_index(d["file_path"], ckpt_lookup, current_lookup, i) is None
         ]
 
     return list(items)
@@ -288,13 +318,14 @@ def compute_path_alignment(
             )
         else:
             path_to_ckpt_idx[cp] = i
-    portable_lookup = _build_unique_path_lookup(list(ckpt_paths[:n_committed]))
+    ckpt_lookup = _build_unique_path_lookup(list(ckpt_paths[:n_committed]))
+    image_lookup = _build_unique_path_lookup(list(image_paths))
     primary_list = [_canonical_path(p) for p in image_paths]
     paths_with_data: set[str] = {
         pp
-        for pp, p in zip(primary_list, image_paths, strict=True)
+        for i, (pp, p) in enumerate(zip(primary_list, image_paths, strict=True))
         if (pp in path_to_ckpt_idx and path_to_ckpt_idx[pp] < n_committed)
-        or _lookup_unique_path_index(portable_lookup, p) is not None
+        or _match_path_index(p, ckpt_lookup, image_lookup, i) is not None
     }
     paths_to_compute: list[tuple[int, str | list[str]]] = [
         (i, p) for i, p in enumerate(image_paths) if primary_list[i] not in paths_with_data
@@ -388,7 +419,8 @@ def merge_metadata_from_current_run(
     # Build lookups from current run: key -> metadata, portable path -> metadata
     by_key = build_current_run_metadata_lookup(current_requested_data)
     current_paths = [d.get("file_path", "") for d in current_requested_data]
-    by_path = _build_unique_path_lookup(current_paths)
+    current_lookup = _build_unique_path_lookup(current_paths)
+    ckpt_lookup = _build_unique_path_lookup(list(ckpt_paths))
 
     merged: list[dict[str, Any]] = []
     for i in range(n):
@@ -400,7 +432,7 @@ def merge_metadata_from_current_run(
         except ValueError:
             pass
         if current_meta is None and i < len(ckpt_paths):
-            current_idx = _lookup_unique_path_index(by_path, ckpt_paths[i])
+            current_idx = _match_path_index(ckpt_paths[i], current_lookup, ckpt_lookup, i)
             if current_idx is not None and current_idx < len(current_requested_data):
                 meta = current_requested_data[current_idx].get("metadata") or {}
                 current_meta = meta if isinstance(meta, dict) else {}
@@ -445,7 +477,8 @@ def rebase_paths_from_current_run(
     # Build lookups: metadata key -> item (with file_path), portable path -> item
     by_key = build_current_run_item_lookup(current_requested_data)
     current_paths = [d.get("file_path", "") for d in current_requested_data]
-    by_path = _build_unique_path_lookup(current_paths)
+    current_lookup = _build_unique_path_lookup(current_paths)
+    ckpt_lookup = _build_unique_path_lookup(list(ckpt_paths))
 
     result: list[Any] = []
     for i in range(n):
@@ -457,7 +490,7 @@ def rebase_paths_from_current_run(
         except ValueError:
             pass
         if current_item is None and i < len(ckpt_paths):
-            current_idx = _lookup_unique_path_index(by_path, ckpt_paths[i])
+            current_idx = _match_path_index(ckpt_paths[i], current_lookup, ckpt_lookup, i)
             if current_idx is not None and current_idx < len(current_requested_data):
                 current_item = current_requested_data[current_idx]
         if current_item is not None:

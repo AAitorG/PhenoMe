@@ -12,6 +12,7 @@ from .interpretability import generate_interpretability_section
 from .outlier import generate_outlier_section
 from .overview import generate_overview_section
 from .property_stats import generate_property_stats_section
+from .run_settings import generate_run_settings_section
 from .visualization import generate_visualization_section
 
 
@@ -32,5 +33,6 @@ __all__ = [
     "generate_outlier_section",
     "generate_overview_section",
     "generate_property_stats_section",
+    "generate_run_settings_section",
     "generate_visualization_section",
 ]

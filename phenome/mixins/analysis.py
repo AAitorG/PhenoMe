@@ -51,6 +51,7 @@ from ..core.results_metadata import (
     normalize_group_value,
     resolve_result_keys,
 )
+from ..core.run_log import record_step
 from ..utils.display_names import (
     format_clustering_method,
     format_correlation_method,
@@ -161,6 +162,26 @@ class PhenoMeAnalysis:
             If return_silhouette=True: Tuple of (df, silhouette_score). Score is None
                 if it could not be computed. Cluster labels are 0..K-1; None for excluded/noise.
         """
+        record_step(
+            self,
+            "compute_clustering",
+            {
+                "source": source,
+                "n_clusters": n_clusters,
+                "clustering_method": clustering_method,
+                "property_keys": property_keys,
+                "filters": filters,
+                "exclude": exclude,
+                "random_state": random_state,
+                "normalize": normalize,
+                "reduce_dim": reduce_dim,
+                "reduce_method": reduce_method,
+                "return_silhouette": return_silhouette,
+                "dbscan_eps": dbscan_eps,
+                "dbscan_min_samples": dbscan_min_samples,
+                "include_metadata": include_metadata,
+            },
+        )
         n_total = len(self.results.img_path)
 
         try:
@@ -395,6 +416,27 @@ class PhenoMeAnalysis:
             - ``return_fig=True``: ``(drivers_df, fig)`` or ``(drivers_df, meta, fig)`` when
               *return_meta* is also True.
         """
+        record_step(
+            self,
+            "compute_multivariate_interpretability",
+            {
+                "method": method,
+                "component": component,
+                "model_type": model_type,
+                "property_keys": property_keys,
+                "filters": filters,
+                "exclude": exclude,
+                "normalize": normalize,
+                "cv": cv,
+                "stratify_by": stratify_by,
+                "rf_n_estimators": rf_n_estimators,
+                "seed": seed,
+                "plot": plot,
+                "return_fig": return_fig,
+                "return_meta": return_meta,
+                "top_k": top_k,
+            },
+        )
         effective_seed = seed if seed is not None else getattr(self, "seed", None)
 
         # Step 1: Global DR on all filtered embeddings → fixed axis coordinates (y).
@@ -577,6 +619,22 @@ class PhenoMeAnalysis:
                 If no outliers are detected, returns an empty DataFrame.
                 The index is a range index from 0 to N-1.
         """
+        record_step(
+            self,
+            "detect_outliers",
+            {
+                "method": method,
+                "threshold": threshold,
+                "group_by": group_by,
+                "filters": filters,
+                "exclude": exclude,
+                "source": source,
+                "property_keys": property_keys,
+                "normalize": normalize,
+                "drop_outliers": drop_outliers,
+                "plot": plot,
+            },
+        )
         # drop_outliers mutates results in-place which is incompatible with HDF5-backed mode
         if drop_outliers and getattr(self, "_db", None) is not None:
             raise RuntimeError(
@@ -861,6 +919,23 @@ class PhenoMeAnalysis:
                 corr, fig = pheno.compute_component_correlation(return_fig=True)
                 fig.write_html("component_corr.html")
         """
+        record_step(
+            self,
+            "compute_component_correlation",
+            {
+                "method": method,
+                "n_components": n_components,
+                "source": source,
+                "property_keys": property_keys,
+                "filters": filters,
+                "exclude": exclude,
+                "top_k": top_k,
+                "normalize": normalize,
+                "correlation_method": correlation_method,
+                "plot": plot,
+                "return_fig": return_fig,
+            },
+        )
         df, _, _ = run_dimensionality_reduction(
             self,
             method=method,
@@ -1021,6 +1096,21 @@ class PhenoMeAnalysis:
                   and optionally significant when *correct_multiple_testing* is True.
                 - If *return_fig* is True: A tuple (enrichment_df, fig).
         """
+        record_step(
+            self,
+            "analyze_group_enrichment",
+            {
+                "group_by": group_by,
+                "property_keys": property_keys,
+                "filters": filters,
+                "exclude": exclude,
+                "plot": plot,
+                "return_fig": return_fig,
+                "top_k": top_k,
+                "title": title,
+                "correct_multiple_testing": correct_multiple_testing,
+            },
+        )
         working_df = self._build_properties_dataframe(include_metadata=True)  # type: ignore[attr-defined]
 
         # Resolve group columns (case-insensitive)
@@ -1192,6 +1282,21 @@ class PhenoMeAnalysis:
                 keys (split into individual columns if multiple), ``image_index``,
                 ``image_path``, ``image_name``, and ``rank_in_group``.
         """
+        record_step(
+            self,
+            "find_prototypes",
+            {
+                "cluster_col": cluster_col,
+                "n_prototypes": n_prototypes,
+                "source": source,
+                "property_keys": property_keys,
+                "filters": filters,
+                "exclude": exclude,
+                "metric": metric,
+                "normalize": normalize,
+                "plot": plot,
+            },
+        )
         try:
             matrix, valid_indices = self._get_data_matrix(
                 source,
@@ -1262,7 +1367,7 @@ class PhenoMeAnalysis:
                     gm_norm = torch.nn.functional.normalize(gm_t, dim=-1)
                     centroid_norm = torch.nn.functional.normalize(centroid_t.unsqueeze(0), dim=-1)
                     # Compute cosine similarity on GPU
-                    sims_t = torch.matmul(gm_norm, centroid_norm.T).squeeze()
+                    sims_t = torch.matmul(gm_norm, centroid_norm.T).reshape(-1)
                     sims = sims_t.cpu().numpy() if device.type != "cpu" else sims_t.numpy()
                     top = np.argsort(sims)[::-1][:n_prototypes]
                 else:
@@ -1383,6 +1488,16 @@ class PhenoMeAnalysis:
         Returns:
             Dict mapping property names to correlation arrays (n_dims,)
         """
+        record_step(
+            self,
+            "compute_embedding_property_correlations",
+            {
+                "property_keys": property_keys,
+                "normalize": normalize,
+                "method": method,
+                "n_jobs": n_jobs,
+            },
+        )
         embeddings = self.get_embeddings()  # type: ignore[attr-defined]
         if embeddings is None or len(embeddings) == 0:
             raise ValueError("Embeddings not available. Run process_images() first.")
@@ -1540,6 +1655,18 @@ class PhenoMeAnalysis:
             Sorted DataFrame with ``property``, ``mean_abs``, ``std``, ``max_abs``, ``min_abs``,
             and ``mean``. If ``return_fig`` is *True*, returns ``(summary, figure)``.
         """
+        record_step(
+            self,
+            "summarize_embedding_property_correlations",
+            {
+                "order_by": order_by,
+                "top_k": top_k,
+                "plot": plot,
+                "return_fig": return_fig,
+                "title": title,
+                "correlation_method": correlation_method,
+            },
+        )
         if order_by not in _helpers.ORDER_METRICS:
             raise ValueError(
                 f"Unknown order_by: {order_by!r}; expected one of {_helpers.ORDER_METRICS}"

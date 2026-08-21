@@ -64,6 +64,8 @@ generate_report(..., **overrides).
   makes it truly standalone. Set False to load Plotly from a CDN.
 - **`theme`**: UI theme, ``"dark"`` (default) or ``"light"``, set on the
   generated HTML ``<html data-theme>`` attribute.
+- **`include_run_settings`**: If True, add a Methods / settings section from the
+  silent run log. Default False so existing reports are unchanged.
 
 **Fields:**
 
@@ -83,6 +85,7 @@ generate_report(..., **overrides).
 - **`include_outliers`** (`bool`):
 - **`include_plots`** (`bool`):
 - **`include_property_stats`** (`bool`):
+- **`include_run_settings`** (`bool`):
 - **`interpretability_model_type`** (`Literal['lasso', 'random_forest']`):
 - **`lite_mode`** (`bool`):
 - **`metadata_keys`** (`list[str] | None`):

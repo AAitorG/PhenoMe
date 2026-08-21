@@ -20,9 +20,9 @@ covered in the core tutorial.
 
 ## 2. Drug screening and time-course
 
-Analysing the effects of different drug treatments or mapping changes
+Analyzing the effects of different drug treatments or mapping changes
 over time requires using experimental info (metadata). Whether your data is
-organised hierarchically (`{drug}/{concentration}/{image}.tif`) or
+organized hierarchically (`{drug}/{concentration}/{image}.tif`) or
 encoded in filenames (`Treated_24h`), you can handle it through the
 metadata pipeline.
 

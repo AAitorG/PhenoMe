@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
 from ...utils.display_names import format_dr_method
 from .._components import generate_info_box, generate_plot_container
-from ..helpers import apply_dark_theme, plotly_to_html_fragment
+from ..helpers import apply_report_theme, plotly_to_html_fragment
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -76,7 +76,7 @@ def generate_interpretability_section(
         return generate_info_box("Failed to generate interpretability plot.", "warning")
 
     plot_fig = cast(go.Figure, fig)
-    apply_dark_theme(plot_fig)
+    apply_report_theme(plot_fig, ctx.opts.get("theme", "dark"))
 
     r2 = float(meta.get("r2", 0.0))
     n_samples = int(meta.get("n_samples", 0))

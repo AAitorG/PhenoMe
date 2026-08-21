@@ -15,6 +15,7 @@ from ..core import filter_indices as common_filter_indices
 from ..core.dataframe_contract import pack_df_meta_fig, per_image_dataframe
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
+from ..core.run_log import record_step
 
 logger = get_logger(__name__)
 
@@ -117,6 +118,21 @@ class PhenoMeDistances:
             ... )
             >>> distances = dist_df['distance']
         """
+        record_step(
+            self,
+            "compute_reference_distances",
+            {
+                "reference_filters": reference_filters,
+                "filters": filters,
+                "exclude": exclude,
+                "source": source,
+                "mode": mode,
+                "distance_type": distance_type,
+                "property_keys": property_keys,
+                "group_by": group_by,
+                "include_metadata": include_metadata,
+            },
+        )
         if not reference_filters:
             raise ValueError(
                 "reference_filters must be provided. Example: {'plate': 'P1', 'condition': 'Control'}"

@@ -15,6 +15,29 @@ from ..utils.progress import ProgressCallback, report_progress
 
 logger = get_logger(__name__)
 
+_ZERO_NORM_EPS = 1e-12
+
+
+def l2_normalize_skip_zeros(
+    toks: torch.Tensor,
+    *,
+    channel_index: int | None = None,
+    eps: float = _ZERO_NORM_EPS,
+) -> torch.Tensor:
+    """L2-normalize rows, leaving near-zero vectors as zeros instead of NaN."""
+    norms = torch.linalg.vector_norm(toks, ord=2, dim=-1, keepdim=True)
+    zero = norms <= eps
+    if bool(zero.any()):
+        n_zero = int(zero.sum().item())
+        logger.warning(
+            "Zero-norm embedding at channel %s for %d vector(s); left as zeros.",
+            channel_index if channel_index is not None else "?",
+            n_zero,
+        )
+    safe = norms.clamp_min(eps)
+    out = toks / safe
+    return torch.where(zero, torch.zeros_like(out), out)
+
 
 class EmbeddingExtractor:
     """
@@ -98,7 +121,7 @@ class EmbeddingExtractor:
             flat = batch_tensor[:, ch].to(self.device, non_blocking=True)
             toks = self.model_wrapper.extract_embeddings(flat).float()
             if do_l2:
-                toks = torch.nn.functional.normalize(toks, dim=-1)
+                toks = l2_normalize_skip_zeros(toks, channel_index=ch)
             toks = toks.cpu().numpy()
             for i in range(batch_sz):
                 per_img[i].append(toks[i])
@@ -169,6 +192,9 @@ class EmbeddingExtractor:
         ):
             if batch_tensor is None:
                 skipped_batches += 1
+                for it in items or ():
+                    file_path = it.get("file_path", "?") if isinstance(it, dict) else "?"
+                    logger.debug("Skipped image (failed load): %s", file_path)
                 report_progress(progress_callback, batch_i, total_batches, desc)
                 continue
 

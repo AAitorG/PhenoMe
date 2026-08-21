@@ -192,6 +192,8 @@ Handles dict output with 'x_norm_clstoken' (default key) and squeeze (B,1,D) -> 
 - **`device`**: Optional torch.device. If None, uses get_default_device().
 - **`embedding_output_key`**: Key for global embedding in forward_features output.
   Default 'x_norm_clstoken' (required for DINOv2).
+- **`model_name`**: Optional identifier stored for experiment export
+  (for example ``dinov2_vitb14_reg``).
 
 <div class="api-method" role="region" aria-labelledby="api-dinov2modelwrapper-__init__">
 
@@ -206,7 +208,8 @@ Handles dict output with 'x_norm_clstoken' (default key) and squeeze (B,1,D) -> 
 DinoV2ModelWrapper(
     model: Any,
     device: torch.device | None = None,
-    embedding_output_key: str = 'x_norm_clstoken'
+    embedding_output_key: str = 'x_norm_clstoken',
+    model_name: str | None = None
 )
 ```
 

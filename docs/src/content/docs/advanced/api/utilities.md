@@ -865,6 +865,34 @@ Return processing parameters from ``/config`` group, or None.
 
 </div>
 
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-has_property_content">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-has_property_content"><code>has_property_content</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.has_property_content(
+    self
+) -> bool
+```
+
+</div>
+
+<div class="api-body">
+
+Return True if this file stores real property columns or values.
+
+``n_committed_props > 0`` alone is insufficient: writing a list of empty
+``{}`` rows can set that counter and create an empty ``/properties`` group.
+
+</div>
+
+</div>
+
 <div class="api-method" role="region" aria-labelledby="api-checkpointmanager-is_multichannel">
 
 <div class="api-method-header">
@@ -1198,6 +1226,61 @@ Rows committed for properties (may lag n_committed).
 <div class="api-body">
 
 Number of property dicts in the write buffer.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-property_column_names">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-property_column_names"><code>property_column_names</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.property_column_names(
+    self
+) -> list[str]
+```
+
+</div>
+
+<div class="api-body">
+
+Names of stored property columns, or empty if none were written.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-reset_empty_property_counter">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-reset_empty_property_counter"><code>reset_empty_property_counter</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.reset_empty_property_counter(
+    self
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Set ``n_committed_props`` to 0 when ``/properties`` has no columns.
+
+Saving embeddings with a list of empty ``{}`` dicts can stamp
+``n_committed_props = n_images`` without writing columns. Later
+``commit_properties`` then refuses to append because the counter
+already equals ``n_committed``.
 
 </div>
 

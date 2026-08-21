@@ -8,7 +8,7 @@ import pandas as pd
 from ...core import get_all_metadata_keys, get_metadata_value_from_dict
 from ...plotly_display import PLOTLY_DISPLAY_CONFIG
 from .._components import generate_info_box, generate_plot_container
-from ..helpers import apply_dark_theme, plotly_to_html_fragment, safe_html
+from ..helpers import apply_report_theme, plotly_to_html_fragment, safe_html
 
 if TYPE_CHECKING:
     from ..context import ReportContext
@@ -132,7 +132,7 @@ def generate_distance_section(
     plot_html = ""
     try:
         if fig is not None:
-            apply_dark_theme(fig)
+            apply_report_theme(fig, ctx.opts.get("theme", "dark"))
             fig.update_layout(width=None, height=None, autosize=True)
             plot_html = generate_plot_container(
                 plotly_to_html_fragment(fig, config=PLOTLY_DISPLAY_CONFIG)

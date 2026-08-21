@@ -48,22 +48,26 @@ The checkpoint (HDF5) already stores configuration and results. When
   `force_rgb`, `l2_normalize_channels` (and `batch_size` when set).
 
 The HDF5 file is self-contained for processing parameters and data. For
-full reproducibility, also document parameters **not** stored in the
-checkpoint:
-
-- `seed` (set at framework init).
-- `use_gpu_for_dr` (chooses TorchDR vs sklearn / umap-learn).
-- `reference_filters` (for distance analysis).
-- `model name` (for example `dinov2_vitb14_reg`).
+full reproducibility, also call `export_experiment_config()` after the
+analysis you want to document. The pipeline records method parameters
+silently (model name from `load_dinov2_model`, property presets,
+clustering, `reference_filters` from `compute_reference_distances`, and
+so on). That call writes JSON; `save_results()` still writes only the
+HDF5 file.
 
 ```python
 pheno.save_results("results.h5")
 
-pheno.export_experiment_config(
-    "results/config.json",
-    reference_filters={"condition": "Control"},
-    model_name="dinov2_vitb14_reg",
-)
+pheno.export_experiment_config("results/config.json")
+```
+
+Optional overrides (`model_name=`, `reference_filters=`) still work if
+you want to set values that were not captured from a method call.
+
+To add a Methods / settings section to the HTML report (off by default):
+
+```python
+pheno.generate_report("results/report.html", include_run_settings=True)
 ```
 
 When loading: call `find_files` first, then

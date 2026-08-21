@@ -8,7 +8,7 @@ Requirements: **Node.js 22.12+**, **npm**, and **Python** matching the package (
 
 API Markdown under `src/content/docs/advanced/api/` is produced by `scripts/generate_api_docs.py` (via `npm run build` / `npm run dev`). That script **prepends the repository root to `sys.path`**, so `import phenome` works **without** `pip install -e .` as long as the same runtime dependencies are available in your environment.
 
-**Recommended:** from the repo root, run `pip install -e .` so imports match CI and all dependencies are installed. If you skip the editable install, ensure your interpreter can still import `phenome` and its dependencies (otherwise the generator writes stub pages and prints the error).
+**Recommended:** from the repo root, run `pip install -e .` so imports match CI and all dependencies are installed. If you skip the editable install, ensure your interpreter can still import `phenome` and its dependencies. A failed import now **fails `npm run build` / `npm run dev`** (non-zero exit) instead of publishing stub API pages. For local stub fallback only, set `PHENOME_DOCS_ALLOW_STUB=1` *before* any API page is written.
 
 ```bash
 cd docs

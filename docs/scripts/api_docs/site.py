@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 import traceback
 
 from .config import (
@@ -68,21 +70,46 @@ def _write_stub(reason: str) -> None:
     print(f"Wrote stub API docs to {target}")
 
 
+def _allow_stubs() -> bool:
+    return os.environ.get("PHENOME_DOCS_ALLOW_STUB", "") == "1"
+
+
 def build() -> None:
-    """Generate all API doc pages listed in :data:`PAGE_SPECS`."""
+    """Generate all API doc pages listed in :data:`PAGE_SPECS`.
+
+    Fail closed: a render or import error exits non-zero so ``npm run build``
+    does not publish placeholder API pages. Set ``PHENOME_DOCS_ALLOW_STUB=1``
+    to write stubs when *no* API pages have been written yet (local only).
+    """
     ensure_repo_root_on_sys_path()
+    target = out_dir()
+    pages_written = 0
+
     try:
-        target = out_dir()
         for spec in PAGE_SPECS:
             text = _render_page(spec)
             (target / spec.filename).write_text(text, encoding="utf-8")
-        guide = write_function_location_guide()
-        print(f"Wrote narrative API docs to {target}")
-        print(f"Wrote function location guide to {guide}")
+            pages_written += 1
     except Exception as exc:
-        print(f"generate_api_docs: falling back to stub ({exc!r})")
+        print(f"generate_api_docs: failed while rendering API pages ({exc!r})", file=sys.stderr)
         traceback.print_exc()
-        _write_stub(f"Could not import package or render API: `{exc!s}`")
+        if _allow_stubs() and pages_written == 0:
+            _write_stub(f"Could not import package or render API: `{exc!s}`")
+            return
+        sys.exit(1)
+
+    try:
+        guide = write_function_location_guide()
+    except Exception as exc:
+        print(
+            f"generate_api_docs: API pages written, but function-location guide failed ({exc!r})",
+            file=sys.stderr,
+        )
+        traceback.print_exc()
+        sys.exit(1)
+
+    print(f"Wrote narrative API docs to {target}")
+    print(f"Wrote function location guide to {guide}")
 
 
 if __name__ == "__main__":

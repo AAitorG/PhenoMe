@@ -46,6 +46,7 @@ class ModelWrapper(ABC):
     def __init__(self, model: Any, device: torch.device | None = None):
         self.model = model
         self.device = device if device is not None else get_default_device()
+        self.name: str | None = None
         self.sync_device(self.device)
 
     def sync_device(self, device: torch.device | None = None) -> None:
@@ -123,6 +124,8 @@ class DinoV2ModelWrapper(ModelWrapper):
         device: Optional torch.device. If None, uses get_default_device().
         embedding_output_key: Key for global embedding in forward_features output.
                               Default 'x_norm_clstoken' (required for DINOv2).
+        model_name: Optional identifier stored for experiment export
+            (for example ``dinov2_vitb14_reg``).
     """
 
     def __init__(
@@ -130,9 +133,12 @@ class DinoV2ModelWrapper(ModelWrapper):
         model: Any,
         device: torch.device | None = None,
         embedding_output_key: str = "x_norm_clstoken",
+        model_name: str | None = None,
     ):
         super().__init__(model, device=device)
         self.embedding_output_key = embedding_output_key
+        self.model_name = model_name
+        self.name = model_name
 
     def _get_embeddings(self, tensor: torch.Tensor) -> torch.Tensor:
         """Extract CLS-token embeddings from DINOv2 ``forward_features`` output."""
@@ -180,7 +186,7 @@ def load_dinov2_model(
     """
     dev = device if device is not None else get_default_device()
     model = torch.hub.load("facebookresearch/dinov2", model_name)
-    return DinoV2ModelWrapper(model, dev)
+    return DinoV2ModelWrapper(model, dev, model_name=model_name)
 
 
 def _validate_embedding_out(tensor: torch.Tensor) -> torch.Tensor:

@@ -24,7 +24,7 @@ Conda is the most reliable way to install PyTorch plus the computer-vision
 stack. Pip works too with the provided lockfiles.
 
 <Tabs>
-  <TabItem label="Conda (recommended)" icon="seti:julia">
+  <TabItem label="Conda (recommended)" icon="seti:shell">
     <Steps>
     1. **Clone the repository**
 
@@ -127,10 +127,10 @@ More in the [FAQ - installation](/PhenoMe/faq/#installation-and-setup).
 The snippet below runs the full pipeline on a folder of images. You can run
 this in a **Python script** or a **Jupyter Notebook** cell.
 
-:::tip[Ready-to-run version]
+<Aside type="tip" title="Ready-to-run version">
 If you prefer a guided walkthrough with interactive widgets, start with
 [Notebook 01 — Interactive quickstart](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb).
-:::
+</Aside>
 
 <Steps>
 1. **Set up and start**
@@ -146,7 +146,7 @@ If you prefer a guided walkthrough with interactive widgets, start with
    pheno = PhenoMe(device=device, seed=42)
    ```
 
-2. **Find and inspect images**
+2. **Find your images**
 
    A simple folder is fine. For grouped experiments (conditions, drugs,
    time points) add labels via [folder patterns or spreadsheets](/PhenoMe/guides/experiment-details/).
@@ -155,11 +155,11 @@ If you prefer a guided walkthrough with interactive widgets, start with
    pheno.find_files("path/to/your/images")
    ```
 
-3. **Extract visual fingerprints (AI descriptions) and classical properties**
+3. **Extract embeddings (AI descriptions) and properties**
 
    ```python
    pheno.process_images(wrapper)
-   pheno.compute_properties(property_preset="basic")
+   pheno.compute_properties(property_preset="intensity")
    ```
 
    <Aside type="tip">
@@ -172,7 +172,8 @@ If you prefer a guided walkthrough with interactive widgets, start with
    pheno.plot_pca(color_by="condition")
    ```
 
-   Replace `condition` with any metadata column in your images' DataFrame (`file_df`). Use `pheno.get_available_metadata_keys()` to list them.
+   Replace `condition` with any metadata column in your dataset. Use `pheno.get_available_metadata_keys()` to list them.
+   If you have no labels yet, call `pheno.plot_pca()` with no `color_by`.
 </Steps>
 
 ## What's next?

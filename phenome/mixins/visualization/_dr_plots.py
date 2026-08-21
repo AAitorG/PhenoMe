@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 
 from ..._logging import get_logger
 from ...core import get_all_metadata_keys, run_dimensionality_reduction
+from ...core.run_log import record_step
 from ...utils.display_names import capitalize_preserve, format_dr_method
 from ._helpers import (
     build_hover_columns as _build_hover_columns,
@@ -61,15 +62,11 @@ class _DRPlotsMixin:
             normalize=normalize,
             device=self.device,
             use_gpu=getattr(self, "use_gpu_for_dr", True),
+            sample_size=sample_size,
             **dr_kwargs,
         )
         if df is None:
             return
-
-        # Optimization for large datasets: sample points if requested
-        if sample_size is not None and len(df) > sample_size:
-            seed = getattr(self, "seed", None)
-            df = df.sample(n=sample_size, random_state=seed).sort_index()
 
         if method == "pca" and dr_obj is not None:
             x_col, y_col = "PC1", "PC2"
@@ -134,6 +131,7 @@ class _DRPlotsMixin:
         **dr_kwargs: Any,
     ) -> Any:
         """Plot PCA of embeddings, properties, or combined features (Plotly, WebGL by default)."""
+        record_step(self, "plot_pca", {"color_by": color_by})
         return self._plot_dr_scatter(
             "pca",
             n_components=n_components,
@@ -169,6 +167,7 @@ class _DRPlotsMixin:
         **dr_kwargs: Any,
     ) -> Any:
         """Plot t-SNE of embeddings, properties, or combined features (Plotly, WebGL by default)."""
+        record_step(self, "plot_tsne", {"color_by": color_by})
         return self._plot_dr_scatter(
             "tsne",
             n_components=n_components,
@@ -206,6 +205,7 @@ class _DRPlotsMixin:
         **dr_kwargs: Any,
     ) -> Any:
         """Plot UMAP of embeddings, properties, or combined features (Plotly, WebGL by default)."""
+        record_step(self, "plot_umap", {"color_by": color_by})
         return self._plot_dr_scatter(
             "umap",
             n_components=n_components,

@@ -108,6 +108,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `embedding_dim` | Return the embedding dimensionality, or 0 if unavailable. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-embedding_dim) |
 | `export_dataset_table` | Export the dataset as a table (CSV, Parquet, or Excel). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-export_dataset_table) |
 | `export_experiment_config` | Export experiment configuration for reproducibility. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-export_experiment_config) |
+| `export_methods_markdown` | Write a markdown methods summary from the silent run log. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-export_methods_markdown) |
 | `find_files` | Discover image and mask files from directories, extract metadata, and cache internally. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files) |
 | `find_prototypes` | Find images closest to each group centroid. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-find_prototypes) |
 | `generate_report` | Generate a comprehensive standalone HTML report from phenotyping results. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-generate_report) |
@@ -115,6 +116,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `get_available_property_keys` | Return sorted list of property keys stored in results. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-get_available_property_keys) |
 | `get_embeddings` | Return embeddings for the given row indices. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-get_embeddings) |
 | `get_image_info` | Return metadata, properties, and optional distance for image idx. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-get_image_info) |
+| `get_run_settings` | Return the silent run log as a JSON-serializable dict. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-get_run_settings) |
 | `has_embeddings` | Return True if embedding data is available (lazy or eager). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-has_embeddings) |
 | `image_preview_png_bytes` | Rasterize the same view as ``plot_image_by_index`` to PNG bytes. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-image_preview_png_bytes) |
 | `inspect_data` | Inspect image and mask dimensions, shapes, and data ranges. Delegates to FileDiscovery. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-inspect_data) |
@@ -274,7 +276,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
-| `collate_fn` | Custom collate function that handles None values and split/combined channels. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
+| `collate_fn` | Custom collate function that handles failed loads and split/combined channels. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `create_interactive_explorer` | Launch an interactive explorer for phenotyping results in Jupyter. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_interactive_explorer) |
 | `EmbeddingExtractor` | Extracts embeddings from images using a ModelWrapper and DataLoader. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeAnalysis` | Pipeline providing analysis methods for PhenoMe. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_clustering) |

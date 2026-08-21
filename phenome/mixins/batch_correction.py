@@ -18,6 +18,7 @@ from ..core.batch_correction import (
     compute_batch_stats,
     row_batch_ids_from_metadata,
 )
+from ..core.run_log import record_step
 
 logger = get_logger(__name__)
 
@@ -103,6 +104,23 @@ class PhenoMeBatchCorrection:
         Returns:
             Dict with batch stats summary (``batches``, ``controls_per_batch``, ``method``, …).
         """
+        record_step(
+            self,
+            "correct_batches",
+            {
+                "batch_metadata_key": batch_metadata_key,
+                "method": method,
+                "source": source,
+                "property_keys": property_keys,
+                "control_filters": control_filters,
+                "inplace": inplace,
+                "checkpoint_path": checkpoint_path,
+                "chunk_size": chunk_size,
+                "force": force,
+                "ridge_multiplier": ridge_multiplier,
+                "min_controls": min_controls,
+            },
+        )
         if not force and getattr(self, "_batch_correction_applied", False):
             raise RuntimeError(
                 "Batch correction was already applied in this session. "
@@ -297,6 +315,18 @@ class PhenoMeBatchCorrection:
                 batch_metadata_key=batch_metadata_key,
                 source="properties",
             )
+            n_ckpt = int(self._temporal_start_idx) if self._db_indices is not None else n
+            n_ckpt = min(n_ckpt, int(self._db.n_committed), len(props))
+            persist = [props[i] if isinstance(props[i], dict) else {} for i in range(n_ckpt)]
+            ram_internal = getattr(self, "_ram_internal", None)
+            self._db.clear_properties()
+            if persist:
+                self._db.buffer_properties(persist)
+                if ram_internal and len(ram_internal) >= n_ckpt:
+                    self._db.buffer_internal(
+                        [dict(ram_internal[i]) if ram_internal[i] else {} for i in range(n_ckpt)]
+                    )
+                self._db.commit_properties()
             logger.info("Wrote batch correction stats to checkpoint %s", self._db.path)
 
         if checkpoint_path is not None and self._db is None:

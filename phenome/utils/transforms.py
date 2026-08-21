@@ -6,6 +6,8 @@ quantile_normalize, resolve_intensity_scale, normalize_by_dtype_max) and PyTorch
 transforms (TypeMaxNorm, PadToSize, TransformBuilder).
 """
 
+from typing import Any
+
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -290,3 +292,17 @@ class TransformBuilder:
             t.append(transforms.Resize((resize_size, resize_size), antialias=True))
         t.append(transforms.Normalize(mean=mean, std=std))
         return transforms.Compose(t)
+
+
+def _n_channels_for_transforms(cur_params: dict[str, Any]) -> int:
+    """Channel count for default ImageNet Normalize (matches Dataset output)."""
+    force_rgb = bool(cur_params["force_rgb"]) if cur_params.get("force_rgb") is not None else True
+    if force_rgb:
+        return 3
+    if cur_params.get("channel_mode", "split") == "split":
+        return 1
+    ch = cur_params.get("channels")
+    if ch is not None and hasattr(ch, "__len__") and not isinstance(ch, str):
+        n = len(list(ch))
+        return n if n > 0 else 1
+    return 1

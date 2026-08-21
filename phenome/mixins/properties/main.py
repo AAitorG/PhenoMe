@@ -13,6 +13,7 @@ import pandas as pd
 
 from ..._logging import get_logger
 from ...core.pipeline_results import PhenoMeResults
+from ...core.run_log import record_step
 from ...io import CheckpointManager
 from ...utils.progress import ProgressCallback
 from . import _compute
@@ -323,6 +324,22 @@ class PhenoMeProperties:
             ...     progress_callback=on_progress,
             ... )
         """
+        record_step(
+            self,
+            "compute_properties",
+            {
+                "metadata_config": metadata_config,
+                "property_preset": property_preset,
+                "additional_property_functions": additional_property_functions,
+                "checkpoint_path": checkpoint_path,
+                "save_every": save_every,
+                "n_jobs": n_jobs,
+                "lazy_checkpoint": lazy_checkpoint,
+                "force_update": force_update,
+                "include_metadata": include_metadata,
+                "progress_callback": progress_callback is not None,
+            },
+        )
         self.reset_properties()
 
         if not self.results.img_path:
@@ -366,7 +383,7 @@ class PhenoMeProperties:
             and getattr(self, "_db", None) is not None
         ):
             logger.info(
-                "Checkpoint not found. Initializing %s from active database to preserve embeddings.",
+                "Checkpoint not found. Creating new %s checkpoint.",
                 checkpoint_path,
             )
             self.save_results(path=checkpoint_path)

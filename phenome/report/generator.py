@@ -7,6 +7,7 @@ Author: Aitor González-Marfil (@AAitorG)
 """
 
 import datetime
+import os
 from dataclasses import asdict, dataclass, fields
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -18,7 +19,10 @@ from ._components import generate_navigation, generate_stats_cards
 from .context import ReportContext
 from .helpers import get_plotly_bundle, safe_html
 from .scripts import REPORT_JS
-from .sections.clustering import generate_clustering_section
+from .sections.clustering import (
+    _cluster_labels_from_metadata,
+    generate_clustering_section,
+)
 from .sections.correlation import generate_correlation_section
 from .sections.distance import generate_distance_section
 from .sections.export import generate_export_section
@@ -27,6 +31,7 @@ from .sections.interpretability import generate_interpretability_section
 from .sections.outlier import generate_outlier_section
 from .sections.overview import generate_overview_section
 from .sections.property_stats import generate_property_stats_section
+from .sections.run_settings import generate_run_settings_section
 from .sections.visualization import generate_visualization_section
 from .styles import REPORT_CSS
 
@@ -85,6 +90,8 @@ class ReportConfig:
             makes it truly standalone. Set False to load Plotly from a CDN.
         theme: UI theme, ``"dark"`` (default) or ``"light"``, set on the
             generated HTML ``<html data-theme>`` attribute.
+        include_run_settings: If True, add a Methods / settings section from the
+            silent run log. Default False so existing reports are unchanged.
     """
 
     include_plots: bool = True
@@ -118,6 +125,7 @@ class ReportConfig:
     exclude: dict[str, Any] | None = None  # Pre-report metadata exclusions.
     offline_plotly: bool = True  # Inline Plotly JS so the report renders without internet.
     theme: Literal["dark", "light"] = "dark"  # Sets ``data-theme`` on the report HTML.
+    include_run_settings: bool = False
 
 
 def _resolve_report_options(
@@ -184,6 +192,18 @@ def _build_sections(ctx: ReportContext) -> tuple[list[tuple[str, str, str]], lis
     )
     nav_items.append(("overview", "Overview"))
     sections.append(("overview", "Dataset Overview", dataset_summary))
+
+    if opts.get("include_run_settings"):
+        getter = getattr(ctx.pipeline, "get_run_settings", None)
+        settings = getter() if callable(getter) else None
+        nav_items.append(("run-settings", "Methods / settings"))
+        sections.append(
+            (
+                "run-settings",
+                "Methods / settings",
+                generate_run_settings_section(settings),
+            )
+        )
 
     # Multivariate Interpretability
     if include_interpretability and ctx.has_embeddings and ctx.has_properties:
@@ -436,7 +456,13 @@ def generate_report(
         >>> generate_report(pheno, config=cfg, title="My Report")
     """
     from ..core import get_all_metadata_keys
+    from ..core.run_log import record_step
 
+    record_step(
+        pipeline,
+        "generate_report",
+        {"output_path": output_path, "title": title, **overrides},
+    )
     opts = _resolve_report_options(config, **overrides)
 
     metadata_keys = opts.get("metadata_keys")
@@ -450,9 +476,8 @@ def generate_report(
     opts["color_by"] = color_by
     opts["metadata_keys"] = metadata_keys
 
-    properties_list = pipeline.results.properties
-    has_properties = len(properties_list) > 0 and len(properties_list[0]) > 0
-    property_keys_list = list(properties_list[0].keys()) if has_properties else []
+    has_properties = pipeline.results.has_properties
+    property_keys_list = list(pipeline.results.property_keys)
 
     ctx = ReportContext(
         pipeline=pipeline,
@@ -463,29 +488,25 @@ def generate_report(
         has_embeddings=pipeline.has_embeddings,
         has_properties=has_properties,
         embedding_dim=pipeline.embedding_dim,
+        output_path=output_path,
     )
 
-    # Pre-calculate data if sections are included to ensure report generation is purely visualization
-    if opts.get("include_clustering") and pipeline.has_embeddings:
-        # Check if already computed (cluster metadata exists)
-        has_cluster = False
-        if pipeline.results.metadata:
-            # Check a sample of metadata to see if 'cluster' key exists
-            sample_size = min(100, len(pipeline.results.metadata))
-            has_cluster = any(
-                "cluster" in (m or {}) for m in pipeline.results.metadata[:sample_size]
-            )
-
-        if not has_cluster:
-            logger.info("Report: Pre-calculating clustering...")
-            pipeline.compute_clustering(
-                n_clusters=opts.get("n_clusters", 5),
-                clustering_method=opts.get("clustering_method", "kmeans"),
-                reduce_dim=opts.get("clustering_reduce_dim", 100),
-                reduce_method=opts.get("clustering_reduce_method", "pca"),
-                filters=opts.get("filters"),
-                exclude=opts.get("exclude"),
-            )
+    # Reuse existing cluster labels so a default report does not overwrite
+    # a prior compute_clustering() result. Compute only when none are stored.
+    if (
+        opts.get("include_clustering")
+        and pipeline.has_embeddings
+        and _cluster_labels_from_metadata(pipeline) is None
+    ):
+        logger.info("Report: Pre-calculating clustering...")
+        pipeline.compute_clustering(
+            n_clusters=opts.get("n_clusters", 5),
+            clustering_method=opts.get("clustering_method", "kmeans"),
+            reduce_dim=opts.get("clustering_reduce_dim", 100),
+            reduce_method=opts.get("clustering_reduce_method", "pca"),
+            filters=opts.get("filters"),
+            exclude=opts.get("exclude"),
+        )
 
     if opts.get("include_outliers") and pipeline.has_embeddings:
         logger.info("Report: Pre-calculating outliers...")
@@ -503,8 +524,17 @@ def generate_report(
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     html_content = _assemble_html(nav_items, sections, stats_html, ctx, title, timestamp)
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
+    tmp_path = output_path + ".tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, output_path)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
     logger.info("Report generated at: %s", output_path)
     logger.info("  - %s images", f"{ctx.n_images:,}")

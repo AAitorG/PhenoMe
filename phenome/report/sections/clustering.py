@@ -20,7 +20,7 @@ from .._components import (
     generate_table,
 )
 from .._section_helpers import load_image_data
-from ..helpers import apply_dark_theme, plotly_to_html_fragment
+from ..helpers import apply_report_theme, plotly_to_html_fragment, safe_label
 
 if TYPE_CHECKING:
     from ...pipeline import PhenoMe
@@ -141,13 +141,22 @@ def generate_clustering_section(
     sections_html = []
 
     try:
-        pca_html = _generate_cluster_pca(pipeline, cluster_labels, valid_mask)
+        pca_html = _generate_cluster_pca(
+            pipeline,
+            cluster_labels,
+            valid_mask,
+            lite_mode=bool(ctx.opts.get("lite_mode", False)),
+            theme=str(ctx.opts.get("theme", "dark")),
+            seed=getattr(pipeline, "seed", None),
+        )
         sections_html.append(pca_html)
     except (ValueError, KeyError, RuntimeError) as e:
         sections_html.append(generate_info_box(f"Could not generate cluster PCA: {e}", "warning"))
 
     try:
-        composition_html = _generate_cluster_composition(pipeline, cluster_labels, color_by)
+        composition_html = _generate_cluster_composition(
+            pipeline, cluster_labels, color_by, theme=str(ctx.opts.get("theme", "dark"))
+        )
         sections_html.append(composition_html)
     except (ValueError, KeyError, RuntimeError) as e:
         sections_html.append(generate_info_box(f"Could not generate composition: {e}", "warning"))
@@ -198,6 +207,10 @@ def _generate_cluster_pca(
     pipeline: "PhenoMe",
     cluster_labels: np.ndarray,
     valid_mask: np.ndarray,
+    *,
+    lite_mode: bool = False,
+    theme: str = "dark",
+    seed: int | None = None,
 ) -> str:
     """Generate PCA scatter plot colored by cluster."""
     if not pipeline.has_embeddings:
@@ -206,29 +219,46 @@ def _generate_cluster_pca(
     embeddings = pipeline.get_embeddings()
     if embeddings is None:
         return ""
+
+    n = len(embeddings)
+    row_idx = np.arange(n)
+    plot_labels = np.asarray(cluster_labels)
+    plot_mask = np.asarray(valid_mask)
+    if lite_mode and n > 5000:
+        rng = np.random.default_rng(seed)
+        pick = np.sort(rng.choice(n, size=5000, replace=False))
+        embeddings = embeddings[pick]
+        plot_labels = plot_labels[pick]
+        plot_mask = plot_mask[pick]
+        row_idx = pick
+
     pca = PCA(n_components=2)
     coords = pca.fit_transform(embeddings)
 
     df_plot = pd.DataFrame(
         {
-            "Index": np.arange(len(coords)),
+            "Index": row_idx,
             "PC1": coords[:, 0],
             "PC2": coords[:, 1],
-            "Cluster": cluster_labels.astype(str),
+            "Cluster": plot_labels.astype(str),
         }
     )
-    df_plot.loc[~valid_mask, "Cluster"] = "Filtered"
+    df_plot.loc[~plot_mask, "Cluster"] = "Filtered"
 
-    fig = px.scatter(
-        df_plot,
-        x="PC1",
-        y="PC2",
-        color="Cluster",
-        title="PCA Projection Colored by Cluster",
-        custom_data=["Index"],
-    )
+    scatter_kwargs: dict[str, Any] = {
+        "data_frame": df_plot,
+        "x": "PC1",
+        "y": "PC2",
+        "color": "Cluster",
+        "title": "PCA Projection Colored by Cluster",
+        "custom_data": ["Index"],
+    }
+    if not lite_mode:
+        scatter_kwargs["render_mode"] = "webgl"
 
-    apply_dark_theme(fig)
+    fig = px.scatter(**scatter_kwargs)
+
+    apply_report_theme(fig, theme)
     fig.update_traces(
         marker={"size": 6, "opacity": 0.7},
         hovertemplate="<b>Index</b>: %{customdata[0]}<extra></extra>",
@@ -250,6 +280,7 @@ def _generate_cluster_composition(
     pipeline: "PhenoMe",
     cluster_labels: np.ndarray,
     color_by: str | None,
+    theme: str = "dark",
 ) -> str:
     """Generate cluster composition table."""
     metadata_list = pipeline.results.metadata
@@ -300,7 +331,7 @@ def _generate_cluster_composition(
         xaxis_title=capitalize_preserve(color_by),
         yaxis_title="Cluster",
     )
-    apply_dark_theme(fig)
+    apply_report_theme(fig, theme)
 
     return f"""
     <h4>Cluster Composition</h4>
@@ -342,7 +373,7 @@ def _generate_group_enrichment(
             color = "#10b981" if row["score"] > 0 else "#ef4444"
             features_html.append(
                 f'<span style="color: {color};">{direction} '
-                f"{capitalize_preserve(str(row['property']))} "
+                f"{safe_label(str(row['property']))} "
                 f"(Z: {row['score']:.2f})</span>"
             )
 

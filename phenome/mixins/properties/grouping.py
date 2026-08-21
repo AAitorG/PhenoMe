@@ -65,7 +65,9 @@ def property_stats_by_group(
             Matching is case-insensitive; names must be unique ignoring case.
         group_column_width_max: Maximum width for each grouping column when printing.
         content_col_width_max: Maximum width for each property statistic column when printing.
-        available_property_keys: Optional list for validation warnings when printing.
+        available_property_keys: Optional stored property keys used to resolve
+            ``properties``. If omitted, numeric Tier-A property columns are used.
+            ``group_by`` still matches against all DataFrame columns.
 
     Returns:
         Aggregated DataFrame with mean/std/min/max per property per group.
@@ -90,14 +92,17 @@ def property_stats_by_group(
     if properties is None:
         properties = tier_a_property_columns(df)
     else:
-        properties, unresolved = match_names_case_insensitive(
-            properties, [str(c) for c in df.columns]
+        match_available = (
+            [str(k) for k in available_property_keys]
+            if available_property_keys
+            else tier_a_property_columns(df)
         )
+        properties, unresolved = match_names_case_insensitive(properties, match_available)
         if unresolved:
             logger.warning(
                 "Properties not in DataFrame: %s. Available columns: %s",
                 unresolved,
-                list(df.columns),
+                match_available,
             )
 
     if not properties:

@@ -5,7 +5,6 @@ import json
 import os
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from datetime import datetime
 from typing import Any, Literal, cast
 
 import numpy as np
@@ -22,11 +21,12 @@ from .core import (
     validate_results,
 )
 from .core.dataframe_contract import IMAGE_INDEX
+from .core.run_log import RunLog, snapshot_environment
 from .io import CheckpointManager, FileDiscovery
 from .io._path_utils import _resolve_results_hdf5_path
 from .io.checkpoint_alignment import (
     _build_unique_path_lookup,
-    _lookup_unique_path_index,
+    _match_path_index,
     build_metadata_key_index,
     filter_items_not_in_checkpoint,
     get_already_committed_metadata_keys,
@@ -42,6 +42,7 @@ from .mixins import (
     PhenoMeProperties,
     PhenoMeVisualization,
 )
+from .mixins._helpers import _require_embeddings_for_temporal
 from .mixins.dataset import PhenoMeDataset, collate_fn
 from .mixins.embedding_extractor import EmbeddingExtractor
 from .utils import TransformBuilder
@@ -49,6 +50,7 @@ from .utils.device import get_default_device, set_default_device, set_determinis
 from .utils.model_wrapper import ModelWrapper
 from .utils.path_utils import path_repr as _path_repr
 from .utils.progress import ProgressCallback
+from .utils.transforms import _n_channels_for_transforms
 
 logger = get_logger(__name__)
 
@@ -170,6 +172,15 @@ class PhenoMe(
         if seed is not None:
             set_determinism(seed)
 
+        self._run_log = RunLog(
+            init_kwargs={
+                "device": str(self.device),
+                "seed": seed,
+                "use_gpu_for_dr": use_gpu_for_dr,
+            },
+            environment=snapshot_environment(self.device),
+        )
+
         self._file_discovery = FileDiscovery()
         self._transform_builder = TransformBuilder(mean=self.mean, std=self.std)
 
@@ -227,6 +238,8 @@ class PhenoMe(
             self._channel_names = None
         self._batch_correction_applied = False
         self._batch_correction_last_info = None
+        if getattr(self, "_run_log", None) is not None:
+            self._run_log.clear_steps()
 
         if verbose:
             logger.info("Reset: All stored data cleared.")
@@ -407,6 +420,14 @@ class PhenoMe(
         self._file_df = file_df.reset_index(drop=True).copy()
         self._init_file_df_metadata(self._file_df)
         self._channel_names = self._normalize_channel_names(channel_names)
+        self._record_step(
+            "set_file_df",
+            {
+                "n_files": len(self._file_df),
+                "columns": list(self._file_df.columns),
+                "channel_names": self._channel_names,
+            },
+        )
         return self._file_df
 
     def find_files(
@@ -525,6 +546,21 @@ class PhenoMe(
             logger.warning("find_files returned an empty DataFrame; clearing previous _file_df.")
             self._file_df = None
             self._channel_names = None
+        n_files = len(df) if isinstance(df, pd.DataFrame) else 0
+        self._record_step(
+            "find_files",
+            {
+                "image_dir": image_dir,
+                "mask_dir": mask_dir,
+                "extensions": extensions,
+                "metadata_fn": metadata_fn,
+                "on_missing_metadata": on_missing_metadata,
+                "mask_filename_column": mask_filename_column,
+                "mask_extensions": mask_extensions,
+                "channel_names": channel_names,
+            },
+            extras={"n_files": n_files},
+        )
         return df
 
     # ------------------------------------------------------------------
@@ -664,6 +700,38 @@ class PhenoMe(
             `get_embeddings`: Retrieve embeddings (handles lazy loading).
             `compute_properties`: Extract morphological properties from embeddings.
         """
+        model_name = getattr(model_wrapper, "model_name", None) or getattr(
+            model_wrapper, "name", None
+        )
+        self._record_step(
+            "process_images",
+            {
+                "batch_size": batch_size,
+                "num_workers": num_workers,
+                "filters": filters,
+                "exclude": exclude,
+                "channel_mode": channel_mode,
+                "channels": channels,
+                "preprocessing_fn": preprocessing_fn,
+                "custom_transformations": custom_transformations,
+                "append": append,
+                "resize_size": resize_size,
+                "pad_size": pad_size,
+                "checkpoint_path": checkpoint_path,
+                "force_rgb": force_rgb,
+                "l2_normalize_channels": l2_normalize_channels,
+                "save_every": save_every,
+                "lazy_checkpoint": lazy_checkpoint,
+                "force_reprocess": force_reprocess,
+                "progress_callback": progress_callback is not None,
+            },
+            extras={
+                "model": {
+                    "class": type(model_wrapper).__name__,
+                    **({"name": model_name} if model_name else {}),
+                }
+            },
+        )
 
         file_df = self._require_file_df("process_images")
         self._validate_process_images_inputs(file_df)
@@ -712,7 +780,9 @@ class PhenoMe(
                 )
             return
 
-        cur_t = custom_transformations or self._build_transforms(resize_size, pad_size)
+        cur_t = custom_transformations or self._build_transforms(
+            resize_size, pad_size, n_channels=_n_channels_for_transforms(cur_params)
+        )
         self.image_transforms = cur_t
 
         dl = self._create_dataloader(
@@ -776,8 +846,36 @@ class PhenoMe(
         (channel_mode, channels, resize_size, etc.) are inherited from the base run
         when not specified. Temporal rows get metadata['source'] = 'NEW'.
         """
+        model_name = getattr(model_wrapper, "model_name", None) or getattr(
+            model_wrapper, "name", None
+        )
+        self._record_step(
+            "process_temporal_images",
+            {
+                "files": files,
+                "batch_size": batch_size,
+                "num_workers": num_workers,
+                "channel_mode": channel_mode,
+                "channels": channels,
+                "preprocessing_fn": preprocessing_fn,
+                "custom_transformations": custom_transformations,
+                "resize_size": resize_size,
+                "pad_size": pad_size,
+                "force_rgb": force_rgb,
+                "l2_normalize_channels": l2_normalize_channels,
+                "extensions": extensions,
+            },
+            extras={
+                "model": {
+                    "class": type(model_wrapper).__name__,
+                    **({"name": model_name} if model_name else {}),
+                }
+            },
+        )
         if self.results.n_images == 0:
             raise ValueError("No existing data. Run process_images() first.")
+
+        _require_embeddings_for_temporal(self._db, self.embedding_dim, self.results)
 
         # Resolve to DataFrame (str→find_files; list→DataFrame; already DataFrame→use)
         if isinstance(files, pd.DataFrame):
@@ -833,7 +931,9 @@ class PhenoMe(
             rs_int = None
         if ps_int is None and isinstance(ps, str) and ps.lower() == "none":
             ps_int = None
-        ct = custom_transformations or self._build_transforms(rs_int, ps_int)
+        ct = custom_transformations or self._build_transforms(
+            rs_int, ps_int, n_channels=_n_channels_for_transforms(cur_params)
+        )
         dl = self._create_dataloader(
             fdata,
             transform=ct,
@@ -1011,6 +1111,10 @@ class PhenoMe(
             path: Explicit output path.
             compression: HDF5 compression algorithm (used only for new files).
         """
+        self._record_step(
+            "save_results",
+            {"path": path, "compression": compression},
+        )
         target_path = _resolve_results_hdf5_path(path)
 
         parent = os.path.dirname(target_path) or "."
@@ -1024,10 +1128,20 @@ class PhenoMe(
             # checkpoint_path to compute_properties) are included in the saved file.
             if self.results.has_properties:
                 n_db = self._db.n_committed_props + self._db.properties_buffered
-                if n_db < self.results.n_images:
+                n_ckpt_rows = int(self._temporal_start_idx)
+                if n_ckpt_rows <= 0:
+                    n_ckpt_rows = int(self._db.n_committed)
+                n_persist = min(self.results.n_images, n_ckpt_rows)
+                if n_persist < self.results.n_images:
+                    logger.debug(
+                        "Skipping %d temporal property row(s) when saving checkpoint "
+                        "(temporal images are in-memory only).",
+                        self.results.n_images - n_persist,
+                    )
+                if n_db < n_persist:
                     db_indices = self._db_indices
                     if db_indices is not None and (
-                        len(db_indices) != self.results.n_images
+                        len(db_indices) != n_persist
                         or not np.array_equal(db_indices, np.arange(len(db_indices)))
                     ):
                         raise ValueError(
@@ -1035,11 +1149,35 @@ class PhenoMe(
                             "reload (non-contiguous row mapping). Recompute properties with "
                             "checkpoint_path= or export with write_results_to_hdf5()."
                         )
-                    to_buffer = self.results.properties[n_db:]
+                    to_buffer = self.results.properties[n_db:n_persist]
                     self._db.buffer_properties(to_buffer)
-                    if self._ram_internal and len(self._ram_internal) >= self.results.n_images:
-                        to_buffer_int = self._ram_internal[n_db:]
+                    if self._ram_internal and len(self._ram_internal) >= n_persist:
+                        to_buffer_int = self._ram_internal[n_db:n_persist]
                         self._db.buffer_internal(to_buffer_int)
+
+            if self._db.embeddings_buffered:
+                self._db.commit_embeddings()
+            if self._db.properties_buffered:
+                self._db.commit_properties()
+
+            if not self._db.lazy and self._db._ram_data is not None:
+                ram = self._db._ram_data
+                params = self._db._processing_params_ram
+                internal = self._db._ram_internal
+                was_open = self._db._file is not None
+                self._db.close()
+                CheckpointManager.write_results_to_hdf5(
+                    ram,
+                    target_path,
+                    compression=compression,
+                    processing_params=params,
+                    internal=internal,
+                )
+                self._db.path = target_path
+                if was_open:
+                    self._db._ensure_open()
+                logger.info("Results saved to %s", target_path)
+                return
 
             if os.path.abspath(target_path) == db_path:
                 if self._db.embeddings_buffered:
@@ -1101,9 +1239,11 @@ class PhenoMe(
     ) -> None:
         """Export experiment configuration for reproducibility.
 
-        Writes a JSON file with parameters not stored in the HDF5 checkpoint,
-        so that analyses can be fully reproduced. Call after save_results()
-        and pass the same reference_filters used for distance analysis.
+        Writes a JSON file with init parameters, environment, processing
+        params, and silently recorded method steps. Call after the analysis
+        you want to document. Optional ``model_name`` / ``reference_filters``
+        override values already captured from ``process_images`` /
+        ``compute_reference_distances``.
 
         Args:
             path: Output path for config.json.
@@ -1114,39 +1254,19 @@ class PhenoMe(
                 provided and a checkpoint is open, uses self._db.path).
             **extra: Additional key-value pairs to include in the config.
         """
-        try:
-            from . import __version__ as pkg_version
-        except ImportError:
-            pkg_version = "unknown"
-
-        config: dict[str, Any] = {
-            "seed": self.seed,
-            "use_gpu_for_dr": self.use_gpu_for_dr,
-            "timestamp": datetime.now().isoformat(),
-            "pipeline_version": pkg_version,
-            **extra,
-        }
+        extra_fields: dict[str, Any] = dict(extra)
         if reference_filters is not None:
-            config["reference_filters"] = reference_filters
+            extra_fields["reference_filters"] = reference_filters
         if model_name is not None:
-            config["model_name"] = model_name
-
-        if self._processing_params is not None:
-            # Make JSON-serializable (e.g. numpy types -> native)
-            params_copy: dict[str, Any] = {}
-            for k, v in self._processing_params.items():
-                if v is not None and hasattr(v, "tolist"):
-                    params_copy[k] = v.tolist()
-                elif isinstance(v, bytes):
-                    params_copy[k] = v.decode("utf-8")
-                else:
-                    params_copy[k] = v
-            config["processing_params"] = params_copy
-
-        if checkpoint_path is not None:
-            config["checkpoint_path"] = checkpoint_path
-        elif self._db is not None:
-            config["checkpoint_path"] = os.path.abspath(self._db.path)
+            extra_fields["model_name"] = model_name
+        ckpt = checkpoint_path
+        if ckpt is None and self._db is not None:
+            ckpt = os.path.abspath(self._db.path)
+        config = self.get_run_settings()
+        if extra_fields:
+            config.update(extra_fields)
+        if ckpt is not None:
+            config["checkpoint_path"] = ckpt
 
         parent = os.path.dirname(path)
         if parent:
@@ -1154,6 +1274,40 @@ class PhenoMe(
         with open(path, "w") as f:
             json.dump(config, f, indent=2)
         logger.info("Experiment config saved to %s", path)
+
+    def get_run_settings(self) -> dict[str, Any]:
+        """Return the silent run log as a JSON-serializable dict.
+
+        Includes init parameters, environment, recorded method steps, and
+        processing_params when available. Does not print or write files.
+        """
+        ckpt = os.path.abspath(self._db.path) if self._db is not None else None
+        return self._run_log.to_dict(
+            processing_params=self._processing_params,
+            checkpoint_path=ckpt,
+        )
+
+    def export_methods_markdown(self, path: str) -> None:
+        """Write a markdown methods summary from the silent run log.
+
+        Opt-in companion to [export_experiment_config](pipeline.md#api-phenome-export_experiment_config)
+        for paper supplements. Does nothing unless this method is called.
+        """
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(self._run_log.to_markdown())
+        logger.info("Methods markdown saved to %s", path)
+
+    def _record_step(
+        self,
+        method: str,
+        kwargs: dict[str, Any] | None = None,
+        extras: dict[str, Any] | None = None,
+    ) -> None:
+        """Append one silent run-log step. No logger output."""
+        self._run_log.record(method, kwargs, extras)
 
     def export_dataset_table(
         self,
@@ -1245,21 +1399,8 @@ class PhenoMe(
 
     @staticmethod
     def _checkpoint_has_property_content(ckpt: CheckpointManager) -> bool:
-        """Return True if *ckpt* stores real property columns/values.
-
-        ``n_committed_props > 0`` alone is insufficient: ``write_results_to_hdf5``
-        can set that counter for a list of empty ``{}`` rows and create an empty
-        ``/properties`` group.
-        """
-        if ckpt.n_committed_props <= 0:
-            return False
-        f = ckpt._file
-        if f is not None and "properties" in f:
-            prop_group = f["properties"]
-            if len(prop_group.keys()) > 0:
-                return True
-        props = ckpt.load_properties_all()
-        return any(isinstance(p, dict) and p for p in props)
+        """Return True if *ckpt* stores real property columns/values."""
+        return ckpt.has_property_content()
 
     def _open_results_checkpoint(
         self,
@@ -1431,11 +1572,12 @@ class PhenoMe(
                         filtered_props.append({})
                         filtered_internal.append({})
             except ValueError:
-                path_lookup = _build_unique_path_lookup(ckpt_paths)
+                ckpt_lookup = _build_unique_path_lookup(ckpt_paths)
+                session_lookup = _build_unique_path_lookup(image_paths)
                 filtered_props = []
                 filtered_internal = []
-                for p in image_paths:
-                    idx = _lookup_unique_path_index(path_lookup, p)
+                for i, p in enumerate(image_paths):
+                    idx = _match_path_index(p, ckpt_lookup, session_lookup, i)
                     if idx is not None and 0 <= idx < len(all_props):
                         filtered_props.append(dict(all_props[idx]))
                         filtered_internal.append(
@@ -1525,6 +1667,10 @@ class PhenoMe(
             ConcurrentCheckpointAccessError: If the checkpoint is already open in
                 another notebook or process (only one instance can access it at a time).
         """
+        self._record_step(
+            "load_results",
+            {"path": path, "lazy_checkpoint": lazy_checkpoint},
+        )
         filename, ckpt = self._open_results_checkpoint(
             path,
             method_name="load_results",
@@ -2036,10 +2182,15 @@ class PhenoMe(
             progress_callback=progress_callback,
         )
 
-    def _build_transforms(self, resize_size: int | None, pad_size: int | None = None) -> Any:
+    def _build_transforms(
+        self,
+        resize_size: int | None,
+        pad_size: int | None = None,
+        n_channels: int = 3,
+    ) -> Any:
         """Build torchvision Compose applied to each image before the model forward pass."""
         self.image_transforms = self._transform_builder.build(
-            resize_size=resize_size, pad_size=pad_size
+            resize_size=resize_size, pad_size=pad_size, n_channels=n_channels
         )
         return self.image_transforms
 
@@ -2354,15 +2505,14 @@ class PhenoMe(
         self._db = ckpt
 
         paths, metadata = ckpt.load_metadata_and_paths()
-        if current_requested_data:
-            metadata = merge_metadata_from_current_run(
-                paths, metadata, current_requested_data, _path_repr
-            )
         properties = ckpt.load_properties_all()
         internal = ckpt.load_internal_all()
 
         h5_indices = np.arange(len(paths), dtype=np.int64)
 
+        # Filter on *original* checkpoint identity before overlaying current-run
+        # metadata, so a basename-only path hit cannot rewrite keys and sneak
+        # a foreign embedding into the subset.
         if (requested_paths is not None or requested_meta_keys is not None) and paths:
             if requested_meta_keys is not None:
                 indices = []
@@ -2385,10 +2535,11 @@ class PhenoMe(
                     current_path_lookup = _build_unique_path_lookup(
                         [d.get("file_path", "") for d in current_requested_data]
                     )
+                    ckpt_lookup = _build_unique_path_lookup(paths)
                     indices = [
                         i
                         for i, p in enumerate(paths)
-                        if _lookup_unique_path_index(current_path_lookup, p) is not None
+                        if _match_path_index(p, current_path_lookup, ckpt_lookup, i) is not None
                     ]
                 else:
                     indices = [
@@ -2406,9 +2557,10 @@ class PhenoMe(
                 if internal:
                     internal = [internal[i] for i in indices if i < len(internal)]
 
-        # When file_df was provided, replace checkpoint paths with file_df paths
-        # so results.img_path points to valid files on this machine.
         if current_requested_data:
+            metadata = merge_metadata_from_current_run(
+                paths, metadata, current_requested_data, _path_repr
+            )
             paths = rebase_paths_from_current_run(
                 paths, metadata, current_requested_data, _path_repr
             )

@@ -17,15 +17,23 @@ from typing import Any, Literal
 
 import numpy as np
 
-from .results_metadata import filter_indices, get_metadata_value_from_dict
+from .results_metadata import _is_missing_store_value, filter_indices, get_metadata_value_from_dict
 
 MethodName = Literal["sphering", "zscore"]
 
 
 def stable_batch_id(value: Any) -> str:
     """String id for grouping rows by batch metadata value."""
-    if value is None:
+    if _is_missing_store_value(value):
         return "__missing__"
+    if isinstance(value, (bool, np.bool_)):
+        return str(value)
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    if isinstance(value, (float, np.floating)):
+        if float(value).is_integer():
+            return str(int(value))
+        return str(float(value))
     return str(value)
 
 
