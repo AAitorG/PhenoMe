@@ -19,7 +19,10 @@ from ._components import generate_navigation, generate_stats_cards
 from .context import ReportContext
 from .helpers import get_plotly_bundle, safe_html
 from .scripts import REPORT_JS
-from .sections.clustering import generate_clustering_section
+from .sections.clustering import (
+    _cluster_labels_from_metadata,
+    generate_clustering_section,
+)
 from .sections.correlation import generate_correlation_section
 from .sections.distance import generate_distance_section
 from .sections.export import generate_export_section
@@ -488,9 +491,13 @@ def generate_report(
         output_path=output_path,
     )
 
-    # Always run clustering with this report's options so prior cluster metadata
-    # cannot skip a different n_clusters / method / filters request.
-    if opts.get("include_clustering") and pipeline.has_embeddings:
+    # Reuse existing cluster labels so a default report does not overwrite
+    # a prior compute_clustering() result. Compute only when none are stored.
+    if (
+        opts.get("include_clustering")
+        and pipeline.has_embeddings
+        and _cluster_labels_from_metadata(pipeline) is None
+    ):
         logger.info("Report: Pre-calculating clustering...")
         pipeline.compute_clustering(
             n_clusters=opts.get("n_clusters", 5),

@@ -199,7 +199,7 @@ def collate_fn(batch: list[Any]) -> Any:
     if failed_items:
         for it in failed_items:
             file_path = it.get("file_path", "?") if isinstance(it, dict) else "?"
-            logger.warning("Dropped failed sample from batch: %s", file_path)
+            logger.debug("Dropped failed sample from batch: %s", file_path)
 
     images, items = zip(*ok, strict=True)
 

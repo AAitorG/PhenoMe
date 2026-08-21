@@ -182,7 +182,7 @@ class EmbeddingExtractor:
                 skipped_batches += 1
                 for it in items or ():
                     file_path = it.get("file_path", "?") if isinstance(it, dict) else "?"
-                    logger.warning("Skipped image (failed load): %s", file_path)
+                    logger.debug("Skipped image (failed load): %s", file_path)
                 continue
 
             batch_embeddings, batch_paths, batch_meta = self.extract_batch(

@@ -18,7 +18,9 @@ from ..._logging import get_logger
 from ...core import metadata_to_stable_key, optimize_property_types
 from ...io import CheckpointManager, align_by_metadata
 from ...io.checkpoint_alignment import (
+    _build_unique_path_lookup,
     _canonical_path,
+    _match_path_index,
     _union_prop_keys_sample,
     build_metadata_key_index,
 )
@@ -265,6 +267,8 @@ def align_session_properties_to_checkpoint(
         id_to_ckpt_idx = build_metadata_key_index(ckpt_metadata, on_duplicate="first")
     ckpt_paths = ckpt.get_committed_paths_list()
     path_to_idx = {_canonical_path(p): i for i, p in enumerate(ckpt_paths)}
+    ckpt_lookup = _build_unique_path_lookup(ckpt_paths)
+    image_lookup = _build_unique_path_lookup(image_paths)
 
     for i, prop in enumerate(session_props):
         ident = None
@@ -279,6 +283,10 @@ def align_session_properties_to_checkpoint(
         idx = id_to_ckpt_idx.get(ident, -1) if ident is not None else -1
         if idx < 0 and i < len(image_paths):
             idx = path_to_idx.get(_canonical_path(image_paths[i]), -1)
+            if idx < 0:
+                matched = _match_path_index(image_paths[i], ckpt_lookup, image_lookup, i)
+                if matched is not None:
+                    idx = matched
         if not (0 <= idx < n_ckpt):
             continue
         aligned_props[idx] = _merge_prop_row(aligned_props[idx], prop)
@@ -651,9 +659,14 @@ def setup_properties_checkpoint_resume(
                         filtered_internal.append({})
             except ValueError:
                 path_to_idx = {_canonical_path(p): i for i, p in enumerate(ckpt_paths)}
-                for p in image_paths:
-                    cp = _canonical_path(p)
-                    idx = path_to_idx.get(cp, -1)
+                ckpt_lookup = _build_unique_path_lookup(ckpt_paths)
+                image_lookup = _build_unique_path_lookup(image_paths)
+                for i, p in enumerate(image_paths):
+                    idx = path_to_idx.get(_canonical_path(p), -1)
+                    if idx < 0:
+                        matched = _match_path_index(p, ckpt_lookup, image_lookup, i)
+                        if matched is not None:
+                            idx = matched
                     if 0 <= idx < len(all_props):
                         filtered_props.append(all_props[idx])
                         filtered_internal.append(
@@ -874,7 +887,7 @@ def process_all_images(
                 for _, _props, int_d in results:
                     internal_buffer.append(dict(int_d))
                 images_computed = batch_end
-                if use_ckpt_incremental and ckpt is not None:
+                if use_ckpt_incremental and ckpt is not None and not use_aligned_rewrite:
                     last_committed = flush_computed_properties_to_checkpoint(
                         ckpt,
                         feature_buffers,
@@ -890,14 +903,15 @@ def process_all_images(
                     )
                 pbar.update(batch_end - batch_start)
     else:
+        iterable: Any = paths_list
         if n_to_process > 0:
-            paths_list = tqdm(
+            iterable = tqdm(
                 paths_list,
                 desc="Computing properties",
                 total=n_to_process,
                 unit="img",
             )
-        for buf_idx, (img_idx, img_path) in enumerate(paths_list):
+        for buf_idx, (img_idx, img_path) in enumerate(iterable):
             mask_path = mask_paths[img_idx]
 
             img_stack, mask_stack = _load_image_and_mask_stacks(
@@ -941,7 +955,12 @@ def process_all_images(
             all_property_names.update(feature_buffers.keys())
             images_computed += 1
 
-            if use_ckpt_incremental and ckpt is not None and images_computed % save_every == 0:
+            if (
+                use_ckpt_incremental
+                and ckpt is not None
+                and not use_aligned_rewrite
+                and images_computed % save_every == 0
+            ):
                 last_committed = flush_computed_properties_to_checkpoint(
                     ckpt,
                     feature_buffers,
@@ -984,6 +1003,8 @@ def finalize_properties_computation(
         existing_props = ckpt.load_committed_properties()
         existing_internal = ckpt.load_internal_all()
         img_idx_to_new_idx = {img_idx: i for i, (img_idx, _) in enumerate(paths_to_compute)}
+        ckpt_lookup = _build_unique_path_lookup(ckpt.get_committed_paths_list())
+        image_lookup = _build_unique_path_lookup(image_paths)
 
         all_keys = set(all_property_names)
         for prop_dict in existing_props:
@@ -999,6 +1020,10 @@ def finalize_properties_computation(
             )
             if identifier in identifiers_with_props:
                 idx = id_to_ckpt_idx.get(identifier, -1)
+                if idx < 0:
+                    matched = _match_path_index(image_paths[i], ckpt_lookup, image_lookup, i)
+                    if matched is not None:
+                        idx = matched
                 if 0 <= idx < len(existing_props):
                     prop = dict(existing_props[idx]) if existing_props[idx] else {}
                 else:

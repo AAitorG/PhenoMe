@@ -1113,7 +1113,7 @@ class PhenoMe(
                     n_ckpt_rows = int(self._db.n_committed)
                 n_persist = min(self.results.n_images, n_ckpt_rows)
                 if n_persist < self.results.n_images:
-                    logger.info(
+                    logger.debug(
                         "Skipping %d temporal property row(s) when saving checkpoint "
                         "(temporal images are in-memory only).",
                         self.results.n_images - n_persist,
