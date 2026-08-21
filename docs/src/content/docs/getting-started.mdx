@@ -24,7 +24,7 @@ Conda is the most reliable way to install PyTorch plus the computer-vision
 stack. Pip works too with the provided lockfiles.
 
 <Tabs>
-  <TabItem label="Conda (recommended)" icon="seti:julia">
+  <TabItem label="Conda (recommended)" icon="seti:shell">
     <Steps>
     1. **Clone the repository**
 
@@ -127,10 +127,10 @@ More in the [FAQ - installation](/PhenoMe/faq/#installation-and-setup).
 The snippet below runs the full pipeline on a folder of images. You can run
 this in a **Python script** or a **Jupyter Notebook** cell.
 
-:::tip[Ready-to-run version]
+<Aside type="tip" title="Ready-to-run version">
 If you prefer a guided walkthrough with interactive widgets, start with
 [Notebook 01 — Interactive quickstart](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb).
-:::
+</Aside>
 
 <Steps>
 1. **Set up and start**
@@ -155,7 +155,7 @@ If you prefer a guided walkthrough with interactive widgets, start with
    pheno.find_files("path/to/your/images")
    ```
 
-3. **Extract visual fingerprints (AI descriptions) and classical properties**
+3. **Extract embeddings (AI descriptions) and properties**
 
    ```python
    pheno.process_images(wrapper)
