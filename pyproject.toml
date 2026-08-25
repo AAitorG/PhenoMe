@@ -64,6 +64,8 @@ dependencies = [
     "jupyterlab>=4.0",
     "jupyterlab_widgets>=3.0",
     "nbformat>=5.9",
+    "stedfm",
+    "requests>=2.34.2",
 ]
 
 [project.optional-dependencies]
@@ -253,3 +255,6 @@ module = [
     "ipywidgets.*",
 ]
 ignore_missing_imports = true
+
+[tool.uv.sources]
+stedfm = { git = "https://github.com/FLClab/STED-FM.git" }
