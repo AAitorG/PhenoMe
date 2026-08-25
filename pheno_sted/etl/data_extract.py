@@ -4,12 +4,13 @@ from pathlib import Path
 
 import requests
 
-"""
-Class to handle the different STED datasets used with STED-FM
-"""
 
 def download_zoo_dataset(path:str, filename:str="zoo_data.hdf5") -> None:
-    """ Download the Zooniverse dataset
+    """ Download the Zooniverse dataset as a .hdf5 file.
+
+    Args:
+        path: Path where the data will be downloaded
+        filename: Name of the Zooniverse .hdf5 file
     """
     output_path = Path(os.path.join(path, filename))
     if output_path.is_file():
@@ -21,7 +22,11 @@ def download_zoo_dataset(path:str, filename:str="zoo_data.hdf5") -> None:
         file.write(response.content)
 
 def download_nas_dataset(path:str, filename:str="nas_data.tar") -> None:
-    """ Download the NAS dataset
+    """ Download the NAS dataset as a .tar file.
+
+    Args:
+        path: Path where the data will be downloaded
+        filename: Name of the NAS .tar file
     """
     output_path = Path(os.path.join(path, filename))
     if output_path.is_file():
@@ -33,7 +38,11 @@ def download_nas_dataset(path:str, filename:str="nas_data.tar") -> None:
         file.write(response.content)
 
 def download_optim_dataset(path:str, filename:str="optim_data.zip") -> None:
-    """ Download the Optim dataset
+    """ Download the Optim dataset as a .zip file, and extract it locally.
+
+    Args:
+        path: Path where the data will be downloaded
+        filename: Name of the Optim .zip file
     """
     zip_path = Path(os.path.join(path, filename))
     if zip_path.is_file():

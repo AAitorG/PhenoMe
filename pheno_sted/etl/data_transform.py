@@ -9,12 +9,14 @@ from stedfm.datasets import NeuralActivityStates, OptimDataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-"""
-Transform the extracted data into a structure usable by the PhenoMe pipeline
-"""
 
 def transform_zoo_dataset(input_path:str, output_path:str, filename:str="zoo_data.hdf5") -> None:
     """ Structures the Zooniverse dataset for PhenoMe usage
+
+    Args:
+        input_path: Directory containing the .hdf5 file of the Zooniverse data.
+        output_path: Directory where the restructured data will be saved.
+        filename: Name of the Zooniverse .hdf5 file.
     """
     metadata_path = Path(os.path.join(output_path, 'metadata.csv'))
     if metadata_path.is_file():
@@ -45,6 +47,11 @@ def transform_zoo_dataset(input_path:str, output_path:str, filename:str="zoo_dat
 
 def transform_nas_dataset(input_path:str, output_path:str, filename:str="nas_data.tar") -> None:
     """ Structures the NAS dataset for PhenoMe usage
+
+    Args:
+        input_path: Directory containing the .tar file of the NAS data.
+        output_path: Directory where the restructured data will be saved.
+        filename: Name of the NAS .tar file.
     """
     metadata_path = Path(os.path.join(output_path, 'metadata.csv'))
     if metadata_path.is_file():
@@ -87,6 +94,10 @@ def transform_nas_dataset(input_path:str, output_path:str, filename:str="nas_dat
 
 def transform_optim_dataset(input_path:str, output_path:str) -> None:
     """ Structures the Optim dataset for PhenoMe usage
+
+    Args:
+        input_path: Directory containing the extracted Optim data.
+        output_path: Directory where the restructured data will be saved.
     """
     metadata_path = Path(os.path.join(output_path, 'metadata.csv'))
     if metadata_path.is_file():
@@ -149,6 +160,3 @@ def transform_dataset(dataset:str, input_path:str, output_path:str) -> None:
     transformer = DATASETS[dataset]
     transformer(input_path, output_path)
     print("Done!")
-
-if __name__=="__main__":
-    transform_dataset("Optim", "/Users/renaud/python-projects/phenome-project/PhenoMe/datatest", "/Users/renaud/python-projects/phenome-project/PhenoMe/datatest")
