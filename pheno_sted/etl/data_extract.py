@@ -59,6 +59,3 @@ def download_dataset(dataset:str, path:str) -> None:
     downloader = DATASETS[dataset]
     downloader(path)
     print("Done!")
-
-if __name__=="__main__":
-    download_dataset("Optim", "datatest/")
