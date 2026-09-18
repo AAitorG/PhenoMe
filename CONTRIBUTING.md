@@ -30,7 +30,7 @@ Thank you for your interest in contributing to PhenoMe. This document explains h
 
 ## Code Quality
 
-GitHub Actions runs Gitleaks, Ruff (lint + format check), mypy, and a smoke import on pushes and pull requests to `main` / `master` (see `.github/workflows/ci.yml`).
+GitHub Actions runs Gitleaks, Ruff (lint + format check), mypy, and pytest compatibility smokes on pushes and pull requests to `main` / `master` (see `.github/workflows/ci.yml`).
 
 A separate **Documentation** workflow (`.github/workflows/docs-build.yml`) installs Node 22 + Python 3.12, runs `npm run build` under `docs/` (Astro Starlight + generated API pages), and deploys to **GitHub Pages** on pushes to `main` / `master`. See [`docs/README.md`](docs/README.md).
 

@@ -80,6 +80,7 @@ dev = [
     "mypy>=1.19.1",
     "pandas-stubs",
     "pre-commit>=3.7",
+    "pytest>=8.0",
     "ruff>=0.15.4",
     "types-requests",
     "types-setuptools",
@@ -106,6 +107,14 @@ include = ["phenome", "phenome.*"]
 
 [tool.setuptools.package-data]
 phenome = ["py.typed"]
+
+
+# ==============================================================================
+# PYTEST – Smoke / compatibility tests
+# ==============================================================================
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 
 # ==============================================================================
@@ -171,6 +180,7 @@ exclude            = [
     "build",
     "phenome.egg-info",
     "Notebooks",
+    "tests",
     ".cache",
 ]
 ignore-regex       = ["^get$", "^set$", "^test_.*$"]

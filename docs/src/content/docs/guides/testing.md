@@ -17,15 +17,15 @@ pip install -e ".[dev]"
 ## Lint and format
 
 ```bash
-python -m ruff check phenome
-python -m ruff format phenome --check
+python -m ruff check phenome tests
+python -m ruff format phenome tests --check
 ```
 
 Auto-fix (local only):
 
 ```bash
-python -m ruff check phenome --fix
-python -m ruff format phenome
+python -m ruff check phenome tests --fix
+python -m ruff format phenome tests
 ```
 
 ---
@@ -66,10 +66,17 @@ npm run build
 
 ---
 
-## Smoke import
+## Dependency compatibility smoke
 
 ```bash
-python -c "from phenome import PhenoMe; print(PhenoMe)"
+python -m pip check
+python -m pytest
 ```
 
-This matches the lightweight check in the main CI workflow.
+These match the main CI workflow. `pip check` fails if installed packages conflict with each other. `pytest` also:
+
+- Imports the public PhenoMe API and every `phenome.*` module
+- Constructs `PhenoMe` on CPU, reads PNG/NPY images, and runs a tiny find → embed → properties → clustering loop
+- Reloads embeddings from an HDF5 checkpoint and checks that advertised property presets resolve
+
+A new library version that breaks an import, I/O, or the core pipeline is caught even when the top-level `PhenoMe` class still loads.
