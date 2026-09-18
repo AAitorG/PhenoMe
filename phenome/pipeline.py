@@ -21,6 +21,18 @@ from .core import (
     validate_results,
 )
 from .core.dataframe_contract import IMAGE_INDEX
+from .core.processing_pipeline import (
+    coalesce_pipeline_payload,
+    emit_pipeline_logs,
+    format_concise_pipeline,
+    format_pipeline_markdown,
+    persist_pipeline_to_checkpoint,
+    persistable_pipeline,
+    record_processing_pipeline,
+    restore_session_from_checkpoint,
+    strip_temporal_segment,
+    update_session,
+)
 from .core.run_log import RunLog, snapshot_environment
 from .io import CheckpointManager, FileDiscovery
 from .io._path_utils import _resolve_results_hdf5_path
@@ -186,6 +198,7 @@ class PhenoMe(
 
         self._batch_correction_applied: bool = False
         self._batch_correction_last_info: dict[str, Any] | None = None
+        self._processing_pipeline: dict[str, Any] | None = None
 
     def __repr__(self) -> str:
         n_images = self.results.n_images
@@ -238,6 +251,7 @@ class PhenoMe(
             self._channel_names = None
         self._batch_correction_applied = False
         self._batch_correction_last_info = None
+        self._processing_pipeline = None
         if getattr(self, "_run_log", None) is not None:
             self._run_log.clear_steps()
 
@@ -578,6 +592,8 @@ class PhenoMe(
         channels: list[int] | None = None,
         preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None = None,
         custom_transformations: Any | None = None,
+        preprocessing_description: str | None = None,
+        transformations_description: str | None = None,
         append: bool = False,
         resize_size: int | None = 224,
         pad_size: int | None = None,
@@ -603,6 +619,21 @@ class PhenoMe(
         - Temporal (incremental): New images added to existing checkpoint via
           `process_temporal_images()`.
 
+        **Default processing order** (when ``custom_transformations`` is None):
+
+        1. Load image (native dtype)
+        2. Optional ``preprocessing_fn``
+        3. Channel selection / ``channel_mode`` / ``force_rgb``
+        4. TypeMaxNorm intensity scaling (identity if max <= 1)
+        5. Optional pad, then resize (default 224)
+        6. ImageNet mean/std normalize
+        7. Vision model -> embedding
+        8. Split mode: L2-normalize each channel embedding (default True)
+
+        A concise processing pipeline is logged at INFO. Inspect
+        ``get_processing_pipeline()`` or ``print_processing_pipeline()``.
+        Custom ``custom_transformations`` replace steps 4-6.
+
         Args:
             model_wrapper (ModelWrapper): Model instance (e.g., from `load_dinov2_model()`).
                 Must implement `_get_embeddings(tensor: torch.Tensor) -> torch.Tensor`.
@@ -625,8 +656,18 @@ class PhenoMe(
                 to each image before the model. Signature: `fn(image: ndarray) -> ndarray`.
                 Example: normalization, contrast adjustment, etc. Default: None.
             custom_transformations (transforms object or None): PyTorch transforms to apply
-                before the model (e.g., resize, normalize). If None, defaults are used
-                based on `resize_size` and `pad_size`. Default: None.
+                before the model (e.g., resize, normalize). If None, the default order is
+                TypeMaxNorm, optional pad, optional resize, then ImageNet Normalize.
+                Default: None.
+            preprocessing_description (str or None): Optional plain-language note for
+                `preprocessing_fn`. Shown in the INFO processing pipeline log and on
+                `get_processing_pipeline()`. Internals are never inspected. Recommended
+                when using custom preprocessing so the log describes what the function
+                does. Default: None.
+            transformations_description (str or None): Optional plain-language note for
+                `custom_transformations`. Shown in the INFO processing pipeline log and
+                on `get_processing_pipeline()`. Internals are never inspected. Default:
+                None.
             append (bool): If True, append to existing embeddings in `results.embeddings`.
                 If False (default), replace. Default: False.
             resize_size (int or None): Image resize dimension (square). Default: 224.
@@ -673,6 +714,18 @@ class PhenoMe(
             >>> print(pm.results.embeddings.shape)
             (1000, 768)
 
+            Optional description for custom preprocessing (appears in the INFO
+            processing pipeline log even though the callable itself is opaque):
+
+            >>> def enhance_contrast(image):
+            ...     p1, p99 = np.percentile(image, (1, 99))
+            ...     return np.clip(image, p1, p99)
+            >>> pm.process_images(
+            ...     model,
+            ...     preprocessing_fn=enhance_contrast,
+            ...     preprocessing_description="clip 1st/99th percentiles",
+            ... )
+
             With filtering and checkpoint:
 
             >>> pm.process_images(
@@ -699,42 +752,12 @@ class PhenoMe(
             `process_temporal_images`: Incrementally add images to existing checkpoint.
             `get_embeddings`: Retrieve embeddings (handles lazy loading).
             `compute_properties`: Extract morphological properties from embeddings.
+            `get_processing_pipeline`: Structured ordered processing pipeline for this run.
+            `print_processing_pipeline`: Print the same text as the INFO log.
         """
-        model_name = getattr(model_wrapper, "model_name", None) or getattr(
-            model_wrapper, "name", None
-        )
-        self._record_step(
-            "process_images",
-            {
-                "batch_size": batch_size,
-                "num_workers": num_workers,
-                "filters": filters,
-                "exclude": exclude,
-                "channel_mode": channel_mode,
-                "channels": channels,
-                "preprocessing_fn": preprocessing_fn,
-                "custom_transformations": custom_transformations,
-                "append": append,
-                "resize_size": resize_size,
-                "pad_size": pad_size,
-                "checkpoint_path": checkpoint_path,
-                "force_rgb": force_rgb,
-                "l2_normalize_channels": l2_normalize_channels,
-                "save_every": save_every,
-                "lazy_checkpoint": lazy_checkpoint,
-                "force_reprocess": force_reprocess,
-                "progress_callback": progress_callback is not None,
-            },
-            extras={
-                "model": {
-                    "class": type(model_wrapper).__name__,
-                    **({"name": model_name} if model_name else {}),
-                }
-            },
-        )
-
         file_df = self._require_file_df("process_images")
         self._validate_process_images_inputs(file_df)
+        caller_channels = channels
         filtered_data, cur_params, _final_data_dir = self._prepare_for_process_images(
             file_df,
             filters,
@@ -761,10 +784,49 @@ class PhenoMe(
         )
         n_pre_existing = ckpt.n_committed if ckpt is not None else 0
         self._processing_params = cur_params
+        channels_adopted = cur_params.get("channels") != caller_channels
+
+        model_name = getattr(model_wrapper, "model_name", None) or getattr(
+            model_wrapper, "name", None
+        )
+        self._record_step(
+            "process_images",
+            {
+                "batch_size": batch_size,
+                "num_workers": num_workers,
+                "filters": filters,
+                "exclude": exclude,
+                "channel_mode": cur_params.get("channel_mode", channel_mode),
+                "channels": cur_params.get("channels"),
+                "preprocessing_fn": preprocessing_fn,
+                "custom_transformations": custom_transformations,
+                "preprocessing_description": preprocessing_description,
+                "transformations_description": transformations_description,
+                "append": append,
+                "resize_size": cur_params.get("resize_size", resize_size),
+                "pad_size": cur_params.get("pad_size", pad_size),
+                "checkpoint_path": checkpoint_path,
+                "force_rgb": cur_params.get("force_rgb", force_rgb),
+                "l2_normalize_channels": cur_params.get(
+                    "l2_normalize_channels", l2_normalize_channels
+                ),
+                "save_every": save_every,
+                "lazy_checkpoint": lazy_checkpoint,
+                "force_reprocess": force_reprocess,
+                "progress_callback": progress_callback is not None,
+            },
+            extras={
+                "model": {
+                    "class": type(model_wrapper).__name__,
+                    **({"name": model_name} if model_name else {}),
+                }
+            },
+        )
 
         if not filtered_data:
             if checkpoint_path and ckpt:
                 logger.info("All images already processed. Loading from checkpoint.")
+                self._restore_processing_pipeline(ckpt, loaded=True)
                 self._setup_lazy_results(
                     ckpt,
                     requested_paths=requested_paths,
@@ -779,6 +841,20 @@ class PhenoMe(
                     stacklevel=2,
                 )
             return
+
+        self._build_and_store_processing_pipeline(
+            filtered_data,
+            cur_params,
+            preprocessing_fn=preprocessing_fn,
+            preprocessing_description=preprocessing_description,
+            custom_transformations=custom_transformations,
+            transformations_description=transformations_description,
+            model_wrapper=model_wrapper,
+            batch_size=batch_size,
+            kind="base",
+            channels_adopted_from_checkpoint=channels_adopted,
+            ckpt=ckpt,
+        )
 
         cur_t = custom_transformations or self._build_transforms(
             resize_size, pad_size, n_channels=_n_channels_for_transforms(cur_params)
@@ -804,6 +880,7 @@ class PhenoMe(
             lazy_checkpoint=lazy_checkpoint,
             progress_callback=progress_callback,
         )
+        self._persist_pipeline_to_checkpoint(ckpt_used)
 
         self._finalize_processing(
             checkpoint_path,
@@ -830,6 +907,8 @@ class PhenoMe(
         channels: list[int] | None = None,
         preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None = None,
         custom_transformations: Any | None = None,
+        preprocessing_description: str | None = None,
+        transformations_description: str | None = None,
         resize_size: int | None = None,
         pad_size: int | None = None,
         force_rgb: bool | None = None,
@@ -845,6 +924,13 @@ class PhenoMe(
         Requires process_images() to have been run first. Processing parameters
         (channel_mode, channels, resize_size, etc.) are inherited from the base run
         when not specified. Temporal rows get metadata['source'] = 'NEW'.
+        Optional ``preprocessing_description`` / ``transformations_description``
+        are recorded on the session-only temporal pipeline (same optional notes as
+        ``process_images``; they appear in the INFO processing pipeline log).
+
+        Default processing order matches ``process_images`` (load, optional
+        preprocess, channels/RGB, TypeMaxNorm, pad/resize, ImageNet, model,
+        split L2). A concise processing pipeline is logged at INFO.
         """
         model_name = getattr(model_wrapper, "model_name", None) or getattr(
             model_wrapper, "name", None
@@ -859,6 +945,8 @@ class PhenoMe(
                 "channels": channels,
                 "preprocessing_fn": preprocessing_fn,
                 "custom_transformations": custom_transformations,
+                "preprocessing_description": preprocessing_description,
+                "transformations_description": transformations_description,
                 "resize_size": resize_size,
                 "pad_size": pad_size,
                 "force_rgb": force_rgb,
@@ -919,6 +1007,19 @@ class PhenoMe(
             pad_size=pad_size,
             force_rgb=force_rgb,
             l2_normalize_channels=l2_normalize_channels,
+        )
+        prep = preprocessing_fn or self.preprocessing_fn
+        self._build_and_store_processing_pipeline(
+            fdata,
+            cur_params,
+            preprocessing_fn=prep,
+            preprocessing_description=preprocessing_description,
+            custom_transformations=custom_transformations,
+            transformations_description=transformations_description,
+            model_wrapper=model_wrapper,
+            batch_size=batch_size,
+            kind="temporal",
+            channels_adopted_from_checkpoint=False,
         )
 
         tr = PhenoMeResults()
@@ -1008,6 +1109,7 @@ class PhenoMe(
         if self._db is None and self.results.embeddings is not None:
             self.results.embeddings = self.results.embeddings[np.array(keep_idx, dtype=np.int64)]
         self._temporal_start_idx = len(keep_idx)
+        self._processing_pipeline = strip_temporal_segment(self._processing_pipeline)
         logger.info("Cleared %d temporal images (remaining: %d).", n_temporal, len(keep_idx))
         return n_temporal
 
@@ -1016,10 +1118,11 @@ class PhenoMe(
     # ------------------------------------------------------------------
 
     def inspect_data(self) -> pd.DataFrame:
-        """Inspect image and mask dimensions, shapes, and data ranges. Delegates to FileDiscovery.
+        """Inspect image and mask dimensions, shapes, dtypes, and data ranges.
 
-        Uses the internally stored file_df (set via set_file_df or find_files).
-        Raises if file_df is not available.
+        Delegates to FileDiscovery. Uses stored dtypes (not the float32 cast
+        from ``read_image``). Requires file_df from ``set_file_df`` or
+        ``find_files``.
         """
         file_df = self._require_file_df("inspect_data")
         return self._file_discovery.inspect_data(file_df)
@@ -1122,6 +1225,7 @@ class PhenoMe(
 
         if self._db is not None:
             db_path = os.path.abspath(self._db.path)
+            self._persist_pipeline_to_checkpoint(self._db)
 
             # Sync in-memory properties to DB buffers if missing from disk.
             # This ensures that properties computed in-memory (e.g. without passing
@@ -1172,6 +1276,10 @@ class PhenoMe(
                     compression=compression,
                     processing_params=params,
                     internal=internal,
+                    processing_pipeline=coalesce_pipeline_payload(
+                        persistable_pipeline(getattr(self, "_processing_pipeline", None)),
+                        self._db.get_processing_pipeline(),
+                    ),
                 )
                 self._db.path = target_path
                 if was_open:
@@ -1226,6 +1334,7 @@ class PhenoMe(
             compression=compression,
             processing_params=self._processing_params,
             internal=self._ram_internal,
+            processing_pipeline=persistable_pipeline(getattr(self, "_processing_pipeline", None)),
         )
         logger.info("Results saved to %s", target_path)
 
@@ -1278,14 +1387,52 @@ class PhenoMe(
     def get_run_settings(self) -> dict[str, Any]:
         """Return the silent run log as a JSON-serializable dict.
 
-        Includes init parameters, environment, recorded method steps, and
-        processing_params when available. Does not print or write files.
+        Includes init parameters, environment, recorded method steps,
+        processing_params, and the processing pipeline when available.
+        Does not print or write files.
         """
         ckpt = os.path.abspath(self._db.path) if self._db is not None else None
+        extra = None
+        pipeline = self.get_processing_pipeline()
+        if pipeline is not None:
+            extra = {"processing_pipeline": pipeline}
         return self._run_log.to_dict(
             processing_params=self._processing_params,
             checkpoint_path=ckpt,
+            extra=extra,
         )
+
+    def get_processing_pipeline(self) -> dict[str, Any] | None:
+        """Return the session processing pipeline, or None if none was recorded.
+
+        The dict has ``version``, ``base``, and optional ``temporal`` and
+        ``properties``. After ``load_results``, embedding and property steps
+        come from ``/processing_pipeline``; temporal exists only in the current
+        session.
+
+        See Also:
+            `print_processing_pipeline`: Print the concise pipeline text.
+        """
+        pipeline = getattr(self, "_processing_pipeline", None)
+        if not isinstance(pipeline, dict):
+            return None
+        return update_session(pipeline)
+
+    def print_processing_pipeline(self) -> None:
+        """Print the ordered processing pipeline for this session.
+
+        Uses the same text as the INFO log during ``process_images`` and
+        ``compute_properties``. After ``load_results``, prints the steps
+        stored in ``/processing_pipeline`` (embeddings and properties).
+
+        See Also:
+            `get_processing_pipeline`: Structured dict form of the same record.
+        """
+        text = format_concise_pipeline(self.get_processing_pipeline())
+        if not text:
+            print("No processing pipeline is recorded on this session.")
+            return
+        print(text)
 
     def export_methods_markdown(self, path: str) -> None:
         """Write a markdown methods summary from the silent run log.
@@ -1296,8 +1443,12 @@ class PhenoMe(
         parent = os.path.dirname(path)
         if parent:
             os.makedirs(parent, exist_ok=True)
+        text = self._run_log.to_markdown()
+        pipeline_md = format_pipeline_markdown(self.get_processing_pipeline())
+        if pipeline_md:
+            text = text.rstrip() + "\n\n" + pipeline_md
         with open(path, "w", encoding="utf-8") as f:
-            f.write(self._run_log.to_markdown())
+            f.write(text if text.endswith("\n") else text + "\n")
         logger.info("Methods markdown saved to %s", path)
 
     def _record_step(
@@ -1308,6 +1459,54 @@ class PhenoMe(
     ) -> None:
         """Append one silent run-log step. No logger output."""
         self._run_log.record(method, kwargs, extras)
+
+    def _persist_pipeline_to_checkpoint(self, ckpt: CheckpointManager | None) -> None:
+        """Write embedding/property steps to *ckpt* when both are available."""
+        persist_pipeline_to_checkpoint(getattr(self, "_processing_pipeline", None), ckpt)
+
+    def _restore_processing_pipeline(
+        self,
+        ckpt: CheckpointManager | None,
+        *,
+        loaded: bool = False,
+    ) -> None:
+        """Restore a session pipeline from *ckpt* (or clear it) and optionally log it."""
+        self._processing_pipeline = restore_session_from_checkpoint(
+            ckpt, logger=logger, loaded=loaded
+        )
+
+    def _build_and_store_processing_pipeline(
+        self,
+        file_list: list[dict[str, Any]],
+        cur_params: dict[str, Any],
+        *,
+        preprocessing_fn: Callable[..., Any] | None,
+        preprocessing_description: str | None,
+        custom_transformations: Any,
+        transformations_description: str | None,
+        model_wrapper: Any,
+        batch_size: int,
+        kind: Literal["base", "temporal"],
+        channels_adopted_from_checkpoint: bool = False,
+        ckpt: CheckpointManager | None = None,
+    ) -> None:
+        """Run preflight, store the session pipeline, log it, and persist base."""
+        _, session = record_processing_pipeline(
+            file_list,
+            cur_params,
+            current=getattr(self, "_processing_pipeline", None),
+            logger=logger,
+            preprocessing_fn=preprocessing_fn,
+            preprocessing_description=preprocessing_description,
+            custom_transformations=custom_transformations,
+            transformations_description=transformations_description,
+            model_wrapper=model_wrapper,
+            batch_size=batch_size,
+            kind=kind,
+            channels_adopted_from_checkpoint=channels_adopted_from_checkpoint,
+            ckpt=ckpt,
+        )
+        self._processing_pipeline = session
 
     def export_dataset_table(
         self,
@@ -1446,6 +1645,7 @@ class PhenoMe(
             self._db = None
 
         self._processing_params = ckpt.get_processing_params()
+        self._restore_processing_pipeline(ckpt, loaded=False)
 
         file_df = self._require_file_df(method_name)
         self._file_df = file_df.reset_index(drop=True).copy()
@@ -1511,6 +1711,7 @@ class PhenoMe(
             n_prop,
             f"({', '.join(prop_keys[:5])}{'...' if n_prop > 5 else ''})",
         )
+        emit_pipeline_logs(logger, getattr(self, "_processing_pipeline", None), loaded=True)
 
     def _overlay_properties_from_checkpoint(self, path: str | None) -> None:
         """Align and overlay properties from *path* onto existing ``self.results``.
@@ -1610,6 +1811,13 @@ class PhenoMe(
 
             self.results.properties = filtered_props[:n]
             self._ram_internal = filtered_internal[:n]
+            loaded_pipeline = restore_session_from_checkpoint(ckpt)
+            properties = loaded_pipeline.get("properties") if loaded_pipeline else None
+            if isinstance(properties, dict):
+                self._processing_pipeline = update_session(
+                    getattr(self, "_processing_pipeline", None),
+                    properties=properties,
+                )
 
             if self.results.has_properties:
                 self._warn_if_nan_properties()

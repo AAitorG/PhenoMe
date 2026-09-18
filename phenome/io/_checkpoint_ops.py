@@ -4,10 +4,20 @@ Low-level HDF5 operations for checkpoint read/write.
 Extracted from checkpoint.py for separation of concerns.
 """
 
+from __future__ import annotations
+
+import re
+from collections.abc import Mapping
 from typing import Any, cast
 
 import h5py
 import numpy as np
+
+from ..core._processing_pipeline_persist import (
+    _printed_step_fields,
+    coalesce_pipeline_payload,
+    slim_pipeline_payload,
+)
 
 # Constants for HDF5 schema (must match checkpoint.py)
 _GZIP_LEVEL = 4
@@ -385,3 +395,129 @@ def truncate_group_datasets(grp: h5py.Group, n: int) -> None:
         ds = cast(h5py.Dataset, grp[key])
         if ds.shape[0] > n:
             ds.resize(n, axis=0)
+
+
+_PIPELINE_GROUP = "processing_pipeline"
+_PIPELINE_SEGMENTS = ("embeddings", "properties")
+_PIPELINE_STEP_WIDTH = 2
+_PIPELINE_STEP_NAME_RE = re.compile(r"^(?:step[\s_]+)?(\d+)$", re.IGNORECASE)
+
+
+def _h5_attr_text(value: Any) -> str | None:
+    """Decode an HDF5 attribute to text, or None if empty."""
+    if value is None:
+        return None
+    text = decode(value).strip()
+    return text or None
+
+
+def _pipeline_step_group_name(index: int) -> str:
+    """HDF5 group name for a 0-based step (``step_01`` is first)."""
+    return f"step_{index + 1:0{_PIPELINE_STEP_WIDTH}d}"
+
+
+def _pipeline_step_sort_key(name: str) -> int | None:
+    """Return the sort index for a step group name, or None if not a step."""
+    match = _PIPELINE_STEP_NAME_RE.fullmatch(str(name).strip())
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def _write_pipeline_steps(grp: h5py.Group, steps: list[dict[str, str]]) -> None:
+    """Write ``step_01``, ``step_02``, … groups with title/detail attributes."""
+    for i, step in enumerate(steps):
+        child = grp.create_group(_pipeline_step_group_name(i))
+        title = step.get("title")
+        detail = step.get("detail")
+        kind = step.get("kind")
+        if title:
+            child.attrs["title"] = title
+        if detail:
+            child.attrs["detail"] = detail
+        if kind:
+            child.attrs["kind"] = kind
+
+
+def _read_pipeline_steps(grp: h5py.Group) -> list[dict[str, str]] | None:
+    """Read ``step_NN`` groups (``step_1``, ``step 1``, and ``0`` still load)."""
+    named = [
+        (key, str(name)) for name in grp if (key := _pipeline_step_sort_key(str(name))) is not None
+    ]
+    if not named:
+        return None
+    steps: list[dict[str, str]] = []
+    for _, name in sorted(named, key=lambda item: item[0]):
+        item = grp[name]
+        if not isinstance(item, h5py.Group):
+            continue
+        step = _printed_step_fields(
+            {
+                "title": _h5_attr_text(item.attrs.get("title")),
+                "detail": _h5_attr_text(item.attrs.get("detail")),
+                "kind": _h5_attr_text(item.attrs.get("kind")),
+            }
+        )
+        if step:
+            steps.append(step)
+    return steps or None
+
+
+def _read_pipeline_group(grp: h5py.Group) -> dict[str, Any] | None:
+    """Read slim embeddings/properties steps from one HDF5 group."""
+    out: dict[str, Any] = {}
+    for name in _PIPELINE_SEGMENTS:
+        if name not in grp or not isinstance(grp[name], h5py.Group):
+            continue
+        steps = _read_pipeline_steps(cast(h5py.Group, grp[name]))
+        if steps:
+            out[name] = steps
+    return out or None
+
+
+def write_pipeline_to_h5(f: h5py.File, payload: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Write ``/processing_pipeline`` (ordered steps only) or remove it.
+
+    When *payload* has only embeddings or only properties, the missing segment
+    is kept from the file if it already exists. Pass ``None`` (or a payload
+    with no printable steps) to delete the group.
+
+    Args:
+        f: Open HDF5 file.
+        payload: Session pipeline, slim step lists, or None to delete the group.
+
+    Returns:
+        The slim payload that was written, or None when the group was removed.
+    """
+    incoming = slim_pipeline_payload(payload)
+    if incoming is None:
+        if _PIPELINE_GROUP in f:
+            del f[_PIPELINE_GROUP]
+        return None
+    existing = read_pipeline_from_h5(f) if _PIPELINE_GROUP in f else None
+    slim = coalesce_pipeline_payload(incoming, existing)
+    if _PIPELINE_GROUP in f:
+        del f[_PIPELINE_GROUP]
+    if not slim:
+        return None
+    root = f.create_group(_PIPELINE_GROUP)
+    for name in _PIPELINE_SEGMENTS:
+        steps = slim.get(name)
+        if not isinstance(steps, list) or not steps:
+            continue
+        _write_pipeline_steps(root.create_group(name), steps)
+    return slim
+
+
+def read_pipeline_from_h5(f: h5py.File) -> dict[str, Any] | None:
+    """Load ``/processing_pipeline``.
+
+    Args:
+        f: Open HDF5 file.
+
+    Returns:
+        Slim ``{embeddings, properties}`` step lists, or None.
+    """
+    if _PIPELINE_GROUP not in f:
+        return None
+    return _read_pipeline_group(cast(h5py.Group, f[_PIPELINE_GROUP]))

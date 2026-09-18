@@ -18,6 +18,7 @@ from ..core.batch_correction import (
     compute_batch_stats,
     row_batch_ids_from_metadata,
 )
+from ..core.processing_pipeline import append_batch_correction_step, persist_pipeline_to_checkpoint
 from ..core.run_log import record_step
 
 logger = get_logger(__name__)
@@ -248,6 +249,7 @@ class PhenoMeBatchCorrection:
         self._batch_correction_applied = True
         self._batch_correction_last_info = {**info, "source": "embeddings"}
         self._property_norm_cache = None
+        self._append_batch_correction_pipeline(self._batch_correction_last_info)
         logger.info(
             "Batch correction (%s) applied to embeddings (%d batches).",
             method,
@@ -336,6 +338,7 @@ class PhenoMeBatchCorrection:
         self._batch_correction_applied = True
         self._batch_correction_last_info = {**info, "source": "properties", "property_keys": keys}
         self._property_norm_cache = None
+        self._append_batch_correction_pipeline(self._batch_correction_last_info)
         logger.info(
             "Batch correction (%s) applied to %d properties (%d batches).",
             method,
@@ -343,3 +346,12 @@ class PhenoMeBatchCorrection:
             len(stats),
         )
         return self._batch_correction_last_info
+
+    def _append_batch_correction_pipeline(self, info: dict[str, Any]) -> None:
+        """Record successful in-place batch correction on the session pipeline."""
+        current = getattr(self, "_processing_pipeline", None)
+        updated = append_batch_correction_step(current, info)
+        if updated is None:
+            return
+        self._processing_pipeline = updated
+        persist_pipeline_to_checkpoint(updated, getattr(self, "_db", None))

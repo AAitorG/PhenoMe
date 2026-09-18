@@ -22,7 +22,7 @@ Attach `llms-small.txt` in ChatGPT or Claude when answering “how do I use Phen
 1. Import from the public surface: `from phenome import PhenoMe, load_dinov2_model`. Do not invent methods. Look up names in the [function location guide](/PhenoMe/function-location-guide/).
 2. Canonical order: `find_files` → `process_images` → optional `compute_properties` → analysis / plots.
 3. Do **not** change logging, plot backends, or report sections unless the user asked.
-4. When the user wants a paper-style methods dump, then call `export_experiment_config` (and optionally `include_run_settings=True` on the report). The pipeline records settings silently; nothing is written until those calls.
+4. When the user wants a paper-style methods dump, then call `export_experiment_config` (and optionally `include_run_settings=True` on the report). The pipeline records settings silently; nothing is written until those calls. A concise processing pipeline is logged at INFO during `process_images` (no extra flag). Print it later with `print_processing_pipeline()`, or inspect `get_processing_pipeline()`.
 5. Pass `device` explicitly so CPU/GPU is obvious in shared scripts.
 
 ## Canonical first analysis
@@ -59,7 +59,9 @@ pheno.generate_report(
 
 `export_experiment_config` includes seed, environment, processing params, model name (from `load_dinov2_model`), and recorded steps (`property_preset`, `reference_filters`, clustering, …). You do not need to pass `model_name=` unless you want to override.
 
-Inspect without writing a file: `settings = pheno.get_run_settings()`.
+Inspect without writing a file: `settings = pheno.get_run_settings()` or
+`pheno.print_processing_pipeline()`. The printed steps are stored in
+`/processing_pipeline` and restored on `load_results`.
 
 ## Folder metadata vs spreadsheet
 
@@ -117,6 +119,8 @@ Do not change these unless asked.
 | Static-ish scatter | `plot_pca(..., render_mode="svg")` |
 | Report without CDN | `generate_report(..., offline_plotly=True)` (already the default) |
 | Methods section in the HTML report | `generate_report(..., include_run_settings=True)` |
+| Inspect the processing pipeline | `pheno.print_processing_pipeline()` or `pheno.get_processing_pipeline()` |
+| Describe custom preprocessing in the log | `process_images(..., preprocessing_description="...")` (optional) |
 
 ## MCP (optional)
 

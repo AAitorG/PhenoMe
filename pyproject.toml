@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "phenome"
-version = "1.4.0"
+version = "1.4.1"
 description = "PhenoMe: dataset-agnostic phenotyping pipeline using deep learning embeddings"
 readme = "README.md"
 requires-python = ">=3.12"

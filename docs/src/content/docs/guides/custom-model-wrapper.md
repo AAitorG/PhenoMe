@@ -105,6 +105,25 @@ Ensure your framework is using the same physical device as PhenoMe to avoid unne
 ### Normalization
 PhenoMe's default transformations might not match what your model expects. You can provide a custom `preprocessing_fn` to `process_images()` or handle normalization inside your wrapper's `_get_embeddings` method.
 
+Custom callables are treated as opaque: the processing pipeline log records their name. PhenoMe does not read their source. Pass an optional `preprocessing_description` / `transformations_description` so the INFO log (and `get_processing_pipeline()`) can say what the callable does:
+
+```python
+def enhance_contrast(image):
+    p1, p99 = np.percentile(image, (1, 99))
+    return np.clip(image, p1, p99)
+
+pm.process_images(
+    wrapper,
+    resize_size=224,
+    preprocessing_fn=enhance_contrast,
+    preprocessing_description="clip 1st/99th percentiles",
+    # custom_transformations=my_transforms,  # optional
+    # transformations_description="Resize 224 then ImageNet normalize",
+)
+```
+
+The description is optional. If you omit it, the log still shows the function name with internals unknown. Check INFO logs, `print_processing_pipeline()`, or `get_processing_pipeline()` if you need to confirm that default ImageNet normalization is still applied after your code.
+
 ---
 
 ## See Also

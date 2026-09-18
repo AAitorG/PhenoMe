@@ -22,31 +22,24 @@ __all__ = ["FileDiscovery", "ensure_hwc", "read_image"]
 logger = get_logger(__name__)
 
 
-def read_image(path: str | list[str]) -> np.ndarray:
-    """
-    @section Image I/O and checkpoints
-    @order 40
+def _read_image_native(path: str | list[str]) -> np.ndarray:
+    """Read an image preserving the stored dtype.
 
-    Read an image and return as a numpy array.
-
-    Supports TIFF (via tifffile), NIfTI (via nibabel), Numpy arrays (.npy, .npz), and
-    common formats (PNG, JPEG, BMP, etc. via OpenCV).
-    When ``path`` is a list of paths (e.g. one per channel), each file is read and
-    concatenated along the channel axis, yielding shape (H, W, C_total).
+    Same loaders as ``read_image``, without the final float32 cast. Used by
+    preflight so native bit-depth and range can be observed.
 
     Args:
-        path: Path to the image file, or list of paths (one per channel) for
-            multi-channel datasets where each channel is in a separate file.
+        path: Path to the image file, or list of per-channel paths.
 
     Returns:
-        np.ndarray: Shape (H, W) or (H, W, C), dtype float32. All channels returned.
+        np.ndarray: Shape (H, W) or (H, W, C) after multi-file concat. Dtype is
+        the stored type (or the concat upcast when channel files differ).
     """
     if isinstance(path, list):
         if not path:
             raise ValueError("read_image(path): path list cannot be empty.")
-        imgs = [read_image(p) for p in path]
-        # Ensure each is (H, W, C) with C at least 1, then concat on last axis
-        hwc = [ensure_hwc(np.array(im, dtype=np.float32)) for im in imgs]
+        imgs = [_read_image_native(p) for p in path]
+        hwc = [ensure_hwc(np.asarray(im)) for im in imgs]
         return np.concatenate(hwc, axis=-1)
 
     ext = os.path.splitext(path)[1].lower()
@@ -90,9 +83,29 @@ def read_image(path: str | list[str]) -> np.ndarray:
         elif img.ndim == 3 and img.shape[-1] == 4:
             img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
 
-    img = np.array(img, dtype=np.float32)
+    return np.asarray(img)
 
-    return img
+
+def read_image(path: str | list[str]) -> np.ndarray:
+    """
+    @section Image I/O and checkpoints
+    @order 40
+
+    Read an image and return as a numpy array.
+
+    Supports TIFF (via tifffile), NIfTI (via nibabel), Numpy arrays (.npy, .npz), and
+    common formats (PNG, JPEG, BMP, etc. via OpenCV).
+    When ``path`` is a list of paths (e.g. one per channel), each file is read and
+    concatenated along the channel axis, yielding shape (H, W, C_total).
+
+    Args:
+        path: Path to the image file, or list of paths (one per channel) for
+            multi-channel datasets where each channel is in a separate file.
+
+    Returns:
+        np.ndarray: Shape (H, W) or (H, W, C), dtype float32. All channels returned.
+    """
+    return np.array(_read_image_native(path), dtype=np.float32)
 
 
 def ensure_hwc(img: np.ndarray) -> np.ndarray:
@@ -421,20 +434,21 @@ class FileDiscovery:
         return rows
 
     def inspect_data(self, file_df: pd.DataFrame) -> pd.DataFrame:
-        """Inspect image and mask dimensions, shapes, and data ranges.
+        """Inspect image and mask dimensions, shapes, dtypes, and data ranges.
 
-        Reads each image (and mask when present) and reports: shape statistics,
-        image-mask shape matching, and mask dtype/range. Masks are expected in
-        the ``mask_path`` column of file_df when present.
+        Reads each image (and mask when present) in the stored dtype, without the
+        float32 cast used by ``read_image``. Reports shape statistics, image-mask
+        shape matching, and dtype/range. Masks are expected in the ``mask_path``
+        column of file_df when present.
 
         Args:
             file_df: pd.DataFrame from find_files(). Must have 'file_path' column.
                 When masks exist, includes 'mask_path' column.
 
         Returns:
-            pd.DataFrame with columns: file_path, height, width, channels, min, max,
-            error, shape_match (True/False/None), mask_height, mask_width, mask_dtype,
-            mask_min, mask_max, mask_error.
+            pd.DataFrame with columns: file_path, height, width, channels, dtype,
+            min, max, error, shape_match (True/False/None), mask_height, mask_width,
+            mask_dtype, mask_min, mask_max, mask_error.
         """
         if not isinstance(file_df, pd.DataFrame):
             raise ValueError(f"file_df must be a DataFrame, got: {type(file_df)}")
@@ -473,6 +487,7 @@ class FileDiscovery:
 
             img_h, img_w, img_c = np.nan, np.nan, np.nan
             img_lo, img_hi = np.nan, np.nan
+            img_dtype_val = None
             img_error = None
             shape_match = None
             mask_h, mask_w = np.nan, np.nan
@@ -481,11 +496,11 @@ class FileDiscovery:
             mask_error = None
 
             try:
-                img = ensure_hwc(read_image(fp))
+                img = ensure_hwc(_read_image_native(fp))
                 img_lo, img_hi = float(img.min()), float(img.max())
-                dtype = img.dtype
+                img_dtype_val = img.dtype
                 mm_counts[(img_lo, img_hi)] += 1
-                dtype_counts[dtype] += 1
+                dtype_counts[img_dtype_val] += 1
                 img_h, img_w = img.shape[0], img.shape[1]
                 img_c = img.shape[2] if img.ndim >= 3 else 1
                 shape = (img_h, img_w, img_c)
@@ -500,7 +515,7 @@ class FileDiscovery:
 
             if mask_path and os.path.isfile(mask_path):
                 try:
-                    mask = ensure_hwc(read_image(mask_path))
+                    mask = ensure_hwc(_read_image_native(mask_path))
                     mask_h, mask_w = mask.shape[0], mask.shape[1]
                     mask_dtype_val = mask.dtype
                     mask_lo, mask_hi = float(mask.min()), float(mask.max())
@@ -522,6 +537,7 @@ class FileDiscovery:
                     "height": img_h,
                     "width": img_w,
                     "channels": img_c,
+                    "dtype": img_dtype_val,
                     "min": img_lo,
                     "max": img_hi,
                     "error": img_error,

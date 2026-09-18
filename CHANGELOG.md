@@ -4,6 +4,18 @@ All notable changes to PhenoMe are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.1] – 2026-09
+
+### Added
+
+- Processing pipeline: ordered steps are logged at INFO during `process_images`, `process_temporal_images`, and `compute_properties`. Reprint with `print_processing_pipeline()` or inspect `get_processing_pipeline()`. Embedding and property steps are stored in `/processing_pipeline` and restored on `load_results` (temporal stays session-only). Default HTML reports are unchanged.
+- Sampled preflight before embedding work: warnings for risky settings (including ImageNet Normalize on data already in 0–1), and `ProcessingPreflightError` when sampled images cannot be processed.
+- Optional `preprocessing_description` and `transformations_description` so custom callables appear in the pipeline log.
+
+### Changed
+
+- `inspect_data()` reports native stored dtypes, not the float32 cast used by `read_image`.
+
 ## [1.4.0] – 2026-08
 
 ### Added

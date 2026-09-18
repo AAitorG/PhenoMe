@@ -28,6 +28,7 @@ Under the HDF5 root **`/`**:
 - **`/properties/`:** one column-dataset per computed property (e.g. area, mean intensity).
 - **`/internal/`:** one column-dataset per internal tracking flag (e.g. `_properties_attempted`).
 - **`/config`:** group with **attributes only** (`channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `l2_normalize_channels`, `channels`); no full filesystem paths.
+- **`/processing_pipeline`:** optional group with `step_01`, `step_02`, … subgroups under `embeddings/` and `properties/`. Each step has `title` and `detail` attributes (the same text as the INFO log). Property steps also have `kind=image`, `kind=mask`, or `kind=compute` (mask steps print as M1, M2, …). No JSON blob, no sample dumps. Absent on files written before this feature. Temporal processing is not written.
 
 ## 1. File structure
 
@@ -57,6 +58,7 @@ Unlike older versions that used JSON blobs, v2.0 stores metadata and properties 
 | Path | Description |
 | :--- | :--- |
 | `/config` | Group containing non-path pipeline settings (e.g., `channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `l2_normalize_channels`, `channels`) as HDF5 attributes. Always present. **Never stores full paths** (e.g. `data_dir`) for security and portability. |
+| `/processing_pipeline` | Optional group of `step_01`, `step_02`, … embedding/property steps (`title`, `detail`; property steps also `kind=image`, `kind=mask`, or `kind=compute`). Not required to load a file. |
 
 ---
 
@@ -113,6 +115,20 @@ with h5py.File("results.h5", "r") as f:
     cfg = f["config"].attrs
     print(cfg.get("channel_mode"), cfg.get("l2_normalize_channels", True))
 ```
+
+### Processing pipeline
+
+`/processing_pipeline` stores only the printed steps, as `step_01`,
+`step_02`, … groups with `title` and `detail` attributes (same style as
+`/config`). Older files that used numeric names (`0`, `1`, …) or spaced
+names (`step 1`) still load. Print them with
+`pheno.print_processing_pipeline()` after `process_images`,
+`compute_properties`, or `load_results`.
+
+| Path | Description |
+| :--- | :--- |
+| `/processing_pipeline/embeddings/step_01` | First embedding step (`title`, `detail`). |
+| `/processing_pipeline/properties/step_01` | First property step, when `compute_properties` has run (`title`, `detail`; `kind=image`, `kind=mask`, or `kind=compute`). |
 
 ---
 
@@ -192,6 +208,7 @@ When a checkpoint is active, `get_embeddings()` reads only the requested rows fr
 | **properties** | Computed scalar properties, **columnar format** (`/properties/`) |
 | **internal** | Internal tracking flags, **columnar format** (`/internal/`) |
 | **config** | Non-path processing settings as `/config` attributes (`channel_mode`, `resize_size`, …). Full paths (e.g. `data_dir`) are **never** stored. |
+| **processing_pipeline** | Optional ordered steps (`/processing_pipeline/embeddings`, `/properties`). Title and detail; property steps also `kind=image`, `kind=mask`, or `kind=compute`. |
 | **version** | Checkpoint format version (`"2.0"`) |
 
 ### Loading Results

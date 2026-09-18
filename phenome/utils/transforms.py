@@ -221,7 +221,8 @@ class PadToSize:
         """Pad image tensor if needed.
 
         Args:
-            img: torch.Tensor, shape (C, H, W). Padded with zeros on all sides.
+            img: torch.Tensor, shape (C, H, W). Padded with black (constant zeros)
+                on all sides.
 
         Returns:
             torch.Tensor: Shape (C, max(H, pad_size), max(W, pad_size)).
@@ -235,6 +236,11 @@ class PadToSize:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(pad_size={self.pad_size})"
+
+
+def _pad_to_size_pipeline_detail(pad_size: int) -> str:
+    """Plain-language PadToSize step. Fill is constant black (``F.pad`` value 0)."""
+    return f"minimum size {pad_size}x{pad_size}, black (constant fill)"
 
 
 class TransformBuilder:
@@ -292,6 +298,11 @@ class TransformBuilder:
             t.append(transforms.Resize((resize_size, resize_size), antialias=True))
         t.append(transforms.Normalize(mean=mean, std=std))
         return transforms.Compose(t)
+
+
+def _resize_pipeline_detail(resize_size: int) -> str:
+    """Plain-language default resize step. Interpolation is bilinear with antialias."""
+    return f"{resize_size}x{resize_size}, bilinear (antialiased)"
 
 
 def _n_channels_for_transforms(cur_params: dict[str, Any]) -> int:

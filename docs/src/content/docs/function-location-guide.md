@@ -116,10 +116,11 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `get_available_property_keys` | Return sorted list of property keys stored in results. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-get_available_property_keys) |
 | `get_embeddings` | Return embeddings for the given row indices. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-get_embeddings) |
 | `get_image_info` | Return metadata, properties, and optional distance for image idx. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-get_image_info) |
+| `get_processing_pipeline` | Return the session processing pipeline, or None if none was recorded. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-get_processing_pipeline) |
 | `get_run_settings` | Return the silent run log as a JSON-serializable dict. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-get_run_settings) |
 | `has_embeddings` | Return True if embedding data is available (lazy or eager). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-has_embeddings) |
 | `image_preview_png_bytes` | Rasterize the same view as ``plot_image_by_index`` to PNG bytes. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-image_preview_png_bytes) |
-| `inspect_data` | Inspect image and mask dimensions, shapes, and data ranges. Delegates to FileDiscovery. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-inspect_data) |
+| `inspect_data` | Inspect image and mask dimensions, shapes, dtypes, and data ranges. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-inspect_data) |
 | `load_embeddings` | Load an embeddings checkpoint into the pipeline. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-load_embeddings) |
 | `load_properties` | Load a properties checkpoint into the pipeline. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-load_properties) |
 | `load_results` | Load and use an existing results/checkpoint file. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-load_results) |
@@ -130,6 +131,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `plot_tsne` | Plot t-SNE of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_tsne) |
 | `plot_umap` | Plot UMAP of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_umap) |
 | `print_distance_summary` | Print distance summary statistics without plotting. Safe to use when enable_plots=False. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_distanceplotsmixin-print_distance_summary) |
+| `print_processing_pipeline` | Print the ordered processing pipeline for this session. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-print_processing_pipeline) |
 | `process_images` | Extract embeddings from images using a pretrained or custom model. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-process_images) |
 | `process_temporal_images` | Process new images in-memory (temporary) and append to the current session. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-process_temporal_images) |
 | `property_stats_by_group` | Group properties, compute per-group statistics, and optionally print a table. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-property_stats_by_group) |

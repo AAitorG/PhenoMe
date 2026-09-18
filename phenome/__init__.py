@@ -145,7 +145,7 @@ from .utils.property_factories import (
 try:
     __version__ = version("phenome")
 except PackageNotFoundError:
-    __version__ = "1.4.0"
+    __version__ = "1.4.1"
 
 __all__ = [
     "DataFrameMetadata",

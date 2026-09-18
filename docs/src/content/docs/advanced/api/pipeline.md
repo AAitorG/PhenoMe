@@ -243,6 +243,8 @@ PhenoMe.process_images(
     channels: list[int] | None = None,
     preprocessing_fn: collections.abc.Callable[[numpy.ndarray], numpy.ndarray] | None = None,
     custom_transformations: typing.Any | None = None,
+    preprocessing_description: str | None = None,
+    transformations_description: str | None = None,
     append: bool = False,
     resize_size: int | None = 224,
     pad_size: int | None = None,
@@ -274,6 +276,21 @@ and checkpointing for resumable processing.
 - Temporal (incremental): New images added to existing checkpoint via
   `process_temporal_images()`.
 
+**Default processing order** (when ``custom_transformations`` is None):
+
+1. Load image (native dtype)
+2. Optional ``preprocessing_fn``
+3. Channel selection / ``channel_mode`` / ``force_rgb``
+4. TypeMaxNorm intensity scaling (identity if max <= 1)
+5. Optional pad, then resize (default 224)
+6. ImageNet mean/std normalize
+7. Vision model -> embedding
+8. Split mode: L2-normalize each channel embedding (default True)
+
+A concise processing pipeline is logged at INFO. Inspect
+``get_processing_pipeline()`` or ``print_processing_pipeline()``.
+Custom ``custom_transformations`` replace steps 4-6.
+
 **Args:**
 
 - **`model_wrapper`** (`ModelWrapper`): Model instance (e.g., from `load_dinov2_model()`).
@@ -285,7 +302,7 @@ and checkpointing for resumable processing.
 - **`num_workers`** (`int`): Number of loader processes. In Jupyter, automatically
   reduced to 0 to avoid multiprocessing issues. Default: 4.
 - **`filters`** (`dict or None`): Include only rows matching criteria.
-  Format: `{column: [value1, value2, ...]}`. Default: None (no filtering).
+  Format: `&#123;column: [value1, value2, ...]&#125;`. Default: None (no filtering).
 - **`exclude`** (`dict or None`): Exclude rows matching *any* criterion (OR across
   fields). Same value format as `filters`. Default: None.
 - **`channel_mode`** (`str`): How to handle multi-channel images. One of:
@@ -297,8 +314,18 @@ and checkpointing for resumable processing.
   to each image before the model. Signature: `fn(image: ndarray) -> ndarray`.
   Example: normalization, contrast adjustment, etc. Default: None.
 - **`custom_transformations`** (`transforms object or None`): PyTorch transforms to apply
-  before the model (e.g., resize, normalize). If None, defaults are used
-  based on `resize_size` and `pad_size`. Default: None.
+  before the model (e.g., resize, normalize). If None, the default order is
+  TypeMaxNorm, optional pad, optional resize, then ImageNet Normalize.
+  Default: None.
+- **`preprocessing_description`** (`str or None`): Optional plain-language note for
+  `preprocessing_fn`. Shown in the INFO processing pipeline log and on
+  `get_processing_pipeline()`. Internals are never inspected. Recommended
+  when using custom preprocessing so the log describes what the function
+  does. Default: None.
+- **`transformations_description`** (`str or None`): Optional plain-language note for
+  `custom_transformations`. Shown in the INFO processing pipeline log and
+  on `get_processing_pipeline()`. Internals are never inspected. Default:
+  None.
 - **`append`** (`bool`): If True, append to existing embeddings in `results.embeddings`.
   If False (default), replace. Default: False.
 - **`resize_size`** (`int or None`): Image resize dimension (square). Default: 224.
@@ -349,6 +376,18 @@ Process images with DINOv2 model:
 >>> print(pm.results.embeddings.shape)
 (1000, 768)
 
+Optional description for custom preprocessing (appears in the INFO
+processing pipeline log even though the callable itself is opaque):
+
+>>> def enhance_contrast(image):
+...     p1, p99 = np.percentile(image, (1, 99))
+...     return np.clip(image, p1, p99)
+>>> pm.process_images(
+...     model,
+...     preprocessing_fn=enhance_contrast,
+...     preprocessing_description="clip 1st/99th percentiles",
+... )
+
 With filtering and checkpoint:
 
 >>> pm.process_images(
@@ -378,6 +417,8 @@ With a Jupyter progress bar:
 - `process_temporal_images`: Incrementally add images to existing checkpoint.
 - `get_embeddings`: Retrieve embeddings (handles lazy loading).
 - `compute_properties`: Extract morphological properties from embeddings.
+- `get_processing_pipeline`: Structured ordered processing pipeline for this run.
+- `print_processing_pipeline`: Print the same text as the INFO log.
 
 </div>
 
@@ -403,6 +444,8 @@ PhenoMe.process_temporal_images(
     channels: list[int] | None = None,
     preprocessing_fn: collections.abc.Callable[[numpy.ndarray], numpy.ndarray] | None = None,
     custom_transformations: typing.Any | None = None,
+    preprocessing_description: str | None = None,
+    transformations_description: str | None = None,
     resize_size: int | None = None,
     pad_size: int | None = None,
     force_rgb: bool | None = None,
@@ -424,6 +467,13 @@ visualize or export before calling clear_temporal_data() or reset().
 Requires process_images() to have been run first. Processing parameters
 (channel_mode, channels, resize_size, etc.) are inherited from the base run
 when not specified. Temporal rows get metadata['source'] = 'NEW'.
+Optional ``preprocessing_description`` / ``transformations_description``
+are recorded on the session-only temporal pipeline (same optional notes as
+``process_images``; they appear in the INFO processing pipeline log).
+
+Default processing order matches ``process_images`` (load, optional
+preprocess, channels/RGB, TypeMaxNorm, pad/resize, ImageNet, model,
+split L2). A concise processing pipeline is logged at INFO.
 
 </div>
 
@@ -448,10 +498,11 @@ PhenoMe.inspect_data(
 
 <div class="api-body">
 
-Inspect image and mask dimensions, shapes, and data ranges. Delegates to FileDiscovery.
+Inspect image and mask dimensions, shapes, dtypes, and data ranges.
 
-Uses the internally stored file_df (set via set_file_df or find_files).
-Raises if file_df is not available.
+Delegates to FileDiscovery. Uses stored dtypes (not the float32 cast
+from ``read_image``). Requires file_df from ``set_file_df`` or
+``find_files``.
 
 </div>
 
@@ -658,6 +709,73 @@ dataset; we additionally require ``embedding_dim`` to be a positive int.
 <div class="api-body">
 
 Return the embedding dimensionality, or 0 if unavailable.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenome-get_processing_pipeline">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenome-get_processing_pipeline"><code>get_processing_pipeline</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMe.get_processing_pipeline(
+    self
+) -> dict[str, Any] | None
+```
+
+</div>
+
+<div class="api-body">
+
+Return the session processing pipeline, or None if none was recorded.
+
+The dict has ``version``, ``base``, and optional ``temporal`` and
+``properties``. After ``load_results``, embedding and property steps
+come from ``/processing_pipeline``; temporal exists only in the current
+session.
+
+**See Also:**
+
+- `print_processing_pipeline`: Print the concise pipeline text.
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenome-print_processing_pipeline">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenome-print_processing_pipeline"><code>print_processing_pipeline</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMe.print_processing_pipeline(
+    self
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Print the ordered processing pipeline for this session.
+
+Uses the same text as the INFO log during ``process_images`` and
+``compute_properties``. After ``load_results``, prints the steps
+stored in ``/processing_pipeline`` (embeddings and properties).
+
+**See Also:**
+
+- `get_processing_pipeline`: Structured dict form of the same record.
 
 </div>
 
@@ -954,34 +1072,6 @@ override values already captured from ``process_images`` /
 
 </div>
 
-<div class="api-method" role="region" aria-labelledby="api-phenome-get_run_settings">
-
-<div class="api-method-header">
-<span class="api-badge api-badge--method">Method</span>
-<h4 class="api-method-title" id="api-phenome-get_run_settings"><code>get_run_settings</code></h4>
-</div>
-
-<div class="api-signature">
-
-```python
-PhenoMe.get_run_settings(
-    self
-) -> dict
-```
-
-</div>
-
-<div class="api-body">
-
-Return the silent run log as a JSON-serializable dict.
-
-Includes init parameters, environment, recorded method steps, and
-processing_params when available. Does not print or write files.
-
-</div>
-
-</div>
-
 <div class="api-method" role="region" aria-labelledby="api-phenome-export_methods_markdown">
 
 <div class="api-method-header">
@@ -1100,6 +1190,12 @@ This method now relies solely on ``file_df`` (typically produced by
 [PhenoMe.find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files)) for resolving image and mask
 paths. Legacy ``image_dir`` / ``mask_dir`` parameters are no longer
 supported.
+
+Images used for properties are loaded, laid out as HxWxC, then scaled
+with ``normalize_by_dtype_max`` (same 0-1 rule as TypeMaxNorm). Masks
+are loaded and laid out the same way, then binarized
+(foreground = pixels ``> 0.5``; no intensity scaling). A concise
+processing pipeline of those applied steps is logged at INFO.
 
 **Args:**
 
@@ -1974,6 +2070,35 @@ or use **overrides to tweak individual settings (e.g. include_plots=False).
 
 
 ### Other
+
+<div class="api-method" role="region" aria-labelledby="api-phenome-get_run_settings">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenome-get_run_settings"><code>get_run_settings</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMe.get_run_settings(
+    self
+) -> dict
+```
+
+</div>
+
+<div class="api-body">
+
+Return the silent run log as a JSON-serializable dict.
+
+Includes init parameters, environment, recorded method steps,
+processing_params, and the processing pipeline when available.
+Does not print or write files.
+
+</div>
+
+</div>
 
 <div class="api-method" role="region" aria-labelledby="api-_imagedisplaymixin-image_preview_png_bytes">
 

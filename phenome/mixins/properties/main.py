@@ -13,6 +13,12 @@ import pandas as pd
 
 from ..._logging import get_logger
 from ...core.pipeline_results import PhenoMeResults
+from ...core.processing_pipeline import (
+    build_properties_pipeline,
+    emit_pipeline_logs,
+    persist_pipeline_to_checkpoint,
+    update_session,
+)
 from ...core.run_log import record_step
 from ...io import CheckpointManager
 from ...utils.progress import ProgressCallback
@@ -268,6 +274,12 @@ class PhenoMeProperties:
         paths. Legacy ``image_dir`` / ``mask_dir`` parameters are no longer
         supported.
 
+        Images used for properties are loaded, laid out as HxWxC, then scaled
+        with ``normalize_by_dtype_max`` (same 0-1 rule as TypeMaxNorm). Masks
+        are loaded and laid out the same way, then binarized
+        (foreground = pixels ``> 0.5``; no intensity scaling). A concise
+        processing pipeline of those applied steps is logged at INFO.
+
         Args:
             metadata_config: Optional MetadataBase instance (e.g. from
                 `phenome.metadata`). When it has ``mask_dir`` and
@@ -363,6 +375,19 @@ class PhenoMeProperties:
             metadata_config=metadata_config or getattr(self, "_metadata_config", None),
         )
 
+        prop_pipeline = build_properties_pipeline(
+            [{"file_path": p} for p in image_paths],
+            property_functions=property_functions,
+            property_preset=property_preset,
+            mask_paths=mask_paths,
+        )
+        self._processing_pipeline = update_session(
+            getattr(self, "_processing_pipeline", None),
+            properties=prop_pipeline,
+        )
+        emit_pipeline_logs(logger, prop_pipeline)
+        persist_pipeline_to_checkpoint(self._processing_pipeline, getattr(self, "_db", None))
+
         channel_names = getattr(self, "_channel_names", None)
 
         expected_property_keys = _compute.infer_expected_property_keys(
@@ -417,6 +442,7 @@ class PhenoMeProperties:
             lazy=lazy_checkpoint,
             expected_property_keys=expected_property_keys,
         )
+        persist_pipeline_to_checkpoint(self._processing_pipeline, ckpt)
         if ckpt is None and n_already > 0:
             self._property_norm_cache = None
             self._warn_if_nan_properties(

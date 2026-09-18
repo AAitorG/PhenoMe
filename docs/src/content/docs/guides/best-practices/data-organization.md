@@ -53,7 +53,14 @@ across experiments - see
 
 ## Inspect before processing
 
-Always run `inspect_data()` between `find_files` and `process_images`:
+Always run `inspect_data()` between `find_files` and `process_images`
+when you want a full per-image table of shapes, stored dtypes, and ranges. `process_images`
+also samples up to 32 images, logs a short processing pipeline at INFO, and
+warns on suspicious but processable inputs (for example under-used bit
+depth). Those warnings do not change the data. Known-unprocessable
+combinations (unsupported dimensions, invalid channel selection, mixed
+split-channel counts, mixed sizes with no resize and `batch_size>1`)
+fail before the model runs.
 
 ```python
 inspect_df = pheno.inspect_data()

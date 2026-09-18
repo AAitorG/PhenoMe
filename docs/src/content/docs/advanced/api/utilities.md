@@ -377,6 +377,9 @@ Version configuration (Constants section):
     force_rgb            bool attribute
     l2_normalize_channels bool attribute — default True when absent (legacy)
     channels             (C,) int8 dataset — absent when all channels used
+/processing_pipeline/                       — optional; ordered printed steps only
+    /embeddings/step_01      title, detail attributes (embedding pipeline)
+    /properties/step_01      title, detail, kind=image|mask|compute
 
 Root attributes
     version              str   — CHECKPOINT_FORMAT_VERSION
@@ -865,6 +868,34 @@ Return processing parameters from ``/config`` group, or None.
 
 </div>
 
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-get_processing_pipeline">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-get_processing_pipeline"><code>get_processing_pipeline</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.get_processing_pipeline(
+    self
+) -> dict[str, Any] | None
+```
+
+</div>
+
+<div class="api-body">
+
+Return the stored processing-pipeline steps, or None if absent.
+
+Stored as ``/processing_pipeline`` (embeddings and properties
+step lists).
+
+</div>
+
+</div>
+
 <div class="api-method" role="region" aria-labelledby="api-checkpointmanager-has_property_content">
 
 <div class="api-method-header">
@@ -1341,6 +1372,37 @@ Write processing params to ``/config`` group (creates if needed).
 
 </div>
 
+<div class="api-method" role="region" aria-labelledby="api-checkpointmanager-set_processing_pipeline">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-checkpointmanager-set_processing_pipeline"><code>set_processing_pipeline</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+CheckpointManager.set_processing_pipeline(
+    self,
+    payload: 'dict[str, Any] | None'
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Write ``/processing_pipeline`` as ``step_01``, ``step_02``, … groups.
+
+Stores embeddings and property steps when present. A payload that
+has only one segment keeps the other segment already on disk.
+Property steps store ``kind=image``, ``kind=mask``, or
+``kind=compute``. Removes the group if *payload* is None.
+
+</div>
+
+</div>
+
 <div class="api-method" role="region" aria-labelledby="api-checkpointmanager-validate_processing_params">
 
 <div class="api-method-header">
@@ -1424,7 +1486,8 @@ CheckpointManager.write_results_to_hdf5(
     compression: 'str' = 'gzip',
     compression_level: 'int' = 4,
     processing_params: 'dict[str, Any] | None' = None,
-    internal: 'list[dict[str, Any]] | None' = None
+    internal: 'list[dict[str, Any]] | None' = None,
+    processing_pipeline: 'dict[str, Any] | None' = None
 ) -> None
 ```
 
@@ -1449,6 +1512,11 @@ Uses a temporary file + ``os.replace`` for crash safety.
 - **`internal`** (`list of dict, optional`):
   Per-row internal checkpoint state (e.g. attempted flags), written to
   ``/internal`` when non-empty.
+- **`processing_pipeline`** (`dict or None`):
+  Optional processing pipeline written to ``/processing_pipeline``
+  (ordered title/detail steps for embeddings and properties;
+  property steps store ``kind=image``, ``kind=mask``, or
+  ``kind=compute``).
 
 </div>
 
@@ -1482,11 +1550,12 @@ FileDiscovery.inspect_data(
 
 <div class="api-body">
 
-Inspect image and mask dimensions, shapes, and data ranges.
+Inspect image and mask dimensions, shapes, dtypes, and data ranges.
 
-Reads each image (and mask when present) and reports: shape statistics,
-image-mask shape matching, and mask dtype/range. Masks are expected in
-the ``mask_path`` column of file_df when present.
+Reads each image (and mask when present) in the stored dtype, without the
+float32 cast used by ``read_image``. Reports shape statistics, image-mask
+shape matching, and dtype/range. Masks are expected in the ``mask_path``
+column of file_df when present.
 
 **Args:**
 
@@ -1495,9 +1564,9 @@ the ``mask_path`` column of file_df when present.
 
 **Returns:**
 
-  pd.DataFrame with columns: file_path, height, width, channels, min, max,
-  error, shape_match (True/False/None), mask_height, mask_width, mask_dtype,
-  mask_min, mask_max, mask_error.
+  pd.DataFrame with columns: file_path, height, width, channels, dtype,
+  min, max, error, shape_match (True/False/None), mask_height, mask_width,
+  mask_dtype, mask_min, mask_max, mask_error.
 
 </div>
 
