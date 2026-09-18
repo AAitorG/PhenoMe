@@ -1,6 +1,6 @@
 # Contributing to PhenoMe
 
-Thank you for your interest in contributing to PhenoMe. This document explains how to set up a development environment, run the same code quality checks as CI (Ruff, mypy), optionally use pre-commit locally, and propose changes.
+Thank you for your interest in contributing to PhenoMe. This document explains how to set up a development environment, run the same code quality checks as CI (Ruff, mypy, pytest), optionally use pre-commit locally, and propose changes.
 
 ## Development Setup
 
@@ -40,10 +40,10 @@ We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting:
 
 ```bash
 # Lint and auto-fix
-ruff check phenome --fix
+ruff check phenome tests --fix
 
 # Format
-ruff format phenome
+ruff format phenome tests
 ```
 
 ### Type Checking
@@ -52,6 +52,12 @@ We use [mypy](https://mypy-lang.org/) for type checking:
 
 ```bash
 mypy phenome
+```
+
+### Tests
+
+```bash
+python -m pytest
 ```
 
 ### Security and local paths
@@ -79,7 +85,7 @@ with pipeline.checkpoint_context("results.h5") as p:
 ## Proposing Changes
 
 1. Fork the repository and create a branch: `git checkout -b feature/your-feature`
-2. Make your changes. Ensure linting succeeds.
+2. Make your changes. Ensure linting and `python -m pytest` succeed.
 3. Commit with clear messages: `git commit -m "Add: description of change"`
 4. Push and open a Pull Request.
 
@@ -88,6 +94,7 @@ with pipeline.checkpoint_context("results.h5") as p:
 - `phenome/` – Core pipeline and utilities
 - `phenome/mixins/` – Mixins (properties, distances, analysis, visualization)
 - `phenome/plugins/` – Property and metadata registries
+- `tests/` – Pytest smokes (CI)
 - `docs/` – Astro Starlight site (content in `docs/src/content/docs/`)
 
 ## Common Edit Tasks
@@ -104,6 +111,7 @@ Quick reference for maintainers: which file to edit for each type of change.
 | Add a guide or tutorial | `docs/src/content/docs/guides/` |
 | Record a release | `CHANGELOG.md` – move [Unreleased] items under `[X.Y.Z] – YYYY-MM-DD` |
 | Change lint/format rules | `pyproject.toml` → `[tool.ruff]`, `[tool.mypy]` |
+| Add or change tests | `tests/` |
 
 ## Questions
 
