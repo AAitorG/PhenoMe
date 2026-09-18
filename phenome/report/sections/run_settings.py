@@ -6,10 +6,11 @@ import json
 from typing import Any
 
 from .._components import generate_info_box, generate_table
+from .._section_helpers import render_pipeline_html
 
 
 def generate_run_settings_section(settings: dict[str, Any] | None) -> str:
-    """Render environment, init, and recorded steps as HTML.
+    """Render processing pipeline plus environment, init, and recorded steps.
 
     Args:
         settings: Dict from ``PhenoMe.get_run_settings()``. If empty, a short
@@ -27,6 +28,7 @@ def generate_run_settings_section(settings: dict[str, Any] | None) -> str:
     env = settings.get("environment") or {}
     init = settings.get("init") or {}
     steps = settings.get("steps") or []
+    pipeline = settings.get("processing_pipeline")
 
     env_rows = [[str(k), str(v)] for k, v in env.items()]
     init_rows = [[str(k), str(v)] for k, v in init.items()]
@@ -54,6 +56,9 @@ def generate_run_settings_section(settings: dict[str, Any] | None) -> str:
             "info",
         )
     ]
+    pipeline_html = render_pipeline_html(pipeline if isinstance(pipeline, dict) else None)
+    if pipeline_html:
+        parts.append(pipeline_html)
     if env_rows:
         parts.append("<h4>Environment</h4>")
         parts.append(generate_table(["Key", "Value"], env_rows, sortable=True))

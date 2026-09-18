@@ -46,6 +46,11 @@ The checkpoint (HDF5) already stores configuration and results. When
 - **Results**: embeddings, `img_path`, metadata, properties.
 - **Processing params**: `channel_mode`, `resize_size`, `pad_size`,
   `force_rgb`, `l2_normalize_channels` (and `batch_size` when set).
+- **Processing pipeline** (optional `/processing_pipeline`): the ordered
+  printed steps (title and detail) for embeddings and, when run, properties.
+  Stored as `step_01`, `step_02`, … HDF5 groups with attributes — not JSON.
+  Property steps also store `kind=image`, `kind=mask`, or `kind=compute`.
+  Temporal processing is session-only.
 
 The HDF5 file is self-contained for processing parameters and data. For
 full reproducibility, also call `export_experiment_config()` after the
@@ -72,7 +77,25 @@ pheno.generate_report("results/report.html", include_run_settings=True)
 
 When loading: call `find_files` first, then
 `pheno.load_results("results.h5")`. The framework restores
-configuration and resolves paths automatically. If embeddings and
+configuration, the processing pipeline (base and properties), and resolves
+paths automatically. Inspect it with `pheno.print_processing_pipeline()`
+or `pheno.get_processing_pipeline()`, or watch INFO logs during
+`process_images` / `load_results`. Warnings
+mean “suspicious but processable”; they never change pixels or
+parameters. Custom `preprocessing_fn` / `custom_transformations` appear
+by name (and optional description) only — PhenoMe does not inspect their
+source. Pass `preprocessing_description` / `transformations_description`
+when you want that optional note in the INFO processing pipeline log:
+
+```python
+pheno.process_images(
+    wrapper,
+    preprocessing_fn=enhance_contrast,
+    preprocessing_description="clip 1st/99th percentiles, then rescale to 0-1",
+)
+```
+
+If embeddings and
 properties are in separate files, use `pheno.load_embeddings(...)`
 then `pheno.load_properties(...)` instead.
 
@@ -91,8 +114,8 @@ pip freeze > requirements-frozen.txt
 ## Save intermediate results
 
 The HDF5 file from `save_results()` or checkpointing stores embeddings,
-metadata, properties, and processing params in one place - no need to
-save them separately.
+metadata, properties, processing params, and the base processing pipeline
+in one place - no sibling config or pipeline files.
 
 ```python
 pheno.save_results("results.h5")

@@ -26,11 +26,13 @@ from ._checkpoint_ops import (
     decode_list,
     read_internal_group,
     read_metadata_group,
+    read_pipeline_from_h5,
     read_properties_group,
     truncate_group_datasets,
     write_2d_vlen,
     write_internal_group,
     write_metadata_group,
+    write_pipeline_to_h5,
     write_properties_group,
 )
 
@@ -164,6 +166,9 @@ class CheckpointManager:
         force_rgb            bool attribute
         l2_normalize_channels bool attribute — default True when absent (legacy)
         channels             (C,) int8 dataset — absent when all channels used
+    /processing_pipeline/                       — optional; ordered printed steps only
+        /embeddings/step_01      title, detail attributes (embedding pipeline)
+        /properties/step_01      title, detail, kind=image|mask|compute
 
     Root attributes
         version              str   — CHECKPOINT_FORMAT_VERSION
@@ -235,6 +240,7 @@ class CheckpointManager:
         self._processing_params_ram: dict[str, Any] | None = None
         # Non-lazy: per-row internal dicts (aligned with n_committed_props), not in PhenoMeResults
         self._ram_internal: list[dict[str, Any]] | None = None
+        self._processing_pipeline_ram: dict[str, Any] | None = None
         # Lazy read cache for (clean_properties, internal_rows)
         self._merged_props_internal_cache: (
             tuple[list[dict[str, Any]], list[dict[str, Any]]] | None
@@ -474,6 +480,53 @@ class CheckpointManager:
             if is_diff:
                 mismatches.append((key, sv, cv))
         return mismatches
+
+    def get_processing_pipeline(self) -> dict[str, Any] | None:
+        """Return the stored processing-pipeline steps, or None if absent.
+
+        Stored as ``/processing_pipeline`` (embeddings and properties
+        step lists).
+        """
+        if not self.lazy:
+            if self._processing_pipeline_ram is not None:
+                return dict(self._processing_pipeline_ram)
+            if self._file is None:
+                return None
+        opened_here = False
+        if self._file is None:
+            self._ensure_open()
+            opened_here = True
+        try:
+            assert self._file is not None
+            payload = read_pipeline_from_h5(self._file)
+            return dict(payload) if payload else None
+        finally:
+            if opened_here and self._file is not None:
+                self._file.close()
+                self._file = None
+
+    def set_processing_pipeline(self, payload: dict[str, Any] | None) -> None:
+        """Write ``/processing_pipeline`` as ``step_01``, ``step_02``, … groups.
+
+        Stores embeddings and property steps when present. A payload that
+        has only one segment keeps the other segment already on disk.
+        Property steps store ``kind=image``, ``kind=mask``, or
+        ``kind=compute``. Removes the group if *payload* is None.
+        """
+        opened_here = False
+        if self._file is None:
+            self._ensure_open()
+            opened_here = True
+        try:
+            f = self._file
+            assert f is not None
+            slim = write_pipeline_to_h5(f, payload)
+            f.flush()
+            self._processing_pipeline_ram = slim
+        finally:
+            if opened_here and self._file is not None:
+                self._file.close()
+                self._file = None
 
     # ------------------------------------------------------------------
     # Path / metadata queries
@@ -1040,6 +1093,7 @@ class CheckpointManager:
                 new_path,
                 processing_params=self._processing_params_ram,
                 internal=self._ram_internal,
+                processing_pipeline=self._processing_pipeline_ram,
             )
         else:
             self.close()  # Ensure all buffers are flushed before copying
@@ -1236,6 +1290,7 @@ class CheckpointManager:
 
         # Read parameters before assigning self._ram_data to avoid bypassing I/O
         self._processing_params_ram = self.get_processing_params()
+        self._processing_pipeline_ram = self.get_processing_pipeline()
 
         self._ram_data = self.load_committed_results()
         self._n_committed_props_ram = int(self._file.attrs.get("n_committed_props", 0))
@@ -1339,6 +1394,7 @@ class CheckpointManager:
         compression_level: int = _GZIP_LEVEL,
         processing_params: dict[str, Any] | None = None,
         internal: list[dict[str, Any]] | None = None,
+        processing_pipeline: dict[str, Any] | None = None,
     ) -> None:
         """Atomically write a full results object to an HDF5 file.
 
@@ -1357,6 +1413,11 @@ class CheckpointManager:
         internal : list of dict, optional
             Per-row internal checkpoint state (e.g. attempted flags), written to
             ``/internal`` when non-empty.
+        processing_pipeline : dict or None
+            Optional processing pipeline written to ``/processing_pipeline``
+            (ordered title/detail steps for embeddings and properties;
+            property steps store ``kind=image``, ``kind=mask``, or
+            ``kind=compute``).
         """
         img_paths = results.img_path
         metadata = results.metadata
@@ -1485,6 +1546,8 @@ class CheckpointManager:
                                 cfg.create_dataset("channels", data=np.array(val, dtype=np.int32))
                         else:
                             cfg.attrs[key] = "none" if val is None else val
+
+                write_pipeline_to_h5(f, processing_pipeline)
 
                 # Root attributes
                 f.attrs["version"] = CheckpointManager.FORMAT_VERSION

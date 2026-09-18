@@ -21,7 +21,7 @@ Attach `llms-small.txt` in ChatGPT or Claude when answering “how do I use Phen
 
 1. Import from the public surface: `from phenome import PhenoMe, load_dinov2_model`. Do not invent methods. Look up names in the [function location guide](/PhenoMe/function-location-guide/).
 2. Canonical order: `find_files` → `process_images` → optional `compute_properties` → analysis / plots.
-3. Do **not** change logging, plot backends, or report sections unless the user asked.
+3. Do **not** change logging, plot backends, or report sections unless the user asked. Processing steps are already logged at INFO during `process_images` / `compute_properties`. Reprint only if asked: `print_processing_pipeline()`.
 4. When the user wants a paper-style methods dump, then call `export_experiment_config` (and optionally `include_run_settings=True` on the report). The pipeline records settings silently; nothing is written until those calls.
 5. Pass `device` explicitly so CPU/GPU is obvious in shared scripts.
 
@@ -117,6 +117,7 @@ Do not change these unless asked.
 | Static-ish scatter | `plot_pca(..., render_mode="svg")` |
 | Report without CDN | `generate_report(..., offline_plotly=True)` (already the default) |
 | Methods section in the HTML report | `generate_report(..., include_run_settings=True)` |
+| Reprint the processing pipeline | `pheno.print_processing_pipeline()` |
 
 ## MCP (optional)
 
