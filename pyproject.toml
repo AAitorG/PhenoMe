@@ -69,7 +69,7 @@ dependencies = [
 [project.optional-dependencies]
 full = [
     "pykeops==2.3; sys_platform != 'win32'",
-    "torchdr>=0.1,<0.5",
+    "torchdr>=0.1,<0.6",
 ]
 mcp = [
     "mcp>=2.0",
