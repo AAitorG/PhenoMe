@@ -10,7 +10,7 @@ torch==2.14.0
 torchvision==0.29.0
 
 # Tabular data
-pandas==3.0.5
+pandas==3.0.6
 
 # ML utilities
 scikit-learn==1.9.1
