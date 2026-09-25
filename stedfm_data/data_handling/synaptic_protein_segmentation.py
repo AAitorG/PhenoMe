@@ -6,10 +6,11 @@ from typing import Any
 import h5py
 import numpy
 import torch
-from data_handling.synaptic_protein_helper import parse_image_name
 from torch.utils.data import Dataset
 from torchvision import transforms
 from tqdm import tqdm
+
+from .synaptic_protein_helper import parse_image_name
 
 
 class SemanticProteinSegmentationDataset(Dataset):

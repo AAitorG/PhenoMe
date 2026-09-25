@@ -97,7 +97,7 @@ Changelog     = "https://github.com/AAitorG/PhenoMe/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where   = ["."]
-include = ["phenome", "phenome.*"]
+include = ["phenome", "phenome.*", "stedfm_data", "stedfm_data.*"]
 
 [tool.setuptools.package-data]
 phenome = ["py.typed"]

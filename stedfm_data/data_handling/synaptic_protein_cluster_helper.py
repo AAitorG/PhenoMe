@@ -24,7 +24,8 @@ import pandas as pd
 import scipy.ndimage
 import skimage
 import tifffile
-from data_handling.synaptic_protein_helper import (
+
+from .synaptic_protein_helper import (
     CLASS_NAMES,
     _scale_image,
     extract_crop,
