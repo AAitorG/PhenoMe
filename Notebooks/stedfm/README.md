@@ -22,3 +22,5 @@ If you wish to use your own data, it should follow the file structure required b
 │       └── <Optional binary masks>
 │   └── metadata.csv
 ```
+
+You may then replace `images_dir`, `masks_dir` and `metadata_dir` with your own directories in the notebook.
