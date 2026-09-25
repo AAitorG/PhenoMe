@@ -1875,8 +1875,8 @@ class PhenoMeInteractive:
         if self._highlight_active:
             self._apply_highlight()
 
-        if self._selected_point_index is not None:
-            self._apply_selected_point_highlight()
+        # Click ring is applied by the caller after the widget is on screen.
+        # Restyling markers before the first draw leaves scattergl with no points.
 
         # Click + 2D selection / deselect callbacks (data traces only; not overlay halos)
         if self.fig_widget is not None:
@@ -1940,10 +1940,10 @@ class PhenoMeInteractive:
         if self.fig_widget is None or self._cached_df is None:
             return
 
-        # Plotly keeps box/lasso dimming in trace-level selectedpoints/unselected
-        # state. Recoloring markers while that browser state is stale can leave
-        # every point dimmed or invisible until the whole figure is rebuilt.
-        self._clear_plotly_selection_visuals(reset_dragmode=False)
+        # Box/lasso leaves dragmode on "select"/"lasso" and selectedpoints in the
+        # browser. The next marker restyle then takes scattergl's selection path
+        # and draws no markers. Drop that state before touching colors.
+        self._clear_plotly_selection_visuals(reset_dragmode=True)
 
         color_by = self.color_dropdown.value
         df = self._cached_df
@@ -3367,14 +3367,20 @@ class PhenoMeInteractive:
             return
 
         try:
+            # selectedpoints=None is not sent when Python never stored the
+            # property (the browser set it on click or lasso). Record a dummy
+            # in the trace props without emitting it, so the None below is a
+            # real change. Assigning the dummy through the property would
+            # restyle the browser into a one-point selection first.
+            for tr in fig.data:
+                props = getattr(tr, "_props", None)
+                if props is not None and props.get("selectedpoints") is None:
+                    props["selectedpoints"] = [0]
             with fig.batch_update():
-                # 1. Clear selection and unselected styling for ALL traces
-                fig.update_traces(selectedpoints=None, unselected=None)
-
-                # 2. Drop drawn box/lasso
+                for tr in fig.data:
+                    tr.selectedpoints = None
+                    tr.unselected = None
                 fig.layout.selections = ()
-
-                # 3. Reset dragmode if requested
                 if reset_dragmode:
                     fig.layout.dragmode = "pan"
         except Exception:
