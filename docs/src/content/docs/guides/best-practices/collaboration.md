@@ -32,8 +32,9 @@ pheno.load_results("phenome_results.h5")
 ```
 
 :::tip
-Pair the bundle with the environment spec so colleagues install the same
-stack - see [`envs/environment-gpu.yml`](https://github.com/AAitorG/PhenoMe/blob/main/envs/environment-gpu.yml).
+Have colleagues install the same release with `pip install phenome`.
+Check the version you used when the analysis must match exactly. Check it
+with `import phenome; print(phenome.__version__)`.
 :::
 
 ## Recommended shared project layout

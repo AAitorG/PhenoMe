@@ -21,7 +21,7 @@ A GPU is **strongly recommended** for reasonable speed. The pipeline works on CP
 
 1. Use the pinned env files under `envs/` (see [Getting started - installation](/PhenoMe/getting-started/#2-installation)).
 2. For GPU, ensure your driver matches the CUDA wheel you install; see [PyTorch get started](https://pytorch.org/get-started/locally/).
-3. If `pykeops` fails on your OS, omit it and use slower backends (see [Best practices - performance](/PhenoMe/guides/best-practices/performance/)).
+3. If `pykeops` fails on your OS, omit it and use the default backends (see [Best practices - performance](/PhenoMe/guides/best-practices/performance/)).
 
 ### I get a `[KeOps] Warning : CUDA libraries not found or could not be loaded; Switching to CPU only` error, what should I do?
 
@@ -136,7 +136,7 @@ See [Select properties — Presets](/PhenoMe/guides/select-properties/presets/) 
 
 ### What is the relationship between PhenoMe and the `phenome` package?
 
-**PhenoMe** is the project name. The installable Python package is **`phenome`** (`pip install` from this repo; `import phenome`).
+**PhenoMe** is the project name. The installable Python package is **`phenome`** (`pip install phenome`; `import phenome`).
 
 ### Where do I add custom models, properties, or plugins?
 
