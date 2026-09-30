@@ -364,6 +364,66 @@ class _ImageDisplayMixin:
 
         return buf.getvalue(), details_text, title
 
+    def _mask_2d_for_index(self, idx: int, shape_hw: tuple[int, int]) -> np.ndarray | None:
+        """Load the segmentation mask for ``idx``, resized to ``shape_hw`` (H, W)."""
+        file_df = getattr(self, "_file_df", None)
+        mask_col = getattr(self, "_mask_path_col", None)
+        mask_path = None
+        if file_df is not None and mask_col is not None and idx < len(file_df):
+            mask_path = file_df.iloc[idx][mask_col]
+        if not mask_path or not isinstance(mask_path, str):
+            logger.warning(
+                "show_mask_overlay=True but no mask path found for idx=%d. "
+                "Call find_files with mask_dir to enable mask overlay.",
+                idx,
+            )
+            return None
+        try:
+            mask = ensure_hwc(read_image(mask_path))
+            mask_2d = (mask.max(axis=-1) > 0.5).astype(np.float32)
+            if mask_2d.shape != shape_hw:
+                pil_mask = Image.fromarray((mask_2d * 255).astype(np.uint8))
+                mask_2d = (
+                    np.array(
+                        pil_mask.resize(
+                            (shape_hw[1], shape_hw[0]),
+                            Image.Resampling.NEAREST,
+                        )
+                    )
+                    / 255.0
+                )
+            return mask_2d
+        except Exception as exc:
+            logger.warning("Could not load mask for overlay (idx=%d): %s", idx, exc)
+            return None
+
+    def _composite_mask_overlay(self, display_img: np.ndarray, idx: int) -> np.ndarray:
+        """Blend a faint yellow mask fill and contour onto a float RGB display image."""
+        mask_2d = self._mask_2d_for_index(idx, display_img.shape[:2])
+        if mask_2d is None:
+            return display_img
+
+        out = np.array(display_img, dtype=np.float32, copy=True)
+        if out.ndim == 2:
+            out = np.repeat(out[..., None], 3, axis=-1)
+        elif out.shape[-1] == 1:
+            out = np.repeat(out, 3, axis=-1)
+
+        foreground = mask_2d > 0.5
+        # Match the on-axes overlay: yellow at alpha 0.15.
+        out[foreground, 0] = out[foreground, 0] * 0.85 + 0.15
+        out[foreground, 1] = out[foreground, 1] * 0.85 + 0.15
+
+        if foreground.any():
+            from scipy import ndimage
+
+            edge = foreground & ~ndimage.binary_erosion(foreground)
+            out[edge, 0] = 1.0
+            out[edge, 1] = 1.0
+            out[edge, 2] = 0.0
+
+        return np.clip(out, 0.0, 1.0)
+
     def plot_image_by_index(
         self,
         idx: int,
@@ -393,11 +453,16 @@ class _ImageDisplayMixin:
                 longest image edge when downsampling. The final image size may
                 differ slightly due to integer stepping. If None, no downsampling.
             ax: Optional matplotlib axes to plot on. If provided, a new figure is not created.
-            return_fig: If True, returns the matplotlib figure object.
+            return_fig: If True, return the displayed image as a NumPy array
+                and do not open a matplotlib figure. Mask overlay, when requested, is
+                composited onto that array.
             show_mask_overlay: If True, draws the segmentation mask as a semi-transparent
                 yellow overlay with a crisp contour. Requires masks to have been discovered
                 via ``mask_dir`` in ``find_files``. Useful for verifying that masks load
                 correctly and spatially align with their images.
+
+        Returns:
+            The image as a NumPy array when ``return_fig`` is True; otherwise ``None``.
         """
         display_img, title, was_downsampled, all_info, metadata, img_name, img_path = (
             self._load_image_display_data(
@@ -409,6 +474,13 @@ class _ImageDisplayMixin:
                 downsample=downsample,
             )
         )
+
+        if return_fig and ax is None:
+            if show_mask_overlay:
+                display_img = self._composite_mask_overlay(display_img, idx)
+            if show_extra_info:
+                self._print_image_details(idx, all_info, metadata, img_name, img_path)
+            return display_img
 
         fig = None
         if ax is None:
@@ -486,4 +558,11 @@ class _ImageDisplayMixin:
         if show_extra_info:
             self._print_image_details(idx, all_info, metadata, img_name, img_path)
 
-        return fig if return_fig else None
+        if return_fig:
+            if fig is not None:
+                plt.close(fig)
+            returned = (
+                self._composite_mask_overlay(display_img, idx) if show_mask_overlay else display_img
+            )
+            return returned
+        return None
