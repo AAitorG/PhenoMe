@@ -33,18 +33,22 @@ Try the no-code experience with the **[Interactive Quickstart Notebook](Notebook
 ## 📦 Installation
 
 ```bash
+pip install phenome
+```
+
+PyTorch is included. An NVIDIA GPU is used when CUDA is available; the same install runs on CPU.
+
+<details>
+<summary><b>Conda or from source</b></summary>
+
+Clone the repository, then create one environment for your hardware. These files pin the scientific stack and install this checkout.
+
+```bash
 git clone https://github.com/AAitorG/PhenoMe.git
 cd PhenoMe
 ```
 
-### Choose your package manager
-
-<details open>
-<summary><b>Using Conda (Recommended)</b></summary>
-
-Pick **one** environment based on your hardware:
-
-**GPU (Default)**
+**GPU**
 ```bash
 conda env create -f envs/environment-gpu.yml
 conda activate phenome-gpu
@@ -56,24 +60,6 @@ conda env create -f envs/environment-cpu.yml
 conda activate phenome-cpu
 ```
 </details>
-
-<details>
-<summary><b>Using Pip</b></summary>
-
-Pick **one** installation based on your hardware:
-
-**GPU (Default)**
-```bash
-pip install -r requirements.txt -e .
-```
-
-**CPU**
-```bash
-pip install -r envs/requirements-cpu.txt -e .
-```
-</details>
-
-<br>
 
 > **💡 Full instructions, verification, and troubleshooting:**
 > See the [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) guide for install details, verification commands, and first-analysis walkthroughs.
@@ -102,7 +88,7 @@ If you use PhenoMe in your research, please cite:
 ```bibtex
 @software{phenome,
   author = {Aitor González-Marfil},
-  title = {PhenoMe: Model-Agnostic Deep Learning-Based Phenotyping Analysis},
+  title = {PhenoMe: Interactive AI framework for image representation analysis},
   year = {2026},
   url = {https://github.com/AAitorG/PhenoMe}
 }
