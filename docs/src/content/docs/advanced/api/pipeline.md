@@ -2334,11 +2334,17 @@ Plot a specific image by its index.
   longest image edge when downsampling. The final image size may
   differ slightly due to integer stepping. If None, no downsampling.
 - **`ax`**: Optional matplotlib axes to plot on. If provided, a new figure is not created.
-- **`return_fig`**: If True, returns the matplotlib figure object.
+- **`return_fig`**: If True, return the displayed image as a NumPy array
+  and do not open a matplotlib figure. Mask overlay, when requested, is
+  composited onto that array.
 - **`show_mask_overlay`**: If True, draws the segmentation mask as a semi-transparent
   yellow overlay with a crisp contour. Requires masks to have been discovered
   via ``mask_dir`` in ``find_files``. Useful for verifying that masks load
   correctly and spatially align with their images.
+
+**Returns:**
+
+  The image as a NumPy array when ``return_fig`` is True; otherwise ``None``.
 
 </div>
 
