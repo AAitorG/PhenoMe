@@ -67,11 +67,13 @@ generate_report()
 
 **Logging:**
 
-Progress messages are visible at INFO level by default:
+Progress messages are visible at INFO
+level by default:
 
 ```python
 import logging
 logging.getLogger("phenome").setLevel(logging.WARNING)  # Suppress
+logging.getLogger("phenome").setLevel(logging.DEBUG)    # Prefix + debug detail
 ```
 
 **Example:**
