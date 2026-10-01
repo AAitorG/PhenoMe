@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from IPython.display import Javascript, clear_output, display
+from IPython.display import Javascript, display
 
 from ..._logging import get_logger
 from ...core import (
@@ -36,6 +36,16 @@ from ...core import (
     run_dimensionality_reduction,
 )
 from ...plotly_display import apply_figurewidget_display_config
+from ._colab import (
+    button_style,
+    install_layout_compat,
+    mount_plot,
+    output_area_layout,
+    plot_column_children,
+    prepare_dashboard_cell,
+    resolve_colab,
+    section_group,
+)
 from ._html_components import (
     CLICK_DEBOUNCE_SEC,
     CONTINUOUS_SCALES,
@@ -128,6 +138,7 @@ class PhenoMeInteractive:
         exclude: dict | None = None,
         hover_features: list[str] | None = None,
         max_points: int = 1_000_000,
+        colab: bool | None = None,
     ):
         """
         Initialize the interactive explorer.
@@ -138,7 +149,13 @@ class PhenoMeInteractive:
             exclude: Optional dictionary of metadata exclusions (same structure as filters).
             hover_features: Optional list of features to show on hover.
             max_points: Maximum points to plot before subsampling.
+            colab: ``None`` detects Google Colab. ``True`` or ``False`` forces that layout.
         """
+        self._colab = resolve_colab(colab)
+        # ipywidgets 7 rejects gap/background/border_radius even when the
+        # Jupyter accordion layout is forced with colab=False.
+        install_layout_compat()
+        self._displayed_dashboard: widgets.Widget | None = None
         self.pheno = pheno_me
         # Shallow copies: when set, DR always uses these instead of UI widget state.
         self._constructor_filters: dict | None = dict(filters) if filters else None
@@ -200,9 +217,7 @@ class PhenoMeInteractive:
 
         # Output area: flex child can shrink so the row does not force a horizontal
         # scrollbar when the notebook is narrow (embedding figure uses a fixed width).
-        self.output_area = widgets.Output(
-            layout=widgets.Layout(flex="1 1 0%", min_width="0px", width="auto"),
-        )
+        self.output_area = widgets.Output(layout=output_area_layout(colab=self._colab))
         # Plot is shown by swapping children on this VBox.  Background compute runs in a
         # thread; ``with output_area: display(...)`` relies on the kernel's parent msg_id
         # (set only on the main thread), so ``display`` from a worker never reaches the
@@ -284,15 +299,14 @@ class PhenoMeInteractive:
     def show(self) -> None:
         """Display the interactive dashboard.
 
-        Only ONE widget tree is produced per cell.  Calling ``show()``
-        again (or from ``create_interactive_explorer``) first clears
-        any previous output so stale / duplicate widgets never appear.
+        Only one widget tree stays visible. Jupyter clears the cell output.
+        Colab skips that clear, because it can erase the widget displayed
+        next, and hides the dashboard from the previous ``show()`` instead.
         """
         self.close()
-        # Clear the entire cell output first so that stale widgets from a
-        # previous run (or from autoreload) are removed before we display
-        # anything new.  This is the key fix for the "two menus" problem.
-        clear_output(wait=True)
+        # One widget tree per cell. A second ``show()`` otherwise leaves the
+        # previous menu on screen.
+        prepare_dashboard_cell(self._displayed_dashboard, colab=self._colab)
 
         self._update_color_options()
         self._update_highlight_key_options()
@@ -414,15 +428,16 @@ class PhenoMeInteractive:
                 padding="10px 12px 12px 12px",
             ),
         )
-        accordion = widgets.Accordion(
-            children=[_embed_full, _appear, _hl, _selection_panel],
-            layout=widgets.Layout(width="100%"),
+        accordion = section_group(
+            [
+                ("⊞ Embedding", _embed_full),
+                ("◑ Appearance", _appear),
+                ("◎ Highlight", _hl),
+                ("⬚ Selection (box / lasso)", _selection_panel),
+            ],
+            open_index=0,
+            colab=self._colab,
         )
-        accordion.set_title(0, "⊞ Embedding")
-        accordion.set_title(1, "◑ Appearance")
-        accordion.set_title(2, "◎ Highlight")
-        accordion.set_title(3, "⬚ Selection (box / lasso)")
-        accordion.selected_index = 0
 
         # Load logo if available
         logo_html = ""
@@ -466,9 +481,10 @@ class PhenoMeInteractive:
             ),
         )
 
-        # Plot column: figure slot only (Plotly modebar: pan, zoom, box, lasso, PNG, home).
+        # Jupyter nests the figure in ``output_area``. Colab cannot draw a
+        # FigureWidget there, so the slot is a direct child when colab=True.
         plot_column = widgets.VBox(
-            [self.output_area],
+            plot_column_children(self._plot_slot, self.output_area, colab=self._colab),
             layout=widgets.Layout(
                 gap="4px",
                 width=f"{EMBEDDING_FIG_WIDTH_PX}px",
@@ -491,17 +507,17 @@ class PhenoMeInteractive:
             layout=widgets.Layout(gap="8px", width="100%"),
         )
 
+        self._displayed_dashboard = self._dashboard
         display(self._dashboard)
 
         self._update_stats()
         self._update_selection_summary()
-
-        # Placeholder lives in _plot_slot; display once here (main thread) so later
-        # thread-only updates can replace _plot_slot.children with the FigureWidget.
-        self._plot_slot.children = (self._embedding_placeholder,)
-        with self.output_area:
-            clear_output(wait=True)
-            display(self._plot_slot)
+        mount_plot(
+            self._plot_slot,
+            self.output_area,
+            self._embedding_placeholder,
+            colab=self._colab,
+        )
 
     def set_filters(
         self,
@@ -874,18 +890,16 @@ class PhenoMeInteractive:
             ],
             layout=widgets.Layout(width="100%", gap="4px", padding="10px 12px 12px 12px"),
         )
-        self._embedding_filter_accordion = widgets.Accordion(
-            children=[self._filter_accordion_panel],
-            layout=widgets.Layout(width="100%"),
+        self._embedding_filter_accordion = section_group(
+            [("Filter", self._filter_accordion_panel)],
+            open_index=None,
+            colab=self._colab,
         )
-        self._embedding_filter_accordion.set_title(0, "Filter")
-        self._embedding_filter_accordion.selected_index = None
-        self._embedding_exclude_accordion = widgets.Accordion(
-            children=[self._exclude_accordion_panel],
-            layout=widgets.Layout(width="100%"),
+        self._embedding_exclude_accordion = section_group(
+            [("Exclude", self._exclude_accordion_panel)],
+            open_index=None,
+            colab=self._colab,
         )
-        self._embedding_exclude_accordion.set_title(0, "Exclude")
-        self._embedding_exclude_accordion.selected_index = None
 
     def _create_highlight_widgets(self) -> None:
         """Create highlight/filter widgets."""
@@ -973,11 +987,12 @@ class PhenoMeInteractive:
         )
 
         # Custom colors (``button_style`` would fight theme); light blue = start, light red = stop.
-        self._highlight_btn_style_blue = widgets.ButtonStyle(
+        # ``text_color`` is dropped where ipywidgets 7 does not define it.
+        self._highlight_btn_style_blue = button_style(
             button_color="#BFDBFE",
             text_color="#1E3A8A",
         )
-        self._highlight_btn_style_stop = widgets.ButtonStyle(
+        self._highlight_btn_style_stop = button_style(
             button_color="#FECACA",
             text_color="#991B1B",
         )
@@ -3459,6 +3474,7 @@ def create_interactive_explorer(
     filters: dict[str, Any] | None = None,
     exclude: dict[str, Any] | None = None,
     hover_features: list[str] | None = None,
+    colab: bool | None = None,
 ) -> PhenoMeInteractive:
     """Launch an interactive explorer for phenotyping results in Jupyter.
 
@@ -3475,6 +3491,10 @@ def create_interactive_explorer(
         exclude: Optional metadata exclusions (same structure as filters).
         hover_features: Optional list of metadata or property keys to show in
             hover tooltips. If ``None``, uses metadata keys from the pipeline.
+        colab: ``None`` (default) detects Google Colab. Pass ``True`` or ``False``
+            to force the Colab or Jupyter layout. Colab's widget page is
+            ipywidgets 7 and cannot draw accordion panes once the Plotly widget
+            manager is enabled.
 
     Returns:
         PhenoMeInteractive: The explorer instance. Call ``.show()`` again to re-display.
@@ -3495,6 +3515,7 @@ def create_interactive_explorer(
         filters=filters,
         exclude=exclude,
         hover_features=hover_features,
+        colab=colab,
     )
     explorer.show()
     return explorer
