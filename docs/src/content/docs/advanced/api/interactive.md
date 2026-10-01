@@ -23,7 +23,8 @@ create_interactive_explorer(
     pheno_me: '_InteractiveExplorerProtocol',
     filters: 'dict[str, Any] | None' = None,
     exclude: 'dict[str, Any] | None' = None,
-    hover_features: 'list[str] | None' = None
+    hover_features: 'list[str] | None' = None,
+    colab: 'bool | None' = None
 ) -> PhenoMeInteractive
 ```
 
@@ -43,6 +44,10 @@ highlight mode, box/lasso multi-selection, and click-to-inspect image viewing.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).
 - **`hover_features`**: Optional list of metadata or property keys to show in
   hover tooltips. If ``None``, uses metadata keys from the pipeline.
+- **`colab`**: ``None`` (default) detects Google Colab. Pass ``True`` or ``False``
+  to force the Colab or Jupyter layout. Colab's widget page is
+  ipywidgets 7 and cannot draw accordion panes once the Plotly widget
+  manager is enabled.
 
 **Returns:**
 
