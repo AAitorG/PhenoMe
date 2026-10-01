@@ -33,6 +33,8 @@ except ImportError:
     _KEOPS_AVAILABLE = False
 
 from ..._logging import get_logger
+from ...utils.display_names import format_dr_method
+from ...utils.progress import log_computing
 from ..results_export import prepare_embedding_dataframe
 from ..results_metadata import filter_indices
 from .combined_features import build_combined_features
@@ -164,6 +166,11 @@ def _run_dimensionality_reduction_matrix_impl(
 ) -> tuple[np.ndarray, Any, list[str]]:
     """Core DR implementation; ``use_torchdr`` is explicit for CPU retry after GPU failure."""
     dev_str = str(device) if device is not None else "cpu"
+    # PCA, t-SNE, and UMAP fits do not expose a reliable iteration count here.
+    log_computing(
+        f"Computing {format_dr_method(method)} "
+        f"({matrix.shape[0]} samples, {matrix.shape[1]} features → {n_components} components)..."
+    )
 
     # t-SNE: sklearn's Barnes-Hut approximation supports only n_components < 4.
     # When n_components >= 4, use method='exact' so the user can choose any n_components.

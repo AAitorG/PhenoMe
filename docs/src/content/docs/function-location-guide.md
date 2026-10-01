@@ -175,6 +175,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `get_metadata_from_path` | Create metadata extractor function from a path template. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#get_metadata_from_path) · [Experiment Details](/PhenoMe/guides/experiment-details/) · [Metadata](/PhenoMe/advanced/api/metadata/) |
 | `get_preset_property_functions` | Return a preset dict of property functions for use with compute_properties. | ✅ | [Properties](/PhenoMe/advanced/api/properties/#get_preset_property_functions) · [Select properties](/PhenoMe/guides/select-properties/) · [Property interpretation](/PhenoMe/concepts/property-interpretation/) |
 | `load_dinov2_model` | Load a DINOv2 model and return a DinoV2ModelWrapper ready for processing. | ✅ | [Model-Wrapper](/PhenoMe/advanced/api/model-wrapper/#load_dinov2_model) · [Model Wrappers](/PhenoMe/advanced/api/model-wrapper/#load_dinov2_model) |
+| `log_computing` | Log a one-line status when a step cannot report a progress bar. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#log_computing) |
 | `make_dataframe_metadata_fn` | Build metadata function using a dataframe for metadata lookup. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#make_dataframe_metadata_fn) · [Experiment Details](/PhenoMe/guides/experiment-details/) · [Metadata](/PhenoMe/advanced/api/metadata/) |
 | `MetadataBase` | Base class for metadata extraction with configurable columns and ID handling. | ✅ | [Metadata Classes](/PhenoMe/advanced/api/metadata/#metadatabase) |
 | `ModelWrapper` | Base wrapper for vision model embedding extraction. | 🔧 | [Model Wrappers](/PhenoMe/advanced/api/model-wrapper/#class-modelwrapper) |
@@ -187,6 +188,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `resolve_intensity_scale` | Infer how to normalize image intensities to [0, 1]. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#resolve_intensity_scale) |
 | `scale_minmax` | Apply min-max scaling to each channel independently. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `set_determinism` | Set random seeds for reproducibility across all frameworks. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#set_determinism) |
+| `track` | Wrap *iterable* in a ``tqdm`` progress bar. | ✅ | [Utilities](/PhenoMe/advanced/api/utilities/#track) |
 | `TransformBuilder` | Builds torchvision transform pipelines for image preprocessing. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/#transforms--transformbuilder) |
 | `TypeMaxNorm` | Normalize image by effective intensity scale (shared with normalize_by_dtype_max). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 

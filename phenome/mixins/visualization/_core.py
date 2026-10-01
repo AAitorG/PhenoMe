@@ -62,8 +62,16 @@ class PhenoMeVisualization(
         filters: dict | None = None,
         exclude: dict | None = None,
         hover_features: list[str] | None = None,
+        colab: bool | None = None,
     ) -> Any:
-        """Launch the interactive explorer for this pipeline's results."""
+        """Launch the interactive explorer for this pipeline's results.
+
+        Args:
+            filters: Optional metadata filters applied before the first plot.
+            exclude: Optional metadata exclusions (same structure as filters).
+            hover_features: Optional hover tooltip keys. Defaults to metadata keys.
+            colab: ``None`` detects Google Colab. ``True`` or ``False`` forces that layout.
+        """
         from ..interactive import (
             _InteractiveExplorerProtocol,
         )
@@ -76,6 +84,7 @@ class PhenoMeVisualization(
             filters=filters,
             exclude=exclude,
             hover_features=hover_features,
+            colab=colab,
         )
 
     def plot_counts(

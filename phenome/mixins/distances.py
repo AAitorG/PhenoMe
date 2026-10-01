@@ -16,6 +16,7 @@ from ..core.dataframe_contract import pack_df_meta_fig, per_image_dataframe
 from ..core.pipeline_results import PhenoMeResults
 from ..core.protocols import PhenoMeProtocol
 from ..core.run_log import record_step
+from ..utils.progress import log_computing, track_steps
 
 logger = get_logger(__name__)
 
@@ -154,6 +155,11 @@ class PhenoMeDistances:
         logger.info("Reference group: %s", filter_str)
         logger.info("  Found %d reference images", len(ref_indices))
         logger.info("  Mode: %s, Source: %s, Distance: %s", mode, source, distance_type)
+        mode_label = "centroid" if mode == "centroid" else "all-to-all"
+        log_computing(
+            f"Computing {distance_type} {mode_label} distances "
+            f"({source}, {len(filtered_indices)} images)..."
+        )
 
         if source == "properties":
             data_matrix, valid_indices, _ = self._get_property_matrix(  # type: ignore[attr-defined]
@@ -338,7 +344,9 @@ class PhenoMeDistances:
         centroid = torch.mean(ref_emb, dim=0)
 
         distances_out = np.zeros(n_samples, dtype=np.float32)
-        for start in range(0, n_samples, batch_size):
+        for start in track_steps(
+            range(0, n_samples, batch_size), desc="Computing centroid distances"
+        ):
             end = min(start + batch_size, n_samples)
             batch_emb = all_emb[start:end]
             if distance_type == "cosine":
@@ -383,7 +391,9 @@ class PhenoMeDistances:
 
         min_distances = np.zeros(n_samples, dtype=np.float32)
 
-        for start in range(0, n_samples, batch_size):
+        for start in track_steps(
+            range(0, n_samples, batch_size), desc="Computing all-to-all distances"
+        ):
             end = min(start + batch_size, n_samples)
             batch_emb = all_emb[start:end]
 

@@ -41,11 +41,13 @@ Pip installs the published package. Conda uses the pinned environment files in t
 
     2. **Verify the install**
 
-       ```python
+       ```bash
+       python3 -c '
        import torch, phenome
        print(f"PhenoMe {phenome.__version__} is ready!")
        print("GPU:", torch.cuda.is_available(),
              f"({torch.cuda.get_device_name(0)})" if torch.cuda.is_available() else "(CPU-only mode)")
+       '
        ```
     </Steps>
   </TabItem>
@@ -78,11 +80,13 @@ Pip installs the published package. Conda uses the pinned environment files in t
 
     3. **Verify the install**
 
-       ```python
+       ```bash
+       python3 -c '
        import torch, phenome
        print(f"PhenoMe {phenome.__version__} is ready!")
        print("GPU:", torch.cuda.is_available(),
              f"({torch.cuda.get_device_name(0)})" if torch.cuda.is_available() else "(CPU-only mode)")
+       '
        ```
     </Steps>
   </TabItem>

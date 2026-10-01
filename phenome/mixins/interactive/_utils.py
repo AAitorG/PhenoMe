@@ -14,12 +14,15 @@ from typing import Any
 import numpy as np
 import plotly.graph_objects as go
 
+from ..._logging import get_logger
 from ...core import get_all_metadata_keys, get_metadata_value_from_dict
 from ._html_components import (
     DEFER_UI_SEC,
     DR_RANDOM_STATE,
     INTERACTIVE_COLOR_SCAN_MAX_INDICES,
 )
+
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -45,15 +48,43 @@ def format_elapsed_time(seconds: float) -> str:
 # Event loop scheduling
 # ---------------------------------------------------------------------------
 def schedule_after_plotly_event_loop(fn: Callable[[], None]) -> None:
-    """Run ``fn`` after the current stack unwinds when an asyncio loop exists."""
+    """Run ``fn`` on the kernel loop after the current stack unwinds.
+
+    Widget callbacks and Colab compute threads often have no running asyncio
+    loop. A ``threading.Timer`` then builds the FigureWidget off the kernel
+    thread, and Colab drops the view. Hand the callback to the IPython kernel
+    IOLoop with ``add_callback`` so ``call_later`` runs on the loop thread.
+    """
     try:
         loop = asyncio.get_running_loop()
-        if loop.is_running():
-            loop.call_later(DEFER_UI_SEC, fn)
-        else:
-            fn()
     except RuntimeError:
-        threading.Timer(DEFER_UI_SEC, fn).start()
+        loop = None
+    if loop is not None and loop.is_running():
+        loop.call_later(DEFER_UI_SEC, fn)
+        return
+
+    io_loop = _kernel_io_loop()
+    if io_loop is not None:
+        try:
+            io_loop.add_callback(lambda: io_loop.call_later(DEFER_UI_SEC, fn))
+        except Exception:
+            logger.warning(
+                "Failed to schedule a UI update on the kernel loop",
+                exc_info=True,
+            )
+        return
+    threading.Timer(DEFER_UI_SEC, fn).start()
+
+
+def _kernel_io_loop() -> Any:
+    """Return the IPython kernel IOLoop, or None when this process has none."""
+    try:
+        from IPython import get_ipython
+
+        kernel = getattr(get_ipython(), "kernel", None)
+        return getattr(kernel, "io_loop", None)
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------

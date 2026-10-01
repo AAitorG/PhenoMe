@@ -92,6 +92,51 @@ Invoke *callback* if provided; no-op when ``None``.
 - **`desc`**: Short stage label (e.g. ``"Processing batches"``).
 
 
+### `track`
+
+```python
+track(
+    iterable: collections.abc.Iterable[T],
+    desc: str,
+    total: int | None = None,
+    leave: bool = False
+) -> Iterable
+```
+
+Wrap *iterable* in a ``tqdm`` progress bar.
+
+**Args:**
+
+- **`iterable`**: Sequence of work units whose length is known, or can be
+  passed as *total*.
+- **`desc`**: Short label shown beside the bar.
+- **`total`**: Number of units. Inferred for sized sequences when omitted.
+- **`leave`**: If False (default), remove the bar when iteration finishes.
+
+**Returns:**
+
+  A ``tqdm`` iterator over *iterable*.
+
+
+### `log_computing`
+
+```python
+log_computing(
+    message: str
+) -> None
+```
+
+Log a one-line status when a step cannot report a progress bar.
+
+Notebook output uses the package logger (INFO, message only), same as
+other PhenoMe progress lines.
+
+**Args:**
+
+- **`message`**: Status sentence, for example
+  ``"Computing Pearson correlations..."``.
+
+
 ## Metadata helpers
 
 ### `default_metadata_from_path`

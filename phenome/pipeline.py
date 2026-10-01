@@ -3,7 +3,7 @@
 import contextlib
 import json
 import os
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from typing import Any, Literal, cast
 
@@ -826,7 +826,7 @@ class PhenoMe(
         if not filtered_data:
             if checkpoint_path and ckpt:
                 logger.info("All images already processed. Loading from checkpoint.")
-                self._restore_processing_pipeline(ckpt, loaded=True)
+                self._restore_processing_pipeline(ckpt, loaded=True, segments=("base",))
                 self._setup_lazy_results(
                     ckpt,
                     requested_paths=requested_paths,
@@ -1469,10 +1469,18 @@ class PhenoMe(
         ckpt: CheckpointManager | None,
         *,
         loaded: bool = False,
+        segments: Sequence[str] | None = None,
     ) -> None:
-        """Restore a session pipeline from *ckpt* (or clear it) and optionally log it."""
+        """Restore a session pipeline from *ckpt* (or clear it) and optionally log it.
+
+        Args:
+            ckpt: Checkpoint to read, or None.
+            loaded: If True, log the restored pipeline at INFO.
+            segments: Segment labels to log. None logs every stored segment.
+                The stored session is unchanged.
+        """
         self._processing_pipeline = restore_session_from_checkpoint(
-            ckpt, logger=logger, loaded=loaded
+            ckpt, logger=logger, loaded=loaded, segments=segments
         )
 
     def _build_and_store_processing_pipeline(

@@ -18,6 +18,7 @@ from sklearn.feature_selection import mutual_info_regression
 
 from ..._logging import get_logger
 from ...utils.device import get_default_device
+from ...utils.progress import log_computing, track_steps
 
 logger = get_logger(__name__)
 
@@ -119,26 +120,37 @@ def compute_component_property_correlation_matrix(
     progress_desc: str = "Computing correlations",
 ) -> pd.DataFrame:
     """Build property-by-component correlation matrix."""
+    n_props = len(prop_cols)
+    n_comps = len(comp_cols)
     if correlation_method == "pearson":
+        # pandas computes the whole matrix in one call, so there is no loop to track.
+        log_computing(
+            f"Computing Pearson correlations ({n_props} properties x {n_comps} components)..."
+        )
         return df[prop_cols + comp_cols].corr(method="pearson").loc[prop_cols, comp_cols]
 
-    comp_source: list[str] | Any = comp_cols
-    if show_progress:
-        from tqdm.auto import tqdm
-
-        comp_source = tqdm(comp_cols, desc=progress_desc, leave=False)
-
+    present_comps = [comp for comp in comp_cols if comp in df.columns]
+    total = len(present_comps) * n_props
     corr_data: dict[str, list[float]] = {}
-    for comp in comp_source:
-        if comp not in df.columns:
-            continue
+    pairs = ((comp, prop) for comp in present_comps for prop in prop_cols)
+    pair_iter = track_steps(
+        pairs,
+        desc=progress_desc,
+        total=total,
+        bar=show_progress,
+        when_single=(
+            f"{progress_desc} ({n_props} properties x {len(present_comps)} components)..."
+        ),
+    )
+
+    for comp, prop in pair_iter:
+        if comp not in corr_data:
+            corr_data[comp] = []
+        prop_values = df[prop].values
         comp_values = df[comp].values
-        corr_data[comp] = []
-        for prop in prop_cols:
-            prop_values = df[prop].values
-            r = compute_pair_fn(correlation_method, prop_values, comp_values)
-            r_arr = np.atleast_1d(np.asarray(r))
-            corr_data[comp].append(float(r_arr[0]) if r_arr.size > 0 else np.nan)
+        r = compute_pair_fn(correlation_method, prop_values, comp_values)
+        r_arr = np.atleast_1d(np.asarray(r))
+        corr_data[comp].append(float(r_arr[0]) if r_arr.size > 0 else np.nan)
 
     if not corr_data:
         raise ValueError(f"No correlation data computed for method {correlation_method!r}.")
@@ -189,6 +201,8 @@ def compute_spearman_correlation(
     x: np.ndarray,
     y: np.ndarray,
     device: torch.device | str | None = None,
+    *,
+    show_progress: bool = False,
 ) -> np.ndarray:
     """Compute Spearman rank correlation between x and y using scipy.
 
@@ -199,6 +213,9 @@ def compute_spearman_correlation(
         x: First array (n_samples,) or (n_samples, n_features).
         y: Second array (n_samples,).
         device: Ignored; Spearman uses scipy on CPU (kept for API parity with other metrics).
+        show_progress: If True and *x* has more than one feature, show a progress bar
+            over embedding dimensions. The per-dimension loop has no intermediate
+            count when this is False.
 
     Returns:
         np.ndarray: Correlation coefficient(s), dtype float64. If x is 1D, scalar (as length-1 array).
@@ -219,7 +236,12 @@ def compute_spearman_correlation(
 
     results = np.full(x.shape[1], np.nan)
     y_constant = _is_constant(y_clean)
-    for i in range(x.shape[1]):
+    n_features = x.shape[1]
+    for i in track_steps(
+        range(n_features),
+        desc="Spearman correlation across dimensions",
+        bar=show_progress,
+    ):
         if y_constant or _is_constant(x_clean[:, i]):
             results[i] = np.nan
             continue
@@ -235,6 +257,8 @@ def compute_distance_correlation(
     x: np.ndarray,
     y: np.ndarray,
     device: torch.device | str | None = None,
+    *,
+    show_progress: bool = False,
 ) -> np.ndarray:
     """Compute distance correlation between x and y.
 
@@ -242,6 +266,8 @@ def compute_distance_correlation(
         x: First array (n_samples,) or (n_samples, n_features).
         y: Second array (n_samples,).
         device: Torch device (included for API consistency; dcor uses CPU).
+        show_progress: If True and *x* has more than one feature, show a progress bar
+            over embedding dimensions.
 
     Returns:
         np.ndarray: Distance correlation coefficient(s), dtype float64. If x is 1D, scalar (as array).
@@ -268,8 +294,13 @@ def compute_distance_correlation(
             return np.array(dcor.distance_correlation(x_clean, y_clean))
         except Exception:
             return np.array(np.nan)
-    results = np.full(x.shape[1], np.nan)
-    for i in range(x.shape[1]):
+    n_features = x.shape[1]
+    results = np.full(n_features, np.nan)
+    for i in track_steps(
+        range(n_features),
+        desc="Distance correlation across dimensions",
+        bar=show_progress,
+    ):
         try:
             results[i] = dcor.distance_correlation(x_clean[:, i], y_clean)
         except Exception:
@@ -339,6 +370,8 @@ def compute_mutual_info(
     y: np.ndarray,
     seed: int | None = None,
     device: torch.device | str | None = None,
+    *,
+    show_progress: bool = False,
 ) -> np.ndarray:
     """Compute MI-derived correlation coefficient between x and y.
 
@@ -354,6 +387,9 @@ def compute_mutual_info(
         y: Second array (n_samples,).
         seed: Random seed for mutual_info_regression.
         device: Torch device (included for API consistency; sklearn uses CPU).
+        show_progress: If True, show a progress bar when estimation falls back to
+            one dimension at a time. The default single sklearn call has no
+            intermediate count; callers should log that it is running.
 
     Returns:
         np.ndarray: MI-derived correlation coefficient in [0, 1], dtype float64.
@@ -386,7 +422,16 @@ def compute_mutual_info(
         )
     except Exception:
         mi_values = np.full(n_features, np.nan)
-        for i in range(n_features):
+        for i in track_steps(
+            range(n_features),
+            desc="Mutual information across dimensions",
+            bar=show_progress,
+            when_single=(
+                None
+                if show_progress
+                else f"Computing mutual information across {n_features} dimensions..."
+            ),
+        ):
             with contextlib.suppress(Exception):
                 mi_values[i] = mutual_info_regression(
                     x_clean[:, i].reshape(-1, 1),

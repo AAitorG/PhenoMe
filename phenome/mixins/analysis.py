@@ -10,8 +10,7 @@ from typing import Any, Literal, cast
 import numpy as np
 import pandas as pd
 import torch
-from joblib import Parallel, delayed
-from tqdm.auto import tqdm
+from joblib import delayed
 
 from .._logging import get_logger
 from ..core import (
@@ -58,6 +57,7 @@ from ..utils.display_names import (
     format_dr_method,
 )
 from ..utils.path_utils import path_basename
+from ..utils.progress import log_computing, parallel_with_progress, track, track_steps
 from . import _helpers
 from .properties.grouping import (
     compute_leave_one_out_zscore_enrichment,
@@ -255,6 +255,10 @@ class PhenoMeAnalysis:
 
         # Step 3: Apply the clustering only over the extracted components
         effective_seed = random_state if random_state is not None else getattr(self, "seed", None)
+        log_computing(
+            f"Computing {format_clustering_method(clustering_method)} clustering "
+            f"on {len(matrix)} images..."
+        )
 
         if clustering_method == "gmm":
             from sklearn.mixture import GaussianMixture
@@ -503,7 +507,11 @@ class PhenoMeAnalysis:
                 )
                 stratify_labels = None
 
-        # Step 3: Run regression model
+        # Step 3: Run regression model. LASSO/forest fits do not report fold progress.
+        model_label = "LASSO" if model_type == "lasso" else "random forest"
+        log_computing(
+            f"Fitting {model_label} model on {len(y)} samples and {matrix.shape[1]} properties..."
+        )
         if model_type == "lasso":
             results = compute_lasso_interpretability(
                 x=matrix,
@@ -704,7 +712,11 @@ class PhenoMeAnalysis:
             groups["all"] = np.arange(n_samples)
 
         thresholds: dict[Any, float] = {}
-        for gname, didx in groups.items():
+        for gname, didx in track_steps(
+            groups.items(),
+            desc="Detecting outliers",
+            when_single=f"Detecting outliers with {method} on {n_samples} images...",
+        ):
             if len(didx) < 2:
                 continue
             didx = _helpers.index_array_for_torch(didx)
@@ -994,7 +1006,7 @@ class PhenoMeAnalysis:
             comp_cols,
             correlation_method,
             self._compute_correlation,
-            show_progress=correlation_method in ("distance_correlation", "mutual_info"),
+            show_progress=correlation_method != "pearson",
             progress_desc=(
                 f"Computing {format_correlation_method(correlation_method)} correlations"
             ),
@@ -1339,7 +1351,11 @@ class PhenoMeAnalysis:
         matrix_t = torch.from_numpy(matrix).to(device) if device.type != "cpu" else None
 
         results_list = []
-        for grp in unique_groups:
+        for grp in track_steps(
+            unique_groups,
+            desc="Finding prototypes",
+            when_single="Finding prototypes...",
+        ):
             mask = [lab == grp for lab in valid_gl]
             mask_arr = np.array(mask)
             gi = [valid_indices[i] for i, m in enumerate(mask) if m]
@@ -1504,11 +1520,15 @@ class PhenoMeAnalysis:
         if embeddings.ndim != 2:
             raise ValueError(f"Expected 2-D embeddings, got shape {embeddings.shape}")
 
+        n_samples, n_dims = embeddings.shape
+        log_computing(
+            f"Computing {format_correlation_method(method)} correlations "
+            f"across {n_dims} embedding dimensions..."
+        )
+
         # Apply L2 normalization if requested
         if normalize:
             embeddings = self._normalize_embeddings_l2(embeddings)
-
-        n_samples, n_dims = embeddings.shape
 
         if property_keys is None:
             property_keys = self.get_available_property_keys()  # type: ignore[attr-defined]
@@ -1551,15 +1571,22 @@ class PhenoMeAnalysis:
 
         corrs: dict[str, np.ndarray] = {}
 
-        # Show progress for slower methods
-        use_progress = method in ("distance_correlation", "mutual_info")
+        method_label = format_correlation_method(method)
+        desc = f"Computing {method_label} correlations"
+        # Dimension bars only in the serial path. Parallel workers would each open one.
+        inner_progress = n_jobs == 1 and method in ("spearman", "distance_correlation")
 
         def _worker(pname: str, parr: np.ndarray) -> tuple[str, np.ndarray | None]:
             ok = np.isfinite(parr)
             if ok.sum() < 3:
                 return pname, None
 
-            r = self._compute_correlation(method, embeddings[ok], parr[ok])
+            r = self._compute_correlation(
+                method,
+                embeddings[ok],
+                parr[ok],
+                show_progress=inner_progress and int(embeddings.shape[1]) > 1,
+            )
 
             # Ensure r is the right shape (n_dims,)
             if np.isscalar(r):
@@ -1575,31 +1602,17 @@ class PhenoMeAnalysis:
             return pname, r
 
         if n_jobs == 1:
-            prop_iter = (
-                tqdm(
-                    valid_props.items(),
-                    desc=f"Computing {format_correlation_method(method)} correlations",
-                    disable=not use_progress,
-                    leave=False,
-                )
-                if use_progress
-                else valid_props.items()
-            )
-            for pname, parr in prop_iter:
+            for pname, parr in track(valid_props.items(), desc=desc):
                 pname_res, r = _worker(pname, parr)
                 if r is not None:
                     corrs[pname_res] = r
         else:
-            # Parallel execution
             items = list(valid_props.items())
-            results = Parallel(n_jobs=n_jobs)(
-                delayed(_worker)(pname, parr)
-                for pname, parr in tqdm(
-                    items,
-                    desc=f"Computing {format_correlation_method(method)} correlations",
-                    disable=not use_progress,
-                    leave=False,
-                )
+            results = parallel_with_progress(
+                (delayed(_worker)(pname, parr) for pname, parr in items),
+                n_jobs=n_jobs,
+                desc=desc,
+                total=len(items),
             )
             for pname, r in results:
                 if r is not None:
@@ -1777,25 +1790,58 @@ class PhenoMeAnalysis:
         """Compute Pearson correlation between x and y (delegates to core)."""
         return compute_pearson_correlation(x, y, device=self.device)
 
-    def _compute_spearman_correlation(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def _compute_spearman_correlation(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        *,
+        show_progress: bool = False,
+    ) -> np.ndarray:
         """Compute Spearman rank correlation between x and y (delegates to core)."""
-        return compute_spearman_correlation(x, y, device=self.device)
+        return compute_spearman_correlation(x, y, device=self.device, show_progress=show_progress)
 
-    def _compute_distance_correlation(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def _compute_distance_correlation(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        *,
+        show_progress: bool = False,
+    ) -> np.ndarray:
         """Compute distance correlation between x and y (delegates to core)."""
-        return compute_distance_correlation(x, y, device=self.device)
+        return compute_distance_correlation(x, y, device=self.device, show_progress=show_progress)
 
-    def _compute_mutual_info(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def _compute_mutual_info(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        *,
+        show_progress: bool = False,
+    ) -> np.ndarray:
         """Compute normalized mutual information (delegates to core)."""
-        return compute_mutual_info(x, y, seed=getattr(self, "seed", None), device=self.device)
+        return compute_mutual_info(
+            x,
+            y,
+            seed=getattr(self, "seed", None),
+            device=self.device,
+            show_progress=show_progress,
+        )
 
-    def _compute_correlation(self, method: str, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def _compute_correlation(
+        self,
+        method: str,
+        x: np.ndarray,
+        y: np.ndarray,
+        *,
+        show_progress: bool = False,
+    ) -> np.ndarray:
         """Dispatch to the correlation function for the given method."""
         fn_name = _CORRELATION_METHOD_REGISTRY.get(method)
         if fn_name is None:
             raise ValueError(f"Unknown correlation method: {method}")
         fn = getattr(self, fn_name)
-        return fn(x, y)
+        if method == "pearson":
+            return fn(x, y)
+        return fn(x, y, show_progress=show_progress)
 
     # ------------------------------------------------------------------
     # Shared helper: DRY filter -> get data -> valid_indices

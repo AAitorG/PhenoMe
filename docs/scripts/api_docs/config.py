@@ -375,6 +375,18 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
                 ),
                 CompoundBlock(
                     kind="function",
+                    function_module="phenome.utils.progress",
+                    function_name="track",
+                    member_heading_level="###",
+                ),
+                CompoundBlock(
+                    kind="function",
+                    function_module="phenome.utils.progress",
+                    function_name="log_computing",
+                    member_heading_level="###",
+                ),
+                CompoundBlock(
+                    kind="function",
                     function_module="phenome.utils.metadata",
                     function_name="default_metadata_from_path",
                     heading="Metadata helpers",
