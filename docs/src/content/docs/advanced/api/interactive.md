@@ -173,9 +173,9 @@ PhenoMeInteractive.show(
 
 Display the interactive dashboard.
 
-Only ONE widget tree is produced per cell.  Calling ``show()``
-again (or from ``create_interactive_explorer``) first clears
-any previous output so stale / duplicate widgets never appear.
+Only one widget tree stays visible. Jupyter clears the cell output.
+Colab skips that clear, because it can erase the widget displayed
+next, and hides the dashboard from the previous ``show()`` instead.
 
 </div>
 

@@ -42,7 +42,7 @@ Pip installs the published package. Conda uses the pinned environment files in t
     2. **Verify the install**
 
        ```bash
-       python -c '
+       python3 -c '
        import torch, phenome
        print(f"PhenoMe {phenome.__version__} is ready!")
        print("GPU:", torch.cuda.is_available(),
@@ -81,7 +81,7 @@ Pip installs the published package. Conda uses the pinned environment files in t
     3. **Verify the install**
 
        ```bash
-       python -c '
+       python3 -c '
        import torch, phenome
        print(f"PhenoMe {phenome.__version__} is ready!")
        print("GPU:", torch.cuda.is_available(),
