@@ -42,6 +42,8 @@ This package provides reusable components for building and extending phenotyping
 **Progress reporting:**
 - `ProgressCallback`: Type alias for ``(current, total, desc) -> None`` GUI hooks.
 - `report_progress`: Invoke an optional progress callback (no-op when ``None``).
+- `track`: Wrap a known-length loop in a ``tqdm`` bar.
+- `log_computing`: One-line status when a step has no countable loop.
 
 **See Also:**
 For metadata configuration objects, see `phenome.metadata`.
@@ -65,7 +67,7 @@ from .model_wrapper import (
     ModelWrapper,
     load_dinov2_model,
 )
-from .progress import ProgressCallback, report_progress
+from .progress import ProgressCallback, log_computing, report_progress, track
 from .property_factories import (
     create_blur_effect_function,
     create_concentric_ring_function,
@@ -109,6 +111,7 @@ __all__ = [
     "get_metadata_from_path",
     "get_preset_property_functions",
     "load_dinov2_model",
+    "log_computing",
     "make_dataframe_metadata_fn",
     "normalize_by_dtype_max",
     "quantile_normalize",
@@ -116,4 +119,5 @@ __all__ = [
     "resolve_intensity_scale",
     "scale_minmax",
     "set_determinism",
+    "track",
 ]

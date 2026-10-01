@@ -13,6 +13,7 @@ import pandas as pd
 from ..._logging import get_logger
 from ...core.dataframe_contract import TIER_A_EXCLUDE_FROM_PROPERTIES
 from ...utils.display_names import capitalize_preserve
+from ...utils.progress import track_steps
 from ._grouping_table import (
     _fit_width,
     _group_col_width_need,
@@ -449,7 +450,11 @@ def compute_leave_one_out_zscore_enrichment(
         )
 
     rows = []
-    for grp in all_groups:
+    for grp in track_steps(
+        all_groups,
+        desc="Computing group enrichment",
+        when_single="Computing group enrichment...",
+    ):
         gdf = working_df[working_df[group_col] == grp]
         if len(gdf) < 3:
             continue

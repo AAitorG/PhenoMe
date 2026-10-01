@@ -178,6 +178,7 @@ def restore_session_from_checkpoint(
     *,
     logger: Any | None = None,
     loaded: bool = False,
+    segments: Sequence[str] | None = None,
 ) -> dict[str, Any] | None:
     """Restore a session pipeline from *ckpt*, optionally logging it.
 
@@ -185,6 +186,8 @@ def restore_session_from_checkpoint(
         ckpt: Checkpoint manager with ``get_processing_pipeline``, or None.
         logger: Standard library logger used when *loaded* is True.
         loaded: If True, log the restored pipeline at INFO.
+        segments: Segment labels to log (``base``, ``temporal``, ``properties``).
+            None logs every stored segment. The returned session is unchanged.
 
     Returns:
         Session dict, or None when *ckpt* has no stored pipeline.
@@ -198,7 +201,7 @@ def restore_session_from_checkpoint(
     if session is None:
         return None
     if loaded and logger is not None:
-        emit_pipeline_logs(logger, session, loaded=True)
+        emit_pipeline_logs(logger, session, loaded=True, segments=segments)
     return session
 
 
@@ -351,16 +354,21 @@ def _format_step_line(
     return line, n_other, n_mask
 
 
-def pipeline_warning_messages(pipeline: Mapping[str, Any] | None) -> list[str]:
+def pipeline_warning_messages(
+    pipeline: Mapping[str, Any] | None,
+    *,
+    segments: Sequence[str] | None = None,
+) -> list[str]:
     """Plain-language warning texts from a pipeline or session.
 
     Args:
         pipeline: Single pipeline, session dict, or None.
+        segments: Segment labels to include. None includes every segment.
 
     Returns:
         Warning messages in order.
     """
-    return _finding_messages(pipeline, "warning")
+    return _finding_messages(pipeline, "warning", segments=segments)
 
 
 def pipeline_error_messages(pipeline: Mapping[str, Any] | None) -> list[str]:
@@ -375,17 +383,23 @@ def pipeline_error_messages(pipeline: Mapping[str, Any] | None) -> list[str]:
     return _finding_messages(pipeline, "error")
 
 
-def format_concise_pipeline(pipeline: Mapping[str, Any] | None) -> str:
+def format_concise_pipeline(
+    pipeline: Mapping[str, Any] | None,
+    *,
+    segments: Sequence[str] | None = None,
+) -> str:
     """Render a concise ordered processing pipeline for logs.
 
     Args:
         pipeline: Single pipeline or session dict.
+        segments: Segment labels to include (``base``, ``temporal``, ``properties``).
+            None includes every segment.
 
     Returns:
         Multi-line string. Empty when *pipeline* is empty.
     """
     parts: list[str] = []
-    for heading, payload in iter_pipeline_segments(pipeline):
+    for heading, payload in iter_pipeline_segments(pipeline, segments=segments):
         lines = [f"{heading}:"]
         steps = payload.get("steps") or []
         if not steps:
@@ -442,6 +456,7 @@ def emit_pipeline_logs(
     pipeline: Mapping[str, Any] | None,
     *,
     loaded: bool = False,
+    segments: Sequence[str] | None = None,
 ) -> None:
     """Log the concise processing pipeline at INFO and warnings at WARNING.
 
@@ -449,14 +464,16 @@ def emit_pipeline_logs(
         logger: Standard library logger.
         pipeline: Single pipeline or session dict.
         loaded: If True, prefix the pipeline as restored from results.
+        segments: Segment labels to log (``base``, ``temporal``, ``properties``).
+            None logs every segment.
     """
-    text = format_concise_pipeline(pipeline)
+    text = format_concise_pipeline(pipeline, segments=segments)
     if text:
         prefix = "Loaded " if loaded else ""
         for line in text.splitlines():
             logger.info("%s%s", prefix, line)
             prefix = ""
-    for message in pipeline_warning_messages(pipeline):
+    for message in pipeline_warning_messages(pipeline, segments=segments):
         logger.warning("%s", message)
 
 
@@ -714,38 +731,52 @@ def _segment_heading(label: str) -> str:
 
 def iter_pipeline_segments(
     pipeline: Mapping[str, Any] | None,
+    *,
+    segments: Sequence[str] | None = None,
 ) -> list[tuple[str, Mapping[str, Any]]]:
     """Return ``(heading, payload)`` pairs for session segments or a single pipeline.
 
     Args:
         pipeline: Session dict, a single pipeline, or None.
+        segments: Segment labels to include (``base``, ``temporal``, ``properties``).
+            None includes every segment.
 
     Returns:
         Ordered ``(heading, payload)`` pairs. Empty when *pipeline* is empty.
     """
     if not pipeline:
         return []
+    wanted = None if segments is None else set(segments)
     session_keys = ("base", "temporal", "properties")
     if any(k in pipeline for k in session_keys):
         out: list[tuple[str, Mapping[str, Any]]] = []
         for label in session_keys:
+            if wanted is not None and label not in wanted:
+                continue
             payload = pipeline.get(label)
             if isinstance(payload, dict):
                 out.append((_segment_heading(label), payload))
-        if out:
+        if out or wanted is not None:
             return out
     if "steps" in pipeline or "sample" in pipeline:
         kind = str(pipeline.get("kind") or "base")
         allowed = {"base", "temporal", "properties"}
         label = kind if kind in allowed else "base"
+        if wanted is not None and label not in wanted:
+            return []
         return [(_segment_heading(label), pipeline)]
     return []
 
 
-def _finding_messages(pipeline: Mapping[str, Any] | None, severity: FindingSeverity) -> list[str]:
+def _finding_messages(
+    pipeline: Mapping[str, Any] | None,
+    severity: FindingSeverity,
+    *,
+    segments: Sequence[str] | None = None,
+) -> list[str]:
     """Collect finding messages of one severity from a pipeline or session."""
     messages: list[str] = []
-    for _heading, payload in iter_pipeline_segments(pipeline):
+    for _heading, payload in iter_pipeline_segments(pipeline, segments=segments):
         for finding in payload.get("findings") or []:
             if isinstance(finding, dict) and finding.get("severity") == severity:
                 msg = finding.get("message")

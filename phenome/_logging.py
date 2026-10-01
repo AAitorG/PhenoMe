@@ -83,7 +83,13 @@ def get_logger(name: str) -> logging.Logger:
 
 
 def _ensure_configured() -> None:
-    """Attach a message-only handler unless the user already configured logging."""
+    """Attach a message-only stderr handler when no user sink should keep the records.
+
+    A handler already on the phenome logger is left alone. Ancestor stdout
+    or stderr handlers that use the stdlib default format are replaced, so
+    notebooks do not print the ``INFO:phenome:`` prefix. A file handler, or
+    any format the user chose, keeps propagation and is not duplicated.
+    """
     pkg_logger = logging.getLogger(_PKG_LOGGER_NAME)
 
     if getattr(pkg_logger, _CONFIGURED_ATTR, False):
@@ -94,9 +100,10 @@ def _ensure_configured() -> None:
     pkg_logger.addHandler(logging.NullHandler())
 
     # A root handler with the stdlib default format (common in notebooks)
-    # would print ``INFO:phenome.pipeline:``.  Own the stream in that case.
-    # A handler whose format the user chose is left in charge.
-    if not _ancestor_has_custom_format(pkg_logger):
+    # would print ``INFO:phenome.pipeline:``.  Own stderr in that case.
+    # A file, a handler already on this logger, or a format the user chose
+    # stays in charge.
+    if not _package_has_user_handler(pkg_logger) and _should_own_stream(pkg_logger):
         handler = logging.StreamHandler(sys.stderr)
         handler.setFormatter(_PhenomeFormatter())
         pkg_logger.addHandler(handler)
@@ -111,26 +118,41 @@ def _ensure_configured() -> None:
     setattr(pkg_logger, _CONFIGURED_ATTR, True)
 
 
-def _ancestor_has_custom_format(logger: logging.Logger) -> bool:
-    """Return True when a parent handler uses a format other than the stdlib default."""
+def _package_has_user_handler(logger: logging.Logger) -> bool:
+    """Return True when *logger* already has a handler other than NullHandler."""
+    return any(not isinstance(handler, logging.NullHandler) for handler in logger.handlers)
+
+
+def _should_own_stream(logger: logging.Logger) -> bool:
+    """Return True when phenome can replace ancestor handlers with its own stderr stream.
+
+    Own the stream when there is no ancestor handler, or every ancestor
+    handler is a stdout/stderr ``StreamHandler`` with the stdlib default
+    format or no formatter. Any other sink keeps receiving records.
+    """
     current: logging.Logger | None = logger.parent
     while current is not None:
         for handler in current.handlers:
             if isinstance(handler, logging.NullHandler):
                 continue
-            fmt = _handler_format(handler)
-            if fmt is not None and fmt != _DEFAULT_PREFIX_FORMAT:
-                return True
+            if not _is_default_stdio_handler(handler):
+                return False
         if not current.propagate:
             break
         current = current.parent
-    return False
+    return True
 
 
-def _handler_format(handler: logging.Handler) -> str | None:
-    """Return the handler's format string, if it has one."""
+def _is_default_stdio_handler(handler: logging.Handler) -> bool:
+    """Return True for a stdout/stderr handler using the stdlib default format."""
+    if isinstance(handler, logging.FileHandler):
+        return False
+    if not isinstance(handler, logging.StreamHandler):
+        return False
+    if getattr(handler, "stream", None) not in (sys.stdout, sys.stderr):
+        return False
     formatter = handler.formatter
     if formatter is None:
-        return None
+        return True
     fmt = getattr(formatter, "_fmt", None)
-    return fmt if isinstance(fmt, str) else None
+    return isinstance(fmt, str) and fmt == _DEFAULT_PREFIX_FORMAT
