@@ -37,12 +37,17 @@ from ...core import (
 )
 from ...plotly_display import apply_figurewidget_display_config
 from ._colab import (
+    PUMP_RUN,
+    PUMP_STOP,
     button_style,
     install_layout_compat,
+    launch_compute_pump,
     mount_plot,
     output_area_layout,
     plot_column_children,
     prepare_dashboard_cell,
+    push_widget_state,
+    request_pump_stop,
     resolve_colab,
     section_group,
 )
@@ -207,6 +212,10 @@ class PhenoMeInteractive:
 
         # Background compute (DR runs in a thread so the UI stays responsive)
         self._compute_thread: threading.Thread | None = None
+        # Colab job handed to the browser poll. The worker writes ``outcome`` only.
+        self._colab_job: dict[str, Any] | None = None
+        self._colab_pump_gen: int = 0
+        self._colab_tick_lock = threading.Lock()
         self._click_lock = threading.Lock()
         self._last_click_time = 0.0
         self._last_selection_time = 0.0
@@ -218,10 +227,10 @@ class PhenoMeInteractive:
         # Output area: flex child can shrink so the row does not force a horizontal
         # scrollbar when the notebook is narrow (embedding figure uses a fixed width).
         self.output_area = widgets.Output(layout=output_area_layout(colab=self._colab))
-        # Plot is shown by swapping children on this VBox.  Background compute runs in a
-        # thread; ``with output_area: display(...)`` relies on the kernel's parent msg_id
-        # (set only on the main thread), so ``display`` from a worker never reaches the
-        # widget.  Updating ``VBox.children`` syncs correctly from any thread.
+        # Plot is shown by swapping children on this VBox. ``display`` from a worker
+        # never reaches the cell: it needs the kernel parent header from the main
+        # thread. Jupyter accepts the children update from the compute thread.
+        # Colab does not, so that runtime mounts the figure from ``_on_colab_compute_tick``.
         self._embedding_placeholder = widgets.HTML(
             value=embedding_placeholder_idle(EMBEDDING_FIG_WIDTH_PX, EMBEDDING_FIG_HEIGHT_PX)
         )
@@ -295,6 +304,10 @@ class PhenoMeInteractive:
         self._debounce_timer = None
         self._filter_search_debounce_timer = None
         self._exclude_search_debounce_timer = None
+        if self._colab and self._colab_pump_gen:
+            with contextlib.suppress(Exception):
+                request_pump_stop(self._colab_pump_gen)
+            self._colab_job = None
 
     def show(self) -> None:
         """Display the interactive dashboard.
@@ -2887,12 +2900,12 @@ class PhenoMeInteractive:
     def _on_compute_clicked(self, _btn: Any) -> None:
         """Handle Compute button click - runs DR and rebuilds figure.
 
-        DR runs in a daemon thread so the UI stays responsive; a ticker updates
-        elapsed time in the status label.  The embedding plot is mounted by
-        updating ``_plot_slot.children`` so it still appears when compute
-        finishes on that thread (see class docstring / Output widget threading
-        notes).  Library warnings from DR may still print to the notebook or
-        kernel log.
+        DR runs in a daemon thread so the UI stays responsive. Jupyter's ticker
+        updates the status label from that thread, then mounts the plot on the
+        kernel loop. Colab never pushes those thread updates, so there the
+        browser polls ``_on_colab_compute_tick``, which advances the timer and
+        mounts the figure while handling that request. Library warnings from DR
+        may still print to the notebook or kernel log.
         """
         if self._compute_thread is not None and self._compute_thread.is_alive():
             return
@@ -2929,12 +2942,16 @@ class PhenoMeInteractive:
         if self._thumb_grid is not None:
             self._thumb_grid.grid_focus_index = -1
 
-        compute_done = threading.Event()
         t_start = time.time()
         self.compute_button.disabled = True
         self.status_label.value = status_html(f"Computing… {format_elapsed_time(0.0)}", "warn")
         # Full-size computing state so the plot area is not a blank gap while DR runs.
         self._plot_slot.children = (self._embedding_placeholder_computing,)
+
+        if self._colab and self._launch_colab_compute(compute_request, t_start):
+            return
+
+        compute_done = threading.Event()
 
         def _tick() -> None:
             while True:
@@ -2987,6 +3004,122 @@ class PhenoMeInteractive:
 
         self._compute_thread = threading.Thread(target=_run, daemon=True)
         self._compute_thread.start()
+
+    def _launch_colab_compute(self, compute_request: dict[str, Any], t_start: float) -> bool:
+        """Run DR off-thread and let the Colab poll paint the timer and the plot.
+
+        The worker must not touch widgets. Colab drops those updates, which left
+        the status stuck on ``0.0s`` and the figure never shown.
+        """
+        self._colab_pump_gen += 1
+        generation = self._colab_pump_gen
+        job: dict[str, Any] = {
+            "t_start": t_start,
+            "seq": self._compute_seq,
+            "gen": generation,
+            "outcome": None,
+            "displayed": False,
+        }
+        self._colab_job = job
+        if not launch_compute_pump(self._on_colab_compute_tick, generation):
+            self._colab_job = None
+            return False
+
+        def _run() -> None:
+            try:
+                elapsed = self._compute_embedding(compute_request)
+                job["outcome"] = ("ok", float(elapsed))
+            except Exception as exc:
+                import traceback
+
+                job["outcome"] = ("err", exc, traceback.format_exc())
+
+        self._compute_thread = threading.Thread(target=_run, daemon=True)
+        self._compute_thread.start()
+        return True
+
+    def _on_colab_compute_tick(self) -> str:
+        """Advance the Colab timer, then mount the plot once DR has finished.
+
+        Two polls can call this at once (the cell eval and the output frame).
+        The tick lock lets only one of them mount the figure. The click lock is
+        taken without blocking: a plot click releases it on this same kernel
+        loop, so waiting here would deadlock that loop.
+        """
+        job: dict[str, Any] | None = None
+        outcome: tuple[Any, ...] | None = None
+        holding_click = False
+        try:
+            with self._colab_tick_lock:
+                job = self._colab_job
+                if job is None or job.get("displayed"):
+                    if job is not None and job.get("displayed"):
+                        request_pump_stop(int(job["gen"]))
+                    return PUMP_STOP
+
+                pending = job.get("outcome")
+                if pending is None:
+                    with contextlib.suppress(Exception):
+                        elapsed = time.time() - float(job["t_start"])
+                        self.status_label.value = status_html(
+                            f"Computing… {format_elapsed_time(elapsed)}", "warn"
+                        )
+                        push_widget_state(self.status_label)
+                    return PUMP_RUN
+
+                if not self._click_lock.acquire(blocking=False):
+                    return PUMP_RUN
+                holding_click = True
+                job["displayed"] = True
+                outcome = pending
+
+            assert outcome is not None
+            if outcome[0] == "err":
+                exc, tb = outcome[1], outcome[2]
+                self.status_label.value = status_html(f"Error: {exc}", "err")
+                self._plot_slot.children = (self._embedding_placeholder,)
+                text = tb if str(tb).endswith("\n") else f"{tb}\n"
+                with contextlib.suppress(Exception):
+                    self.output_area.append_stderr(text)
+            elif self._compute_seq == job["seq"]:
+                elapsed = float(outcome[1])
+                self._update_highlight_key_options()
+                self._update_highlight_value_options()
+                self._update_color_options()
+                self._build_figure()
+                self._display_figure()
+                self._update_selection_summary()
+                n = len(self._cached_df) if self._cached_df is not None else 0
+                self.status_label.value = status_html(
+                    f"Done — {n:,} points in {format_elapsed_time(elapsed)}", "ok"
+                )
+            else:
+                self._plot_slot.children = (self._embedding_placeholder,)
+                self.status_label.value = status_html("Compute cancelled.", "warn")
+        except Exception as exc:
+            self.status_label.value = status_html(f"Display error: {exc}", "err")
+            self._plot_slot.children = (self._embedding_placeholder,)
+        finally:
+            if holding_click:
+                self._click_lock.release()
+                self.compute_button.disabled = False
+                with contextlib.suppress(Exception):
+                    self._update_stats()
+                mounted = (self.fig_widget,) if self.fig_widget is not None else ()
+                push_widget_state(
+                    self.status_label,
+                    self.compute_button,
+                    self._plot_slot,
+                    self.color_dropdown,
+                    self.highlight_key_dropdown,
+                    self.highlight_value_select,
+                    *mounted,
+                )
+                if job is not None:
+                    request_pump_stop(int(job["gen"]))
+        if holding_click:
+            return PUMP_STOP
+        return PUMP_RUN
 
     def _on_color_changed(self, change: Any) -> None:
         """Instant colour change (no recomputation)."""

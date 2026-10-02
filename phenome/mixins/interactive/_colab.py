@@ -6,14 +6,23 @@
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Callable
 from typing import Any
 
 import ipywidgets as widgets
-from IPython.display import clear_output, display
+from IPython.display import Javascript, clear_output, display
 
 from ..._logging import get_logger
 
 logger = get_logger(__name__)
+
+# Colab syncs a widget only while it is handling a frontend request. Trait
+# changes made from a compute thread never reach the page (colabtools#3373).
+# A browser poll invokes this callback, and that invocation is the request.
+COMPUTE_PUMP_CALLBACK = "phenome.explorerPump"
+PUMP_RUN = "phenome-pump-run"
+PUMP_STOP = "phenome-pump-stop"
+_PUMP_INTERVAL_MS = 500
 
 
 def running_in_colab() -> bool:
@@ -193,7 +202,8 @@ def mount_plot(
     """Show the idle plot placeholder.
 
     Jupyter displays the slot inside ``output_area``. Colab assigns it as a
-    direct child; a later compute only replaces ``plot_slot.children``.
+    direct child. The finished figure is mounted later by the compute pump,
+    which is the request Colab will sync.
     """
     plot_slot.children = (placeholder,)
     if colab:
@@ -201,3 +211,131 @@ def mount_plot(
     with output_area:
         clear_output(wait=True)
         display(plot_slot)
+
+
+def push_widget_state(*widgets_to_push: Any) -> None:
+    """Send current widget state to the frontend.
+
+    Used from the Colab compute poll. Assigning a trait from that poll is not
+    always enough; ``send_state`` is what actually reaches the page.
+    """
+    for widget in widgets_to_push:
+        send_state = getattr(widget, "send_state", None)
+        if send_state is None:
+            continue
+        with contextlib.suppress(Exception):
+            send_state()
+
+
+def _pump_script(generation: int) -> str:
+    """JavaScript that polls ``COMPUTE_PUMP_CALLBACK`` until this generation stops."""
+    gen = int(generation)
+    return f"""
+(function() {{
+  var gen = {gen};
+  window._phenomePumpGen = gen;
+  window._phenomePumpEpoch = (window._phenomePumpEpoch || 0) + 1;
+  var epoch = window._phenomePumpEpoch;
+  window._phenomePumpFails = 0;
+  if (window._phenomePumpTimer) {{
+    clearTimeout(window._phenomePumpTimer);
+    window._phenomePumpTimer = null;
+  }}
+  var kernel = (typeof google !== "undefined" && google.colab && google.colab.kernel)
+    || (typeof colab !== "undefined" && colab.kernel);
+  if (!kernel || !kernel.invokeFunction) return;
+  function stillCurrent() {{
+    return window._phenomePumpGen === gen && window._phenomePumpEpoch === epoch;
+  }}
+  function isStop(result) {{
+    try {{
+      if (result === "{PUMP_STOP}") return true;
+      var plain = result && result.data && result.data["text/plain"];
+      if (plain && String(plain).indexOf("{PUMP_STOP}") !== -1) return true;
+      var str = JSON.stringify(result);
+      if (str && str.indexOf("{PUMP_STOP}") !== -1) return true;
+    }} catch (e) {{}}
+    return false;
+  }}
+  function schedule() {{
+    if (!stillCurrent()) return;
+    window._phenomePumpTimer = setTimeout(tick, {_PUMP_INTERVAL_MS});
+  }}
+  function tick() {{
+    if (!stillCurrent()) return;
+    Promise.resolve(kernel.invokeFunction("{COMPUTE_PUMP_CALLBACK}", [], {{}})).then(function(result) {{
+      if (!stillCurrent()) return;
+      window._phenomePumpFails = 0;
+      if (isStop(result)) return;
+      schedule();
+    }}).catch(function() {{
+      if (!stillCurrent()) return;
+      window._phenomePumpFails = (window._phenomePumpFails || 0) + 1;
+      if (window._phenomePumpFails > 8) return;
+      schedule();
+    }});
+  }}
+  tick();
+}})();
+"""
+
+
+def launch_compute_pump(on_tick: Callable[[], str], generation: int) -> bool:
+    """Start a Colab poll that calls ``on_tick`` on the kernel request thread.
+
+    Returns False when this process is not Colab. ``generation`` lets a newer
+    compute retire the previous poll without a late stop killing the new one.
+    ``on_tick`` must return ``PUMP_RUN`` or ``PUMP_STOP``.
+    """
+    try:
+        from google.colab import output
+    except ImportError:
+        return False
+
+    def _invoke(*_args: Any, **_kwargs: Any) -> str:
+        try:
+            token = on_tick()
+        except Exception:
+            logger.warning("Colab compute pump failed", exc_info=True)
+            return PUMP_STOP
+        if token == PUMP_STOP:
+            return PUMP_STOP
+        return PUMP_RUN
+
+    try:
+        output.register_callback(COMPUTE_PUMP_CALLBACK, _invoke)
+    except Exception:
+        logger.warning("Could not register the Colab compute pump", exc_info=True)
+        return False
+
+    script = _pump_script(generation)
+    # A widget callback does not always get a cell eval. Start the poll both in
+    # the cell (``eval_js``, same window as ``request_pump_stop``) and in an
+    # output frame (``display``). Each copy stops when the tick returns
+    # ``PUMP_STOP``; a newer generation ignores a late stop from the older one.
+    started = False
+    try:
+        output.eval_js(script, ignore_result=True)
+        started = True
+    except Exception:
+        logger.warning("Could not eval the Colab compute pump", exc_info=True)
+    try:
+        display(Javascript(script))
+        started = True
+    except Exception:
+        logger.warning("Could not display the Colab compute pump", exc_info=True)
+    return started
+
+
+def request_pump_stop(generation: int) -> None:
+    """Ask the browser to stop the poll started for ``generation``."""
+    gen = int(generation)
+    try:
+        from google.colab import output
+    except ImportError:
+        return
+    with contextlib.suppress(Exception):
+        output.eval_js(
+            f"if (window._phenomePumpGen === {gen}) window._phenomePumpGen = -1;",
+            ignore_result=True,
+        )
