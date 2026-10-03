@@ -61,7 +61,7 @@ The script [`docs/scripts/generate_api_docs.py`](https://github.com/AAitorG/Phen
 | `utilities.md` | `phenome.utils.device`, `phenome.io`, `TransformBuilder` |
 | `plugins.md` | `phenome.plugins` |
 | `report.md` | `ReportConfig`, `generate_report` in `phenome.report.generator` |
-| `interactive.md` | `create_interactive_explorer`, `PhenoMeInteractive` |
+| `interactive.md` | `create_interactive_explorer`, `create_colab_interactive_explorer`, `PhenoMeInteractive` |
 
 Docstrings may start with optional `@section` / `@order` lines to override the built-in grouping for that page. Legacy `api-advanced/` output is no longer produced.
 

@@ -278,7 +278,9 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
         source=ClassSource(
             module="phenome.mixins.visualization",
             class_name="PhenoMeVisualization",
-            exclude_names=frozenset({"create_interactive_explorer"}),
+            exclude_names=frozenset(
+                {"create_interactive_explorer", "create_colab_interactive_explorer"}
+            ),
         ),
     ),
     PageSpec(
@@ -513,6 +515,14 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
                     function_module="phenome.mixins.interactive",
                     function_name="create_interactive_explorer",
                     heading="Factory",
+                    class_heading_prefix="##",
+                    member_heading_level="###",
+                ),
+                CompoundBlock(
+                    kind="function",
+                    function_module="phenome.mixins.interactive",
+                    function_name="create_colab_interactive_explorer",
+                    heading="Colab",
                     class_heading_prefix="##",
                     member_heading_level="###",
                 ),

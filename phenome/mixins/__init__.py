@@ -41,7 +41,7 @@ Each mixin provides related methods as a logical group:
 - `PhenoMeDistances`: `compute_reference_distances()`, etc.
 - `PhenoMeVisualization`: `plot_pca()`, `plot_tsne()`, `plot_umap()`, etc.
 - `PhenoMeBatchCorrection`: `correct_batches()`, etc.
-- `PhenoMeInteractive`: `create_interactive_explorer()`, etc.
+- `PhenoMeInteractive`: `create_interactive_explorer()`, `create_colab_interactive_explorer()`.
 
 **Internal organization:**
 Most mixin modules follow this structure:
@@ -61,7 +61,11 @@ from .batch_correction import PhenoMeBatchCorrection
 from .dataset import PhenoMeDataset, collate_fn
 from .distances import PhenoMeDistances
 from .embedding_extractor import EmbeddingExtractor
-from .interactive import PhenoMeInteractive, create_interactive_explorer
+from .interactive import (
+    PhenoMeInteractive,
+    create_colab_interactive_explorer,
+    create_interactive_explorer,
+)
 from .properties import PhenoMeProperties
 from .visualization import PhenoMeVisualization
 
@@ -75,5 +79,6 @@ __all__ = [
     "PhenoMeProperties",
     "PhenoMeVisualization",
     "collate_fn",
+    "create_colab_interactive_explorer",
     "create_interactive_explorer",
 ]

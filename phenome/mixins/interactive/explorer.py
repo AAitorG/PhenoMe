@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from IPython.display import Javascript, display
+from IPython.display import Javascript, clear_output, display
 
 from ..._logging import get_logger
 from ...core import (
@@ -36,21 +36,6 @@ from ...core import (
     run_dimensionality_reduction,
 )
 from ...plotly_display import apply_figurewidget_display_config
-from ._colab import (
-    PUMP_RUN,
-    PUMP_STOP,
-    button_style,
-    install_layout_compat,
-    launch_compute_pump,
-    mount_plot,
-    output_area_layout,
-    plot_column_children,
-    prepare_dashboard_cell,
-    push_widget_state,
-    request_pump_stop,
-    resolve_colab,
-    section_group,
-)
 from ._html_components import (
     CLICK_DEBOUNCE_SEC,
     CONTINUOUS_SCALES,
@@ -101,6 +86,22 @@ from ._utils import (
 logger = get_logger(__name__)
 
 
+def _accordion(
+    sections: list[tuple[str, widgets.Widget]],
+    *,
+    open_index: int | None,
+) -> widgets.Accordion:
+    """Group titled panels in a Jupyter accordion."""
+    accordion = widgets.Accordion(
+        children=[child for _, child in sections],
+        layout=widgets.Layout(width="100%"),
+    )
+    for index, (title, _) in enumerate(sections):
+        accordion.set_title(index, title)
+    accordion.selected_index = open_index
+    return accordion
+
+
 class PhenoMeInteractive:
     """
     @section Visualization
@@ -143,7 +144,6 @@ class PhenoMeInteractive:
         exclude: dict | None = None,
         hover_features: list[str] | None = None,
         max_points: int = 1_000_000,
-        colab: bool | None = None,
     ):
         """
         Initialize the interactive explorer.
@@ -154,12 +154,7 @@ class PhenoMeInteractive:
             exclude: Optional dictionary of metadata exclusions (same structure as filters).
             hover_features: Optional list of features to show on hover.
             max_points: Maximum points to plot before subsampling.
-            colab: ``None`` detects Google Colab. ``True`` or ``False`` forces that layout.
         """
-        self._colab = resolve_colab(colab)
-        # ipywidgets 7 rejects gap/background/border_radius even when the
-        # Jupyter accordion layout is forced with colab=False.
-        install_layout_compat()
         self._displayed_dashboard: widgets.Widget | None = None
         self.pheno = pheno_me
         # Shallow copies: when set, DR always uses these instead of UI widget state.
@@ -212,10 +207,6 @@ class PhenoMeInteractive:
 
         # Background compute (DR runs in a thread so the UI stays responsive)
         self._compute_thread: threading.Thread | None = None
-        # Colab job handed to the browser poll. The worker writes ``outcome`` only.
-        self._colab_job: dict[str, Any] | None = None
-        self._colab_pump_gen: int = 0
-        self._colab_tick_lock = threading.Lock()
         self._click_lock = threading.Lock()
         self._last_click_time = 0.0
         self._last_selection_time = 0.0
@@ -226,11 +217,12 @@ class PhenoMeInteractive:
 
         # Output area: flex child can shrink so the row does not force a horizontal
         # scrollbar when the notebook is narrow (embedding figure uses a fixed width).
-        self.output_area = widgets.Output(layout=output_area_layout(colab=self._colab))
+        self.output_area = widgets.Output(
+            layout=widgets.Layout(flex="1 1 0%", min_width="0px", width="auto")
+        )
         # Plot is shown by swapping children on this VBox. ``display`` from a worker
         # never reaches the cell: it needs the kernel parent header from the main
         # thread. Jupyter accepts the children update from the compute thread.
-        # Colab does not, so that runtime mounts the figure from ``_on_colab_compute_tick``.
         self._embedding_placeholder = widgets.HTML(
             value=embedding_placeholder_idle(EMBEDDING_FIG_WIDTH_PX, EMBEDDING_FIG_HEIGHT_PX)
         )
@@ -304,22 +296,17 @@ class PhenoMeInteractive:
         self._debounce_timer = None
         self._filter_search_debounce_timer = None
         self._exclude_search_debounce_timer = None
-        if self._colab and self._colab_pump_gen:
-            with contextlib.suppress(Exception):
-                request_pump_stop(self._colab_pump_gen)
-            self._colab_job = None
 
     def show(self) -> None:
         """Display the interactive dashboard.
 
-        Only one widget tree stays visible. Jupyter clears the cell output.
-        Colab skips that clear, because it can erase the widget displayed
-        next, and hides the dashboard from the previous ``show()`` instead.
+        Only one widget tree stays visible. Jupyter clears the cell output
+        before the new dashboard is displayed.
         """
         self.close()
         # One widget tree per cell. A second ``show()`` otherwise leaves the
         # previous menu on screen.
-        prepare_dashboard_cell(self._displayed_dashboard, colab=self._colab)
+        clear_output(wait=True)
 
         self._update_color_options()
         self._update_highlight_key_options()
@@ -441,7 +428,7 @@ class PhenoMeInteractive:
                 padding="10px 12px 12px 12px",
             ),
         )
-        accordion = section_group(
+        accordion = _accordion(
             [
                 ("⊞ Embedding", _embed_full),
                 ("◑ Appearance", _appear),
@@ -449,7 +436,6 @@ class PhenoMeInteractive:
                 ("⬚ Selection (box / lasso)", _selection_panel),
             ],
             open_index=0,
-            colab=self._colab,
         )
 
         # Load logo if available
@@ -494,10 +480,9 @@ class PhenoMeInteractive:
             ),
         )
 
-        # Jupyter nests the figure in ``output_area``. Colab cannot draw a
-        # FigureWidget there, so the slot is a direct child when colab=True.
+        # The figure lives inside ``output_area`` so a later display replaces it.
         plot_column = widgets.VBox(
-            plot_column_children(self._plot_slot, self.output_area, colab=self._colab),
+            [self.output_area],
             layout=widgets.Layout(
                 gap="4px",
                 width=f"{EMBEDDING_FIG_WIDTH_PX}px",
@@ -525,12 +510,10 @@ class PhenoMeInteractive:
 
         self._update_stats()
         self._update_selection_summary()
-        mount_plot(
-            self._plot_slot,
-            self.output_area,
-            self._embedding_placeholder,
-            colab=self._colab,
-        )
+        self._plot_slot.children = (self._embedding_placeholder,)
+        with self.output_area:
+            clear_output(wait=True)
+            display(self._plot_slot)
 
     def set_filters(
         self,
@@ -903,15 +886,13 @@ class PhenoMeInteractive:
             ],
             layout=widgets.Layout(width="100%", gap="4px", padding="10px 12px 12px 12px"),
         )
-        self._embedding_filter_accordion = section_group(
+        self._embedding_filter_accordion = _accordion(
             [("Filter", self._filter_accordion_panel)],
             open_index=None,
-            colab=self._colab,
         )
-        self._embedding_exclude_accordion = section_group(
+        self._embedding_exclude_accordion = _accordion(
             [("Exclude", self._exclude_accordion_panel)],
             open_index=None,
-            colab=self._colab,
         )
 
     def _create_highlight_widgets(self) -> None:
@@ -1000,12 +981,11 @@ class PhenoMeInteractive:
         )
 
         # Custom colors (``button_style`` would fight theme); light blue = start, light red = stop.
-        # ``text_color`` is dropped where ipywidgets 7 does not define it.
-        self._highlight_btn_style_blue = button_style(
+        self._highlight_btn_style_blue = widgets.ButtonStyle(
             button_color="#BFDBFE",
             text_color="#1E3A8A",
         )
-        self._highlight_btn_style_stop = button_style(
+        self._highlight_btn_style_stop = widgets.ButtonStyle(
             button_color="#FECACA",
             text_color="#991B1B",
         )
@@ -2900,12 +2880,10 @@ class PhenoMeInteractive:
     def _on_compute_clicked(self, _btn: Any) -> None:
         """Handle Compute button click - runs DR and rebuilds figure.
 
-        DR runs in a daemon thread so the UI stays responsive. Jupyter's ticker
-        updates the status label from that thread, then mounts the plot on the
-        kernel loop. Colab never pushes those thread updates, so there the
-        browser polls ``_on_colab_compute_tick``, which advances the timer and
-        mounts the figure while handling that request. Library warnings from DR
-        may still print to the notebook or kernel log.
+        DR runs in a daemon thread so the UI stays responsive. A ticker updates
+        the status label from that thread, then the figure is mounted on the
+        kernel loop. Library warnings from DR may still print to the notebook
+        or kernel log.
         """
         if self._compute_thread is not None and self._compute_thread.is_alive():
             return
@@ -2947,9 +2925,6 @@ class PhenoMeInteractive:
         self.status_label.value = status_html(f"Computing… {format_elapsed_time(0.0)}", "warn")
         # Full-size computing state so the plot area is not a blank gap while DR runs.
         self._plot_slot.children = (self._embedding_placeholder_computing,)
-
-        if self._colab and self._launch_colab_compute(compute_request, t_start):
-            return
 
         compute_done = threading.Event()
 
@@ -3004,122 +2979,6 @@ class PhenoMeInteractive:
 
         self._compute_thread = threading.Thread(target=_run, daemon=True)
         self._compute_thread.start()
-
-    def _launch_colab_compute(self, compute_request: dict[str, Any], t_start: float) -> bool:
-        """Run DR off-thread and let the Colab poll paint the timer and the plot.
-
-        The worker must not touch widgets. Colab drops those updates, which left
-        the status stuck on ``0.0s`` and the figure never shown.
-        """
-        self._colab_pump_gen += 1
-        generation = self._colab_pump_gen
-        job: dict[str, Any] = {
-            "t_start": t_start,
-            "seq": self._compute_seq,
-            "gen": generation,
-            "outcome": None,
-            "displayed": False,
-        }
-        self._colab_job = job
-        if not launch_compute_pump(self._on_colab_compute_tick, generation):
-            self._colab_job = None
-            return False
-
-        def _run() -> None:
-            try:
-                elapsed = self._compute_embedding(compute_request)
-                job["outcome"] = ("ok", float(elapsed))
-            except Exception as exc:
-                import traceback
-
-                job["outcome"] = ("err", exc, traceback.format_exc())
-
-        self._compute_thread = threading.Thread(target=_run, daemon=True)
-        self._compute_thread.start()
-        return True
-
-    def _on_colab_compute_tick(self) -> str:
-        """Advance the Colab timer, then mount the plot once DR has finished.
-
-        Two polls can call this at once (the cell eval and the output frame).
-        The tick lock lets only one of them mount the figure. The click lock is
-        taken without blocking: a plot click releases it on this same kernel
-        loop, so waiting here would deadlock that loop.
-        """
-        job: dict[str, Any] | None = None
-        outcome: tuple[Any, ...] | None = None
-        holding_click = False
-        try:
-            with self._colab_tick_lock:
-                job = self._colab_job
-                if job is None or job.get("displayed"):
-                    if job is not None and job.get("displayed"):
-                        request_pump_stop(int(job["gen"]))
-                    return PUMP_STOP
-
-                pending = job.get("outcome")
-                if pending is None:
-                    with contextlib.suppress(Exception):
-                        elapsed = time.time() - float(job["t_start"])
-                        self.status_label.value = status_html(
-                            f"Computing… {format_elapsed_time(elapsed)}", "warn"
-                        )
-                        push_widget_state(self.status_label)
-                    return PUMP_RUN
-
-                if not self._click_lock.acquire(blocking=False):
-                    return PUMP_RUN
-                holding_click = True
-                job["displayed"] = True
-                outcome = pending
-
-            assert outcome is not None
-            if outcome[0] == "err":
-                exc, tb = outcome[1], outcome[2]
-                self.status_label.value = status_html(f"Error: {exc}", "err")
-                self._plot_slot.children = (self._embedding_placeholder,)
-                text = tb if str(tb).endswith("\n") else f"{tb}\n"
-                with contextlib.suppress(Exception):
-                    self.output_area.append_stderr(text)
-            elif self._compute_seq == job["seq"]:
-                elapsed = float(outcome[1])
-                self._update_highlight_key_options()
-                self._update_highlight_value_options()
-                self._update_color_options()
-                self._build_figure()
-                self._display_figure()
-                self._update_selection_summary()
-                n = len(self._cached_df) if self._cached_df is not None else 0
-                self.status_label.value = status_html(
-                    f"Done — {n:,} points in {format_elapsed_time(elapsed)}", "ok"
-                )
-            else:
-                self._plot_slot.children = (self._embedding_placeholder,)
-                self.status_label.value = status_html("Compute cancelled.", "warn")
-        except Exception as exc:
-            self.status_label.value = status_html(f"Display error: {exc}", "err")
-            self._plot_slot.children = (self._embedding_placeholder,)
-        finally:
-            if holding_click:
-                self._click_lock.release()
-                self.compute_button.disabled = False
-                with contextlib.suppress(Exception):
-                    self._update_stats()
-                mounted = (self.fig_widget,) if self.fig_widget is not None else ()
-                push_widget_state(
-                    self.status_label,
-                    self.compute_button,
-                    self._plot_slot,
-                    self.color_dropdown,
-                    self.highlight_key_dropdown,
-                    self.highlight_value_select,
-                    *mounted,
-                )
-                if job is not None:
-                    request_pump_stop(int(job["gen"]))
-        if holding_click:
-            return PUMP_STOP
-        return PUMP_RUN
 
     def _on_color_changed(self, change: Any) -> None:
         """Instant colour change (no recomputation)."""
@@ -3607,7 +3466,6 @@ def create_interactive_explorer(
     filters: dict[str, Any] | None = None,
     exclude: dict[str, Any] | None = None,
     hover_features: list[str] | None = None,
-    colab: bool | None = None,
 ) -> PhenoMeInteractive:
     """Launch an interactive explorer for phenotyping results in Jupyter.
 
@@ -3624,10 +3482,7 @@ def create_interactive_explorer(
         exclude: Optional metadata exclusions (same structure as filters).
         hover_features: Optional list of metadata or property keys to show in
             hover tooltips. If ``None``, uses metadata keys from the pipeline.
-        colab: ``None`` (default) detects Google Colab. Pass ``True`` or ``False``
-            to force the Colab or Jupyter layout. Colab's widget page is
-            ipywidgets 7 and cannot draw accordion panes once the Plotly widget
-            manager is enabled.
+            For Google Colab, use ``create_colab_interactive_explorer``.
 
     Returns:
         PhenoMeInteractive: The explorer instance. Call ``.show()`` again to re-display.
@@ -3648,7 +3503,6 @@ def create_interactive_explorer(
         filters=filters,
         exclude=exclude,
         hover_features=hover_features,
-        colab=colab,
     )
     explorer.show()
     return explorer

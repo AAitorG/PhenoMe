@@ -103,6 +103,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `compute_properties` | Compute per-image properties using presets and/or custom functions. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties) |
 | `compute_reference_distances` | Compute distances from all images to reference group. | ✅ | [Distances](/PhenoMe/advanced/api/distances/#api-phenomedistances-compute_reference_distances) |
 | `correct_batches` | Correct plate-to-plate variation using control wells per batch. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomebatchcorrection-correct_batches) |
+| `create_colab_interactive_explorer` | Launch the short Colab explorer for this pipeline's results. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_colab_interactive_explorer) |
 | `create_interactive_explorer` | Launch the interactive explorer for this pipeline's results. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_interactive_explorer) |
 | `detect_outliers` | Detect outliers based on distance to centroid. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-detect_outliers) |
 | `embedding_dim` | Return the embedding dimensionality, or 0 if unavailable. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-embedding_dim) |
@@ -281,6 +282,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
 | `collate_fn` | Custom collate function that handles failed loads and split/combined channels. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
+| `create_colab_interactive_explorer` | Launch a short interactive explorer that works in Google Colab. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_colab_interactive_explorer) |
 | `create_interactive_explorer` | Launch an interactive explorer for phenotyping results in Jupyter. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_interactive_explorer) |
 | `EmbeddingExtractor` | Extracts embeddings from images using a ModelWrapper and DataLoader. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeAnalysis` | Pipeline providing analysis methods for PhenoMe. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_clustering) |
