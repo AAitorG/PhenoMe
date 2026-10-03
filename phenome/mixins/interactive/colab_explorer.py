@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import contextlib
 import html
+import logging
+import time
+from collections.abc import Iterator
 from typing import Any, Literal, cast
 
 import ipywidgets as widgets
@@ -62,6 +65,35 @@ def _enable_colab_widgets() -> str | None:
     except Exception:
         logger.warning("Colab vertical scroll setup failed", exc_info=True)
     return None
+
+
+class _SkipImageDetailsLog(logging.Filter):
+    """Hide the extra-info lines ``image_preview_png_bytes`` writes to the log.
+
+    The Colab panel shows that block under the image. The log line would also
+    land under the cell, once for every click.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Keep every record except the preview extra-info block."""
+        return "IMAGE DETAILS" not in record.getMessage()
+
+
+@contextlib.contextmanager
+def _quiet_image_details_log() -> Iterator[None]:
+    """Suppress the preview extra-info log while a Colab image loads."""
+    log = logging.getLogger("phenome.mixins.visualization._image_display")
+    pkg = logging.getLogger("phenome")
+    filt = _SkipImageDetailsLog()
+    log.addFilter(filt)
+    for h in pkg.handlers:
+        h.addFilter(filt)
+    try:
+        yield
+    finally:
+        log.removeFilter(filt)
+        for h in pkg.handlers:
+            h.removeFilter(filt)
 
 
 def _section_label(text: str) -> widgets.HTML:
@@ -131,6 +163,8 @@ class ColabInteractiveExplorer:
         self._n_data_traces = 0
         self._index_to_row: dict[int, int] = {}
         self._selected: int | None = None
+        self._last_click_time: float = 0.0
+        self._last_clicked_idx: int | None = None
         self._suspend_appearance = False
         self._displayed: widgets.Widget | None = None
         self._widget_manager_error: str | None = None
@@ -363,6 +397,7 @@ class ColabInteractiveExplorer:
     def _clear_selection_view(self) -> None:
         """Clear the click selection and the side image together."""
         self._selected = None
+        self._last_clicked_idx = None
         self.img_output.children = (widgets.HTML(value=_idle_image_html()),)
 
     def _compute_embedding(self) -> None:
@@ -414,7 +449,6 @@ class ColabInteractiveExplorer:
         """Build the scatter and put it directly in the plot column."""
         self._fig = self._build_figure()
         self._plot_slot.children = (self._fig,)
-        self._apply_ring()
 
     def _build_figure(self) -> go.FigureWidget:
         """SVG scatter in 2D, scatter3d in 3D, plus one click-ring trace."""
@@ -519,9 +553,14 @@ class ColabInteractiveExplorer:
         widget = go.FigureWidget(figurewidget_safe_figure(fig))
         apply_figurewidget_display_config(widget)
         self._n_data_traces = len(widget.data)
-        widget.add_trace(self._ring_trace(is_3d=bool(z_col), size=size))
+        ax, ay, az = self._anchor_xyz()
+        widget.add_trace(self._ring_trace(is_3d=bool(z_col), size=size, x=ax, y=ay, z=az))
         for trace in list(widget.data)[: self._n_data_traces]:
             trace.on_click(self._on_figure_click)
+        # Place the ring before the widget is shown. Colab paints the first
+        # model state; a later move only has to change this one-point trace.
+        self._fig = widget
+        self._apply_ring()
         return widget
 
     def _coord_columns(self) -> tuple[str, str, str | None]:
@@ -529,11 +568,48 @@ class ColabInteractiveExplorer:
         z_col = "Component 3" if self._ndims == 3 else None
         return "Component 1", "Component 2", z_col
 
-    def _ring_trace(self, *, is_3d: bool, size: int) -> go.Scatter | go.Scatter3d:
-        """Hollow marker drawn on the clicked point."""
+    def _ring_marker_size(self, point_size: int | None = None) -> int:
+        """Pixel diameter of the click ring, larger than the scatter markers."""
+        size = int(self.point_size_slider.value if point_size is None else point_size)
+        return max(size + 8, int(size * 2))
+
+    def _anchor_xyz(self) -> tuple[float, float, float | None]:
+        """A coordinate already in the scatter, used to park the hidden ring."""
+        df = self._df
+        if df is None or len(df) == 0:
+            z = 0.0 if self._ndims == 3 else None
+            return 0.0, 0.0, z
+        selected = self._selected
+        if selected is not None and selected in self._index_to_row:
+            row = df.iloc[self._index_to_row[selected]]
+        else:
+            row = df.iloc[0]
+        x_col, y_col, z_col = self._coord_columns()
+        z = float(row[z_col]) if z_col else None
+        return float(row[x_col]), float(row[y_col]), z
+
+    def _ring_trace(
+        self,
+        *,
+        is_3d: bool,
+        size: int,
+        x: float,
+        y: float,
+        z: float | None,
+    ) -> go.Scatter | go.Scatter3d:
+        """Open circle drawn on the clicked point.
+
+        Colab's Plotly does not stroke a fully transparent marker, so the ring
+        is an open circle. It always holds one coordinate already in the
+        scatter (size 0 until a click). An empty trace updated later does not
+        show up in Colab.
+        """
+        hidden = self._selected is None
         marker = {
-            "size": max(size + 5, int(size * 2)),
-            "color": "rgba(0,0,0,0)",
+            "size": 0 if hidden else self._ring_marker_size(size),
+            "color": "black",
+            "opacity": 0 if hidden else 1,
+            "symbol": "circle-open",
             "line": {"color": "black", "width": 2},
         }
         common: dict[str, Any] = {
@@ -541,12 +617,12 @@ class ColabInteractiveExplorer:
             "mode": "markers",
             "showlegend": False,
             "hoverinfo": "skip",
-            "visible": False,
+            "visible": True,
             "marker": marker,
         }
         if is_3d:
-            return go.Scatter3d(x=[], y=[], z=[], **common)
-        return go.Scatter(x=[], y=[], **common)
+            return go.Scatter3d(x=[x], y=[y], z=[0.0 if z is None else z], **common)
+        return go.Scatter(x=[x], y=[y], **common)
 
     def _on_color_changed(self, _change: Any) -> None:
         """Recolor by rebuilding the figure inside the dropdown callback."""
@@ -564,12 +640,11 @@ class ColabInteractiveExplorer:
             return
         size = int(self.point_size_slider.value)
         opacity = float(self.opacity_slider.value)
-        ring_size = max(size + 5, int(size * 2))
         with self._fig.batch_update():
             for trace in list(self._fig.data)[: self._n_data_traces]:
                 trace.marker.size = size
                 trace.marker.opacity = opacity
-            self._fig.data[-1].marker.size = ring_size
+            self._apply_ring()
 
     def _on_extra_info_changed(self, _change: Any) -> None:
         """Reload the open image when the extra-info checkbox changes."""
@@ -583,8 +658,17 @@ class ColabInteractiveExplorer:
         idx = self._index_from_click(trace, points)
         if idx < 0:
             return
+
+        now = time.time()
+        # Debounce rapid duplicate events (e.g. multi-trace hit or double dispatch)
+        if now - self._last_click_time < 0.35 and self._last_clicked_idx == idx:
+            return
+        self._last_click_time = now
+        self._last_clicked_idx = idx
+
         if self._selected == idx:
             self._selected = None
+            self._last_clicked_idx = None
             self._apply_ring()
             self.img_output.children = (widgets.HTML(value=_idle_image_html()),)
             return
@@ -609,43 +693,50 @@ class ColabInteractiveExplorer:
         return raw_index_from_customdata_row(custom[point_idx])
 
     def _apply_ring(self) -> None:
-        """Move the hollow ring to the selected point, or hide it."""
+        """Draw an open circle on the clicked point, or hide it.
+
+        The ring trace always has one point. With nothing selected it sits on a
+        real coordinate at size 0, so a later click only restyles an existing
+        marker.
+        """
         fig = self._fig
         df = self._df
         if fig is None or df is None or not fig.data:
             return
         ring = fig.data[-1]
-        selected = self._selected
-        if selected is None or selected not in self._index_to_row:
-            ring.visible = False
-            ring.x = []
-            ring.y = []
+        x, y, z = self._anchor_xyz()
+        chosen = self._selected is not None and self._selected in self._index_to_row
+        point_size = int(self.point_size_slider.value)
+        ring_size = self._ring_marker_size(point_size)
+        with fig.batch_update():
+            ring.x = [x]
+            ring.y = [y]
             if self._ndims == 3:
-                ring.z = []
-            return
-        row = df.iloc[self._index_to_row[selected]]
-        x_col, y_col, z_col = self._coord_columns()
-        ring.x = [float(row[x_col])]
-        ring.y = [float(row[y_col])]
-        if z_col:
-            ring.z = [float(row[z_col])]
-        ring.visible = True
+                ring.z = [0.0 if z is None else z]
+            ring.visible = True
+            ring.marker.size = ring_size if chosen else 0
+            ring.marker.opacity = 1 if chosen else 0
+            ring.marker.symbol = "circle-open"
+            ring.marker.color = "black"
+            ring.marker.line = {"color": "black", "width": 2.5}
 
     def _show_image(self, idx: int) -> None:
         """Load one preview PNG and place it in the side panel."""
         try:
-            png, details, title = self.pheno.image_preview_png_bytes(
-                idx,
-                apply_transforms=False,
-                downsample=_IMAGE_MAX_PX * 2,
-                show_extra_info=bool(self.show_extra_info.value),
-            )
+            with _quiet_image_details_log():
+                png, details, title = self.pheno.image_preview_png_bytes(
+                    idx,
+                    apply_transforms=False,
+                    downsample=_IMAGE_MAX_PX * 2,
+                    show_extra_info=bool(self.show_extra_info.value),
+                )
         except Exception as exc:
             logger.warning("Colab explorer image load failed for index %s", idx, exc_info=True)
             self.status_label.value = status_html(f"Error loading image: {exc}", "err")
             # Leave the point unselected so the next click retries the load
             # instead of taking the deselect branch.
             self._selected = None
+            self._last_clicked_idx = None
             self._apply_ring()
             self.img_output.children = (widgets.HTML(value=_idle_image_html()),)
             return
