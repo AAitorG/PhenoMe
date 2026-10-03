@@ -98,7 +98,16 @@ def _tier_emoji(section: str, name: str) -> str:
     if section == "plugins":
         return "🔧"
     if section == "mixins":
-        return "✅" if name in ("PhenoMeInteractive", "create_interactive_explorer") else "🔒"
+        return (
+            "✅"
+            if name
+            in (
+                "PhenoMeInteractive",
+                "create_interactive_explorer",
+                "create_colab_interactive_explorer",
+            )
+            else "🔒"
+        )
     if section == "io":
         return "🔒" if name == "ensure_hwc" else "🔧"
     if section == "core":
@@ -143,7 +152,7 @@ def _method_api_page_and_owner(method_name: str, defining: type | None) -> tuple
     if defining.__name__ == "PhenoMe":
         return "pipeline", defining
     # Documented on the interactive page even though defined on the viz mixin.
-    if method_name == "create_interactive_explorer":
+    if method_name in ("create_interactive_explorer", "create_colab_interactive_explorer"):
         return "interactive", defining
     if defining.__name__ == "PhenoMeDistances":
         return "distances", defining
@@ -270,7 +279,10 @@ def _extended_for_symbol(
         }.get(slug, slug.title())
         parts.append(_md_link(page_label, f"/advanced/api/{slug}/", frag))
     else:
-        if slug == "interactive" and name == "create_interactive_explorer":
+        if slug == "interactive" and name in (
+            "create_interactive_explorer",
+            "create_colab_interactive_explorer",
+        ):
             frag = _fragment_for_module_function(name)
         else:
             frag = safe_api_id(owner, name)
@@ -699,11 +711,11 @@ def _extended_mixin_import(name: str) -> str:
             "/advanced/api/interactive/",
             _fragment_for_class_heading("PhenoMeInteractive"),
         )
-    if name == "create_interactive_explorer":
+    if name in ("create_interactive_explorer", "create_colab_interactive_explorer"):
         return _md_link(
             "Interactive Explorer",
             "/advanced/api/interactive/",
-            _fragment_for_module_function("create_interactive_explorer"),
+            _fragment_for_module_function(name),
         )
     if name == "PhenoMeProperties":
         return " · ".join(

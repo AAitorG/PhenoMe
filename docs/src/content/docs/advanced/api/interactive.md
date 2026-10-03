@@ -23,8 +23,7 @@ create_interactive_explorer(
     pheno_me: '_InteractiveExplorerProtocol',
     filters: 'dict[str, Any] | None' = None,
     exclude: 'dict[str, Any] | None' = None,
-    hover_features: 'list[str] | None' = None,
-    colab: 'bool | None' = None
+    hover_features: 'list[str] | None' = None
 ) -> PhenoMeInteractive
 ```
 
@@ -44,10 +43,7 @@ highlight mode, box/lasso multi-selection, and click-to-inspect image viewing.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).
 - **`hover_features`**: Optional list of metadata or property keys to show in
   hover tooltips. If ``None``, uses metadata keys from the pipeline.
-- **`colab`**: ``None`` (default) detects Google Colab. Pass ``True`` or ``False``
-  to force the Colab or Jupyter layout. Colab's widget page is
-  ipywidgets 7 and cannot draw accordion panes once the Plotly widget
-  manager is enabled.
+  For Google Colab, use ``create_colab_interactive_explorer``.
 
 **Returns:**
 
@@ -65,6 +61,50 @@ highlight mode, box/lasso multi-selection, and click-to-inspect image viewing.
 ...     filters={'condition': 'Treatment'},
 ...     hover_features=['drug', 'area', 'eccentricity'],
 ... )
+```
+
+
+## Colab
+
+### `create_colab_interactive_explorer`
+
+```python
+create_colab_interactive_explorer(
+    pheno_me: '_InteractiveExplorerProtocol',
+    filters: 'dict[str, Any] | None' = None,
+    exclude: 'dict[str, Any] | None' = None
+) -> ColabInteractiveExplorer
+```
+
+Launch the interactive explorer built only for Google Colab.
+
+Shows Embedding and Appearance controls, an SVG scatter of the embedding,
+and the image for a clicked point. Highlight, box/lasso selection, and
+filter editors are not included. ``filters`` and ``exclude`` still restrict
+which images are reduced when Compute is pressed.
+
+Local Jupyter notebooks should use :func:`create_interactive_explorer`.
+That explorer is not adapted for Colab.
+
+Widget updates run inside the button and click callbacks. Colab does not
+show updates made from a background thread.
+
+**Args:**
+
+- **`pheno_me`**: Processed PhenoMe instance with embeddings. Must have run
+  ``process_images()`` first.
+- **`filters`**: Optional metadata filters. Dict mapping metadata keys to
+  allowed values or lists of values.
+- **`exclude`**: Optional metadata exclusions (same structure as filters).
+
+**Returns:**
+
+  The explorer. Call ``.show()`` again to re-display it.
+
+**Example:**
+
+```python
+>>> explorer = pheno.create_colab_interactive_explorer()
 ```
 
 
@@ -173,9 +213,8 @@ PhenoMeInteractive.show(
 
 Display the interactive dashboard.
 
-Only one widget tree stays visible. Jupyter clears the cell output.
-Colab skips that clear, because it can erase the widget displayed
-next, and hides the dashboard from the previous ``show()`` instead.
+Only one widget tree stays visible. Jupyter clears the cell output
+before the new dashboard is displayed.
 
 </div>
 

@@ -62,15 +62,19 @@ class PhenoMeVisualization(
         filters: dict | None = None,
         exclude: dict | None = None,
         hover_features: list[str] | None = None,
-        colab: bool | None = None,
     ) -> Any:
         """Launch the interactive explorer for this pipeline's results.
+
+        For a local Jupyter notebook. Google Colab must use
+        ``create_colab_interactive_explorer`` instead.
 
         Args:
             filters: Optional metadata filters applied before the first plot.
             exclude: Optional metadata exclusions (same structure as filters).
             hover_features: Optional hover tooltip keys. Defaults to metadata keys.
-            colab: ``None`` detects Google Colab. ``True`` or ``False`` forces that layout.
+
+        Raises:
+            RuntimeError: When called inside Google Colab.
         """
         from ..interactive import (
             _InteractiveExplorerProtocol,
@@ -84,7 +88,34 @@ class PhenoMeVisualization(
             filters=filters,
             exclude=exclude,
             hover_features=hover_features,
-            colab=colab,
+        )
+
+    def create_colab_interactive_explorer(
+        self,
+        filters: dict | None = None,
+        exclude: dict | None = None,
+    ) -> Any:
+        """Launch the short Colab explorer for this pipeline's results.
+
+        Embedding and Appearance controls, an SVG scatter, and click-to-image.
+        Built only for Google Colab. Local Jupyter notebooks should use
+        ``create_interactive_explorer``.
+
+        Args:
+            filters: Optional metadata filters applied when Compute runs.
+            exclude: Optional metadata exclusions (same structure as filters).
+        """
+        from ..interactive import (
+            _InteractiveExplorerProtocol,
+        )
+        from ..interactive import (
+            create_colab_interactive_explorer as _launch_colab_explorer,
+        )
+
+        return _launch_colab_explorer(
+            cast(_InteractiveExplorerProtocol, self),
+            filters=filters,
+            exclude=exclude,
         )
 
     def plot_counts(
