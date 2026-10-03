@@ -41,15 +41,27 @@ _RING_NAME = "_phenome_sel_overlay"
 _COLOR_DEFAULTS = ("drug", "drug_name", "cluster", "treatment", "condition", "time")
 
 
-def _enable_colab_widgets() -> None:
-    """Turn on the widget manager Colab needs before a FigureWidget is shown."""
+def _enable_colab_widgets() -> str | None:
+    """Turn on the widget manager Colab needs before a FigureWidget is shown.
+
+    Returns an error message when ``enable_custom_widget_manager`` fails.
+    ``ImportError`` means this process is not Colab, which is not a failure.
+    A scroll-helper failure does not hide a successful manager enable.
+    """
     try:
         from google.colab import output
-
+    except ImportError:
+        return None
+    try:
         output.enable_custom_widget_manager()
+    except Exception as exc:
+        logger.warning("Colab widget setup failed", exc_info=True)
+        return str(exc)
+    try:
         output.no_vertical_scroll()
     except Exception:
-        logger.warning("Colab widget setup failed", exc_info=True)
+        logger.warning("Colab vertical scroll setup failed", exc_info=True)
+    return None
 
 
 def _section_label(text: str) -> widgets.HTML:
@@ -121,6 +133,7 @@ class ColabInteractiveExplorer:
         self._selected: int | None = None
         self._suspend_appearance = False
         self._displayed: widgets.Widget | None = None
+        self._widget_manager_error: str | None = None
 
         style = {"description_width": "70px"}
         dropdown = widgets.Layout(width="200px")
@@ -229,7 +242,13 @@ class ColabInteractiveExplorer:
         rather than cleared, because Colab can erase a widget displayed right
         after ``clear_output``.
         """
-        _enable_colab_widgets()
+        self._widget_manager_error = _enable_colab_widgets()
+        if self._widget_manager_error:
+            self._fig = None
+            self._plot_slot.children = (widgets.HTML(value=_idle_plot_html()),)
+            self.status_label.value = status_html(
+                f"Colab widgets unavailable: {self._widget_manager_error}", "err"
+            )
         if self._displayed is not None and self._displayed is not self._dashboard:
             self._displayed.layout.display = "none"
             with contextlib.suppress(Exception):
@@ -317,8 +336,15 @@ class ColabInteractiveExplorer:
         """Run dimensionality reduction and mount the figure before returning."""
         self.compute_button.disabled = True
         self.status_label.value = status_html("Computing…", "warn")
-        self._selected = None
+        self._clear_selection_view()
         try:
+            if self._widget_manager_error:
+                self._fig = None
+                self._plot_slot.children = (widgets.HTML(value=_idle_plot_html()),)
+                self.status_label.value = status_html(
+                    f"Colab widgets unavailable: {self._widget_manager_error}", "err"
+                )
+                return
             self._compute_embedding()
             self._update_color_options()
             self._mount_figure()
@@ -327,9 +353,17 @@ class ColabInteractiveExplorer:
         except Exception as exc:
             logger.warning("Colab explorer compute failed", exc_info=True)
             self.status_label.value = status_html(f"Error: {exc}", "err")
+            # Drop the cached figure so a later palette change cannot remount it
+            # and replace this error with "Colour updated".
+            self._fig = None
             self._plot_slot.children = (widgets.HTML(value=_idle_plot_html()),)
         finally:
             self.compute_button.disabled = False
+
+    def _clear_selection_view(self) -> None:
+        """Clear the click selection and the side image together."""
+        self._selected = None
+        self.img_output.children = (widgets.HTML(value=_idle_image_html()),)
 
     def _compute_embedding(self) -> None:
         """Store the reduced coordinates for the current Embedding controls."""
@@ -609,6 +643,10 @@ class ColabInteractiveExplorer:
         except Exception as exc:
             logger.warning("Colab explorer image load failed for index %s", idx, exc_info=True)
             self.status_label.value = status_html(f"Error loading image: {exc}", "err")
+            # Leave the point unselected so the next click retries the load
+            # instead of taking the deselect branch.
+            self._selected = None
+            self._apply_ring()
             self.img_output.children = (widgets.HTML(value=_idle_image_html()),)
             return
         children: list[widgets.Widget] = []
@@ -708,12 +746,15 @@ def create_colab_interactive_explorer(
     filters: dict[str, Any] | None = None,
     exclude: dict[str, Any] | None = None,
 ) -> ColabInteractiveExplorer:
-    """Launch a short interactive explorer that works in Google Colab.
+    """Launch the interactive explorer built only for Google Colab.
 
     Shows Embedding and Appearance controls, an SVG scatter of the embedding,
     and the image for a clicked point. Highlight, box/lasso selection, and
     filter editors are not included. ``filters`` and ``exclude`` still restrict
     which images are reduced when Compute is pressed.
+
+    Local Jupyter notebooks should use :func:`create_interactive_explorer`.
+    That explorer is not adapted for Colab.
 
     Widget updates run inside the button and click callbacks. Colab does not
     show updates made from a background thread.

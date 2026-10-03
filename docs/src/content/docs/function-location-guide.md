@@ -282,7 +282,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
 | `collate_fn` | Custom collate function that handles failed loads and split/combined channels. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
-| `create_colab_interactive_explorer` | Launch a short interactive explorer that works in Google Colab. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_colab_interactive_explorer) |
+| `create_colab_interactive_explorer` | Launch the interactive explorer built only for Google Colab. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_colab_interactive_explorer) |
 | `create_interactive_explorer` | Launch an interactive explorer for phenotyping results in Jupyter. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_interactive_explorer) |
 | `EmbeddingExtractor` | Extracts embeddings from images using a ModelWrapper and DataLoader. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeAnalysis` | Pipeline providing analysis methods for PhenoMe. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_clustering) |

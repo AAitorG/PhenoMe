@@ -76,12 +76,15 @@ create_colab_interactive_explorer(
 ) -> ColabInteractiveExplorer
 ```
 
-Launch a short interactive explorer that works in Google Colab.
+Launch the interactive explorer built only for Google Colab.
 
 Shows Embedding and Appearance controls, an SVG scatter of the embedding,
 and the image for a clicked point. Highlight, box/lasso selection, and
 filter editors are not included. ``filters`` and ``exclude`` still restrict
 which images are reduced when Compute is pressed.
+
+Local Jupyter notebooks should use :func:`create_interactive_explorer`.
+That explorer is not adapted for Colab.
 
 Widget updates run inside the button and click callbacks. Colab does not
 show updates made from a background thread.
