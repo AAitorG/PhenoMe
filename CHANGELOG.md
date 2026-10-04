@@ -4,6 +4,29 @@ All notable changes to PhenoMe are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5.0] – 2026-10
+
+### Added
+
+- `create_colab_interactive_explorer()` shows Embedding and Appearance controls in Google Colab, with an SVG scatter and click-to-image.
+- Progress bars, or a one-line status when there is nothing to count, for clustering, dimensionality reduction, correlations, reference distances, outlier detection, prototypes, and group enrichment.
+- GitHub Actions workflow publishes the package to PyPI.
+
+### Changed
+
+- Default logs are the message only. `logging.getLogger("phenome").setLevel(logging.DEBUG)` adds the level and logger prefix. A handler or format you already set is left as-is.
+- A fully processed checkpoint logs only the embedding pipeline on resume.
+- **Breaking:** `create_interactive_explorer()` is for local Jupyter notebooks. It no longer accepts `colab`, no longer detects Colab, and raises `RuntimeError` there. Use `create_colab_interactive_explorer()`, which is built only for Colab.
+- **Breaking:** `plot_image_by_index(..., return_fig=True)` returns the displayed image as a NumPy array, not a matplotlib figure. A requested mask overlay is composited onto that array.
+- Recommended install is `pip install phenome` (PyTorch included).
+- Getting Started install check is a `python3 -c` shell command.
+- Example notebooks: unified BBBC021 metadata, a revised BBBC014 example, an E. coli timecourse paper figure, and a Colab-ready interactive quickstart.
+
+### Fixed
+
+- Colab uses `create_colab_interactive_explorer()`. Compute and click-to-image run inside the widget callback so the plot and the side image show up.
+- Interactive explorer keeps scatter markers visible when the color mapping changes after a click, box, or lasso selection.
+
 ## [1.4.1] – 2026-09
 
 ### Added

@@ -12,11 +12,6 @@ import pandas as pd
 import torch
 
 try:
-    import umap
-except ImportError:
-    umap = None
-
-try:
     from torchdr import TSNE as TORCHDR_TSNE
     from torchdr import UMAP as TORCHDR_UMAP
     from torchdr import ExactIncrementalPCA as TorchdrExactIncrementalPCA
@@ -279,11 +274,13 @@ def _run_dimensionality_reduction_matrix_impl(
             out = dr_obj.fit_transform(matrix)
             transformed = out.cpu().numpy() if hasattr(out, "cpu") else np.asarray(out)
         else:
-            if umap is None:
+            try:
+                import umap
+            except ImportError as exc:
                 raise ImportError(
                     "UMAP is not available: install umap-learn (pip install umap-learn) "
                     "or fix the TorchDR GPU UMAP path."
-                )
+                ) from exc
             # n_jobs=1 when seed set for reproducibility; -1 otherwise for parallel speed
             n_jobs = 1 if seed is not None else -1
             dr_obj = umap.UMAP(
