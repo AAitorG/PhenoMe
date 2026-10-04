@@ -22,13 +22,6 @@ from ...utils.progress import log_computing, track_steps
 
 logger = get_logger(__name__)
 
-try:
-    import dcor
-
-    _DCOR_AVAILABLE = True
-except ImportError:
-    _DCOR_AVAILABLE = False
-
 
 def clean_correlation_inputs(
     x: np.ndarray,
@@ -276,10 +269,12 @@ def compute_distance_correlation(
     Raises:
         ImportError: If the ``dcor`` library is not installed.
     """
-    if not _DCOR_AVAILABLE:
+    try:
+        import dcor
+    except ImportError as exc:
         raise ImportError(
             "dcor library is required for distance correlation. Install it with: pip install dcor"
-        )
+        ) from exc
 
     x_clean, y_clean, _ = clean_correlation_inputs(x, y, min_samples=4)
     if x_clean is None or y_clean is None:
