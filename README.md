@@ -1,10 +1,6 @@
 <div align="center">
   <img src="docs/assets/logo.png" alt="PhenoMe logo" width="360"/>
   <p>A modular, <b>dataset-agnostic</b> and <b>model-agnostic</b> framework for phenotyping analysis, combining deep learning embeddings and image properties.</p>
-
-  <a href="docs/assets/phenome-social.mp4">
-    <img src="docs/assets/phenome-social-poster.png" alt="PhenoMe trailer" width="480"/>
-  </a>
 </div>
 
 ---
@@ -12,6 +8,14 @@
 ### 🗺️ Navigation
 
 **[✨ Features](#-features)** | **[🚀 Quick Start](#-quick-start)** | **[📦 Installation](#-installation)** | **[📖 Documentation](https://AAitorG.github.io/PhenoMe/)** | **[📜 Citation](#-citation)**
+
+---
+
+
+<div align="center">
+    <video src="https://github.com/user-attachments/assets/3d8173fc-9a7e-4724-bac1-686412f54a77"></video>
+</div>
+
 
 ---
 
