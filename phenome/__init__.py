@@ -37,16 +37,12 @@ Property factories (create custom cell/object properties):
 **Data flow:**
 
 ```
-find_files()
-    ↓ returns DataFrame of image paths
-set_file_df() or directly via DataFrame
-    ↓ store file locations
-process_images(model)
-    ↓ extract embeddings, populate results.embeddings
-compute_properties(property_functions)
-    ↓ compute morphological/biological features
-compute_clustering() / detect_outliers() / ...
-    ↓ statistical analysis
+find_files() or set_file_df()
+    ↓ paths and metadata stored in results (plot_image_by_index works)
+process_images(model) and/or compute_properties()
+    ↓ embeddings and properties attach to the same image indices
+compute_clustering() / detect_outliers(source="embeddings"|"properties") / ...
+    ↓ statistical analysis on whichever layer is present
 plot_pca() / plot_tsne() / plot_umap() / ...
     ↓ visualization
 generate_report()

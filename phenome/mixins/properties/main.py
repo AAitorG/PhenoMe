@@ -82,10 +82,14 @@ class PhenoMeProperties:
     def reset_properties(self, verbose: bool = False) -> None:
         """Reset only the computed properties.
 
+        Keeps one empty dict per catalog image so property length stays aligned
+        with ``img_path``.
+
         Args:
             verbose: If True, logs a confirmation message.
         """
-        self.results.properties = []
+        n_images = len(self.results.img_path)
+        self.results.properties = [{} for _ in range(n_images)]
         self._property_norm_cache = None
         if verbose:
             logger.info("Reset: Computed properties cleared.")
@@ -269,10 +273,9 @@ class PhenoMeProperties:
         ``additional_property_functions`` to add custom functions on top
         (optional).
 
-        This method now relies solely on ``file_df`` (typically produced by
-        [PhenoMe.find_files](pipeline.md#api-phenome-find_files)) for resolving image and mask
-        paths. Legacy ``image_dir`` / ``mask_dir`` parameters are no longer
-        supported.
+        Images come from the catalog written by ``find_files`` or ``set_file_df``.
+        Embeddings are not required. Mask paths are resolved from ``file_df``.
+        Legacy ``image_dir`` / ``mask_dir`` parameters are no longer supported.
 
         Images used for properties are loaded, laid out as HxWxC, then scaled
         with ``normalize_by_dtype_max`` (same 0-1 rule as TypeMaxNorm). Masks
@@ -319,8 +322,8 @@ class PhenoMeProperties:
             Also populates ``results.properties`` as ``List[dict]`` (one dict per image).
 
         Raises:
-            ValueError: If no images processed or invalid preset/requirement
-                keys are used.
+            ValueError: If the image catalog is empty, or invalid preset/requirement
+                keys are used. Run ``find_files`` or ``set_file_df`` first.
             TypeError: If ``additional_property_functions`` values are not
                 callable.
 
@@ -355,7 +358,7 @@ class PhenoMeProperties:
         self.reset_properties()
 
         if not self.results.img_path:
-            raise ValueError("No images processed yet. Run process_images() first.")
+            raise ValueError("No images in the catalog. Run find_files() or set_file_df() first.")
 
         file_df = self._require_file_df(method_name="compute_properties")  # type: ignore[attr-defined]
 
