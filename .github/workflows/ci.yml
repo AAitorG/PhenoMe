@@ -12,7 +12,17 @@ permissions:
 
 jobs:
   lint-and-smoke:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: macos-latest
+            python: "3.13"
+          - os: windows-latest
+            python: "3.12"
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -26,7 +36,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
 
       - name: Install package (dev extras)
         run: pip install -e ".[dev]"
