@@ -54,22 +54,22 @@ dependencies = [
     "h5py",
     "scipy",
     "scikit-image>=0.26.0",
-    "ipywidgets",
-    "anywidget",
-    "pillow",
-    "umap-learn==0.5.12",
-    "nibabel>=5.2.0,<6",
-    "dcor==0.7",
+    "ipywidgets>=8.1",
+    "anywidget>=0.9",
     "ipykernel>=6.29",
     "jupyterlab>=4.0",
     "jupyterlab_widgets>=3.0",
     "nbformat>=5.9",
+    "pillow",
+    "umap-learn==0.5.12",
+    "nibabel>=5.2.0,<6",
+    "dcor==0.7",
 ]
 
 [project.optional-dependencies]
 full = [
-    "pykeops==2.3; sys_platform != 'win32'",
     "torchdr>=0.1,<0.6",
+    "pykeops==2.3; sys_platform != 'win32'",
 ]
 mcp = [
     "mcp>=2.0",
