@@ -7,7 +7,6 @@ from typing import Any
 import numpy as np
 import plotly.graph_objects as go
 import plotly.io as pio
-from plotly.basewidget import BaseFigureWidget
 
 PLOTLY_DISPLAY_CONFIG: dict[str, Any] = {"displaylogo": False}
 
@@ -22,6 +21,7 @@ def register_plotly_display_defaults() -> None:
 
 def apply_figurewidget_display_config(fig: go.FigureWidget) -> None:
     """Hide the Plotly logo on a FigureWidget (plotly.js config is not set via pio.renderers)."""
+    _install_figurewidget_truthiness_patch()
     fig._config = {**fig._config, **PLOTLY_DISPLAY_CONFIG}
 
 
@@ -43,6 +43,8 @@ def apply_figurewidget_display_config(fig: go.FigureWidget) -> None:
 # ---------------------------------------------------------------------------
 def _install_figurewidget_truthiness_patch() -> None:
     """Patch ``BaseFigureWidget._remove_overlapping_props`` to be ndarray-safe."""
+    from plotly.basewidget import BaseFigureWidget
+
     if getattr(BaseFigureWidget, "_phenome_overlap_patch_installed", False):
         return
 
@@ -93,6 +95,3 @@ def _install_figurewidget_truthiness_patch() -> None:
 
     BaseFigureWidget._remove_overlapping_props = staticmethod(_remove_overlapping_props)
     BaseFigureWidget._phenome_overlap_patch_installed = True
-
-
-_install_figurewidget_truthiness_patch()

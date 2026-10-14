@@ -10,13 +10,13 @@
   "scripts": {
     "sync-assets": "rm -rf src/assets && mkdir -p src/assets && cp -a assets/. src/assets/",
     "fix-links": "python3 scripts/fix_markdown_links.py",
-    "dev": "npm run sync-assets && python3 scripts/generate_api_docs.py && npm run fix-links && astro dev",
-    "build": "npm run sync-assets && python3 scripts/generate_api_docs.py && npm run fix-links && astro build",
+    "dev": "npm run sync-assets && python3 scripts/generate_api_docs.py && python3 scripts/generate_llm_manifest.py && npm run fix-links && python3 scripts/validate_docs.py && astro dev",
+    "build": "npm run sync-assets && python3 scripts/generate_api_docs.py && python3 scripts/generate_llm_manifest.py && PHENOME_DOCS_STRICT_LINKS=1 npm run fix-links && python3 scripts/validate_docs.py && astro build && python3 scripts/validate_docs.py --dist dist",
     "preview": "astro preview"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.42.2",
-    "astro": "^7.3.3",
+    "@astrojs/starlight": "^0.42.6",
+    "astro": "^7.3.8",
     "sharp": "^0.35.3",
     "starlight-llms-txt": "^0.11.0"
   }

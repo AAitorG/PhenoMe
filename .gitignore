@@ -78,6 +78,7 @@ instance/
 docs/dist/
 docs/.astro/
 docs/node_modules/
+docs/assets/phenome-api.json
 # Mirrored from docs/assets/ by npm run sync-assets (bundler imports + MDX paths)
 docs/src/assets/**
 

@@ -79,25 +79,14 @@ Basic phenotyping workflow:
 ```python
 from phenome import PhenoMe, load_dinov2_model
 
-# Initialize pipeline
-pm = PhenoMe(device="cuda", seed=42)
-
-# Find images
+pm = PhenoMe(device="cuda")
 pm.find_files("path/to/images/")
 
-# Extract embeddings
-model = load_dinov2_model(model_name="dinov2_vitb14")
+model = load_dinov2_model(model_name="dinov2_vitb14_reg", device="cuda")
 pm.process_images(model, batch_size=32)
-
-# Compute properties
-pm.compute_properties(property_preset="basic")
-
-# Analyze
-pm.compute_clustering(method="kmeans", n_clusters=5)
-pm.compute_pca()
-
-# Visualize
-pm.plot_pca(color_by="clustering")
+pm.compute_properties(property_preset="intensity")
+pm.compute_clustering(clustering_method="kmeans", n_clusters=5)
+pm.plot_pca(color_by="cluster")
 ```
 
 **See Also:**
