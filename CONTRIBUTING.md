@@ -91,10 +91,11 @@ with pipeline.checkpoint_context("results.h5") as p:
 
 ## Project Structure
 
-- `phenome/` – Core pipeline and utilities
-- `phenome/mixins/` – Mixins (properties, distances, analysis, visualization)
-- `phenome/plugins/` – Property and metadata registries
-- `tests/` – Pytest smokes (CI)
+`PhenoMe` in `phenome/pipeline.py` is the session object. Capabilities are mixins under `phenome/mixins/`. Array math is `phenome/core/`, files and HDF5 are `phenome/io/`, metadata is `phenome/metadata/`, model and property helpers are `phenome/utils/`, user registries are `phenome/plugins/`, and the HTML report is `phenome/report/`. The file-level map is [`docs/src/content/docs/guides/architecture.md`](docs/src/content/docs/guides/architecture.md) and [`AGENTS.md`](AGENTS.md).
+
+Keep a public method to the steps a reader follows, and put helpers in a sibling module (`phenome/mixins/properties/` and `phenome/mixins/visualization/` are the pattern). A few hundred lines is the normal module size. Do not add new inline logic to `pipeline.py`, `mixins/interactive/explorer.py`, `mixins/analysis.py`, `io/checkpoint.py`, `core/processing_pipeline.py`, or `mixins/properties/_compute.py`; call a new module from there instead.
+
+- `tests/` – Pytest
 - `docs/` – Astro Starlight site (content in `docs/src/content/docs/`)
 
 ## Common Edit Tasks

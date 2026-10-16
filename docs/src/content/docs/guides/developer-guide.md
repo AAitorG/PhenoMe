@@ -4,6 +4,8 @@ title: "Developer guide: code and documentation"
 
 How to keep PhenoMe maintainable and how **API documentation** stays aligned with the code.
 
+Where a new module belongs, and how large a file should stay, is in [Architecture](/PhenoMe/guides/architecture/). Public methods stay short; helpers go in a sibling file. Docstrings below are what the API pages are built from.
+
 ---
 
 ## Docstrings as the source of truth

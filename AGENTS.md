@@ -4,7 +4,7 @@ This repository is the **PhenoMe** Python package for phenotyping image datasets
 
 Most people using PhenoMe are scientists, not programmers. An LLM helps them in two ways. As a developer assistant, it builds their analysis tool by calling PhenoMe, and the script stays easy to read and follow. As an analysis assistant, it runs PhenoMe on a dataset, shows the result in a plot, and finishes either with files ready for the user or with a summary of the analysis.
 
-A few people develop PhenoMe itself. For that work the LLM helps with the whole codebase. The library stays scietifically rigorous, reproducible, documented, and professional, and the public surface stays easy for those scientists to use, understand, and follow.
+A few people develop PhenoMe itself. For that work the LLM helps with the whole codebase. The library stays scientifically rigorous, reproducible, documented, and professional, and the public surface stays easy for those scientists to use, understand, and follow.
 
 ## Operating contract for regular users
 
@@ -44,6 +44,56 @@ These rules are for the few people who develop PhenoMe. Trust the checked-out so
 - Quality: `ruff check phenome tests`, `ruff format --check phenome tests`, `mypy phenome`, `pytest` (see `pyproject.toml` and `CONTRIBUTING.md`).
 - Documentation quality: from `docs/`, run `npm run build`; it regenerates API pages, normalizes links, validates all internal links, and builds the LLM corpus.
 - Do not change default logging, plot formats, report sections, or `save_results` outputs unless the user explicitly asked. LLM-oriented extras are opt-in (`export_experiment_config`, `include_run_settings=True`). Processing steps are logged at INFO; reprint with `print_processing_pipeline()` only if asked.
+
+## Library layout
+
+Scientists use one class, `PhenoMe` (`phenome/pipeline.py`). It is a session object: file table, embeddings, properties, checkpoint, and the run log. Behavior is inherited from mixins. `phenome/__init__.py` only re-exports what those scientists import. A leading `_` on a module means package-private; leave it out of that re-export list.
+
+| Path | Role |
+|------|------|
+| `phenome/pipeline.py` | Session wiring: `find_files`, `process_images`, temporal rows, checkpoint load and save. |
+| `phenome/mixins/properties/` | `PhenoMeProperties` in `main.py`. Computation, grouping, workers, and paths are sibling modules (`_compute.py`, `grouping.py`, `matrix.py`, `_workers.py`, `_paths.py`). |
+| `phenome/mixins/visualization/` | `PhenoMeVisualization` in `_core.py` stacks one mixin per plot family (`_dr_plots.py`, `_image_display.py`, `_distance_plots.py`, `_interpretability_plots.py`, `_component_correlation_plots.py`, `_group_enrichment_plots.py`) plus `_helpers.py`. |
+| `phenome/mixins/analysis.py`, `distances.py`, `batch_correction.py` | Clustering, correlations, interpretability, distances, batch correction. Still single files. |
+| `phenome/mixins/dataset.py`, `embedding_extractor.py` | Image loading and the embedding forward pass. |
+| `phenome/mixins/interactive/` | Jupyter and Colab explorers, imported lazily from `mixins/__init__.py`. Markup in `_html_components.py`, shared helpers in `_utils.py`. |
+| `phenome/core/` | Structures and math that do not own the session: `PhenoMeResults`, the processing-pipeline record, the run log, export, validation, and `core/math/` (dimensionality reduction, correlation, interpretability). |
+| `phenome/io/` | Image reading, discovery, HDF5. `CheckpointManager` is `checkpoint.py`; serialization helpers are `_checkpoint_ops.py`; resume matching is `checkpoint_alignment.py`. |
+| `phenome/metadata/` | `MetadataBase` and the path, table, and default extractors. |
+| `phenome/utils/` | Model wrappers, transforms, property factories, device, progress. |
+| `phenome/plugins/` | Registries. Optional user extensions register here. |
+| `phenome/report/` | `generator.py` assembles the HTML page. One section per file under `report/sections/`. CSS in `styles.py`, JavaScript in `scripts.py`, fragments in `_components.py`. |
+| `phenome/mcp/` | Assistant server. It calls the library. Phenotyping logic stays in the packages above. |
+| `tests/` | Pytest. |
+| `docs/src/content/docs/` | Guides. Pages under `advanced/api/` and `function-location-guide.md` are generated. |
+
+`phenome/core` is the place for a formula that can run on arrays. Mixins apply that formula to the session and record the step. Plots are drawn in `visualization`; `analysis.py` calls those plot helpers (`_plot_property_correlations_plotly`, `_display_multivariate_interpretability`, and `self._plot_*`) and does not build figures itself.
+
+## Where new library code goes
+
+A public method reads as the sequence a scientist would follow: check inputs, call the computation, store the result, log the step. The formula, the figure, and the array reshaping live in another file in the same package. `properties/` and `visualization/` are the pattern. `main.py` and `_core.py` stay the classes users meet through `PhenoMe`.
+
+Name the file for the job. One concern per file. A module of a few hundred lines is the normal size. Past that, move helpers out before adding more. These files already hold a whole subsystem; new behavior is a sibling module they call, not more inline code:
+
+- `phenome/pipeline.py`
+- `phenome/mixins/interactive/explorer.py`
+- `phenome/mixins/analysis.py`
+- `phenome/io/checkpoint.py`
+- `phenome/core/processing_pipeline.py`
+- `phenome/mixins/properties/_compute.py`
+
+| Adding | Place |
+|--------|--------|
+| A user-facing step that needs the session | The mixin for that step. A new capability is a new mixin on `class PhenoMe` in `pipeline.py`. |
+| Math on arrays | `phenome/core/math/` |
+| Images, paths, HDF5 | `phenome/io/` |
+| A plot | `phenome/mixins/visualization/_<topic>.py`, composed into `PhenoMeVisualization` |
+| A classical image feature | `phenome/utils/property_factories.py`, or `phenome/plugins/` when users register it |
+| A block of the HTML report | `phenome/report/sections/<name>.py` |
+| Metadata from a path or a table | `phenome/metadata/` |
+| A name scientists import | Re-export from `phenome/__init__.py` |
+
+NumPy docstrings on public functions and classes: the quantity, the array shape, and the conditions. Type hints on new code. A behavior change that the signature does not make obvious gets a test under `tests/`. The same map for human readers is [Architecture](docs/src/content/docs/guides/architecture.md).
 
 ## Writing analysis scripts (not library code)
 
