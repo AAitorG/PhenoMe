@@ -19,16 +19,19 @@ The contract is simple:
 1. **Input**: A `torch.Tensor` of shape `(B, C, H, W)` on the target device.
 2. **Output**: A `torch.Tensor` of shape `(B, D)` where `D` is the embedding dimension.
 
-### Preprocessing with PyTorch
-Even if you are using a non-PyTorch model (like Keras), you can still leverage PyTorch's high-performance transformations. You can provide a `custom_transformations` object (e.g., `torchvision.transforms.Compose`) to `process_images()`. These transformations run on the GPU (if available) before the tensor is passed to your wrapper's `_get_embeddings` method.
+### Preprocessing
 
-For non-PyTorch models, you will typically use **numpy** as a bridge between frameworks inside the wrapper.
+`custom_transformations` replaces PhenoMe's default intensity scaling, pad, resize, and ImageNet normalization. The callable receives one NumPy image `(H, W, C)` and must return a tensor `(C, H, W)`. The loader stacks those tensors and moves the batch to the pipeline device before `_get_embeddings`.
+
+`read_image` casts every file to `np.float32`, so that is the dtype at the start of `custom_transformations`. Values stay in the file's range: about 0–255 for 8-bit images, about 0–65535 for 16-bit. `ToTensor` turns that into `torch.float32` of shape `(C, H, W)` and does not divide by 255, because the array is already floating point. `_get_embeddings` then receives `torch.float32` of shape `(B, C, H, W)`. Return `torch.float32` of shape `(B, D)`. `get_embeddings()` stores the result as `np.float32`.
+
+For a non-PyTorch model, convert that tensor to NumPy inside the wrapper and convert the result back.
 
 ---
 
 ## Example: Keras MobileNetV2
 
-This example shows a fully functional implementation of a `ModelWrapper` for a Keras model, including the necessary data transformations and pipeline integration.
+`preprocess_input` maps pixels from 0–255 to [-1, 1]. Scale the image to [0, 1] and resize to 224 in `custom_transformations`, then call `preprocess_input` on `x * 255`. `channel_mode="combined"` feeds the model one RGB image. Both functions keep floating point: `float32` in, `float32` out.
 
 ```python
 import numpy as np
@@ -90,6 +93,105 @@ print(f"Extracted {len(pm.results.embeddings)} embeddings")
 
 ---
 
+## Example: Torchvision ResNet18
+
+`ResNet18_Weights.IMAGENET1K_V1.transforms()` resizes the shorter side to 256, center-crops 224, and applies ImageNet normalization. It expects a `torch.float32` tensor in [0, 1], so scale the `np.float32` image first. Replacing `fc` with `Identity` returns the 512-d pooled features, still `torch.float32`.
+
+```python
+import torch
+import torch.nn as nn
+import torchvision.transforms as T
+from torchvision.models import resnet18, ResNet18_Weights
+from phenome import PhenoMe
+from phenome.utils import ModelWrapper, TypeMaxNorm
+
+weights = ResNet18_Weights.IMAGENET1K_V1
+# in:  np.float32 (H, W, C), file range
+# out: torch.float32 (3, 224, 224), ImageNet-normalized
+resnet_preprocess = T.Compose([
+    T.ToTensor(),          # torch.float32 (C, H, W), file range unchanged
+    TypeMaxNorm(),         # torch.float32 (C, H, W) in [0, 1]
+    weights.transforms(),  # torch.float32 (3, 224, 224), normalized
+])
+
+class ResNet18Wrapper(ModelWrapper):
+    """Wrapper for torchvision ResNet18."""
+
+    def __init__(self, device=None):
+        model = resnet18(weights=weights)
+        model.fc = nn.Identity()
+        super().__init__(model, device=device)
+
+    def _get_embeddings(self, tensor: torch.Tensor) -> torch.Tensor:
+        # in:  torch.float32 (B, 3, 224, 224), ImageNet-normalized
+        # out: torch.float32 (B, 512)
+        return self.model(tensor)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+wrapper = ResNet18Wrapper(device=device)
+
+pm = PhenoMe(device=device)
+pm.find_files("path/to/images")
+pm.process_images(
+    wrapper,
+    channel_mode="combined",
+    custom_transformations=resnet_preprocess,
+)
+print(pm.get_embeddings().shape)  # (N, 512)
+```
+
+---
+
+## Example: Hugging Face DINOv2
+
+Install `transformers` separately. `AutoImageProcessor` is that checkpoint's resize, crop, and normalization, so pass it as `custom_transformations`. It rescales `np.float32` values by 1/255, so map the file range onto 0–255 first. The processor returns `torch.float32` with a leading batch dimension; drop it. `pooler_output` is `torch.float32` of shape `(B, 768)`.
+
+```python
+import numpy as np
+import torch
+from transformers import AutoImageProcessor, AutoModel
+from phenome import PhenoMe
+from phenome.utils import ModelWrapper
+
+MODEL_ID = "facebook/dinov2-base"
+processor = AutoImageProcessor.from_pretrained(MODEL_ID)
+hf_model = AutoModel.from_pretrained(MODEL_ID)
+
+def huggingface_preprocess(image: np.ndarray) -> torch.Tensor:
+    # in:  np.float32 (H, W, C), file range
+    # out: torch.float32 (3, 224, 224), processor-normalized
+    image = np.asarray(image, dtype=np.float32)
+    peak = float(image.max()) if image.size else 0.0
+    if peak <= 1.0:
+        image = image * 255.0          # still np.float32, now 0-255
+    elif peak > 255.0:
+        image = image * (255.0 / 65535.0)
+    pixels = processor(images=image, return_tensors="pt")["pixel_values"]
+    return pixels.squeeze(0)           # (1, 3, 224, 224) -> (3, 224, 224)
+
+class HuggingFaceWrapper(ModelWrapper):
+    """Wrapper for a Hugging Face vision model."""
+
+    def _get_embeddings(self, tensor: torch.Tensor) -> torch.Tensor:
+        # in:  torch.float32 (B, 3, 224, 224), processor-normalized
+        # out: torch.float32 (B, 768)
+        return self.model(pixel_values=tensor).pooler_output
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+wrapper = HuggingFaceWrapper(hf_model, device=device)
+
+pm = PhenoMe(device=device)
+pm.find_files("path/to/images")
+pm.process_images(
+    wrapper,
+    channel_mode="combined",
+    custom_transformations=huggingface_preprocess,
+)
+print(pm.get_embeddings().shape)  # (N, 768) for dinov2-base
+```
+
+---
+
 ## Common Pitfalls
 
 ### Channel Ordering
@@ -103,7 +205,7 @@ Non-PyTorch frameworks handle GPUs differently.
 Ensure your framework is using the same physical device as PhenoMe to avoid unnecessary data transfers or memory conflicts.
 
 ### Normalization
-PhenoMe's default transformations might not match what your model expects. You can provide a custom `preprocessing_fn` to `process_images()` or handle normalization inside your wrapper's `_get_embeddings` method.
+PhenoMe's default stack scales intensities to [0, 1] and then applies ImageNet mean and standard deviation. Use `custom_transformations` when the model expects a different recipe, as in the examples above.
 
 Custom callables are treated as opaque: the processing pipeline log records their name. PhenoMe does not read their source. Pass an optional `preprocessing_description` / `transformations_description` so the INFO log (and `get_processing_pipeline()`) can say what the callable does:
 
@@ -122,7 +224,7 @@ pm.process_images(
 )
 ```
 
-The description is optional. If you omit it, the log still shows the function name with internals unknown. Check INFO logs, `print_processing_pipeline()`, or `get_processing_pipeline()` if you need to confirm that default ImageNet normalization is still applied after your code.
+The description is optional. If you omit it, the log still shows the function name with internals unknown. `print_processing_pipeline()` or `get_processing_pipeline()` shows whether ImageNet normalization is in the stack. It stays when you only pass `preprocessing_fn`. It is replaced when you pass `custom_transformations`.
 
 ---
 
