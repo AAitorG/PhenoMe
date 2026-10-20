@@ -19,9 +19,9 @@ Look up a name in `phenome-api.json` or the [function location guide](/PhenoMe/f
 
 ## Constraints
 
-- Import `from phenome import PhenoMe, load_dinov2_model`. Pass `device` into both. Omit `seed` unless a reproducible run was requested.
+- Import `from phenome import PhenoMe, load_dinov2_model`. Pass `device` into both. Add also a `seed` to keep it reproducible by default.
 - Order: `find_files`, with metadata from `get_metadata_from_path` (a path template) or `make_dataframe_metadata_fn` (a table) → read the file table, `plot_image_by_index`, and `inspect_data` → `process_images`, or load an existing run → `compute_properties` when classical measurements are needed → `plot_pca`, `plot_tsne`, or `plot_umap`. Those plots compute the projection themselves. `correct_batches` only when plate or batch labels and controls are present. Multi-channel images set `channel_mode` to `split` or `combined`.
-- One checkpoint file uses `load_results`. Separate embedding and property files use `load_embeddings`, then `load_properties`. New images on an existing projection use `process_temporal_images`, then `clear_temporal_data`.
+- One checkpoint file uses `load_results`. Separate embedding and property files use `load_embeddings`, then `load_properties`. New images on an existing projection use `process_temporal_images`. Those rows stay in memory; plot or export them, then call `clear_temporal_data`.
 - Do not change logging, plot format, or report sections unless asked. `save_results` writes HDF5 only.
 - For a handoff, call `save_results`. Add `export_experiment_config`, `export_methods_markdown`, or `generate_report(..., include_run_settings=True)` only for the files the user should receive.
 - For a summary, keep tables and `return_fig=True` figures in variables and read `get_run_settings()` or `print_processing_pipeline()`.

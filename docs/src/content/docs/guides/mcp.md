@@ -61,4 +61,4 @@ In MCP settings, point stdio at the `phenome-mcp` executable from the same envir
 The same method list is published at
 [`phenome-api.json`](https://AAitorG.github.io/PhenoMe/phenome-api.json).
 
-Pass extra PhenoMe parameters (`seed`, `include_run_settings`, log level, plot kwargs) only when the user asked. See [Using with LLMs](/PhenoMe/guides/using-with-llms/).
+Pass a `seed` into `PhenoMe` so the run is reproducible. Pass other extra parameters (`include_run_settings`, log level, plot kwargs) only when the user asked. See [Using with LLMs](/PhenoMe/guides/using-with-llms/).

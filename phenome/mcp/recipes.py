@@ -10,7 +10,7 @@ RECIPES: dict[str, str] = {
     "first-analysis": """\
 # First analysis
 
-Defaults are unchanged. Pass ``seed`` only if the user asked for a reproducible run.
+Defaults are unchanged. Pass ``device`` into the model and into ``PhenoMe``, and pass a ``seed`` so the run is reproducible.
 
 ```python
 import torch
@@ -18,7 +18,7 @@ from phenome import PhenoMe, load_dinov2_model
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 wrapper = load_dinov2_model(model_name="dinov2_vitb14_reg", device=device)
-pheno = PhenoMe(device=device)
+pheno = PhenoMe(device=device, seed=42)
 
 pheno.find_files("path/to/your/images")
 pheno.process_images(wrapper)
@@ -27,7 +27,6 @@ pheno.plot_pca()
 ```
 
 Pass ``color_by`` only for a key returned by ``get_available_metadata_keys()``.
-Add ``seed=42`` to ``PhenoMe`` only when reproducibility was requested.
 """,
     "export-settings": """\
 # Hand the run to the user
