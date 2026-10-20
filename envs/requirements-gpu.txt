@@ -1,3 +1,0 @@
-# From repo root: pip install -r envs/requirements-gpu.txt -e .
--r requirements-base.txt
-torchdr>=0.1,<0.6

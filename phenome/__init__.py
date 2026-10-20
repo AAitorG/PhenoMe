@@ -37,16 +37,12 @@ Property factories (create custom cell/object properties):
 **Data flow:**
 
 ```
-find_files()
-    ↓ returns DataFrame of image paths
-set_file_df() or directly via DataFrame
-    ↓ store file locations
-process_images(model)
-    ↓ extract embeddings, populate results.embeddings
-compute_properties(property_functions)
-    ↓ compute morphological/biological features
-compute_clustering() / detect_outliers() / ...
-    ↓ statistical analysis
+find_files() or set_file_df()
+    ↓ paths and metadata stored in results (plot_image_by_index works)
+process_images(model) and/or compute_properties()
+    ↓ embeddings and properties attach to the same image indices
+compute_clustering() / detect_outliers(source="embeddings"|"properties") / ...
+    ↓ statistical analysis on whichever layer is present
 plot_pca() / plot_tsne() / plot_umap() / ...
     ↓ visualization
 generate_report()
@@ -83,25 +79,14 @@ Basic phenotyping workflow:
 ```python
 from phenome import PhenoMe, load_dinov2_model
 
-# Initialize pipeline
-pm = PhenoMe(device="cuda", seed=42)
-
-# Find images
+pm = PhenoMe(device="cuda")
 pm.find_files("path/to/images/")
 
-# Extract embeddings
-model = load_dinov2_model(model_name="dinov2_vitb14")
+model = load_dinov2_model(model_name="dinov2_vitb14_reg", device="cuda")
 pm.process_images(model, batch_size=32)
-
-# Compute properties
-pm.compute_properties(property_preset="basic")
-
-# Analyze
-pm.compute_clustering(method="kmeans", n_clusters=5)
-pm.compute_pca()
-
-# Visualize
-pm.plot_pca(color_by="clustering")
+pm.compute_properties(property_preset="intensity")
+pm.compute_clustering(clustering_method="kmeans", n_clusters=5)
+pm.plot_pca(color_by="cluster")
 ```
 
 **See Also:**
@@ -147,7 +132,7 @@ from .utils.property_factories import (
 try:
     __version__ = version("phenome")
 except PackageNotFoundError:
-    __version__ = "1.5.0"
+    __version__ = "1.5.1"
 
 __all__ = [
     "DataFrameMetadata",

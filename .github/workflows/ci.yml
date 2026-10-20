@@ -11,14 +11,26 @@ permissions:
   pull-requests: read
 
 jobs:
-  lint-and-smoke:
-    runs-on: ubuntu-latest
+  platforms:
+    name: lint-and-smoke (${{ matrix.os }}, ${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: macos-latest
+            python: "3.13"
+          - os: windows-latest
+            python: "3.12"
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Run Gitleaks
+        if: runner.os != 'Windows'
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -26,7 +38,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
 
       - name: Install package (dev extras)
         run: pip install -e ".[dev]"
@@ -42,3 +54,12 @@ jobs:
 
       - name: Dependency compatibility smoke
         run: python -m pytest
+
+  lint-and-smoke:
+    name: lint-and-smoke
+    needs: platforms
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every platform to pass
+        run: test "${{ needs.platforms.result }}" = "success"

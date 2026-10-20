@@ -1,124 +1,37 @@
 ---
 title: "Using PhenoMe with LLMs"
-description: How assistants should write PhenoMe analysis code without changing defaults, and which parameters to pass when you want a methods dump or a specific figure format.
+description: Short constraints for a PhenoMe notebook or script. The user guides are the source for the workflow.
 sidebar:
   order: 6
 ---
 
-import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+This page is for scientists using PhenoMe. Most are not programmers, so a notebook or a script should stay easy to read and follow. The workflow is in [Getting started](/PhenoMe/getting-started/) and [Common workflows](/PhenoMe/workflows/). People who change PhenoMe itself follow the repository `AGENTS.md`.
 
-PhenoMe is a scientific pipeline. **Defaults stay as they are** (logging, plots, HTML reports, `save_results` output). If you are an assistant writing analysis code, use the public API below and only pass extra parameters when the user asked for them.
+A developer assistant builds that scientist's analysis tool with `from phenome import PhenoMe, load_dinov2_model`. An analysis assistant runs the dataset and either saves the run or summarizes it.
 
-Machine-readable docs (after the site build):
+Generated from the same docs build:
 
-- [llms.txt](https://AAitorG.github.io/PhenoMe/llms.txt) — page index
-- [llms-small.txt](https://AAitorG.github.io/PhenoMe/llms-small.txt) — compact corpus for a context window
-- [llms-full.txt](https://AAitorG.github.io/PhenoMe/llms-full.txt) — full site text
+- [llms-small.txt](https://AAitorG.github.io/PhenoMe/llms-small.txt) — getting started, workflows, folder patterns, FAQ, this page, and MCP
+- [llms-full.txt](https://AAitorG.github.io/PhenoMe/llms-full.txt) — the whole site, including the API reference
+- [phenome-api.json](https://AAitorG.github.io/PhenoMe/phenome-api.json) — public methods and signatures
 
-Attach `llms-small.txt` in ChatGPT or Claude when answering “how do I use PhenoMe?”.
+Look up a name in `phenome-api.json` or the [function location guide](/PhenoMe/function-location-guide/). Do not invent a method, preset, metadata key, or parameter.
 
-## Rules for assistants
+## Constraints
 
-1. Import from the public surface: `from phenome import PhenoMe, load_dinov2_model`. Do not invent methods. Look up names in the [function location guide](/PhenoMe/function-location-guide/).
-2. Canonical order: `find_files` → `process_images` → optional `compute_properties` → analysis / plots.
-3. Do **not** change logging, plot backends, or report sections unless the user asked. Processing steps are already logged at INFO during `process_images` / `compute_properties`. Reprint only if asked: `print_processing_pipeline()`.
-4. When the user wants a paper-style methods dump, then call `export_experiment_config` (and optionally `include_run_settings=True` on the report). The pipeline records settings silently; nothing is written until those calls.
-5. Pass `device` explicitly so CPU/GPU is obvious in shared scripts.
+- Import `from phenome import PhenoMe, load_dinov2_model`. Pass `device` into both. Add also a `seed` to keep it reproducible by default.
+- Order: `find_files`, with metadata from `get_metadata_from_path` (a path template) or `make_dataframe_metadata_fn` (a table) → read the file table, `plot_image_by_index`, and `inspect_data` → `process_images`, or load an existing run → `compute_properties` when classical measurements are needed → `plot_pca`, `plot_tsne`, or `plot_umap`. Those plots compute the projection themselves. `correct_batches` only when plate or batch labels and controls are present. Multi-channel images set `channel_mode` to `split` or `combined`.
+- One checkpoint file uses `load_results`. Separate embedding and property files use `load_embeddings`, then `load_properties`. New images on an existing projection use `process_temporal_images`. Those rows stay in memory; plot or export them, then call `clear_temporal_data`.
+- Do not change logging, plot format, or report sections unless asked. `save_results` writes HDF5 only.
+- For a handoff, call `save_results`. Add `export_experiment_config`, `export_methods_markdown`, or `generate_report(..., include_run_settings=True)` only for the files the user should receive.
+- For a summary, keep tables and `return_fig=True` figures in variables and read `get_run_settings()` or `print_processing_pipeline()`.
+- After each step, read the printed text and any variable you kept. Before `process_images`, the file count, metadata keys, and the sample image have to match the dataset. Read height and width from `inspect_data`. If the default 224-pixel square would compress the content too far or stretch a non-square image, set `resize_size` and `pad_size`.
+- Call `get_available_metadata_keys()` before `color_by`, filters, or `batch_metadata_key`, and `get_available_property_keys()` before naming a property.
+- Folder patterns use `(name)` groups, as in [Using folder names](/PhenoMe/guides/experiment-details/path-templates/). Brace placeholders do not match.
+- Preset names are `none`, `intensity`, `shape`, `basic`, `standard`, and `complete`. `intensity` does not need masks. See [Presets](/PhenoMe/guides/select-properties/presets/).
+- The usual analysis is a notebook, so the user can see the plot and open `create_interactive_explorer` (`create_colab_interactive_explorer` in Colab). A `.py` script is fine when the user asked for one, or when a notebook is not available.
+- Run only the comparison the question asks for. A treatment against a reference uses `compute_reference_distances`, `property_stats_by_group`, and `top_properties_different_from_reference`. Counts per group use `plot_counts`. Groups and unusual images use `compute_clustering`, `analyze_group_enrichment`, `find_prototypes`, and `detect_outliers`. A time course of group centers uses `plot_centroids`.
+- Linking embeddings to measurements uses `compute_component_correlation` for one projection, `compute_embedding_property_correlations` and `summarize_embedding_property_correlations` for embedding dimensions, and `compute_multivariate_interpretability` for a joint fit.
+- A custom property uses `register_property` from `phenome.plugins`. A model other than DINOv2 subclasses `ModelWrapper` from `phenome.utils` and implements `_get_embeddings`. Changes to images before that model are `preprocessing_fn` and `custom_transformations` on `process_images`.
 
-## Canonical first analysis
-
-```python
-import torch
-from phenome import PhenoMe, load_dinov2_model
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-wrapper = load_dinov2_model(model_name="dinov2_vitb14_reg", device=device)
-pheno = PhenoMe(device=device, seed=42)
-
-pheno.find_files("path/to/your/images")
-pheno.process_images(wrapper)
-pheno.compute_properties(property_preset="intensity")
-pheno.plot_pca(color_by="condition")
-```
-
-`seed=42` is only needed when the user asked for a reproducible run. Omit it to keep the library default (`seed=None`).
-
-## When the user asks to save settings
-
-The run log is silent. Export it explicitly:
-
-```python
-pheno.save_results("results/phenome_results.h5")  # HDF5 only; no sibling config file
-pheno.export_experiment_config("results/config.json")
-pheno.export_methods_markdown("results/methods.md")  # optional paper supplement
-pheno.generate_report(
-    "results/report.html",
-    include_run_settings=True,  # Methods section; default is False
-)
-```
-
-`export_experiment_config` includes seed, environment, processing params, model name (from `load_dinov2_model`), and recorded steps (`property_preset`, `reference_filters`, clustering, …). You do not need to pass `model_name=` unless you want to override.
-
-Inspect without writing a file: `settings = pheno.get_run_settings()`.
-
-## Folder metadata vs spreadsheet
-
-<Tabs>
-  <TabItem label="Path template">
-    ```python
-    from phenome import get_metadata_from_path
-
-    pheno.find_files(
-        "path/to/images",
-        metadata_fn=get_metadata_from_path("{condition}/{well}/{filename}"),
-    )
-    ```
-  </TabItem>
-  <TabItem label="CSV lookup">
-    See [Using a spreadsheet](/PhenoMe/guides/experiment-details/csv-lookup/). Only rows that exist in **both** the folder and the CSV are processed.
-  </TabItem>
-</Tabs>
-
-## Property presets
-
-Use a preset name, not a guessed feature list. Masks are required for shape-based presets; `intensity` does not need masks.
-
-```python
-pheno.compute_properties(property_preset="basic")  # needs masks
-```
-
-Valid presets: `none`, `intensity`, `shape`, `basic`, `standard`, `complete`. Details: [Select properties — Presets](/PhenoMe/guides/select-properties/presets/).
-
-## Batch correction
-
-```python
-pheno.correct_batches(
-    batch_metadata_key="plate_id",
-    control_filters={"condition": "Control"},
-)
-```
-
-## Checkpoint (large datasets)
-
-```python
-pheno.process_images(wrapper, checkpoint_path="results/phenome_results.h5")
-```
-
-Reload: `find_files` first, then `pheno.load_results("results/phenome_results.h5")`.
-
-## Verbosity and plot format (caller’s choice)
-
-Do not change these unless asked.
-
-| Goal | Parameter |
-|------|-----------|
-| Quieter logs | `logging.getLogger("phenome").setLevel(logging.WARNING)` |
-| Return a Plotly figure | `plot_pca(..., return_fig=True)` |
-| Static-ish scatter | `plot_pca(..., render_mode="svg")` |
-| Report without CDN | `generate_report(..., offline_plotly=True)` (already the default) |
-| Methods section in the HTML report | `generate_report(..., include_run_settings=True)` |
-| Reprint the processing pipeline | `pheno.print_processing_pipeline()` |
-
-## MCP (optional)
-
-For Cursor or Claude Desktop, install `phenome[mcp]` and run `phenome-mcp`. See [MCP for PhenoMe](/PhenoMe/guides/mcp/).
+For Cursor or Claude Desktop, see [MCP for PhenoMe](/PhenoMe/guides/mcp/).

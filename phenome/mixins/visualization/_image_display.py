@@ -1,6 +1,7 @@
 """Image display methods for PhenoMeVisualization."""
 
 import os
+from collections.abc import Sequence
 from io import BytesIO
 from typing import Any
 
@@ -17,6 +18,20 @@ from ...utils.transforms import scale_minmax
 from ._helpers import format_property_value as _format_property_value
 
 logger = get_logger(__name__)
+
+
+def _index_list(idx: int | Sequence[int]) -> list[int]:
+    """Normalize one index or a sequence of indices to a list of ints."""
+    if isinstance(idx, (bool, np.bool_)):
+        raise TypeError("idx must be an integer index or a sequence of indices")
+    if isinstance(idx, (int, np.integer)):
+        return [int(idx)]
+    if isinstance(idx, (str, bytes)):
+        raise TypeError("idx must be an integer index or a sequence of indices")
+    indices = [int(i) for i in idx]
+    if not indices:
+        raise ValueError("idx list is empty")
+    return indices
 
 
 class _ImageDisplayMixin:
@@ -424,9 +439,70 @@ class _ImageDisplayMixin:
 
         return np.clip(out, 0.0, 1.0)
 
+    def _plot_images_by_index(
+        self,
+        indices: list[int],
+        distance_results: pd.DataFrame | None,
+        channels: int | list | None,
+        figsize: tuple,
+        title_fields: list[str] | None,
+        show_extra_info: bool,
+        apply_transforms: bool,
+        downsample: int | None,
+        ax: Any,
+        return_fig: bool,
+        show_mask_overlay: bool,
+    ) -> Any:
+        """Draw several images in one row."""
+        shared: dict[str, Any] = {
+            "distance_results": distance_results,
+            "channels": channels,
+            "title_fields": title_fields,
+            "show_extra_info": show_extra_info,
+            "apply_transforms": apply_transforms,
+            "downsample": downsample,
+            "show_mask_overlay": show_mask_overlay,
+        }
+        if return_fig and ax is None:
+            return [self.plot_image_by_index(i, return_fig=True, **shared) for i in indices]
+
+        n = len(indices)
+        fig = None
+        if ax is None:
+            if figsize == (6, 6):
+                figsize = (3 * n, 3)
+            fig, axes = plt.subplots(1, n, figsize=figsize)
+            axes_list = list(axes)
+        else:
+            axes_list = list(ax) if isinstance(ax, (list, tuple, np.ndarray)) else [ax]
+            if len(axes_list) != n:
+                raise ValueError(f"Expected {n} axes for {n} indices, got {len(axes_list)}")
+
+        for axis, i in zip(axes_list, indices, strict=True):
+            self.plot_image_by_index(i, ax=axis, **shared)
+
+        if fig is None:
+            return None
+
+        fig.tight_layout()
+        try:
+            from IPython import get_ipython
+            from IPython.display import display as ipy_display_fig
+        except ImportError:
+            ipython_shell = None
+        else:
+            ipython_shell = get_ipython()
+
+        if ipython_shell is not None:
+            ipy_display_fig(fig)
+        else:
+            plt.show()
+        plt.close(fig)
+        return None
+
     def plot_image_by_index(
         self,
-        idx: int,
+        idx: int | Sequence[int],
         distance_results: pd.DataFrame | None = None,
         channels: int | list | None = None,
         figsize: tuple = (6, 6),
@@ -439,31 +515,56 @@ class _ImageDisplayMixin:
         show_mask_overlay: bool = False,
     ) -> Any:
         """
-        Plot a specific image by its index.
+        Plot one image, or a row of images, by index.
 
         Args:
-            idx: Image index in results
+            idx: Image index in results, or a sequence of indices drawn as one row.
             distance_results: Optional distance computation results DataFrame
             channels: specific channels to plot
-            figsize: Figure size
+            figsize: Figure size. For several indices the default is one row of
+                panels about 3 inches wide; a custom size is the whole figure.
             title_fields: Optional list of field names to display in title
-            show_extra_info: If True, prints detailed information after plotting
+            show_extra_info: If True, prints detailed information after plotting.
+                Ignored when ``idx`` is a sequence: extra info is turned off and a
+                warning is logged.
             apply_transforms: If True, apply pipeline image_transforms
             downsample: If not None, approximate desired size (in pixels) for the
                 longest image edge when downsampling. The final image size may
                 differ slightly due to integer stepping. If None, no downsampling.
             ax: Optional matplotlib axes to plot on. If provided, a new figure is not created.
+                For several indices, pass one axes per index.
             return_fig: If True, return the displayed image as a NumPy array
-                and do not open a matplotlib figure. Mask overlay, when requested, is
-                composited onto that array.
+                and do not open a matplotlib figure. A sequence of indices returns a list
+                of arrays. Mask overlay, when requested, is composited onto each array.
             show_mask_overlay: If True, draws the segmentation mask as a semi-transparent
                 yellow overlay with a crisp contour. Requires masks to have been discovered
                 via ``mask_dir`` in ``find_files``. Useful for verifying that masks load
                 correctly and spatially align with their images.
 
         Returns:
-            The image as a NumPy array when ``return_fig`` is True; otherwise ``None``.
+            The image as a NumPy array when ``return_fig`` is True and ``idx`` is a single
+            index; a list of arrays when ``idx`` is a sequence; otherwise ``None``.
         """
+        indices = _index_list(idx)
+        if len(indices) > 1:
+            if show_extra_info:
+                logger.warning("show_extra_info is disabled when plotting multiple indices.")
+                show_extra_info = False
+            return self._plot_images_by_index(
+                indices,
+                distance_results=distance_results,
+                channels=channels,
+                figsize=figsize,
+                title_fields=title_fields,
+                show_extra_info=show_extra_info,
+                apply_transforms=apply_transforms,
+                downsample=downsample,
+                ax=ax,
+                return_fig=return_fig,
+                show_mask_overlay=show_mask_overlay,
+            )
+        idx = indices[0]
+
         display_img, title, was_downsampled, all_info, metadata, img_name, img_path = (
             self._load_image_display_data(
                 idx,

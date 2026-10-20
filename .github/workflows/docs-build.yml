@@ -49,7 +49,7 @@ jobs:
 
       - name: Install Node dependencies
         working-directory: docs
-        run: npm install
+        run: npm ci
 
       - name: Build Astro site
         working-directory: docs

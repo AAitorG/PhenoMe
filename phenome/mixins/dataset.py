@@ -177,10 +177,11 @@ def collate_fn(batch: list[Any]) -> Any:
             ``(None, item)`` so the sample identity is preserved.
 
     Returns:
-        Tuple of (batch_tensor, items) where batch_tensor is:
+        Tuple of (batch_tensor, items, failed_items) where batch_tensor is:
             - (B, C, H, W) for combined mode or single image
             - (B, N_ch, C, H, W) for split channel mode
-        If every sample failed, returns ``(None, failed_items)``.
+        ``failed_items`` are the samples that did not load. If every sample failed,
+        ``batch_tensor`` is None and ``items`` is those failed samples.
     """
     failed_items: list[Any] = []
     ok: list[Any] = []
@@ -194,7 +195,7 @@ def collate_fn(batch: list[Any]) -> Any:
         ok.append(x)
 
     if not ok:
-        return None, tuple(failed_items)
+        return None, tuple(failed_items), tuple(failed_items)
 
     if failed_items:
         for it in failed_items:
@@ -216,4 +217,4 @@ def collate_fn(batch: list[Any]) -> Any:
     else:
         batch_tensor = torch.stack(images)  # (B, C, H, W)
 
-    return batch_tensor, items
+    return batch_tensor, items, tuple(failed_items)

@@ -429,11 +429,15 @@ class PhenoMe(
 
         Returns:
             The normalized DataFrame that was stored.
+
+        Also copies paths and metadata into ``results`` so index-based methods such as
+        ``plot_image_by_index`` work before embeddings or properties are computed.
         """
         self._validate_process_images_inputs(file_df)
         self._file_df = file_df.reset_index(drop=True).copy()
         self._init_file_df_metadata(self._file_df)
         self._channel_names = self._normalize_channel_names(channel_names)
+        self._seed_results_from_file_df(self._file_df)
         self._record_step(
             "set_file_df",
             {
@@ -461,6 +465,10 @@ class PhenoMe(
         from `mask_dir`. Extracts per-file metadata using `metadata_fn` and stores the result
         as the internal file DataFrame used by `process_images()`, `compute_properties()`,
         and `inspect_data()`.
+
+        The same rows are copied into ``results`` (paths and metadata, no embeddings).
+        ``plot_image_by_index`` and ``get_image_info`` work from that catalog before
+        ``process_images`` or ``compute_properties``. A later call replaces the catalog.
 
         Args:
             image_dir (str): Root directory or glob pattern for image files. Scanned recursively.
@@ -556,10 +564,12 @@ class PhenoMe(
             self._file_df = df.reset_index(drop=True).copy()
             self._init_file_df_metadata(self._file_df)
             self._channel_names = self._normalize_channel_names(channel_names)
+            self._seed_results_from_file_df(self._file_df)
         elif isinstance(df, pd.DataFrame) and df.empty:
             logger.warning("find_files returned an empty DataFrame; clearing previous _file_df.")
             self._file_df = None
             self._channel_names = None
+            self._seed_results_from_file_df(None)
         n_files = len(df) if isinstance(df, pd.DataFrame) else 0
         self._record_step(
             "find_files",
@@ -608,9 +618,12 @@ class PhenoMe(
         """Extract embeddings from images using a pretrained or custom model.
 
         Reads images from the file DataFrame (set via `find_files()` or `set_file_df()`),
-        processes them through the model in batches, and stores embeddings and metadata
-        in `self.results`. Supports filtering, channel selection, custom preprocessing,
-        and checkpointing for resumable processing.
+        processes them through the model in batches, and stores embeddings on the
+        existing image catalog in `self.results`. Paths and metadata are already set
+        by discovery; this method fills embeddings and keeps any properties already
+        computed for the same paths. ``filters`` / ``exclude`` narrow the catalog to
+        the images that will be embedded. Supports channel selection, custom
+        preprocessing, and checkpointing for resumable processing.
 
         **Embedding storage:**
         - Eager (default): Embeddings stored in `results.embeddings` (ndarray).
@@ -772,6 +785,12 @@ class PhenoMe(
             preprocessing_fn=preprocessing_fn,
         )
         all_requested_data = list(filtered_data)
+        eager_append = append and checkpoint_path is None
+        if eager_append:
+            filtered_data = self._align_catalog_to_cohort(filtered_data, append=True)
+        else:
+            self._align_catalog_to_cohort(filtered_data, append=append)
+        prior_properties = self._properties_by_path()
 
         ckpt, requested_paths, requested_meta_keys, filtered_data, cur_params = (
             self._setup_checkpoint_resume(
@@ -832,14 +851,28 @@ class PhenoMe(
                     requested_paths=requested_paths,
                     requested_meta_keys=requested_meta_keys,
                     current_requested_data=all_requested_data,
+                    prior_properties=prior_properties,
                 )
             else:
                 import warnings
 
-                warnings.warn(
-                    "No images to process after filtering. Check your filters/exclude arguments.",
-                    stacklevel=2,
-                )
+                if self._emb_buffer:
+                    self._finalize_results()
+                    logger.info(
+                        "No new images to embed; kept %d existing embeddings.",
+                        self.results.n_images,
+                    )
+                elif eager_append and self.results.n_images > 0:
+                    warnings.warn(
+                        "append=True skipped embedding because every image is already in the "
+                        "catalog. Call process_images(append=False) to fill embeddings.",
+                        stacklevel=2,
+                    )
+                else:
+                    warnings.warn(
+                        "No images to process after filtering. Check your filters/exclude arguments.",
+                        stacklevel=2,
+                    )
             return
 
         self._build_and_store_processing_pipeline(
@@ -870,6 +903,7 @@ class PhenoMe(
             num_workers=num_workers,
         )
 
+        failed_paths: list[Any] = []
         ckpt_used = self._run_embedding_extraction(
             model_wrapper,
             dl,
@@ -879,6 +913,8 @@ class PhenoMe(
             save_every=save_every,
             lazy_checkpoint=lazy_checkpoint,
             progress_callback=progress_callback,
+            record_catalog=False,
+            failed_paths=failed_paths,
         )
         self._persist_pipeline_to_checkpoint(ckpt_used)
 
@@ -890,7 +926,9 @@ class PhenoMe(
             len(filtered_data),
             all_requested_data=all_requested_data,
             n_pre_existing=n_pre_existing,
-            n_load_failures=getattr(dl.dataset, "load_failure_count", 0),
+            n_load_failures=len(failed_paths) or getattr(dl.dataset, "load_failure_count", 0),
+            failed_paths=failed_paths,
+            prior_properties=prior_properties,
         )
 
     # ------------------------------------------------------------------
@@ -2134,6 +2172,181 @@ class PhenoMe(
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _seed_results_from_file_df(self, file_df: pd.DataFrame | None) -> None:
+        """Replace the image catalog from *file_df*.
+
+        Copies paths and metadata in file-table order and stores one empty property
+        dict per image. Embeddings are cleared and any open checkpoint is closed.
+        An empty table clears ``results``.
+        """
+        if self._db is not None:
+            try:
+                self._db.close()
+            except OSError as e:
+                logger.debug("Error closing checkpoint before seeding catalog: %s", e)
+            self._db = None
+        self._db_indices = None
+        self._emb_buffer = []
+        self._ram_internal = None
+        self._temporal_embeddings = None
+        self._temporal_start_idx = 0
+        self.image_transforms = None
+        self.preprocessing_fn = None
+        self._processing_params = None
+        self._processing_pipeline = None
+        self._batch_correction_applied = False
+        self._batch_correction_last_info = None
+        if file_df is None or file_df.empty or "file_path" not in file_df.columns:
+            self.results = PhenoMeResults()
+            return
+        items = self._prepare_filtered_data(file_df)
+        paths: list[str | list[str]] = []
+        metas: list[dict[str, Any]] = []
+        for item in items:
+            fp = item["file_path"]
+            path: str | list[str] = list(fp) if isinstance(fp, (list, tuple)) else str(fp)
+            meta = item.get("metadata") or {}
+            paths.append(path)
+            metas.append(dict(meta) if isinstance(meta, dict) else {})
+        self.results = PhenoMeResults(
+            img_path=paths,
+            metadata=metas,
+            properties=[{} for _ in paths],
+            embeddings=None,
+        )
+
+    def _clear_embedding_state(self, *, append: bool) -> None:
+        """Drop embeddings and the checkpoint handle.
+
+        Paths, metadata, and properties stay on ``results``. When *append* is True,
+        existing embeddings are kept in ``_emb_buffer`` so new rows can be added.
+        """
+        if self._db is not None:
+            if (
+                append
+                and self._db_indices is not None
+                and len(self._db_indices) > 0
+                and self._db.n_committed > 0
+            ):
+                try:
+                    existing = self._db.load_embeddings_by_indices(self._db_indices)
+                    if existing is not None and len(existing) > 0:
+                        self._emb_buffer = list(existing)
+                except (OSError, KeyError, ValueError) as e:
+                    logger.warning(
+                        "Could not load existing embeddings from checkpoint for append: %s",
+                        e,
+                    )
+            try:
+                self._db.close()
+            except OSError as e:
+                logger.debug("Error closing checkpoint: %s", e)
+            self._db = None
+        self._db_indices = None
+        self._ram_internal = None
+        if append:
+            if self.results.embeddings is not None:
+                self._emb_buffer = list(self.results.embeddings)
+                self.results.embeddings = None
+        else:
+            self._emb_buffer = []
+            self.results.embeddings = None
+            self._temporal_embeddings = None
+            self._temporal_start_idx = 0
+        self.image_transforms = None
+        self.preprocessing_fn = None
+        self._batch_correction_applied = False
+        self._batch_correction_last_info = None
+
+    def _properties_by_path(self) -> dict[str, dict[str, Any]]:
+        """Map each image path to a copy of its non-empty property dict."""
+        lookup: dict[str, dict[str, Any]] = {}
+        for i, path in enumerate(self.results.img_path):
+            if i >= len(self.results.properties):
+                break
+            props = self.results.properties[i]
+            if isinstance(props, dict) and props:
+                lookup[_path_repr(path)] = dict(props)
+        return lookup
+
+    def _overlay_properties_by_path(self, prior: dict[str, dict[str, Any]]) -> None:
+        """Keep *prior* property dicts for paths that already had them."""
+        if not prior:
+            return
+        merged: list[dict[str, Any]] = []
+        for i, path in enumerate(self.results.img_path):
+            key = _path_repr(path)
+            if key in prior:
+                merged.append(dict(prior[key]))
+            elif i < len(self.results.properties) and isinstance(self.results.properties[i], dict):
+                merged.append(self.results.properties[i])
+            else:
+                merged.append({})
+        self.results.properties = merged
+
+    def _align_catalog_to_cohort(
+        self, cohort: list[dict[str, Any]], *, append: bool
+    ) -> list[dict[str, Any]]:
+        """Point the catalog at *cohort*, carrying property dicts by path.
+
+        When *append* is False, the catalog becomes exactly *cohort*. When *append*
+        is True, only paths that are not already present are added, and those new
+        items are returned.
+        """
+        prior = self._properties_by_path()
+        if not append:
+            paths: list[str | list[str]] = []
+            metas: list[dict[str, Any]] = []
+            props: list[dict[str, Any]] = []
+            for item in cohort:
+                fp = item["file_path"]
+                path: str | list[str] = list(fp) if isinstance(fp, (list, tuple)) else str(fp)
+                meta = item.get("metadata") or {}
+                paths.append(path)
+                metas.append(dict(meta) if isinstance(meta, dict) else {})
+                props.append(dict(prior.get(_path_repr(path), {})))
+            self.results.img_path = paths
+            self.results.metadata = metas
+            self.results.properties = props
+            self.results.embeddings = None
+            return cohort
+
+        while len(self.results.properties) < len(self.results.img_path):
+            self.results.properties.append({})
+        while len(self.results.metadata) < len(self.results.img_path):
+            self.results.metadata.append({})
+        existing = {_path_repr(p) for p in self.results.img_path}
+        new_items: list[dict[str, Any]] = []
+        for item in cohort:
+            fp = item["file_path"]
+            key = _path_repr(fp)
+            if key in existing:
+                continue
+            path = list(fp) if isinstance(fp, (list, tuple)) else str(fp)
+            meta = item.get("metadata") or {}
+            self.results.img_path.append(path)
+            self.results.metadata.append(dict(meta) if isinstance(meta, dict) else {})
+            self.results.properties.append(dict(prior.get(key, {})))
+            existing.add(key)
+            new_items.append(item)
+        return new_items
+
+    def _drop_failed_catalog_paths(self, failed_paths: list[Any]) -> None:
+        """Remove catalog rows that failed to load, keeping the remaining order."""
+        failed = {_path_repr(p) for p in failed_paths if p is not None}
+        if not failed:
+            return
+        keep = [i for i, path in enumerate(self.results.img_path) if _path_repr(path) not in failed]
+        if len(keep) == len(self.results.img_path):
+            return
+        self.results.img_path = [self.results.img_path[i] for i in keep]
+        self.results.metadata = [
+            self.results.metadata[i] if i < len(self.results.metadata) else {} for i in keep
+        ]
+        self.results.properties = [
+            self.results.properties[i] if i < len(self.results.properties) else {} for i in keep
+        ]
+
     def _prepare_for_process_images(
         self,
         file_df: pd.DataFrame,
@@ -2150,33 +2363,12 @@ class PhenoMe(
         preprocessing_fn: Callable[[np.ndarray], np.ndarray] | None,
     ) -> tuple[list[dict[str, Any]], dict[str, Any], str | None]:
         """Prepare state and filtered data for process_images. Returns (filtered_data, cur_params, final_data_dir).
-        final_data_dir is inferred from file_df paths for checkpoint internal use."""
-        if not append:
-            self.reset()
-        else:
-            if self._db is not None:
-                if (
-                    self._db_indices is not None
-                    and len(self._db_indices) > 0
-                    and self._db.n_committed > 0
-                ):
-                    try:
-                        existing = self._db.load_embeddings_by_indices(self._db_indices)
-                        if existing is not None and len(existing) > 0:
-                            self._emb_buffer = list(existing)
-                    except (OSError, KeyError, ValueError) as e:
-                        logger.warning(
-                            "Could not load existing embeddings from checkpoint for append: %s",
-                            e,
-                        )
-                try:
-                    self._db.close()
-                except OSError as e:
-                    logger.debug("Error closing checkpoint for append: %s", e)
-                self._db = None
-            if self.results.embeddings is not None:
-                self._emb_buffer = list(self.results.embeddings)
-                self.results.embeddings = None
+        final_data_dir is inferred from file_df paths for checkpoint internal use.
+
+        Clears embeddings and the checkpoint handle. Paths, metadata, and properties
+        stay in place so the caller can align the catalog to this cohort.
+        """
+        self._clear_embedding_state(append=append)
 
         fdf = self._filter_dataframe(file_df, filters, exclude)
         filtered_data = self._prepare_filtered_data(fdf)
@@ -2372,6 +2564,8 @@ class PhenoMe(
         save_every: int = 5,
         lazy_checkpoint: bool = True,
         progress_callback: ProgressCallback | None = None,
+        record_catalog: bool = True,
+        failed_paths: list[Any] | None = None,
     ) -> CheckpointManager | None:
         """Run embedding extraction via EmbeddingExtractor. Thin wrapper for unit-testing."""
         if results is None:
@@ -2396,6 +2590,8 @@ class PhenoMe(
             save_every=save_every,
             lazy_checkpoint=lazy_checkpoint,
             progress_callback=progress_callback,
+            record_catalog=record_catalog,
+            failed_paths=failed_paths,
         )
 
     def _build_transforms(
@@ -2651,6 +2847,8 @@ class PhenoMe(
         *,
         n_pre_existing: int = 0,
         n_load_failures: int = 0,
+        failed_paths: list[Any] | None = None,
+        prior_properties: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         """Finalize processing and handle checkpoint commit."""
         use_ckpt = checkpoint_path is not None
@@ -2677,14 +2875,24 @@ class PhenoMe(
                 requested_paths=requested_paths,
                 requested_meta_keys=requested_meta_keys,
                 current_requested_data=all_requested_data,
+                prior_properties=prior_properties,
             )
         else:
+            if failed_paths:
+                self._drop_failed_catalog_paths(failed_paths)
             n_actual = self.results.n_images
             if n_actual < n_expected:
                 logger.warning(
                     "Some images failed to load: %d processed, %d expected.",
                     n_actual,
                     n_expected,
+                )
+            n_emb = len(self._emb_buffer)
+            if n_emb != n_actual:
+                logger.warning(
+                    "Embedding count (%d) does not match catalog size (%d).",
+                    n_emb,
+                    n_actual,
                 )
             self._finalize_results()
 
@@ -2694,6 +2902,7 @@ class PhenoMe(
         requested_paths: set | None = None,
         requested_meta_keys: set | None = None,
         current_requested_data: list[dict[str, Any]] | None = None,
+        prior_properties: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         """Set up HDF5-backed lazy results after a checkpoint write.
 
@@ -2712,6 +2921,8 @@ class PhenoMe(
             requested_meta_keys: Optional set of stable metadata keys to filter for.
             current_requested_data: Optional list of {file_path, metadata} from the
                 current run's file_df; used to enrich checkpoint metadata with new keys.
+            prior_properties: Optional path-keyed property dicts computed before this
+                load. Non-empty entries replace checkpoint properties for the same path.
         """
         if self._db is not None and self._db is not ckpt:
             try:
@@ -2797,6 +3008,8 @@ class PhenoMe(
             properties=properties,
             embeddings=None,  # lazy: access via get_embeddings()
         )
+        if prior_properties:
+            self._overlay_properties_by_path(prior_properties)
         validate_results(self.results)
         logger.info(
             "Pipeline ready: %d images available (lazy loading from %s).",

@@ -40,11 +40,8 @@ with `import phenome; print(phenome.__version__)`.
 ## Recommended shared project layout
 
 See [Data organization - recommended project layout](/PhenoMe/guides/best-practices/data-organization/#recommended-project-layout).
-For collaboration, add `configs/` (template configs) and environment
-specs under `envs/` (conda YAML and pip requirements); the repo root
-keeps a short
-[`requirements.txt`](https://github.com/AAitorG/PhenoMe/blob/main/requirements.txt)
-that defaults to GPU.
+For collaboration, add `configs/` (template configs) and Conda environment
+files under `envs/`. Dependencies and version ranges live in `pyproject.toml`.
 
 ## Data versioning with DVC (optional)
 

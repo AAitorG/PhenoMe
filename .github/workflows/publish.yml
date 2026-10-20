@@ -37,6 +37,13 @@ jobs:
           python -m build
           twine check dist/*
 
+      - name: Install and import wheel
+        run: |
+          python -m venv .venv-package-check
+          .venv-package-check/bin/python -m pip install --upgrade pip
+          .venv-package-check/bin/python -m pip install dist/*.whl
+          .venv-package-check/bin/python -c "import phenome; print(phenome.__version__)"
+
       - name: Upload distribution
         uses: actions/upload-artifact@v5
         with:
