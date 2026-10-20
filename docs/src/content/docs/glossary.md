@@ -48,7 +48,7 @@ A fixed-size numerical vector that represents an image. Produced by a deep learn
 Information about each image: file path, condition, drug, timepoint, replicate, etc. Extracted from file paths or CSV.
 
 ### Model-agnostic
-The pipeline works with any vision model that produces embeddings (DINOv2, CLIP, BioCLIP, custom models). No lock-in to a single architecture.
+The pipeline works with any vision model that produces embeddings (DINOv2, ResNet, custom models). No lock-in to a single architecture.
 
 ### Morphometry
 Quantitative measurement of shape and form. Classical morphometry uses hand-crafted features (area, perimeter, eccentricity); the pipeline also uses deep embeddings.

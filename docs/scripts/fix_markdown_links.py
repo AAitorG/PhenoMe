@@ -224,12 +224,11 @@ def fix_file(path: Path) -> bool:
     text = path.read_text(encoding="utf-8")
     orig = text
 
-    # GitHub links (notebooks, CONTRIBUTING.md, requirements.txt)
+    # GitHub links (notebooks, CONTRIBUTING.md)
     text = text.replace(f"]({_REPO}/Notebooks/tutorials", f"]({_NB}")
     text = text.replace("](../../Notebooks/tutorials/", f"]({_NB}/")
     text = text.replace("](../Notebooks/tutorials/", f"]({_NB}/")
     text = text.replace("](../../CONTRIBUTING.md)", f"]({_REPO}/CONTRIBUTING.md)")
-    text = text.replace("](../../requirements.txt)", f"]({_REPO}/requirements.txt)")
     text = text.replace("](..//Notebooks/", f"]({_NB}/")
 
     text = append_md_extensions(text, path)

@@ -17,10 +17,10 @@ Thank you for your interest in contributing to PhenoMe. This document explains h
    conda activate phenome-gpu
    pip install -e ".[dev]"
    ```
-   Or with pip (GPU or CPU lockfiles; add dev extras):
+   Or with pip (same ranges as the package; add dev extras):
    ```bash
-   pip install -r requirements.txt -e ".[dev]"
-   # NVIDIA CUDA: pip install -r envs/requirements-gpu.txt -e ".[dev]"
+   pip install -e ".[dev]"
+   # TorchDR and PyKeOps as well: pip install -e ".[dev,full]"
    ```
 
 3. **Install pre-commit hooks**
@@ -91,10 +91,11 @@ with pipeline.checkpoint_context("results.h5") as p:
 
 ## Project Structure
 
-- `phenome/` – Core pipeline and utilities
-- `phenome/mixins/` – Mixins (properties, distances, analysis, visualization)
-- `phenome/plugins/` – Property and metadata registries
-- `tests/` – Pytest smokes (CI)
+`PhenoMe` in `phenome/pipeline.py` is the session object. Capabilities are mixins under `phenome/mixins/`. Array math is `phenome/core/`, files and HDF5 are `phenome/io/`, metadata is `phenome/metadata/`, model and property helpers are `phenome/utils/`, user registries are `phenome/plugins/`, and the HTML report is `phenome/report/`. The file-level map is [`docs/src/content/docs/guides/architecture.md`](docs/src/content/docs/guides/architecture.md) and [`AGENTS.md`](AGENTS.md).
+
+Keep a public method to the steps a reader follows, and put helpers in a sibling module (`phenome/mixins/properties/` and `phenome/mixins/visualization/` are the pattern). A few hundred lines is the normal module size. Do not add new inline logic to `pipeline.py`, `mixins/interactive/explorer.py`, `mixins/analysis.py`, `io/checkpoint.py`, `core/processing_pipeline.py`, or `mixins/properties/_compute.py`; call a new module from there instead.
+
+- `tests/` – Pytest
 - `docs/` – Astro Starlight site (content in `docs/src/content/docs/`)
 
 ## Common Edit Tasks
@@ -105,8 +106,7 @@ Quick reference for maintainers: which file to edit for each type of change.
 |------------|------------------|
 | Bump version | `pyproject.toml` → `[project].version` (canonical; `phenome.__version__` reads it after install) |
 | Add/change dependencies | `pyproject.toml` → `[project].dependencies` or `[project.optional-dependencies]` |
-| Update conda environment | `envs/environment-cpu.yml` / `envs/environment-gpu.yml` – adjust pins under `dependencies:` / `pip:` |
-| Update pip pins | `envs/requirements-base.txt` (shared torch + stack); GPU-only extras (e.g. `torchdr`) in `envs/requirements-gpu.txt` |
+| Update install dependencies | `pyproject.toml` only. The Conda files install that same set with `pip install -e` |
 | Document a new API | Docstrings in `phenome/` (generated pages) and/or narrative `docs/src/content/docs/advanced/api/` |
 | Add a guide or tutorial | `docs/src/content/docs/guides/` |
 | Record a release | `CHANGELOG.md` – move [Unreleased] items under `[X.Y.Z] – YYYY-MM-DD` |

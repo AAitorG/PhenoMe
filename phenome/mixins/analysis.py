@@ -1893,7 +1893,10 @@ class PhenoMeAnalysis:
             # Load ONLY the requested rows — lazy if checkpoint-backed
             data = self.get_embeddings(indices)  # type: ignore[attr-defined]
             if data is None or len(data) == 0:
-                raise ValueError(f"No embeddings available ({caller}). Run process_images() first.")
+                message = f"No embeddings available ({caller}). Run process_images() first."
+                if self.results.has_properties:
+                    message += " Properties are available; pass source='properties' to use them."
+                raise ValueError(message)
 
             if normalize:
                 data = self._normalize_embeddings_l2(data)

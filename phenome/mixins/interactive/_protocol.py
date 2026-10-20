@@ -7,6 +7,7 @@ public surface that lives in the visualization mixin and the docs).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Protocol
 
 
@@ -26,7 +27,7 @@ class _InteractiveExplorerProtocol(Protocol):
 
     def plot_image_by_index(
         self,
-        idx: int,
+        idx: int | Sequence[int],
         distance_results: dict | None = None,
         channels: Any | None = None,
         figsize: tuple[float, float] = (6.0, 6.0),

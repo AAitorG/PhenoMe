@@ -22,7 +22,7 @@ covered in the core tutorial.
 
 Analyzing the effects of different drug treatments or mapping changes
 over time requires using experimental info (metadata). Whether your data is
-organized hierarchically (`{drug}/{concentration}/{image}.tif`) or
+organized hierarchically (`.../(drug)/(concentration)/(filename).*`) or
 encoded in filenames (`Treated_24h`), you can handle it through the
 metadata pipeline.
 
@@ -58,9 +58,10 @@ pheno.clear_temporal_data()
 
 ## 6. Batch processing large datasets
 
-For very large datasets, use "checkpointing" so results are saved to disk as they are calculated.
+For very large datasets, discover files first, then checkpoint during extraction so results are saved as they are calculated.
 
 ```python
+pheno.find_files("path/to/your/images")
 pheno.process_images(
     wrapper,
     checkpoint_path="results/my_large_dataset.h5",

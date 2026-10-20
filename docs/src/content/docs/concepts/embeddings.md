@@ -14,7 +14,6 @@ Image -> Vision model (the "brain") -> Visual fingerprint (the numbers)
 Common choices:
 
 - **DINOv2** (default): self-supervised vision transformer by Meta AI.
-- **CLIP**: vision-language models.
 - **Custom models**: any model can be used with the [Vision model wrappers](/PhenoMe/advanced/api/model-wrapper/).
 
 DINOv2 transfers well to diverse microscopy images without training or fine-tuning, which is why it is the default.
