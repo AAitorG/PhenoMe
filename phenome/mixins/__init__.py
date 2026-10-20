@@ -56,16 +56,13 @@ For architectural overview, see the [Architecture guide](https://AAitorG.github.
 For property factories and custom properties, see `phenome.plugins` and `phenome.utils`.
 """
 
+from typing import Any
+
 from .analysis import PhenoMeAnalysis
 from .batch_correction import PhenoMeBatchCorrection
 from .dataset import PhenoMeDataset, collate_fn
 from .distances import PhenoMeDistances
 from .embedding_extractor import EmbeddingExtractor
-from .interactive import (
-    PhenoMeInteractive,
-    create_colab_interactive_explorer,
-    create_interactive_explorer,
-)
 from .properties import PhenoMeProperties
 from .visualization import PhenoMeVisualization
 
@@ -75,10 +72,28 @@ __all__ = [
     "PhenoMeBatchCorrection",
     "PhenoMeDataset",
     "PhenoMeDistances",
-    "PhenoMeInteractive",
     "PhenoMeProperties",
     "PhenoMeVisualization",
     "collate_fn",
-    "create_colab_interactive_explorer",
-    "create_interactive_explorer",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Load notebook-only interactive helpers on first use."""
+    if name in {
+        "PhenoMeInteractive",
+        "create_colab_interactive_explorer",
+        "create_interactive_explorer",
+    }:
+        from .interactive import (
+            PhenoMeInteractive,
+            create_colab_interactive_explorer,
+            create_interactive_explorer,
+        )
+
+        return {
+            "PhenoMeInteractive": PhenoMeInteractive,
+            "create_colab_interactive_explorer": create_colab_interactive_explorer,
+            "create_interactive_explorer": create_interactive_explorer,
+        }[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

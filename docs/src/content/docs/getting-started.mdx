@@ -31,9 +31,12 @@ Pip installs the published package. Conda uses the pinned environment files in t
        pip install phenome
        ```
 
-       PyTorch is included. An NVIDIA GPU is used when CUDA is available; the same install runs on CPU.
+       PyTorch and the Jupyter packages used by the notebooks are included.
+       Embeddings use that install: pass `device` so a CUDA wheel runs on GPU.
 
-       For very large GPU datasets, add the optional backends:
+       `phenome[full]` adds TorchDR and PyKeOps for large GPU analyses.
+       Turn GPU dimensionality reduction on with `PhenoMe(..., use_gpu_for_dr=True)`.
+       It does not move embeddings onto the GPU by itself:
 
        ```bash
        pip install "phenome[full]"
@@ -61,22 +64,21 @@ Pip installs the published package. Conda uses the pinned environment files in t
        cd PhenoMe
        ```
 
-    2. **Create an environment** for your hardware. These files pin the scientific stack and install this checkout.
+    2. **Create an environment.** Both files install this checkout with the dependencies in `pyproject.toml`. The GPU file also installs the `full` extra (TorchDR and PyKeOps). Pip selects the CPU or CUDA Torch wheel.
 
-       <Tabs>
-         <TabItem label="GPU (CUDA)">
-           ```bash
-           conda env create -f envs/environment-gpu.yml
-           conda activate phenome-gpu
-           ```
-         </TabItem>
-         <TabItem label="CPU">
-           ```bash
-           conda env create -f envs/environment-cpu.yml
-           conda activate phenome-cpu
-           ```
-         </TabItem>
-       </Tabs>
+       GPU (CUDA):
+
+       ```bash
+       conda env create -f envs/environment-gpu.yml
+       conda activate phenome-gpu
+       ```
+
+       CPU:
+
+       ```bash
+       conda env create -f envs/environment-cpu.yml
+       conda activate phenome-cpu
+       ```
 
     3. **Verify the install**
 
@@ -138,7 +140,7 @@ If you prefer a guided walkthrough with interactive widgets, start with
 
    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
    wrapper = load_dinov2_model(model_name="dinov2_vitb14_reg", device=device)
-   pheno = PhenoMe(device=device, seed=42)
+   pheno = PhenoMe(device=device)
    ```
 
 2. **Find your images**
@@ -158,17 +160,19 @@ If you prefer a guided walkthrough with interactive widgets, start with
    ```
 
    <Aside type="tip">
-   If your data has plate effects, you can run `pheno.correct_batches(batch_metadata_key="plate_id", control_filters={"condition": "Control"})` here.
+   If your data has plate effects and those metadata keys exist, you can run `pheno.correct_batches(batch_metadata_key="plate_id", control_filters={"condition": "Control"})` here.
    </Aside>
 
 4. **Visualize your results**
 
    ```python
-   pheno.plot_pca(color_by="condition")
+   pheno.plot_pca()
    ```
 
-   Replace `condition` with any metadata column in your dataset. Use `pheno.get_available_metadata_keys()` to list them.
-   If you have no labels yet, call `pheno.plot_pca()` with no `color_by`.
+   To color points, pass a key from `pheno.get_available_metadata_keys()`.
+   For example, after a folder pattern or spreadsheet created `condition`,
+   call `pheno.plot_pca(color_by="condition")`. Add `seed=42` to `PhenoMe`
+   only when you want a reproducible run.
 </Steps>
 
 ## What's next?

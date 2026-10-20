@@ -24,7 +24,7 @@ def search_corpus(query: str) -> str:
         return "Provide a non-empty query."
     hits = _search_local_docs(q)
     if hits:
-        return hits
+        return "# Local PhenoMe documentation\n\n" + hits
     from .recipes import RECIPES
 
     recipe_hits = []
@@ -33,13 +33,14 @@ def search_corpus(query: str) -> str:
         if ql in name.lower() or ql in body.lower():
             recipe_hits.append(f"### recipe:{name}\n{body.strip()[:_SNIPPET]}")
     if recipe_hits:
-        return "\n\n".join(recipe_hits[:_MAX_HITS])
+        return "# Bundled PhenoMe recipe\n\n" + "\n\n".join(recipe_hits[:_MAX_HITS])
     remote = _search_llms_small(q)
     if remote:
         return remote
     return (
         "No matches in local docs, bundled recipes, or "
-        f"{_LLMS_SMALL_URL}. Try get_recipe or list_public_api."
+        f"{_LLMS_SMALL_URL}. Try get_recipe or list_public_api. "
+        "Do not infer undocumented methods or parameters."
     )
 
 
@@ -69,7 +70,10 @@ def _search_local_docs(query: str) -> str:
         return ""
     parts = []
     for score, rel, snippet in scored[:_MAX_HITS]:
-        parts.append(f"### {rel} (score={score})\n{snippet}")
+        parts.append(
+            f"### {rel} (local source, score={score})\n{snippet}\n"
+            "See the complete page before using undocumented details."
+        )
     return "\n\n".join(parts)
 
 
@@ -101,4 +105,6 @@ def _search_llms_small(query: str) -> str:
     scored.sort(key=lambda x: x[0], reverse=True)
     if not scored:
         return ""
-    return "\n\n".join(f"(llms-small, score={s})\n{c}" for s, c in scored[:_MAX_HITS])
+    return "\n\n".join(
+        f"### Published llms-small.txt (score={s})\n{c}" for s, c in scored[:_MAX_HITS]
+    )

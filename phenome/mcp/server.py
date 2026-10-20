@@ -1,7 +1,10 @@
-"""Optional MCP server for PhenoMe docs, recipes, and dataset inspection.
+"""Optional MCP server for scientists using PhenoMe.
+
+It helps an assistant build an analysis tool on the public API, or run an
+analysis and either save it or summarize it. It does not modify PhenoMe and
+does not run embedding extraction.
 
 Install with ``pip install phenome[mcp]`` and run ``phenome-mcp``.
-Does not run embedding extraction.
 """
 
 from __future__ import annotations
@@ -36,8 +39,52 @@ def _build_server() -> Any:
         return search_corpus(query)
 
     @mcp.tool()
+    def get_api_symbol(name: str) -> str:
+        """Return one public symbol. PhenoMe methods include purpose and signature; other exports include the import path."""
+        from .manifest import get_api_symbol as _get
+
+        return json.dumps(_get(name), indent=2)
+
+    @mcp.tool()
+    def troubleshoot(error_text: str) -> str:
+        """Match an error or question to structured PhenoMe troubleshooting guidance."""
+        from .manifest import troubleshoot as _troubleshoot
+
+        matches = _troubleshoot(error_text)
+        return json.dumps({"matches": matches}, indent=2)
+
+    @mcp.tool()
+    def validate_analysis_code(code: str) -> str:
+        """Flag unknown prefixed calls, process_images or load_results before find_files, and brace path templates."""
+        from .manifest import validate_analysis_code as _validate
+
+        return json.dumps(_validate(code), indent=2)
+
+    @mcp.tool()
+    def get_version_info() -> str:
+        """Return package and documentation version information."""
+        import phenome
+
+        return json.dumps(
+            {
+                "package": "phenome",
+                "version": phenome.__version__,
+                "documentation": "https://AAitorG.github.io/PhenoMe/",
+                "llm_corpus": {
+                    "small": "https://AAitorG.github.io/PhenoMe/llms-small.txt",
+                    "full": "https://AAitorG.github.io/PhenoMe/llms-full.txt",
+                },
+                "roles": {
+                    "developer_assistant": "Build the user's analysis tool on the public API.",
+                    "analysis_assistant": "Plot the dataset, then save_results for a handoff or summarize it in memory.",
+                },
+            },
+            indent=2,
+        )
+
+    @mcp.tool()
     def get_recipe(name: str) -> str:
-        """Return a named analysis recipe (first-analysis, export-settings, ...)."""
+        """Return one recipe: first-analysis, export-settings, summarize, path-metadata, property-presets, batch-correction, or checkpoint."""
         from .recipes import get_recipe as _get
         from .recipes import list_recipe_names
 
@@ -84,14 +131,16 @@ def _build_server() -> Any:
 
     @mcp.tool()
     def format_run_settings(config_path: str) -> str:
-        """Pretty-print an exported experiment config JSON as a methods dump."""
+        """Pretty-print a top-level JSON object, usually from export_experiment_config."""
         path = Path(config_path)
         if not path.is_file():
-            return f"File not found: {config_path}"
+            raise FileNotFoundError(f"Run settings file not found: {config_path}")
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            return f"Could not read JSON: {exc}"
+            raise ValueError(f"Could not read run settings JSON: {exc}") from exc
+        if not isinstance(data, dict):
+            raise ValueError("Run settings JSON must contain an object at the top level.")
         return _format_settings_dict(data)
 
     return mcp

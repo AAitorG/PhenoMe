@@ -31,24 +31,18 @@ results, outlier detection, and customizable sections.
 **Example: Generate report**
 
 ```python
-from phenome import PhenoMe
-from phenome.report import generate_report
+from phenome import PhenoMe, load_dinov2_model
 
+model = load_dinov2_model()
 pm = PhenoMe()
 pm.find_files("images/")
 pm.process_images(model)
-pm.compute_properties(property_preset="basic")
-pm.compute_clustering()
-pm.compute_pca()
-
-# Generate report
-generate_report(
-    pipeline=pm,
-    output_path="phenome_report.html",
+pm.compute_properties(property_preset="intensity")
+pm.compute_clustering(clustering_method="kmeans", n_clusters=5)
+pm.generate_report(
+    "phenome_report.html",
     title="My Phenotyping Analysis",
-    include_embeddings=True,
-    include_properties=True,
-    include_clustering=True
+    include_clustering=True,
 )
 ```
 
