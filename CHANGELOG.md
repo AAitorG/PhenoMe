@@ -4,12 +4,25 @@ All notable changes to PhenoMe are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [1.5.1] – 2026-10-20
+
+### Added
+
+- `find_files` and `set_file_df` copy paths and metadata into `results`, so `plot_image_by_index` and `get_image_info` work before embeddings or properties.
+- `plot_image_by_index` accepts several indices and draws them in one row. With `return_fig=True`, that call returns a list of image arrays.
+- `compute_properties` uses that catalog and does not require embeddings.
+- MCP tools `get_api_symbol`, `troubleshoot`, `validate_analysis_code`, and `get_version_info`.
+- The publish workflow installs the built wheel and imports `phenome`.
 
 ### Changed
 
-- TorchDR and PyKeOps are installed together with `phenome[full]`.
-- CI now checks Python 3.12 and 3.13 on Linux and Python 3.12 on Windows.
+- Images that fail to load during `process_images` leave the catalog, so the remaining rows stay aligned. `reset_properties` keeps one empty dict per image.
+- A missing-embeddings error mentions `source="properties"` when properties are already present.
+- **Breaking:** `collate_fn` returns `(batch_tensor, items, failed_items)`. A batch that fails entirely is `(None, failed_items, failed_items)`.
+- `phenome[full]` installs TorchDR and PyKeOps together. PyKeOps is still skipped on Windows.
+- Install pins live in `pyproject.toml`. The separate requirements text files are removed.
+- CI runs the smoke test on Linux (Python 3.12), macOS (Python 3.13), and Windows (Python 3.12).
+- Guides and notebooks show a plot right after `find_files` and a ResNet18 wrapper. Assistant instructions treat a notebook as the usual analysis and check counts, labels, and values after each step.
 
 ## [1.5.0] – 2026-10
 

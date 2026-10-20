@@ -44,7 +44,7 @@ pheno.save_results("results/phenome_results.h5")
     "summarize": """\
 # Summarize an analysis
 
-Keep tables and figures in variables and read the text forms. Write a file only when the user asked for one.
+Keep tables and figures in variables and read the text forms. After each step, check that the counts, labels, and values match the dataset. Write a file only when the user asked for one.
 
 ```python
 fig = pheno.plot_pca(return_fig=True)

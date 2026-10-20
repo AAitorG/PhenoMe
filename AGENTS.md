@@ -8,8 +8,13 @@ A few people develop PhenoMe itself. For that work the LLM helps with the whole 
 
 ## Operating contract for regular users
 
-- A developer assistant imports `from phenome import PhenoMe, load_dinov2_model` and stays on that public API. Leave PhenoMe's logging, plot defaults, and output files as they are.
-- Analysis work shows the dataset with `plot_pca`, `plot_tsne`, `plot_umap`, or `create_interactive_explorer`.
+- A developer assistant imports `from phenome import PhenoMe, load_dinov2_model` and stays on that public API. Pass `device` into both. Add also a `seed` to keep it reproducible by default. Leave PhenoMe's logging, plot defaults, and output files as they are.
+- An analysis is usually a notebook, so the user can see `plot_pca`, `plot_tsne`, or `plot_umap` and open `create_interactive_explorer` (`create_colab_interactive_explorer` in Colab). Those plots compute the projection themselves. A `.py` script is fine when the user asked for one, or when a notebook is not available.
+- Order: `find_files`, with metadata from `get_metadata_from_path` (a path template) or `make_dataframe_metadata_fn` (a table) → read the file table, `plot_image_by_index`, and `inspect_data` → `process_images`, or load an existing run → `compute_properties` when the question needs classical measurements → one projection plot. `correct_batches` only when plate or batch labels and controls are present. Multi-channel images set `channel_mode` to `split` or `combined`.
+- One checkpoint file uses `load_results`. Separate embedding and property files use `load_embeddings`, then `load_properties`. New images on an existing projection use `process_temporal_images`, then `clear_temporal_data`.
+- Then only the comparison the question asks for. A treatment against a reference uses `compute_reference_distances`, `property_stats_by_group`, and `top_properties_different_from_reference`. Counts per group use `plot_counts`. Groups and unusual images use `compute_clustering`, `analyze_group_enrichment`, `find_prototypes`, and `detect_outliers`. A time course of group centers uses `plot_centroids`.
+- Linking embeddings to measurements uses `compute_component_correlation` for one projection, `compute_embedding_property_correlations` and `summarize_embedding_property_correlations` for embedding dimensions, and `compute_multivariate_interpretability` for a joint fit.
+- After each step, read what it printed and any variable you kept. Before `process_images`, the file count, metadata keys, and the sample image have to match the dataset. Read height and width from `inspect_data`. If the default 224-pixel square would compress the content too far or stretch a non-square image, set `resize_size` and `pad_size`. Call `get_available_metadata_keys()` before `color_by`, filters, or `batch_metadata_key`, and `get_available_property_keys()` before naming a property.
 - A finished analysis the user will open later is saved with `save_results`. Add `export_experiment_config`, `export_methods_markdown`, or `generate_report(..., include_run_settings=True)` for each extra file the handoff needs.
 - A summary stays in memory: returned tables, `return_fig=True`, `get_run_settings()`, and `print_processing_pipeline()`. Write a file for a summary only when the user asked for that file.
 - Use a public symbol, parameter, file format, or workflow only after verifying it in source, the public API guide, or the generated API reference. Ask, or report the missing documentation, when it cannot be verified.
@@ -22,7 +27,7 @@ Use sources in this order when they disagree:
 2. Public re-exports in `phenome/__init__.py` and
    `docs/src/content/docs/guides/using-with-llms.mdx`.
 3. Generated API pages and the published `llms-full.txt`.
-4. The compact `llms-small.txt`, examples, notebooks, and cached context.
+4. The compact `llms-small.txt` and cached context.
 
 Published machine-readable resources:
 
@@ -33,17 +38,16 @@ Published machine-readable resources:
 
 ## Working in this repo
 
-These rules are for the few people who develop PhenoMe. Trust the checked-out source, tests, and `pyproject.toml`. Classify each change as library code, an analysis script, or documentation, and edit only that surface. State the quantity, the formula, and its conditions when a method computes one. Keep the public method, message, and guide easy for a scientist to follow.
+These rules are for the few people who develop PhenoMe. Classify each change as library code, an analysis script, or documentation, and edit only that surface. State the quantity, the formula, and its conditions when a method computes one. Keep the public method, message, and guide easy for a scientist to follow.
 
-- The public API is the source of truth for user-facing analysis scripts. Import from `phenome/__init__.py` and do not call mixin internals unless a public re-export exposes them.
-- Public API lives on `phenome.PhenoMe` and top-level re-exports in `phenome/__init__.py`. Prefer those over mixin internals.
+- The public API is `phenome.PhenoMe` and the re-exports in `phenome/__init__.py`. User-facing code imports from there.
 - Narrative docs live in `docs/src/content/docs/`. **Do not hand-edit** `docs/src/content/docs/advanced/api/` or `docs/src/content/docs/function-location-guide.md` — they are generated by `docs/scripts/generate_api_docs.py` from docstrings.
 - `docs/scripts/generate_llm_manifest.py` writes `phenome-api.json` from `phenome/mcp/manifest.py`. The Starlight plugin writes `llms.txt`, `llms-small.txt`, and `llms-full.txt` during `astro build` (`promote` sorts pages; `exclude` filters `llms-small.txt`; `details` is the note in `llms.txt`). Edit source pages, docstrings, the manifest builder, or `docs/astro.config.mjs`, never generated output.
-- User guides are the workflow: getting started, workflows, and folder patterns. [`docs/src/content/docs/guides/using-with-llms.mdx`](docs/src/content/docs/guides/using-with-llms.mdx) only lists the constraints for generated scripts. Do not add a second copy of those guides there.
-- Docstrings are NumPy-style. Keep interrogate coverage (`fail-under=95`).
+- User guides are the workflow: getting started, workflows, and folder patterns. [`docs/src/content/docs/guides/using-with-llms.mdx`](docs/src/content/docs/guides/using-with-llms.mdx) only lists the constraints for a notebook or a script. Do not add a second copy of those guides there.
+- Docstrings are NumPy-style: the quantity, the array shape, and the conditions. Keep interrogate coverage (`fail-under=95`).
 - Quality: `ruff check phenome tests`, `ruff format --check phenome tests`, `mypy phenome`, `pytest` (see `pyproject.toml` and `CONTRIBUTING.md`).
 - Documentation quality: from `docs/`, run `npm run build`; it regenerates API pages, normalizes links, validates all internal links, and builds the LLM corpus.
-- Do not change default logging, plot formats, report sections, or `save_results` outputs unless the user explicitly asked. LLM-oriented extras are opt-in (`export_experiment_config`, `include_run_settings=True`). Processing steps are logged at INFO; reprint with `print_processing_pipeline()` only if asked.
+- Do not change default logging, plot formats, report sections, or `save_results` outputs unless the user explicitly asked. Processing steps are logged at INFO.
 
 ## Library layout
 
@@ -67,7 +71,7 @@ Scientists use one class, `PhenoMe` (`phenome/pipeline.py`). It is a session obj
 | `tests/` | Pytest. |
 | `docs/src/content/docs/` | Guides. Pages under `advanced/api/` and `function-location-guide.md` are generated. |
 
-`phenome/core` is the place for a formula that can run on arrays. Mixins apply that formula to the session and record the step. Plots are drawn in `visualization`; `analysis.py` calls those plot helpers (`_plot_property_correlations_plotly`, `_display_multivariate_interpretability`, and `self._plot_*`) and does not build figures itself.
+Mixins apply a formula to the session and record the step. Plots are drawn in `visualization`; `analysis.py` calls those plot helpers and does not build figures itself.
 
 ## Where new library code goes
 
@@ -93,18 +97,8 @@ Name the file for the job. One concern per file. A module of a few hundred lines
 | Metadata from a path or a table | `phenome/metadata/` |
 | A name scientists import | Re-export from `phenome/__init__.py` |
 
-NumPy docstrings on public functions and classes: the quantity, the array shape, and the conditions. Type hints on new code. A behavior change that the signature does not make obvious gets a test under `tests/`. The same map for human readers is [Architecture](docs/src/content/docs/guides/architecture.md).
+Type hints on new code. A behavior change that the signature does not make obvious gets a test under `tests/`. The same map for human readers is [Architecture](docs/src/content/docs/guides/architecture.md).
 
 ## Writing analysis scripts (not library code)
 
-Follow [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) and the constraints in [Using PhenoMe with LLMs](https://AAitorG.github.io/PhenoMe/guides/using-with-llms/):
-
-1. `from phenome import PhenoMe, load_dinov2_model`
-2. `find_files` → `process_images` → optional `compute_properties` → plots / analysis
-3. Do not invent method names; use `phenome-api.json` or the [function location guide](https://AAitorG.github.io/PhenoMe/function-location-guide/)
-4. Save settings only when requested: `export_experiment_config(...)`; Methods in the HTML report only with `include_run_settings=True`
-5. Compact user docs for chat tools: `https://AAitorG.github.io/PhenoMe/llms-small.txt`
-
-When a method or parameter is not present in the public API, the function location
-guide, or the full documentation, do not invent it. Search the source or ask the
-user for clarification.
+This is not a change to the library. Follow the operating contract above, [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/), and [Using PhenoMe with LLMs](https://AAitorG.github.io/PhenoMe/guides/using-with-llms/). When a name is absent from the public API, search the source or ask. Do not invent it. A custom property uses `register_property` from `phenome.plugins`. A model other than DINOv2 subclasses `ModelWrapper` from `phenome.utils` and implements `_get_embeddings`. Changes to images before that model are `preprocessing_fn` and `custom_transformations` on `process_images`.
