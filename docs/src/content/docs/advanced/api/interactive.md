@@ -9,7 +9,7 @@ tableOfContents:
 <p><span class="api-tier api-tier--public">Tier: Public API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.mixins.interactive`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/mixins/interactive).
+This page is rebuilt from docstrings in [`phenome.mixins.interactive`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/phenome/mixins/interactive).
 :::
 
 **See also:** [Visualization](/PhenoMe/advanced/api/visualization/) · [Pipeline](/PhenoMe/advanced/api/pipeline/)

@@ -6,7 +6,7 @@ Thank you for your interest in contributing to PhenoMe. This document explains h
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/AAitorG/PhenoMe.git
+   git clone https://github.com/PhenoMe-Ecosystem/PhenoMe.git
    cd PhenoMe
    ```
 

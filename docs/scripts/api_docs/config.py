@@ -237,10 +237,10 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
             header_note=(
                 ":::note[Auto-generated]\n"
                 "This page is rebuilt from docstrings in "
-                "[`phenome.pipeline`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/pipeline.py), "
+                "[`phenome.pipeline`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/pipeline.py), "
                 "the mixins under "
-                "[`phenome.mixins`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/mixins), and "
-                "[`phenome.core.pipeline_results`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/core/pipeline_results.py).\n"
+                "[`phenome.mixins`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/phenome/mixins), and "
+                "[`phenome.core.pipeline_results`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/core/pipeline_results.py).\n"
                 ":::"
             ),
             blocks=(
@@ -339,11 +339,11 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
             header_note=(
                 ":::note[Auto-generated]\n"
                 "This page is rebuilt from docstrings in "
-                "[`phenome.utils.device`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/device.py), "
-                "[`phenome.utils.metadata`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/metadata.py), "
-                "[`phenome.io`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/io), "
-                "[`phenome.utils.transforms`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/transforms.py), and "
-                "[`phenome.utils.progress`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/progress.py).\n"
+                "[`phenome.utils.device`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/utils/device.py), "
+                "[`phenome.utils.metadata`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/utils/metadata.py), "
+                "[`phenome.io`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/phenome/io), "
+                "[`phenome.utils.transforms`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/utils/transforms.py), and "
+                "[`phenome.utils.progress`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/utils/progress.py).\n"
                 ":::"
             ),
             blocks=(
@@ -506,7 +506,7 @@ PAGE_SPECS: tuple[PageSpec, ...] = (
             header_note=(
                 ":::note[Auto-generated]\n"
                 "This page is rebuilt from docstrings in "
-                "[`phenome.mixins.interactive`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/mixins/interactive).\n"
+                "[`phenome.mixins.interactive`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/phenome/mixins/interactive).\n"
                 ":::"
             ),
             blocks=(

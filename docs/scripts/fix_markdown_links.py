@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _DOCS_CONTENT = Path(__file__).resolve().parents[1] / "src" / "content" / "docs"
-_REPO = "https://github.com/AAitorG/PhenoMe/blob/main"
+_REPO = "https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main"
 _NB = f"{_REPO}/Notebooks/tutorials"
 _LOGO_FILE = "logo.png"
 

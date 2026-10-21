@@ -90,11 +90,11 @@ dev = [
 phenome-mcp = "phenome.mcp.server:main"
 
 [project.urls]
-Homepage      = "https://github.com/AAitorG/PhenoMe"
-Repository    = "https://github.com/AAitorG/PhenoMe"
-Documentation = "https://AAitorG.github.io/PhenoMe/"
-"Bug Tracker" = "https://github.com/AAitorG/PhenoMe/issues"
-Changelog     = "https://github.com/AAitorG/PhenoMe/blob/main/CHANGELOG.md"
+Homepage      = "https://github.com/PhenoMe-Ecosystem/PhenoMe"
+Repository    = "https://github.com/PhenoMe-Ecosystem/PhenoMe"
+Documentation = "https://phenome-ecosystem.github.io/PhenoMe/"
+"Bug Tracker" = "https://github.com/PhenoMe-Ecosystem/PhenoMe/issues"
+Changelog     = "https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/CHANGELOG.md"
 
 
 # ==============================================================================

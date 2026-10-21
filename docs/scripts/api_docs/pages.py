@@ -18,8 +18,8 @@ from .rendering import (
 from .signatures import callable_sig_str
 from .sorting import member_sort_key, section_rank
 
-_GITHUB_BLOB = "https://github.com/AAitorG/PhenoMe/blob/main"
-_GITHUB_TREE = "https://github.com/AAitorG/PhenoMe/tree/main"
+_GITHUB_BLOB = "https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main"
+_GITHUB_TREE = "https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main"
 
 _TIER_LABELS: dict[str, tuple[str, str]] = {
     # (human label, CSS-friendly variant name)

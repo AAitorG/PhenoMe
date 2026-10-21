@@ -8,10 +8,10 @@ sidebar:
 The MCP server is **optional**. It helps a scientist use PhenoMe: build an analysis tool on the public API, or run an analysis and either save it or summarize it. It does not modify PhenoMe, does not change defaults, and does not run embedding extraction.
 
 The server is a helper layer, not a second API. For a symbol, use
-[`phenome-api.json`](https://AAitorG.github.io/PhenoMe/phenome-api.json),
+[`phenome-api.json`](https://phenome-ecosystem.github.io/PhenoMe/phenome-api.json),
 the [function location guide](/PhenoMe/function-location-guide/), or
-[`llms-full.txt`](https://AAitorG.github.io/PhenoMe/llms-full.txt).
-[`llms-small.txt`](https://AAitorG.github.io/PhenoMe/llms-small.txt) is the
+[`llms-full.txt`](https://phenome-ecosystem.github.io/PhenoMe/llms-full.txt).
+[`llms-small.txt`](https://phenome-ecosystem.github.io/PhenoMe/llms-small.txt) is the
 short usage guide. Do not invent methods from a partial search hit.
 
 ## Install
@@ -48,7 +48,7 @@ In MCP settings, point stdio at the `phenome-mcp` executable from the same envir
 
 ## Tools
 
-- **search_docs** — keyword search. A checkout is searched first, then bundled recipes, then the published [llms-small.txt](https://AAitorG.github.io/PhenoMe/llms-small.txt). Each hit names its source.
+- **search_docs** — keyword search. A checkout is searched first, then bundled recipes, then the published [llms-small.txt](https://phenome-ecosystem.github.io/PhenoMe/llms-small.txt). Each hit names its source.
 - **get_recipe** — one snippet: `first-analysis`, `export-settings`, `summarize`, `path-metadata`, `property-presets`, `batch-correction`, or `checkpoint`. `get_recipe("list")` lists them. An unknown name is an error. `export-settings` saves the HDF5 file and only the extra files the user asked to keep. `summarize` keeps the plot and the run text in memory.
 - **list_public_api** — top-level imports and `PhenoMe` methods.
 - **inspect_dataset** — `find_files` and `inspect_data` on a folder. No model and no embeddings.
@@ -59,6 +59,6 @@ In MCP settings, point stdio at the `phenome-mcp` executable from the same envir
 - **get_version_info** — package version, the `llms-small.txt` / `llms-full.txt` URLs, and the two assistant roles: build the analysis tool, or run the analysis and save or summarize it.
 
 The same method list is published at
-[`phenome-api.json`](https://AAitorG.github.io/PhenoMe/phenome-api.json).
+[`phenome-api.json`](https://phenome-ecosystem.github.io/PhenoMe/phenome-api.json).
 
 Pass a `seed` into `PhenoMe` so the run is reproducible. Pass other extra parameters (`include_run_settings`, log level, plot kwargs) only when the user asked. See [Using with LLMs](/PhenoMe/guides/using-with-llms/).

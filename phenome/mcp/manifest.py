@@ -8,7 +8,7 @@ from typing import Any
 import phenome
 from phenome import PhenoMe
 
-_DOCS = "https://AAitorG.github.io/PhenoMe"
+_DOCS = "https://phenome-ecosystem.github.io/PhenoMe"
 _WORKFLOW = [
     "find_files",
     "process_images",

@@ -9,7 +9,7 @@ tableOfContents:
 <p><span class="api-tier api-tier--internal">Tier: Internal API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.utils.device`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/device.py), [`phenome.utils.metadata`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/metadata.py), [`phenome.io`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/io), [`phenome.utils.transforms`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/transforms.py), and [`phenome.utils.progress`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/utils/progress.py).
+This page is rebuilt from docstrings in [`phenome.utils.device`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/utils/device.py), [`phenome.utils.metadata`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/utils/metadata.py), [`phenome.io`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/phenome/io), [`phenome.utils.transforms`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/utils/transforms.py), and [`phenome.utils.progress`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/utils/progress.py).
 :::
 
 **See also:** [Model wrappers](/PhenoMe/advanced/api/model-wrapper/) · [HDF5 protocol](/PhenoMe/advanced/database_protocol/) · [Best practices](/PhenoMe/guides/best-practices/)
