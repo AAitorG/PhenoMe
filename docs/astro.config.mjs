@@ -174,7 +174,7 @@ export default defineConfig({
                 { label: "04 Exploratory & explainability", link: `${TUTORIALS_URL}/04_exploratory_analysis_and_explainability.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
                 { label: "05 Extending with plugins", link: `${TUTORIALS_URL}/05_extending_phenome_plugins.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
                 { label: "06 Custom model and preprocessing", link: `${TUTORIALS_URL}/06_custom_model_and_preprocessing.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
-                { label: "07 Audio, text, and 3D", link: `${TUTORIALS_URL}/07_experimental_samples.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "07 Audio, text, and 3D", link: `${TUTORIALS_URL}/07_other_modalities.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
               ],
             },
             {

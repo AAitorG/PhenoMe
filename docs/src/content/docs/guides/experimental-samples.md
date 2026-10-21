@@ -134,4 +134,4 @@ pm.plot_pca()
 
 The three helpers live in `phenome.experimental`: `orthogonal_projections`, `spectrogram_image`, and `text_card`. Nothing there runs unless you pass it to `set_data_io`.
 
-[Tutorial 07](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/07_experimental_samples.ipynb) runs this order on a small fluorescence volume, a few audio clips, and short text files. It downloads those files into a local folder.
+[Tutorial 07](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/07_other_modalities.ipynb) runs this order on a small fluorescence volume, a few audio clips, and short text files. It downloads those files into a local folder.

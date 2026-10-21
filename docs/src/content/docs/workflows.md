@@ -98,7 +98,7 @@ pm.plot_pca()
 pm.plot_data_by_index(0)
 ```
 
-Copy-paste loaders for a 3D volume, a wav folder, and a text folder are in [Audio, text, and 3D](/PhenoMe/guides/experimental-samples/). Practice the same order in [Tutorial 07](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/07_experimental_samples.ipynb).
+Copy-paste loaders for a 3D volume, a wav folder, and a text folder are in [Audio, text, and 3D](/PhenoMe/guides/experimental-samples/). Practice the same order in [Tutorial 07](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/07_other_modalities.ipynb).
 
 ## See also
 
