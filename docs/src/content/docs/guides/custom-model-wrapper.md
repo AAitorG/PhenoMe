@@ -6,7 +6,7 @@ description: "Learn how to use non-PyTorch models (TensorFlow, Keras, ONNX) with
 While PhenoMe is built on PyTorch, its modular architecture allows you to use models from any machine learning framework. This is achieved through the `ModelWrapper` interface.
 
 :::tip[Tutorial Reference]
-For a hands-on walkthrough of custom models and advanced preprocessing, see **[Tutorial 06: Custom Models and Preprocessing](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/06_custom_model_and_preprocessing.ipynb)**.
+For a hands-on walkthrough of custom models and advanced preprocessing, see **[Tutorial 06: Custom Models and Preprocessing](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/tutorials/06_custom_model_and_preprocessing.ipynb)**.
 :::
 
 ---

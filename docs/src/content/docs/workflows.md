@@ -7,7 +7,7 @@ sidebar:
 
 
 Full code for each workflow lives in the Jupyter notebooks under
-[`Notebooks/tutorials/`](https://github.com/AAitorG/PhenoMe/tree/main/Notebooks/tutorials).
+[`Notebooks/tutorials/`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/Notebooks/tutorials).
 This page keeps only a short summary and pointers.
 
 ## 1. Basic analysis
@@ -16,7 +16,7 @@ The standard end-to-end workflow - from loading images and extracting
 visual fingerprints (AI descriptions) to comparing images and generating reports - is
 covered in the core tutorial.
 
-- **Tutorial:** [03 - Core phenotyping workflow](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb)
+- **Tutorial:** [03 - Core phenotyping workflow](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/tutorials/03_core_phenotyping_workflow.ipynb)
 
 ## 2. Drug screening and time-course
 
@@ -32,14 +32,14 @@ metadata pipeline.
 
 To connect abstract AI patterns to real biology, compute classical physical properties (like area, brightness, and texture) and link them to your visual fingerprints.
 
-- **Tutorial:** [04 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb)
+- **Tutorial:** [04 - Exploratory analysis and explainability](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb)
 - **Guide:** [Understanding properties](/PhenoMe/concepts/property-interpretation/), [Explaining AI results](/PhenoMe/concepts/embeddings-interpretability/)
 
 ## 4. Finding groups and outliers
 
 Discover hidden groups of images (clusters) within a single condition or find unusual cells (outliers) using clustering and similarity checks.
 
-- **Tutorial:** [04 - Exploratory analysis and explainability](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb)
+- **Tutorial:** [04 - Exploratory analysis and explainability](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/tutorials/04_exploratory_analysis_and_explainability.ipynb)
 
 ## 5. Temporal images (testing new data quickly)
 

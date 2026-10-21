@@ -140,4 +140,4 @@ See [Select properties — Presets](/PhenoMe/guides/select-properties/presets/) 
 
 ### Where do I add custom models, properties, or plugins?
 
-See [Extending PhenoMe](/PhenoMe/guides/extending/), [Select properties](/PhenoMe/guides/select-properties/), [Plugins](/PhenoMe/guides/plugins/), and notebook [05 - Extending](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/05_extending_phenome_plugins.ipynb).
+See [Extending PhenoMe](/PhenoMe/guides/extending/), [Select properties](/PhenoMe/guides/select-properties/), [Plugins](/PhenoMe/guides/plugins/), and notebook [05 - Extending](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/tutorials/05_extending_phenome_plugins.ipynb).

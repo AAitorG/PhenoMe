@@ -9,7 +9,7 @@ tableOfContents:
 <p><span class="api-tier api-tier--public">Tier: Public API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.pipeline`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/pipeline.py), the mixins under [`phenome.mixins`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/mixins), and [`phenome.core.pipeline_results`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/core/pipeline_results.py).
+This page is rebuilt from docstrings in [`phenome.pipeline`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/pipeline.py), the mixins under [`phenome.mixins`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/phenome/mixins), and [`phenome.core.pipeline_results`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/core/pipeline_results.py).
 :::
 
 **See also:** [Getting started](/PhenoMe/getting-started/) · [Concepts](/PhenoMe/concepts/) · [Visualization](/PhenoMe/advanced/api/visualization/) · [Distances](/PhenoMe/advanced/api/distances/) · [Model wrappers](/PhenoMe/advanced/api/model-wrapper/)
@@ -296,7 +296,7 @@ Custom ``custom_transformations`` replace steps 4-6.
 - **`model_wrapper`** (`ModelWrapper`): Model instance (e.g., from `load_dinov2_model()`).
   Must implement `_get_embeddings(tensor: torch.Tensor) -> torch.Tensor`.
   For non-PyTorch models (Keras, TensorFlow, etc.), see the
-  [Custom Model Wrapper guide](https://AAitorG.github.io/PhenoMe/guides/custom-model-wrapper/).
+  [Custom Model Wrapper guide](https://phenome-ecosystem.github.io/PhenoMe/guides/custom-model-wrapper/).
 - **`batch_size`** (`int`): Batch size for processing. Default: 32. Larger batches are
   faster but use more GPU memory.
 - **`num_workers`** (`int`): Number of loader processes. In Jupyter, automatically

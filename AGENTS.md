@@ -31,10 +31,10 @@ Use sources in this order when they disagree:
 
 Published machine-readable resources:
 
-- `https://AAitorG.github.io/PhenoMe/llms.txt` (index)
-- `https://AAitorG.github.io/PhenoMe/llms-small.txt` (compact instructions)
-- `https://AAitorG.github.io/PhenoMe/llms-full.txt` (complete documentation)
-- `https://AAitorG.github.io/PhenoMe/phenome-api.json` (structured API manifest)
+- `https://phenome-ecosystem.github.io/PhenoMe/llms.txt` (index)
+- `https://phenome-ecosystem.github.io/PhenoMe/llms-small.txt` (compact instructions)
+- `https://phenome-ecosystem.github.io/PhenoMe/llms-full.txt` (complete documentation)
+- `https://phenome-ecosystem.github.io/PhenoMe/phenome-api.json` (structured API manifest)
 
 ## Working in this repo
 
@@ -101,4 +101,4 @@ Type hints on new code. A behavior change that the signature does not make obvio
 
 ## Writing analysis scripts (not library code)
 
-This is not a change to the library. Follow the operating contract above, [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/), and [Using PhenoMe with LLMs](https://AAitorG.github.io/PhenoMe/guides/using-with-llms/). When a name is absent from the public API, search the source or ask. Do not invent it. A custom property uses `register_property` from `phenome.plugins`. A model other than DINOv2 subclasses `ModelWrapper` from `phenome.utils` and implements `_get_embeddings`. Changes to images before that model are `preprocessing_fn` and `custom_transformations` on `process_images`.
+This is not a change to the library. Follow the operating contract above, [Getting started](https://phenome-ecosystem.github.io/PhenoMe/getting-started/), and [Using PhenoMe with LLMs](https://phenome-ecosystem.github.io/PhenoMe/guides/using-with-llms/). When a name is absent from the public API, search the source or ask. Do not invent it. A custom property uses `register_property` from `phenome.plugins`. A model other than DINOv2 subclasses `ModelWrapper` from `phenome.utils` and implements `_get_embeddings`. Changes to images before that model are `preprocessing_fn` and `custom_transformations` on `process_images`. Another modality follows the experimental session in the operating contract.

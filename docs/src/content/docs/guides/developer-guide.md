@@ -25,7 +25,7 @@ interrogate phenome
 
 ## Build the docs site
 
-The public site uses **Astro Starlight**. Narrative guides live under [`docs/src/content/docs/`](https://github.com/AAitorG/PhenoMe/tree/main/docs/src/content/docs). **API reference** pages under [`advanced/api/`](https://github.com/AAitorG/PhenoMe/tree/main/docs/src/content/docs/advanced/api) are produced from live imports by `docs/scripts/generate_api_docs.py` before each build (same style as the former hand-written topic pages, but sourced from docstrings).
+The public site uses **Astro Starlight**. Narrative guides live under [`docs/src/content/docs/`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/docs/src/content/docs). **API reference** pages under [`advanced/api/`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/docs/src/content/docs/advanced/api) are produced from live imports by `docs/scripts/generate_api_docs.py` before each build (same style as the former hand-written topic pages, but sourced from docstrings).
 
 ### Prerequisites
 
@@ -50,7 +50,7 @@ npm run preview
 
 ### What gets auto-generated?
 
-The script [`docs/scripts/generate_api_docs.py`](https://github.com/AAitorG/PhenoMe/blob/main/docs/scripts/generate_api_docs.py) writes one Markdown file per **topic** under `docs/src/content/docs/advanced/api/` (e.g. `pipeline.md`, `visualization.md`). When you add a major new public surface, extend that script so the new API appears on the right page.
+The script [`docs/scripts/generate_api_docs.py`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/docs/scripts/generate_api_docs.py) writes one Markdown file per **topic** under `docs/src/content/docs/advanced/api/` (e.g. `pipeline.md`, `visualization.md`). When you add a major new public surface, extend that script so the new API appears on the right page.
 
 | Topic page | Main Python sources |
 |------------|---------------------|
@@ -86,4 +86,4 @@ Pull requests run the **Documentation** workflow: Node + Python install, `npm ru
 
 - [Contributing to docs](/PhenoMe/guides/contributing-guide/)
 - [Testing and quality](/PhenoMe/guides/testing/)
-- [Contributing (repository)](https://github.com/AAitorG/PhenoMe/blob/main/CONTRIBUTING.md)
+- [Contributing (repository)](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/CONTRIBUTING.md)

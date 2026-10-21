@@ -9,7 +9,7 @@ tableOfContents:
 <p><span class="api-tier api-tier--public">Tier: Public API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.metadata`](https://github.com/AAitorG/PhenoMe/tree/main/phenome/metadata) (multiple classes).
+This page is rebuilt from docstrings in [`phenome.metadata`](https://github.com/PhenoMe-Ecosystem/PhenoMe/tree/main/phenome/metadata) (multiple classes).
 :::
 
 **See also:** [Pipeline](/PhenoMe/advanced/api/pipeline/)

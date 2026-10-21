@@ -36,7 +36,7 @@ npm run preview
 
 1. Repository **Settings → Pages**
 2. **Build and deployment**: Source = **GitHub Actions**
-3. Merge to `main` / `master`: the **Documentation** workflow builds and deploys to `https://AAitorG.github.io/PhenoMe/`
+3. Merge to `main` / `master`: the **Documentation** workflow builds and deploys to `https://phenome-ecosystem.github.io/PhenoMe/`
 
 If the site 404s, confirm **Actions** permissions allow **Read and write** for workflows and that the `github-pages` environment exists (created on first deploy).
 

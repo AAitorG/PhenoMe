@@ -7,7 +7,7 @@
 
 ### 🗺️ Navigation
 
-**[✨ Features](#-features)** | **[🚀 Quick Start](#-quick-start)** | **[📦 Installation](#-installation)** | **[📖 Documentation](https://AAitorG.github.io/PhenoMe/)** | **[📜 Citation](#-citation)**
+**[✨ Features](#-features)** | **[🚀 Quick Start](#-quick-start)** | **[📦 Installation](#-installation)** | **[📖 Documentation](https://phenome-ecosystem.github.io/PhenoMe/)** | **[📜 Citation](#-citation)**
 
 ---
 
@@ -31,7 +31,7 @@
 
 Try the no-code experience with the **[Interactive Quickstart Notebook](Notebooks/tutorials/01_interactive_quickstart.ipynb)** or launch instantly in Colab:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/tutorials/01_interactive_quickstart.ipynb)
 
 ---
 
@@ -49,7 +49,7 @@ PyTorch is included. An NVIDIA GPU is used when CUDA is available; the same inst
 Clone the repository, then create one environment for your hardware. These files pin the scientific stack and install this checkout.
 
 ```bash
-git clone https://github.com/AAitorG/PhenoMe.git
+git clone https://github.com/PhenoMe-Ecosystem/PhenoMe.git
 cd PhenoMe
 ```
 
@@ -67,22 +67,22 @@ conda activate phenome-cpu
 </details>
 
 > **💡 Full instructions, verification, and troubleshooting:**
-> See the [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) guide for install details, verification commands, and first-analysis walkthroughs.
+> See the [Getting started](https://phenome-ecosystem.github.io/PhenoMe/getting-started/) guide for install details, verification commands, and first-analysis walkthroughs.
 
 ---
 
 ## 📖 Documentation
 
-**Explore the [Full Documentation](https://AAitorG.github.io/PhenoMe/)** for detailed guides, API references, and tutorials.
+**Explore the [Full Documentation](https://phenome-ecosystem.github.io/PhenoMe/)** for detailed guides, API references, and tutorials.
 
 | Step | Resource |
 | ---- | -------- |
-| 1️⃣ **Install** | [Getting started](https://AAitorG.github.io/PhenoMe/getting-started/) |
-| 2️⃣ **Set up your data** | [Data setup](https://AAitorG.github.io/PhenoMe/guides/data-setup/) · [Experiment details](https://AAitorG.github.io/PhenoMe/guides/experiment-details/) |
+| 1️⃣ **Install** | [Getting started](https://phenome-ecosystem.github.io/PhenoMe/getting-started/) |
+| 2️⃣ **Set up your data** | [Data setup](https://phenome-ecosystem.github.io/PhenoMe/guides/data-setup/) · [Experiment details](https://phenome-ecosystem.github.io/PhenoMe/guides/experiment-details/) |
 | 3️⃣ **Tutorials** | [Notebooks/tutorials/](Notebooks/tutorials/) |
 | 4️⃣ **Examples** | [Notebooks/examples/](Notebooks/examples/) |
 
-**Learn More:** [Core concepts](https://AAitorG.github.io/PhenoMe/concepts/) · [Workflows](https://AAitorG.github.io/PhenoMe/workflows/) · [FAQ](https://AAitorG.github.io/PhenoMe/faq/) · [Glossary](https://AAitorG.github.io/PhenoMe/glossary/)
+**Learn More:** [Core concepts](https://phenome-ecosystem.github.io/PhenoMe/concepts/) · [Workflows](https://phenome-ecosystem.github.io/PhenoMe/workflows/) · [FAQ](https://phenome-ecosystem.github.io/PhenoMe/faq/) · [Glossary](https://phenome-ecosystem.github.io/PhenoMe/glossary/)
 
 ---
 
@@ -95,6 +95,6 @@ If you use PhenoMe in your research, please cite:
   author = {Aitor González-Marfil},
   title = {PhenoMe: Interactive AI framework for image representation analysis},
   year = {2026},
-  url = {https://github.com/AAitorG/PhenoMe}
+  url = {https://github.com/PhenoMe-Ecosystem/PhenoMe}
 }
 ```

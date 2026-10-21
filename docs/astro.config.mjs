@@ -4,11 +4,11 @@ import starlight from "@astrojs/starlight";
 import starlightLlmsTxt from "starlight-llms-txt";
 
 // GitHub Pages project site: https://<user>.github.io/<repo>/
-const site = "https://AAitorG.github.io";
+const site = "https://phenome-ecosystem.github.io";
 const base = "/PhenoMe/";
 
-const TUTORIALS_URL = "https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials";
-const EXAMPLES_URL = "https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/examples";
+const TUTORIALS_URL = "https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/tutorials";
+const EXAMPLES_URL = "https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/examples";
 
 export default defineConfig({
   site,
@@ -47,7 +47,7 @@ export default defineConfig({
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/AAitorG/PhenoMe",
+          href: "https://github.com/PhenoMe-Ecosystem/PhenoMe",
         },
       ],
       customCss: ["./src/styles/custom.css"],

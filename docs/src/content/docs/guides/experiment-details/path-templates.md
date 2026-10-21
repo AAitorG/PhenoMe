@@ -74,7 +74,7 @@ Switch to a custom function (see
 
 ## See also
 
-- [Notebook 02: Loading & Inspection](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb) - runnable example of using folder patterns.
+- [Notebook 02: Loading & Inspection](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb) - runnable example of using folder patterns.
 - [Using a CSV or spreadsheet](/PhenoMe/guides/experiment-details/csv-lookup/) - link labels stored in a spreadsheet.
 - [Advanced patterns](/PhenoMe/guides/experiment-details/advanced-patterns/) - regex, nested structures,
   `MetadataBase`.

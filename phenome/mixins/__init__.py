@@ -52,7 +52,7 @@ Most mixin modules follow this structure:
 This keeps the public namespace clean and makes internal implementation details easy to refactor.
 
 **See Also:**
-For architectural overview, see the [Architecture guide](https://AAitorG.github.io/PhenoMe/guides/architecture/).
+For architectural overview, see the [Architecture guide](https://phenome-ecosystem.github.io/PhenoMe/guides/architecture/).
 For property factories and custom properties, see `phenome.plugins` and `phenome.utils`.
 """
 

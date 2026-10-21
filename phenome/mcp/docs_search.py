@@ -6,7 +6,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-_LLMS_SMALL_URL = "https://AAitorG.github.io/PhenoMe/llms-small.txt"
+_LLMS_SMALL_URL = "https://phenome-ecosystem.github.io/PhenoMe/llms-small.txt"
 _MAX_HITS = 8
 _SNIPPET = 280
 

@@ -69,10 +69,10 @@ def _build_server() -> Any:
             {
                 "package": "phenome",
                 "version": phenome.__version__,
-                "documentation": "https://AAitorG.github.io/PhenoMe/",
+                "documentation": "https://phenome-ecosystem.github.io/PhenoMe/",
                 "llm_corpus": {
-                    "small": "https://AAitorG.github.io/PhenoMe/llms-small.txt",
-                    "full": "https://AAitorG.github.io/PhenoMe/llms-full.txt",
+                    "small": "https://phenome-ecosystem.github.io/PhenoMe/llms-small.txt",
+                    "full": "https://phenome-ecosystem.github.io/PhenoMe/llms-full.txt",
                 },
                 "roles": {
                     "developer_assistant": "Build the user's analysis tool on the public API.",

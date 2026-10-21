@@ -9,7 +9,7 @@ tableOfContents:
 <p><span class="api-tier api-tier--public">Tier: Public API</span></p>
 
 :::note[Auto-generated]
-This page is rebuilt from docstrings in [`phenome.report.generator`](https://github.com/AAitorG/PhenoMe/blob/main/phenome/report/generator.py) (module).
+This page is rebuilt from docstrings in [`phenome.report.generator`](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/phenome/report/generator.py) (module).
 :::
 
 **See also:** [Pipeline generate_report](/PhenoMe/advanced/api/pipeline/)

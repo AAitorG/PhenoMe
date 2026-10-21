@@ -105,7 +105,7 @@ def metadata_from_csv(path: str) -> dict:
 
 ## See also
 
-- [Notebook 02: Loading & Inspection](https://github.com/AAitorG/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb) - runnable example of CSV lookup.
+- [Notebook 02: Loading & Inspection](https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/Notebooks/tutorials/02_inspect_your_images.ipynb) - runnable example of CSV lookup.
 - [Using folder names](/PhenoMe/guides/experiment-details/path-templates/) - skip the CSV if folders
   already encode the info.
 - [Finding masks](/PhenoMe/guides/experiment-details/mask-discovery/) - attach segmentation masks via
