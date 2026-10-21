@@ -118,8 +118,10 @@ register_metadata_extractor(
 
 Register a custom metadata extractor.
 
-The function should accept a file path and return a dict with at least
-'file_path' (full path). Other keys become metadata columns.
+The function should accept a file path and return a dict. ``file_path``
+is filled from the scanned path when omitted. A dict that contains only
+``file_path`` is treated as missing metadata and dropped. Other keys
+become metadata columns.
 
 **Args:**
 

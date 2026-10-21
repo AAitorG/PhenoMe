@@ -66,6 +66,10 @@ The pipeline is flexible:
 
 See [Preparing your data](/PhenoMe/guides/data-setup/) and [Adding experiment info](/PhenoMe/guides/experiment-details/).
 
+### Can I use volumes, audio, or text instead of images?
+
+Yes. This path is experimental, and it uses a new session. Keep 2D images on `process_images`. For a volume, a wav file, a text file, or anything else, call `set_data_io(load_fn, show_fn)`, then `process_data`. `load_fn` reads one file. `show_fn` returns a picture the plots and the explorer can draw. Equal shapes are stacked. Different shapes pass `collate_fn`. Copy-paste loaders are in [Audio, text, and 3D](/PhenoMe/guides/experimental-samples/).
+
 ### I use a CSV for metadata—why don’t my CSV row count and `file_df` row count match?
 
 `find_files` first scans your images folder, then matches those images to your CSV. **Only the overlap is used:** image files must exist in **both** the folder and the CSV to be processed. Extra rows in your CSV are ignored, and images without a CSV row are skipped by default. See [Adding experiment info — Using a spreadsheet](/PhenoMe/guides/experiment-details/csv-lookup/).
@@ -125,7 +129,7 @@ See [Core concepts — channel modes](/PhenoMe/concepts/channel-modes/).
 | No masks                                          | `intensity`  |
 | Masks, lightweight stats                          | `basic`      |
 | Masks, shape only                                 | `shape`      |
-| Masks, rings + axis lengths (recommended default) | `standard`   |
+| Masks, rings + axis lengths (a common choice; not the method default) | `standard`   |
 | Masks, texture + QC + extended shape              | `complete`   |
 
 See [Select properties — Presets](/PhenoMe/guides/select-properties/presets/) and [Understanding properties — choosing properties](/PhenoMe/concepts/property-interpretation/#choosing-properties).

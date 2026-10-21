@@ -91,7 +91,7 @@ with pipeline.checkpoint_context("results.h5") as p:
 
 ## Project Structure
 
-`PhenoMe` in `phenome/pipeline.py` is the session object. Capabilities are mixins under `phenome/mixins/`. Array math is `phenome/core/`, files and HDF5 are `phenome/io/`, metadata is `phenome/metadata/`, model and property helpers are `phenome/utils/`, user registries are `phenome/plugins/`, and the HTML report is `phenome/report/`. The file-level map is [`docs/src/content/docs/guides/architecture.md`](docs/src/content/docs/guides/architecture.md) and [`AGENTS.md`](AGENTS.md).
+`PhenoMe` in `phenome/pipeline.py` is the session object. Capabilities are mixins under `phenome/mixins/`. Array math is `phenome/core/`, files and HDF5 are `phenome/io/`, metadata is `phenome/metadata/`, model and property helpers are `phenome/utils/`, user registries are `phenome/plugins/`, the HTML report is `phenome/report/`, and the optional assistant server is `phenome/mcp/`. The file-level map is [`docs/src/content/docs/guides/architecture.md`](docs/src/content/docs/guides/architecture.md) and [`AGENTS.md`](AGENTS.md).
 
 Keep a public method to the steps a reader follows, and put helpers in a sibling module (`phenome/mixins/properties/` and `phenome/mixins/visualization/` are the pattern). A few hundred lines is the normal module size. Do not add new inline logic to `pipeline.py`, `mixins/interactive/explorer.py`, `mixins/analysis.py`, `io/checkpoint.py`, `core/processing_pipeline.py`, or `mixins/properties/_compute.py`; call a new module from there instead.
 
@@ -107,7 +107,7 @@ Quick reference for maintainers: which file to edit for each type of change.
 | Bump version | `pyproject.toml` → `[project].version` (canonical; `phenome.__version__` reads it after install) |
 | Add/change dependencies | `pyproject.toml` → `[project].dependencies` or `[project.optional-dependencies]` |
 | Update install dependencies | `pyproject.toml` only. The Conda files install that same set with `pip install -e` |
-| Document a new API | Docstrings in `phenome/` (generated pages) and/or narrative `docs/src/content/docs/advanced/api/` |
+| Document a new API | Docstrings in `phenome/` (generated pages). The only hand-written page in `docs/src/content/docs/advanced/api/` is `results-dataframes.md` |
 | Add a guide or tutorial | `docs/src/content/docs/guides/` |
 | Record a release | `CHANGELOG.md` – move [Unreleased] items under `[X.Y.Z] – YYYY-MM-DD` |
 | Change lint/format rules | `pyproject.toml` → `[tool.ruff]`, `[tool.mypy]` |

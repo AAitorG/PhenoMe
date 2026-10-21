@@ -10,7 +10,6 @@ sidebar:
 Generate a self-contained bundle:
 
 ```python
-# Directory form writes phenome_results.h5
 pheno.save_results("phenome_results.h5")
 
 pheno.generate_report(

@@ -20,6 +20,22 @@ from ._helpers import format_property_value as _format_property_value
 logger = get_logger(__name__)
 
 
+def _as_viewer_array(display_img: np.ndarray) -> np.ndarray:
+    """Return a 2D or RGB/RGBA array ``Image.fromarray`` and ``imshow`` accept.
+
+    Args:
+        display_img: Show array of shape ``(H, W)`` or ``(H, W, C)``.
+
+    Returns:
+        The same data when ``C`` is 3 or 4. A single channel, or two channels,
+        becomes ``(H, W)``. More than four channels keeps the first three.
+    """
+    array = np.asarray(display_img)
+    if array.ndim == 3 and array.shape[-1] not in (3, 4):
+        array = array[..., 0] if array.shape[-1] < 3 else array[..., :3]
+    return np.ascontiguousarray(array)
+
+
 def _index_list(idx: int | Sequence[int]) -> list[int]:
     """Normalize one index or a sequence of indices to a list of ints."""
     if isinstance(idx, (bool, np.bool_)):
@@ -325,6 +341,149 @@ class _ImageDisplayMixin:
 
         return display_img, title, was_downsampled, all_info, metadata, img_name, img_path
 
+    def _load_sample_display_data(
+        self,
+        idx: int,
+        img_path: Any,
+        img_name: str,
+        metadata: dict[str, Any],
+        distance_results: pd.DataFrame | None,
+        title_fields: list[str] | None,
+        downsample: int | None,
+    ) -> tuple[np.ndarray, str, bool, dict[str, Any], dict[str, Any], str, Any]:
+        """Draw the user show function for one non-image row.
+
+        Args:
+            idx: Row index in ``results``.
+            img_path: Path stored for that row.
+            img_name: Basename used in titles.
+            metadata: Metadata dict for that row.
+            distance_results: Optional distance table, same as image display.
+            title_fields: Optional metadata fields for the title.
+            downsample: Longest-edge cap in pixels. None keeps the show array.
+
+        Returns:
+            Same tuple as ``_load_image_display_data``.
+        """
+        from ...experimental.samples import load_sample_display
+
+        load_fn = getattr(self, "_sample_load_fn", None)
+        show_fn = getattr(self, "_sample_show_fn", None)
+        if load_fn is None or show_fn is None:
+            raise RuntimeError("Sample show functions are missing. Call set_data_io() first.")
+        img = load_sample_display(load_fn, show_fn, img_path)
+        was_downsampled = False
+        if downsample is not None and downsample > 0 and img.size:
+            height, width = img.shape[:2]
+            longest_edge = max(height, width)
+            if longest_edge > downsample:
+                scale = downsample / float(longest_edge)
+                new_h = max(1, round(height * scale))
+                new_w = max(1, round(width * scale))
+                step_h = max(1, height // new_h)
+                step_w = max(1, width // new_w)
+                img = img[::step_h, ::step_w, ...]
+                was_downsampled = True
+        if hasattr(self, "get_image_info"):
+            all_info = self.get_image_info(idx, distance_results)
+        else:
+            all_info = {
+                "image_index": idx,
+                "image_name": img_name,
+                "image_path": img_path,
+            }
+            if metadata:
+                all_info.update(metadata)
+        distance = all_info.get("distance")
+        basic_fields = {
+            "image_index",
+            "image_name",
+            "image_path",
+            "idx",
+            "img_name",
+            "img_path",
+            "distance",
+            "is_reference",
+        }
+        properties_for_title = {
+            key: value
+            for key, value in all_info.items()
+            if key not in basic_fields and value is not None
+        }
+        title = self._build_image_title(idx, metadata, distance, properties_for_title, title_fields)
+        return img, title, was_downsampled, all_info, metadata, img_name, img_path
+
+    def _prepare_data_display(
+        self,
+        idx: int,
+        distance_results: pd.DataFrame | None,
+        title_fields: list[str] | None,
+        downsample: int | None,
+    ) -> tuple[np.ndarray, str, bool, dict[str, Any], dict[str, Any], str, Any]:
+        """Load the show array for one non-image catalog row.
+
+        Args:
+            idx: Row index in ``results``.
+            distance_results: Optional distance table.
+            title_fields: Optional metadata fields for the title.
+            downsample: Longest-edge cap in pixels. None keeps the show array.
+
+        Returns:
+            Same tuple as ``_load_image_display_data``.
+
+        Raises:
+            RuntimeError: If ``set_data_io`` was not called.
+            ValueError: If ``idx`` is outside the catalog.
+        """
+        if not getattr(self, "_sample_mode", False):
+            raise RuntimeError("Call set_data_io() before plot_data_by_index().")
+        n_rows = len(self.results.img_path)
+        if idx < 0 or idx >= n_rows:
+            raise ValueError(f"Index {idx} out of range [0, {n_rows - 1}]")
+        img_path = self.results.img_path[idx]
+        img_name = (
+            os.path.basename(img_path[0])
+            if isinstance(img_path, list)
+            else os.path.basename(img_path)
+        )
+        metadata: dict[str, Any] = {}
+        metadata_list = self.results.metadata
+        if idx < len(metadata_list) and isinstance(metadata_list[idx], dict):
+            metadata = metadata_list[idx]
+        return self._load_sample_display_data(
+            idx,
+            img_path,
+            img_name,
+            metadata,
+            distance_results,
+            title_fields,
+            downsample,
+        )
+
+    def _png_bytes(self, display_img: np.ndarray) -> bytes:
+        """Encode a display array as PNG bytes.
+
+        Args:
+            display_img: Array of shape ``(H, W)`` or ``(H, W, C)``.
+
+        Returns:
+            PNG file bytes.
+        """
+        array = _as_viewer_array(display_img)
+        if array.dtype != np.uint8:
+            if array.size == 0:
+                img_uint8 = array.astype(np.uint8)
+            else:
+                peak = float(np.nanmax(array))
+                scaled = array * 255.0 if peak <= 1.0 else array / peak * 255.0
+                img_uint8 = np.clip(scaled, 0, 255).astype(np.uint8)
+        else:
+            img_uint8 = array
+        pil_img = Image.fromarray(img_uint8)
+        buf = BytesIO()
+        pil_img.save(buf, format="PNG")
+        return buf.getvalue()
+
     def image_preview_png_bytes(
         self,
         idx: int,
@@ -335,49 +494,51 @@ class _ImageDisplayMixin:
         apply_transforms: bool = True,
         downsample: int | None = 720,
     ) -> tuple[bytes, str | None, str | None]:
-        """Rasterize the same view as ``plot_image_by_index`` to PNG bytes.
+        """Rasterize one catalog row to PNG bytes.
 
-        Used by the interactive explorer with ``ipywidgets.Image`` because matplotlib
-        ``display()`` / ``plt.show()`` from Plotly click callbacks does not reliably
-        target a nested ``Output`` widget (output goes to the cell or nowhere).
+        Image sessions match ``plot_image_by_index``. After ``set_data_io``, the
+        bytes match ``plot_data_by_index``: the stored show function draws the
+        row, and channel or transform arguments are ignored. The interactive
+        explorer uses this so a click can show either an image or that show array.
 
-        When ``show_extra_info`` is True, also emits the same details as
-        ``plot_image_by_index`` via logging and returns their text for UI display.
+        Used with ``ipywidgets.Image`` because matplotlib ``display()`` /
+        ``plt.show()`` from Plotly click callbacks does not reliably target a
+        nested ``Output`` widget (output goes to the cell or nowhere).
+
+        When ``show_extra_info`` is True, also emits the same details as the
+        plot method via logging and returns their text for UI display.
 
         Returns:
             ``(png_bytes, details_text_or_none)`` — ``details_text_or_none`` is the
             formatted extra-info block when ``show_extra_info`` is True and details exist.
         """
-        display_img, title, _was_downsampled, all_info, metadata, img_name, img_path = (
-            self._load_image_display_data(
-                idx,
-                distance_results=distance_results,
-                channels=channels,
-                title_fields=title_fields,
-                apply_transforms=apply_transforms,
-                downsample=downsample,
+        if getattr(self, "_sample_mode", False):
+            display_img, title, _was_downsampled, all_info, metadata, img_name, img_path = (
+                self._prepare_data_display(
+                    idx,
+                    distance_results=distance_results,
+                    title_fields=title_fields,
+                    downsample=downsample,
+                )
             )
-        )
+        else:
+            display_img, title, _was_downsampled, all_info, metadata, img_name, img_path = (
+                self._load_image_display_data(
+                    idx,
+                    distance_results=distance_results,
+                    channels=channels,
+                    title_fields=title_fields,
+                    apply_transforms=apply_transforms,
+                    downsample=downsample,
+                )
+            )
         details_text: str | None = None
         if show_extra_info:
             details_text = self._image_details_text(idx, all_info, metadata, img_name, img_path)
             if details_text:
                 logger.info(details_text)
 
-        # Convert numpy array to PIL Image for much faster saving than Matplotlib
-        if display_img.dtype != np.uint8:
-            if display_img.max() <= 1.0:
-                img_uint8 = (display_img * 255).astype(np.uint8)
-            else:
-                img_uint8 = display_img.astype(np.uint8)
-        else:
-            img_uint8 = display_img
-
-        pil_img = Image.fromarray(img_uint8)
-        buf = BytesIO()
-        pil_img.save(buf, format="PNG")
-
-        return buf.getvalue(), details_text, title
+        return self._png_bytes(display_img), details_text, title
 
     def _mask_2d_for_index(self, idx: int, shape_hw: tuple[int, int]) -> np.ndarray | None:
         """Load the segmentation mask for ``idx``, resized to ``shape_hw`` (H, W)."""
@@ -500,6 +661,180 @@ class _ImageDisplayMixin:
         plt.close(fig)
         return None
 
+    def _plot_data_rows(
+        self,
+        indices: list[int],
+        distance_results: pd.DataFrame | None,
+        figsize: tuple,
+        title_fields: list[str] | None,
+        show_extra_info: bool,
+        downsample: int | None,
+        ax: Any,
+        return_fig: bool,
+    ) -> Any:
+        """Draw several non-image rows in one figure.
+
+        Args:
+            indices: Catalog row indices.
+            distance_results: Optional distance table.
+            figsize: Whole-figure size when this method creates the figure.
+            title_fields: Optional metadata fields for each title.
+            show_extra_info: Printed details. Off for a row of panels.
+            downsample: Longest-edge cap in pixels.
+            ax: One axes per index, or None to create a figure.
+            return_fig: When True, return the show arrays and skip the figure.
+
+        Returns:
+            A list of arrays when ``return_fig`` is True, otherwise None.
+        """
+        shared: dict[str, Any] = {
+            "distance_results": distance_results,
+            "title_fields": title_fields,
+            "show_extra_info": show_extra_info,
+            "downsample": downsample,
+        }
+        if return_fig and ax is None:
+            return [self.plot_data_by_index(i, return_fig=True, **shared) for i in indices]
+
+        n = len(indices)
+        fig = None
+        if ax is None:
+            if figsize == (6, 6):
+                figsize = (3 * n, 3)
+            fig, axes = plt.subplots(1, n, figsize=figsize)
+            axes_list = list(axes)
+        else:
+            axes_list = list(ax) if isinstance(ax, (list, tuple, np.ndarray)) else [ax]
+            if len(axes_list) != n:
+                raise ValueError(f"Expected {n} axes for {n} indices, got {len(axes_list)}")
+
+        for axis, i in zip(axes_list, indices, strict=True):
+            self.plot_data_by_index(i, ax=axis, **shared)
+
+        if fig is None:
+            return None
+
+        fig.tight_layout()
+        try:
+            from IPython import get_ipython
+            from IPython.display import display as ipy_display_fig
+        except ImportError:
+            ipython_shell = None
+        else:
+            ipython_shell = get_ipython()
+
+        if ipython_shell is not None:
+            ipy_display_fig(fig)
+        else:
+            plt.show()
+        plt.close(fig)
+        return None
+
+    def plot_data_by_index(
+        self,
+        idx: int | Sequence[int],
+        distance_results: pd.DataFrame | None = None,
+        figsize: tuple = (6, 6),
+        title_fields: list[str] | None = None,
+        show_extra_info: bool = True,
+        downsample: int | None = 720,
+        ax: Any = None,
+        return_fig: bool = False,
+    ) -> Any:
+        """Plot one non-image row, or a row of them, by index. Experimental.
+
+        The picture is the array from the show function stored by ``set_data_io``.
+        A single-channel array is drawn in grayscale. An array with several
+        color channels keeps those colors. ``plot_image_by_index`` stays the
+        image plot. The explorer and the report use the same show function, so
+        a click draws this view.
+
+        Args:
+            idx: Row index in results, or a sequence of indices drawn as one row.
+            distance_results: Optional distance computation results DataFrame.
+            figsize: Figure size. For several indices the default is one row of
+                panels about 3 inches wide; a custom size is the whole figure.
+            title_fields: Optional list of field names to display in the title.
+            show_extra_info: If True, prints detailed information after plotting.
+                Ignored when ``idx`` is a sequence: extra info is turned off and a
+                warning is logged.
+            downsample: If not None, approximate desired size (in pixels) for the
+                longest edge. If None, the show array is drawn as returned.
+            ax: Optional matplotlib axes. For several indices, pass one axes per index.
+            return_fig: If True, return the show array and do not open a figure.
+                A sequence of indices returns a list of arrays.
+
+        Returns:
+            The show array when ``return_fig`` is True and ``idx`` is a single
+            index; a list of arrays when ``idx`` is a sequence; otherwise None.
+
+        Raises:
+            RuntimeError: If ``set_data_io`` was not called.
+            ValueError: If an index is outside the catalog.
+        """
+        indices = _index_list(idx)
+        if len(indices) > 1:
+            if show_extra_info:
+                logger.warning("show_extra_info is disabled when plotting multiple indices.")
+                show_extra_info = False
+            return self._plot_data_rows(
+                indices,
+                distance_results=distance_results,
+                figsize=figsize,
+                title_fields=title_fields,
+                show_extra_info=show_extra_info,
+                downsample=downsample,
+                ax=ax,
+                return_fig=return_fig,
+            )
+        idx = indices[0]
+        display_img, title, was_downsampled, all_info, metadata, img_name, img_path = (
+            self._prepare_data_display(
+                idx,
+                distance_results=distance_results,
+                title_fields=title_fields,
+                downsample=downsample,
+            )
+        )
+        if return_fig and ax is None:
+            if show_extra_info:
+                self._print_image_details(idx, all_info, metadata, img_name, img_path)
+            return display_img
+
+        fig = None
+        caller_ax = ax
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=figsize)
+        view = _as_viewer_array(display_img)
+        if view.ndim == 2:
+            ax.imshow(view, interpolation="nearest", cmap="gray")
+        else:
+            ax.imshow(view, interpolation="nearest")
+        ax.axis("off" if (was_downsampled or caller_ax is not None) else "on")
+        ax.set_title(title, fontsize=11)
+        if fig is not None:
+            fig.tight_layout()
+            try:
+                from IPython import get_ipython
+                from IPython.display import display as ipy_display_fig
+            except ImportError:
+                ipython_shell = None
+            else:
+                ipython_shell = get_ipython()
+            if not return_fig:
+                if ipython_shell is not None:
+                    ipy_display_fig(fig)
+                else:
+                    plt.show()
+                plt.close(fig)
+        if show_extra_info:
+            self._print_image_details(idx, all_info, metadata, img_name, img_path)
+        if return_fig:
+            if fig is not None:
+                plt.close(fig)
+            return display_img
+        return None
+
     def plot_image_by_index(
         self,
         idx: int | Sequence[int],
@@ -516,6 +851,9 @@ class _ImageDisplayMixin:
     ) -> Any:
         """
         Plot one image, or a row of images, by index.
+
+        Non-image sessions use ``plot_data_by_index``. This method stays the
+        image plot.
 
         Args:
             idx: Image index in results, or a sequence of indices drawn as one row.
@@ -544,7 +882,15 @@ class _ImageDisplayMixin:
         Returns:
             The image as a NumPy array when ``return_fig`` is True and ``idx`` is a single
             index; a list of arrays when ``idx`` is a sequence; otherwise ``None``.
+
+        Raises:
+            RuntimeError: If this session called ``set_data_io``. Use
+                ``plot_data_by_index`` for that catalog.
         """
+        if getattr(self, "_sample_mode", False):
+            raise RuntimeError(
+                "This session called set_data_io(). Use plot_data_by_index() to draw a row."
+            )
         indices = _index_list(idx)
         if len(indices) > 1:
             if show_extra_info:

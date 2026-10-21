@@ -120,25 +120,28 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `get_processing_pipeline` | Return the session processing pipeline, or None if none was recorded. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-get_processing_pipeline) |
 | `get_run_settings` | Return the silent run log as a JSON-serializable dict. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-get_run_settings) |
 | `has_embeddings` | Return True if embedding data is available (lazy or eager). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-has_embeddings) |
-| `image_preview_png_bytes` | Rasterize the same view as ``plot_image_by_index`` to PNG bytes. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-image_preview_png_bytes) |
+| `image_preview_png_bytes` | Rasterize one catalog row to PNG bytes. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-image_preview_png_bytes) |
 | `inspect_data` | Inspect image and mask dimensions, shapes, dtypes, and data ranges. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-inspect_data) |
 | `load_embeddings` | Load an embeddings checkpoint into the pipeline. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-load_embeddings) |
 | `load_properties` | Load a properties checkpoint into the pipeline. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-load_properties) |
 | `load_results` | Load and use an existing results/checkpoint file. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-load_results) |
 | `plot_centroids` | Plot centroids of groups in reduced embedding space. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_centroids) |
 | `plot_counts` | Plot count of images grouped by metadata using Plotly. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-phenomevisualization-plot_counts) |
-| `plot_image_by_index` | Plot a specific image by its index. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-plot_image_by_index) |
+| `plot_data_by_index` | Plot one non-image row, or a row of them, by index. Experimental. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-plot_data_by_index) |
+| `plot_image_by_index` | Plot one image, or a row of images, by index. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_imagedisplaymixin-plot_image_by_index) |
 | `plot_pca` | Plot PCA of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_pca) |
 | `plot_tsne` | Plot t-SNE of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_tsne) |
 | `plot_umap` | Plot UMAP of embeddings, properties, or combined features (Plotly, WebGL by default). | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_umap) |
 | `print_distance_summary` | Print distance summary statistics without plotting. Safe to use when enable_plots=False. | ✅ | [Visualization](/PhenoMe/advanced/api/visualization/#api-_distanceplotsmixin-print_distance_summary) |
 | `print_processing_pipeline` | Print the ordered processing pipeline for this session. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-print_processing_pipeline) |
+| `process_data` | Extract embeddings from non-image files. Experimental. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomesamples-process_data) |
 | `process_images` | Extract embeddings from images using a pretrained or custom model. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-process_images) |
 | `process_temporal_images` | Process new images in-memory (temporary) and append to the current session. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-process_temporal_images) |
 | `property_stats_by_group` | Group properties, compute per-group statistics, and optionally print a table. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-property_stats_by_group) |
 | `reset` | Reset all stored data to a clean state. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-reset) |
 | `reset_properties` | Reset only the computed properties. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-reset_properties) |
 | `save_results` | Save results to HDF5 (atomic write or in-place flush). | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-save_results) |
+| `set_data_io` | Store how to read a file and how to draw one sample. Experimental. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomesamples-set_data_io) |
 | `set_file_df` | Set the internal file DataFrame used for processing. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenome-set_file_df) |
 | `summarize_embedding_property_correlations` | Summarize embedding-property correlations, optionally plot, and/or return a Plotly figure. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-summarize_embedding_property_correlations) |
 | `top_properties_different_from_reference` | For each non-reference group, return the top k properties that most differentiate it from the reference. | ✅ | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-top_properties_different_from_reference) |
@@ -261,7 +264,7 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | `reorder_tier_a_columns` | Place Tier-A id columns first, then metadata, then remaining columns. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `run_dimensionality_reduction` | Run dimensionality reduction using pipeline data and return DataFrame. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `run_dimensionality_reduction_matrix` | Run dimensionality reduction on a raw matrix (pure, no pipeline). | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
-| `TIER_A_EXCLUDE_FROM_PROPERTIES` | frozenset() -> empty frozenset object | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
+| `TIER_A_EXCLUDE_FROM_PROPERTIES` | Build an immutable unordered collection of unique elements. | 🔧 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 | `validate_results` | Check that pipeline results have consistent lengths across all arrays. | 🔒 | [Utilities](/PhenoMe/advanced/api/utilities/) |
 
 ---
@@ -282,15 +285,13 @@ from phenome.io import read_image, FileDiscovery, CheckpointManager
 | Import | Description | Tier | Extended docs |
 | --- | --- | --- | --- |
 | `collate_fn` | Custom collate function that handles failed loads and split/combined channels. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
-| `create_colab_interactive_explorer` | Launch the interactive explorer built only for Google Colab. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_colab_interactive_explorer) |
-| `create_interactive_explorer` | Launch an interactive explorer for phenotyping results in Jupyter. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#create_interactive_explorer) |
 | `EmbeddingExtractor` | Extracts embeddings from images using a ModelWrapper and DataLoader. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeAnalysis` | Pipeline providing analysis methods for PhenoMe. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeanalysis-compute_clustering) |
 | `PhenoMeBatchCorrection` | Mixin: ``correct_batches()`` for plate / batch effects. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeDataset` | Dataset for loading and preprocessing images for phenotyping analysis. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeDistances` | Provides distance computation methods for PhenoMe. | 🔒 | [Distances](/PhenoMe/advanced/api/distances/#api-phenomedistances-compute_reference_distances) |
-| `PhenoMeInteractive` | High-performance interactive explorer for PhenoMe results. | ✅ | [Interactive Explorer](/PhenoMe/advanced/api/interactive/#class-phenomeinteractive) |
 | `PhenoMeProperties` | Pipeline providing property computation and reporting for PhenoMe. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/#api-phenomeproperties-compute_properties) · [Properties](/PhenoMe/advanced/api/properties/) |
+| `PhenoMeSamples` | Experimental entry for non-image files. | 🔒 | [Pipeline](/PhenoMe/advanced/api/pipeline/) |
 | `PhenoMeVisualization` | Pipeline class providing visualization methods for PhenoMe. | 🔒 | [Visualization](/PhenoMe/advanced/api/visualization/#api-_drplotsmixin-plot_pca) |
 
 ---

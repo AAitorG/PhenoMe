@@ -417,11 +417,12 @@ Version configuration (Constants section):
         std              (D,) float32     — z-score
 /config/                                    — processing parameters (typed attributes)
     channel_mode         str  attribute
-    resize_size          str  attribute  ("none" when absent)
-    pad_size             str  attribute  ("none" when absent)
+    resize_size          int attribute, or the string "none" when skipped
+    pad_size             int attribute, or the string "none" when skipped
     force_rgb            bool attribute
     l2_normalize_channels bool attribute — default True when absent (legacy)
-    channels             (C,) int8 dataset — absent when all channels used
+    sample_mode          bool attribute — true for process_data; absent means false
+    channels             (C,) int32 dataset — absent when all channels used
 /processing_pipeline/                       — optional; ordered printed steps only
     /embeddings/step_01      title, detail attributes (embedding pipeline)
     /properties/step_01      title, detail, kind=image|mask|compute

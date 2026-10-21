@@ -42,7 +42,7 @@ npm install
 npm run build
 ```
 
-`npm run build` runs `sync-assets`, then `generate_api_docs.py`, then `fix-links`, then `astro build`. Output is written to `docs/dist/`. Preview locally:
+`npm run build` runs `sync-assets`, `generate_api_docs.py`, `generate_llm_manifest.py`, strict `fix-links`, `validate_docs.py`, `astro build`, and `validate_docs.py --dist dist`. Output is written to `docs/dist/`. Preview locally:
 
 ```bash
 npm run preview
@@ -50,7 +50,7 @@ npm run preview
 
 ### What gets auto-generated?
 
-The script [`docs/scripts/generate_api_docs.py`](https://github.com/AAitorG/PhenoMe/blob/main/docs/scripts/generate_api_docs.py) writes one Markdown file per **topic** under `docs/src/content/docs/advanced/api/` (e.g. `pipeline.md`, `visualization.md`). When you add a major new public surface, extend that script so the new API appears on the right page.
+The script [`docs/scripts/generate_api_docs.py`](https://github.com/AAitorG/PhenoMe/blob/main/docs/scripts/generate_api_docs.py) writes one Markdown file per **topic** under `docs/src/content/docs/advanced/api/` (e.g. `pipeline.md`, `visualization.md`; `results-dataframes.md` is hand-authored narrative) plus `docs/src/content/docs/function-location-guide.md`. `docs/scripts/generate_llm_manifest.py` writes `docs/assets/phenome-api.json` from `phenome/mcp/manifest.py`, and `starlight-llms-txt` writes `llms.txt`, `llms-small.txt`, and `llms-full.txt` during `astro build`. When you add a major new public surface, extend `generate_api_docs.py` so the new API appears on the right page.
 
 | Topic page | Main Python sources |
 |------------|---------------------|
@@ -60,7 +60,7 @@ The script [`docs/scripts/generate_api_docs.py`](https://github.com/AAitorG/Phen
 | `properties.md` | `phenome.utils.property_factories` |
 | `model-wrapper.md` | `phenome.utils.model_wrapper` |
 | `metadata.md` | `phenome.metadata` |
-| `utilities.md` | `phenome.utils.device`, `phenome.io`, `TransformBuilder` |
+| `utilities.md` | `phenome.utils.device`, `phenome.utils.metadata`, `phenome.utils.progress`, `phenome.io`, `TransformBuilder` |
 | `plugins.md` | `phenome.plugins` |
 | `report.md` | `ReportConfig`, `generate_report` in `phenome.report.generator` |
 | `interactive.md` | `create_interactive_explorer`, `create_colab_interactive_explorer`, `PhenoMeInteractive` |

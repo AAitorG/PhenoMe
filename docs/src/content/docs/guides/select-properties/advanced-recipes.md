@@ -110,11 +110,13 @@ def contour_features(image2d, mask2d):
 
 ## Multi-channel handling
 
-For multi-channel images, property functions are called **once per
-channel**. The pipeline automatically suffixes property names with
-`_ch{idx}`. Pass `channel_names` to `find_files` or `set_file_df` to
-use semantic labels instead (e.g. `_DAPI`, `_GFP`). Single-channel
-images keep names unsuffixed.
+For multi-channel images, functions that need the image (`image`,
+`both`, or `any`) are called **once per channel**. The pipeline
+suffixes those names with `_ch{idx}`. Pass `channel_names` to
+`find_files` or `set_file_df` to use semantic labels instead (e.g.
+`_DAPI`, `_GFP`). Single-channel images keep names unsuffixed.
+Mask-only functions run once, on the first channel, and keep the name
+you return.
 
 ```python
 def avg_intensity(image2d, mask2d):

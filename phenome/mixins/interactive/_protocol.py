@@ -51,5 +51,9 @@ class _InteractiveExplorerProtocol(Protocol):
         apply_transforms: bool = True,
         downsample: int | None = None,
     ) -> tuple[bytes, str | None, str | None]:
-        """PNG bytes and optional details text (same as ``plot_image_by_index`` extra block)."""
+        """PNG bytes and optional details text.
+
+        Image sessions match ``plot_image_by_index``. After ``set_data_io``,
+        the bytes match ``plot_data_by_index``.
+        """
         ...

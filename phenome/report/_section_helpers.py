@@ -30,7 +30,18 @@ def load_image_data(
     for idx in indices:
         try:
             img_path = pipeline.results.img_path[idx]
-            img = read_image(img_path)
+            if getattr(pipeline, "_sample_mode", False):
+                from ..experimental.samples import load_sample_display
+
+                load_fn = pipeline._sample_load_fn
+                show_fn = pipeline._sample_show_fn
+                if load_fn is None or show_fn is None:
+                    raise RuntimeError(
+                        "Sample show functions are missing. Call set_data_io() first."
+                    )
+                img = load_sample_display(load_fn, show_fn, img_path)
+            else:
+                img = read_image(img_path)
 
             if img is None:
                 continue

@@ -12,19 +12,21 @@ returned DataFrame includes a `mask_path` column used by
 
 ## Default behaviour (mirrored folder structure)
 
-Masks are matched by the same relative path and filename under
-`mask_dir`. For example:
+The first match is the same relative path and the same filename,
+including the extension:
 
-| Image | Auto-matched mask |
-|-------|-------------------|
+| Image | Mask that matches on the mirrored path |
+|-------|----------------------------------------|
 | `images/plate1/A01.tif` | `masks/plate1/A01.tif` |
-| `images/plate1/A01.tif` | `masks/plate1/A01.png` |
 
 ```python
 df = pheno.find_files("/data/images", mask_dir="/data/masks")
 ```
 
-Restrict the extensions tried:
+`mask_extensions` adds other extensions on that relative path. It does
+not narrow a search that already tries every extension. A unique
+basename can also match a different extension through the fallback
+(`A01.tif` to `A01.png` when that stem appears once).
 
 ```python
 df = pheno.find_files(

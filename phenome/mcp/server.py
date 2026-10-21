@@ -55,7 +55,7 @@ def _build_server() -> Any:
 
     @mcp.tool()
     def validate_analysis_code(code: str) -> str:
-        """Flag unknown prefixed calls, process_images or load_results before find_files, and brace path templates."""
+        """Flag unknown prefixed calls, process_images, process_data, or load_results before find_files, and brace path templates."""
         from .manifest import validate_analysis_code as _validate
 
         return json.dumps(_validate(code), indent=2)
@@ -84,7 +84,7 @@ def _build_server() -> Any:
 
     @mcp.tool()
     def get_recipe(name: str) -> str:
-        """Return one recipe: first-analysis, export-settings, summarize, path-metadata, property-presets, batch-correction, or checkpoint."""
+        """Return one recipe: first-analysis, export-settings, summarize, path-metadata, property-presets, batch-correction, checkpoint, or other-modalities."""
         from .recipes import get_recipe as _get
         from .recipes import list_recipe_names
 

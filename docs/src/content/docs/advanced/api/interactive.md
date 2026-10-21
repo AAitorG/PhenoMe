@@ -36,7 +36,9 @@ highlight mode, box/lasso multi-selection, and click-to-inspect image viewing.
 **Args:**
 
 - **`pheno_me`**: Processed PhenoMe instance with embeddings
-  and optional properties. Must have run ``process_images()`` first.
+  and optional properties. Images use ``process_images``. Other files
+  use ``set_data_io`` and ``process_data``. A click draws
+  ``plot_image_by_index`` or the picture from ``set_data_io``.
 - **`filters`**: Optional metadata filters to restrict which images are shown.
   Dict mapping metadata keys to allowed values or lists of values.
   Example: ``{'condition': 'Control', 'time': ['24h', '48h']}``.
@@ -91,8 +93,9 @@ show updates made from a background thread.
 
 **Args:**
 
-- **`pheno_me`**: Processed PhenoMe instance with embeddings. Must have run
-  ``process_images()`` first.
+- **`pheno_me`**: Processed PhenoMe instance with embeddings. Images use
+  ``process_images``. Other files use ``set_data_io`` and
+  ``process_data``. A click draws the same picture as the local explorer.
 - **`filters`**: Optional metadata filters. Dict mapping metadata keys to
   allowed values or lists of values.
 - **`exclude`**: Optional metadata exclusions (same structure as filters).

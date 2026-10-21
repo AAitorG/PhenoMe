@@ -36,7 +36,7 @@ Because Tier A tables share the same `image_index`, you can merge them to create
 
 ```python
 # 1. Compute properties
-props = pheno.compute_properties()
+props = pheno.compute_properties(property_preset="basic")
 
 # 2. Run clustering
 clusters = pheno.compute_clustering()
@@ -63,26 +63,20 @@ By default, `compute_properties`, `compute_clustering`, and `compute_reference_d
 | Column | Description |
 | :--- | :--- |
 | `image_index` | Unique identifier for the image in the current pipeline. |
-| `image_path` | Absolute path to the source image. |
+| `image_path` | Catalog path stored by discovery. Absolute only when `find_files` was given an absolute directory. |
 | `image_name` | Basename of the image file (optional). |
 | `[Metadata]` | Optional; present when `include_metadata=True` or in export tables. |
-| `[Results]` | Method-specific columns like `cluster`, `distance`, or `outlier_score`. |
+| `[Results]` | Method-specific columns such as `cluster`, `distance`, or `distance_to_centroid` (and `threshold` from `detect_outliers`). |
 
 ---
 
 ## Tier B: Grouped Tables
 
-Tier B tables are returned by methods that aggregate data across images, such as `property_stats_by_group` or `analyze_group_enrichment`.
+Tier B tables aggregate images by metadata.
 
-### Structure
-Rows represent groups defined by your metadata (e.g., one row per "Treatment").
+`property_stats_by_group` is wide: one row per group, with the grouping columns, `N`, and `{property}_mean`, `{property}_std`, `{property}_min`, and `{property}_max`.
 
-| Column | Description |
-| :--- | :--- |
-| `[Grouping Columns]` | The metadata keys used to group the data. |
-| `property` | The name of the phenotypic property being analyzed. |
-| `mean_group` / `mean_pop` | Statistics for the group vs. the total population. |
-| `score` / `p_value` | Statistical significance or enrichment scores. |
+`analyze_group_enrichment` is long: grouping columns, `property`, `score`, `mean_group`, `mean_pop`, `p_value`, and `abs_score`. With `correct_multiple_testing=True` (the default) it also has `significant`.
 
 ---
 

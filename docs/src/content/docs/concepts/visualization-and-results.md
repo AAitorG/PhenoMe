@@ -32,7 +32,7 @@ pheno.plot_umap(n_neighbors=15, min_dist=0.1, color_by="drug")
 | `"combined"` | Concatenation of both |
 
 ```python
-pheno.plot_pca(source="properties", property_keys=["area", "intensity"])
+pheno.plot_pca(source="properties", property_keys=["area", "intensity_mean"])
 ```
 
 ## Results structure
@@ -54,7 +54,7 @@ emb = pheno.results.embeddings  # np.ndarray when eager; None if absent or lazy 
 |--------|-------------|
 | `pheno.get_embeddings()` | Preferred. Loads from disk when using checkpoint/lazy; returns `None` if no embeddings. |
 | `pheno.results.embeddings` | Same underlying data when stored eagerly in memory; `None` when not computed or lazy-backed. |
-| `pheno.export_dataset_table()` | Metadata, properties, and distances as a DataFrame. Use for filtering, grouping, external analysis. |
+| `pheno.export_dataset_table()` | Metadata and properties as a DataFrame. Pass `dist_results=` to add a `distance` column. |
 | `pheno.get_image_info(idx)` | Full metadata, properties, and optional distance for one image. |
 
 Analysis methods return [per-image DataFrames](/PhenoMe/advanced/api/results-dataframes/) (Tier A) with `image_index`, `image_path`, and `image_name` so tables join on one schema.

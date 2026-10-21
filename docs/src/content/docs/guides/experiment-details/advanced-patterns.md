@@ -5,21 +5,19 @@ sidebar:
   order: 4
 ---
 
-import { FileTree } from '@astrojs/starlight/components';
-
 When [path templates](/PhenoMe/guides/experiment-details/path-templates/) and
 [CSV lookup](/PhenoMe/guides/experiment-details/csv-lookup/) are not enough, write a plain Python
 function (or a `MetadataBase` subclass) that returns a dict per image.
 
 ## Encoding in the filename
 
-<FileTree>
-- images/
-  - Control_30min_rep1.tif
-  - Control_30min_rep2.tif
-  - Drug1_30min_rep1.tif
-  - Drug1_60min_rep1.tif
-</FileTree>
+```text
+images/
+├── Control_30min_rep1.tif
+├── Control_30min_rep2.tif
+├── Drug1_30min_rep1.tif
+└── Drug1_60min_rep1.tif
+```
 
 ```python
 import os
@@ -37,18 +35,18 @@ def metadata_from_filename(path: str) -> dict:
 
 ## Nested directory structure
 
-<FileTree>
-- experiment/
-  - Plate1/
-    - A01/
-      - Control_001.tif
-      - Control_002.tif
-    - A02/
-      - Drug1_10uM_001.tif
-      - Drug1_10uM_002.tif
-  - Plate2/
-    - ...
-</FileTree>
+```text
+experiment/
+├── Plate1/
+│   ├── A01/
+│   │   ├── Control_001.tif
+│   │   └── Control_002.tif
+│   └── A02/
+│       ├── Drug1_10uM_001.tif
+│       └── Drug1_10uM_002.tif
+└── Plate2/
+    └── ...
+```
 
 ```python
 import os

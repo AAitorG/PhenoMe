@@ -27,9 +27,10 @@ img_01,Control,0,24h
 img_02,DrugA,10,24h
 ```
 
-Values with or without extension are both accepted; only the **last**
-dot is treated as the extension, so names like `plate.A01.well.tif` are
-matched correctly.
+Values with or without a known image extension are both accepted.
+Only suffixes PhenoMe recognises (`.tif`, `.png`, `.npy`, and the other
+listed image and data extensions) are stripped, so internal dots stay
+in the name: `plate.A01.well.tif` matches `plate.A01.well`.
 
 ## Recommended: `make_dataframe_metadata_fn`
 

@@ -14,6 +14,7 @@ to internal modules (e.g., `_compute.py`, `_helpers.py`).
 - `PhenoMeDistances`: Compute reference distances and prototype distances.
 - `PhenoMeVisualization`: Plotting and visualization (PCA, t-SNE, UMAP, heatmaps).
 - `PhenoMeBatchCorrection`: Correct batch effects.
+- `PhenoMeSamples`: Experimental `set_data_io()` and `process_data()` for non-image files.
 - `PhenoMeInteractive`: Interactive Jupyter explorer for results.
 
 **Supporting classes:**
@@ -64,6 +65,7 @@ from .dataset import PhenoMeDataset, collate_fn
 from .distances import PhenoMeDistances
 from .embedding_extractor import EmbeddingExtractor
 from .properties import PhenoMeProperties
+from .samples import PhenoMeSamples
 from .visualization import PhenoMeVisualization
 
 __all__ = [
@@ -73,6 +75,7 @@ __all__ = [
     "PhenoMeDataset",
     "PhenoMeDistances",
     "PhenoMeProperties",
+    "PhenoMeSamples",
     "PhenoMeVisualization",
     "collate_fn",
 ]

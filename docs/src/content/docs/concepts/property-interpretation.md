@@ -38,7 +38,7 @@ Computed via [skimage.measure.regionprops](https://scikit-image.org/docs/stable/
 | **minor_axis_length** | Minor axis of fitted ellipse | ≥ 0 | Width perpendicular to major |
 | **eccentricity** | Elongation of fitted ellipse | 0 (circle) – 1 (line) | How elongated vs round |
 | **solidity** | Area / convex hull area | 0 – 1 | Low = concave/indented shape |
-| **orientation** | Angle of major axis vs horizontal | [−π/2, π/2] rad | Cell alignment direction |
+| **orientation** | Angle between the row axis (axis 0) and the major axis | [−π/2, π/2] rad | Cell alignment direction |
 | **extent** | Area / bounding box area | 0 – 1 | How much of box is filled |
 | **equivalent_diameter** | Diameter of equal-area circle | 2√(area/π) | Size in interpretable units |
 | **euler_number** | Objects − holes | integer | 1 = solid, 0 = has a hole |
@@ -114,7 +114,7 @@ Gray-Level Co-occurrence Matrix features computed within the masked region using
 | **texture_homogeneity** | Closeness to GLCM diagonal | [0, 1] | High = smooth/uniform |
 | **texture_energy** | Sum of squared GLCM elements | [0, 1] | High = repetitive/ordered |
 | **texture_correlation** | Linear dependency between pixel pairs | [−1, 1] | High = predictable pattern |
-| **texture_asm** | Angular Second Moment (= energy²) | [0, 1] | Orderliness measure |
+| **texture_asm** | Angular Second Moment (= energy²). Only when `properties` includes `"asm"` | [0, 1] | Not produced by the default texture function or the `complete` preset |
 
 **Learn more:** [scikit-image GLCM tutorial](https://scikit-image.org/docs/stable/auto_examples/features_detection/plot_glcm.html) · [graycoprops reference](https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.graycoprops)
 

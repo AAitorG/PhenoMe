@@ -10,6 +10,8 @@ import { FileTree, Aside, LinkCard, CardGrid } from '@astrojs/starlight/componen
 
 A short guide on how PhenoMe expects images, masks,
 and **metadata** (experiment labels) to be organized.
+A volume, an audio clip, a text file, or another modality is experimental.
+Use [Audio, text, and 3D](/PhenoMe/guides/experimental-samples/) instead of this page.
 
 ## 1. Do I need to add labels (metadata)?
 
@@ -116,7 +118,7 @@ pheno.find_files("images", mask_dir="masks")
 
 | Problem | What to check |
 |---------|---------------|
-| `plot_pca(color_by='condition')` fails | That name must be a metadata key — run `pheno.get_available_metadata_keys()`. |
+| `plot_pca(color_by='condition')` fails | That name must be a metadata key or a property column. Run `pheno.get_available_metadata_keys()` for the metadata names. |
 | Spreadsheet row count != image count | How overlap works - [FAQ](/PhenoMe/faq/#data-and-metadata). |
 | Filter returns no images | Exact string match and keys - [Best practices - data organization](/PhenoMe/guides/best-practices/data-organization/). |
 | Masks not found | Check mask folder and naming - [Adding experiment info — Finding masks](/PhenoMe/guides/experiment-details/mask-discovery/). |

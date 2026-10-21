@@ -44,8 +44,9 @@ The checkpoint (HDF5) already stores configuration and results. When
 `compute_properties()`, the file contains:
 
 - **Results**: embeddings, `img_path`, metadata, properties.
-- **Processing params**: `channel_mode`, `resize_size`, `pad_size`,
-  `force_rgb`, `l2_normalize_channels` (and `batch_size` when set).
+- **Processing params**: `channel_mode`, `channels`, `resize_size`,
+  `pad_size`, `force_rgb`, `l2_normalize_channels`, and `sample_mode`.
+  `batch_size` is recorded on the run log, not in `/config`.
 - **Processing pipeline** (optional `/processing_pipeline`): the ordered
   printed steps (title and detail) for embeddings and, when run, properties.
   Stored as `step_01`, `step_02`, … HDF5 groups with attributes — not JSON.
@@ -170,8 +171,10 @@ Some non-determinism is intrinsic to the hardware stack (CUDA atomic
 additions, concurrent reductions). If a bit-exact match matters:
 
 1. Pin PyTorch, CUDA, and the DR libraries to explicit versions.
-2. Set `torch.use_deterministic_algorithms(True)` (done by
-   `set_determinism`) and verify no op raises.
+2. `set_determinism` sets the PyTorch, NumPy, and Python seeds and
+   turns on `cudnn.deterministic` with `cudnn.benchmark` off. Call
+   `torch.use_deterministic_algorithms(True)` separately, and verify no
+   op raises.
 3. Prefer the CPU DR backend.
 4. Run on the same machine you report from.
 

@@ -52,6 +52,7 @@ from .mixins import (
     PhenoMeBatchCorrection,
     PhenoMeDistances,
     PhenoMeProperties,
+    PhenoMeSamples,
     PhenoMeVisualization,
 )
 from .mixins._helpers import _require_embeddings_for_temporal
@@ -96,6 +97,7 @@ class PhenoMe(
     PhenoMeDistances,
     PhenoMeVisualization,
     PhenoMeBatchCorrection,
+    PhenoMeSamples,
 ):
     """@section Overview
     @order 0
@@ -199,6 +201,10 @@ class PhenoMe(
         self._batch_correction_applied: bool = False
         self._batch_correction_last_info: dict[str, Any] | None = None
         self._processing_pipeline: dict[str, Any] | None = None
+        self._image_mode: bool = False
+        self._sample_mode: bool = False
+        self._sample_load_fn: Callable[[str], Any] | None = None
+        self._sample_show_fn: Callable[[Any], Any] | None = None
 
     def __repr__(self) -> str:
         n_images = self.results.n_images
@@ -225,6 +231,8 @@ class PhenoMe(
         By default preserves _file_df so compute_properties and inspect_data
         continue to work after process_images. Set clear_file_df=True for a
         full reset (e.g. when switching to a completely new dataset).
+        Clears image and sample mode, including the loader stored by
+        ``set_data_io``.
         """
         if self._db is not None:
             try:
@@ -252,6 +260,10 @@ class PhenoMe(
         self._batch_correction_applied = False
         self._batch_correction_last_info = None
         self._processing_pipeline = None
+        self._image_mode = False
+        self._sample_mode = False
+        self._sample_load_fn = None
+        self._sample_show_fn = None
         if getattr(self, "_run_log", None) is not None:
             self._run_log.clear_steps()
 
@@ -769,7 +781,13 @@ class PhenoMe(
             `print_processing_pipeline`: Print the same text as the INFO log.
         """
         file_df = self._require_file_df("process_images")
+        if self._sample_mode:
+            raise RuntimeError(
+                "This session already called set_data_io(). "
+                "Start a new PhenoMe() to call process_images()."
+            )
         self._validate_process_images_inputs(file_df)
+        self._image_mode = True
         caller_channels = channels
         filtered_data, cur_params, _final_data_dir = self._prepare_for_process_images(
             file_df,
@@ -970,6 +988,11 @@ class PhenoMe(
         preprocess, channels/RGB, TypeMaxNorm, pad/resize, ImageNet, model,
         split L2). A concise processing pipeline is logged at INFO.
         """
+        if self._sample_mode:
+            raise RuntimeError(
+                "This session already called set_data_io(). "
+                "Start a new PhenoMe() to call process_temporal_images()."
+            )
         model_name = getattr(model_wrapper, "model_name", None) or getattr(
             model_wrapper, "name", None
         )
@@ -1691,6 +1714,9 @@ class PhenoMe(
             self._db = None
 
         self._processing_params = ckpt.get_processing_params()
+        self._sample_mode = bool((self._processing_params or {}).get("sample_mode"))
+        if self._sample_mode:
+            self._image_mode = False
         self._restore_processing_pipeline(ckpt, loaded=False)
 
         file_df = self._require_file_df(method_name)

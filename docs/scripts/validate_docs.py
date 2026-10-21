@@ -99,12 +99,19 @@ def validate_dist(dist: Path) -> list[str]:
         issues.append("llms-small.txt is not smaller than llms-full.txt")
     if "Using PhenoMe with LLMs" not in small:
         issues.append("llms-small.txt is missing the Using PhenoMe with LLMs guide")
-    if "# Getting started" not in small or "# Common workflows" not in small:
+    if (
+        "# Getting started" not in small
+        or "# Common workflows" not in small
+        or "# Using folder names" not in small
+    ):
         issues.append("llms-small.txt is missing the user workflow pages")
     if "# Function location guide" in small or "PhenoMe API Reference" in small:
         issues.append("llms-small.txt includes generated reference pages")
+    full = (dist / "llms-full.txt").read_text(encoding="utf-8")
     if "import {" in small or "<Steps" in small:
         issues.append("llms-small.txt contains unprocessed MDX")
+    if "import {" in full or "<Steps" in full:
+        issues.append("llms-full.txt contains unprocessed MDX")
 
     try:
         manifest = json.loads((dist / "phenome-api.json").read_text(encoding="utf-8"))

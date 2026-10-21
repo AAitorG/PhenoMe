@@ -56,6 +56,7 @@ if blob_fn:
 | Name | Function | Description |
 |------|----------|-------------|
 | `blob` | `get_blob_properties` | DoG blob detection (count, area, intensity stats) |
+| `my_max_intensity` | `my_custom_max_intensity` | Example template: maximum pixel value. Registered on import |
 
 ---
 
@@ -74,7 +75,8 @@ def extract_from_path_template(path: str):
     match = re.search(r"plate(\d+)/well_([A-Z]\d+)", path)
     if match:
         return {"file_path": path, "plate": match.group(1), "well": match.group(2)}
-    return {"file_path": path}
+    # Only file_path is treated as missing metadata and the row is dropped.
+    return {"file_path": path, "plate": "unknown", "well": "unknown"}
 
 register_metadata_extractor("plate_well", extract_from_path_template)
 ```

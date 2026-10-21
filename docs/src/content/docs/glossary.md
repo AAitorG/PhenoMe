@@ -86,7 +86,7 @@ See [Channel mode](#channel-mode). Each channel processed independently.
 Non-linear dimensionality reduction. Preserves local structure; good for clustering visualization. Can be stochastic (results vary with seed).
 
 ### UMAP
-Non-linear dimensionality reduction. Balances global and local structure; often faster than t-SNE. Default for many exploratory workflows.
+Non-linear dimensionality reduction. Balances global and local structure; often faster than t-SNE. The Jupyter and Colab explorers open on t-SNE.
 
 ### Zero-shot
 Using a pre-trained model without training or fine-tuning on your data. DINOv2 and similar models work out-of-the-box for phenotyping.

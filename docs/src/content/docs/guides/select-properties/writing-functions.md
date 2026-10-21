@@ -22,7 +22,7 @@ def my_property_fn(
 
     Parameters
     ----------
-    image2d : (H, W) float32 array, normalised to [0, 1]. May be None.
+    image2d : (H, W) float64 array in [0, 1]. May be None.
     mask2d : (H, W) array. Typically binary or labelled. May be None.
 
     Returns

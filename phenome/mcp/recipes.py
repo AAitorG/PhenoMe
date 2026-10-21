@@ -27,6 +27,7 @@ pheno.plot_pca()
 ```
 
 Pass ``color_by`` only for a key returned by ``get_available_metadata_keys()``.
+A volume, audio clip, text file, or other non-image file is experimental. Use the ``other-modalities`` recipe.
 """,
     "export-settings": """\
 # Hand the run to the user
@@ -100,6 +101,41 @@ pheno.find_files("path/to/your/images")
 pheno.load_results("results/phenome_results.h5")
 ```
 """,
+    "other-modalities": """\
+# Other modalities (experimental)
+
+2D images stay on ``process_images``. A volume, audio clip, text file, or other file uses a new ``PhenoMe`` session.
+
+``load_fn(path)`` returns the sample. ``show_fn(sample)`` returns a picture of shape ``(H, W)`` or ``(H, W, C)``.
+Equal-shaped arrays are stacked. Different shapes, or samples that are not arrays, pass ``collate_fn`` and it returns one tensor.
+The model must accept that tensor and return ``(batch, features)``. Omit presets and pass ``additional_property_functions``.
+After ``load_results``, call ``set_data_io`` again before drawing. DINOv2 stays on ``process_images``.
+
+```python
+import numpy as np
+from phenome import PhenoMe
+from phenome.experimental import orthogonal_projections
+
+def load_volume(path):
+    return np.load(path)
+
+def show_volume(volume):
+    return orthogonal_projections(volume)
+
+def volume_props(volume, mask):
+    return {"mean": float(np.mean(volume))}
+
+pm = PhenoMe(device=device, seed=42)
+pm.find_files("volumes", extensions=[".npy"])
+pm.set_data_io(load_volume, show_volume)
+pm.process_data(model, batch_size=4)
+pm.compute_properties(additional_property_functions={"any": volume_props})
+pm.plot_data_by_index(0)
+pm.plot_pca()
+```
+
+Audio and text loaders, and a ``collate_fn`` for unequal shapes, are in the Audio, text, and 3D guide.
+""",
 }
 
 RECIPE_METADATA: dict[str, dict[str, object]] = {
@@ -110,7 +146,12 @@ RECIPE_METADATA: dict[str, dict[str, object]] = {
     },
     "export-settings": {
         "purpose": "Save the HDF5 results, plus any settings or report file the user asked to keep.",
-        "methods": ["save_results", "export_experiment_config", "generate_report"],
+        "methods": [
+            "save_results",
+            "export_experiment_config",
+            "export_methods_markdown",
+            "generate_report",
+        ],
         "requires": ["completed PhenoMe run"],
     },
     "summarize": {
@@ -137,6 +178,11 @@ RECIPE_METADATA: dict[str, dict[str, object]] = {
         "purpose": "Checkpoint and reload large analyses.",
         "methods": ["process_images", "find_files", "load_results"],
         "requires": ["HDF5 checkpoint path"],
+    },
+    "other-modalities": {
+        "purpose": "Experimental embeddings for a volume, audio clip, text file, or other non-image file.",
+        "methods": ["find_files", "set_data_io", "process_data", "plot_data_by_index"],
+        "requires": ["load_fn", "show_fn", "a model that accepts the collated tensor"],
     },
 }
 

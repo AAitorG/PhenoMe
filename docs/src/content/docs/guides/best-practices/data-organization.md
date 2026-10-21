@@ -5,33 +5,31 @@ sidebar:
   order: 3
 ---
 
-import { FileTree, Aside } from '@astrojs/starlight/components';
-
 ## Recommended project layout
 
-<FileTree>
-- project/
-  - data/
-    - images/ raw images
-    - masks/ segmentation masks (optional)
-    - metadata.csv experimental metadata
-  - results/
-    - phenome_results.h5 checkpoint / results
-    - distances.pkl
-    - properties.csv
-    - config.json
-  - figures/
-    - pca_by_condition.html
-    - distance_distribution.html
-  - scripts/
-    - process_data.py
-    - analyze_results.py
-</FileTree>
+```text
+project/
+├── data/
+│   ├── images/              # raw images
+│   ├── masks/               # segmentation masks (optional)
+│   └── metadata.csv         # experimental metadata
+├── results/
+│   ├── phenome_results.h5   # checkpoint / results
+│   ├── distances.pkl
+│   ├── properties.csv
+│   └── config.json
+├── figures/
+│   ├── pca_by_condition.html
+│   └── distance_distribution.html
+└── scripts/
+    ├── process_data.py
+    └── analyze_results.py
+```
 
-<Aside type="tip">
+:::tip
 Keeping `results/` outside `data/` makes it easy to exclude intermediate
 files from backups and sync.
-</Aside>
+:::
 
 ## Naming conventions
 

@@ -88,6 +88,10 @@ from `mask_dir`. Extracts per-file metadata using `metadata_fn` and stores the r
 as the internal file DataFrame used by `process_images()`, `compute_properties()`,
 and `inspect_data()`.
 
+The same rows are copied into ``results`` (paths and metadata, no embeddings).
+``plot_image_by_index`` and ``get_image_info`` work from that catalog before
+``process_images`` or ``compute_properties``. A later call replaces the catalog.
+
 **Args:**
 
 - **`image_dir`** (`str`): Root directory or glob pattern for image files. Scanned recursively.
@@ -101,7 +105,7 @@ and `inspect_data()`.
   Examples:
   - `DefaultMetadata()`: Simple metadata.
   - `PathTemplateMetadata(template="...")`: Extract from path pattern.
-  - `lambda p: {'batch': p.split('/')[-2]}`: Custom function.
+  - `lambda p: &#123;'batch': p.split('/')[-2]&#125;`: Custom function.
   If None, no metadata extracted. Default: None.
 - **`on_missing_metadata`** (`str`): How to handle files with missing metadata. One of:
   - 'drop': Remove rows with incomplete metadata.
@@ -217,6 +221,8 @@ inspect_data, and related methods.
 **Returns:**
 
   The normalized DataFrame that was stored.
+Also copies paths and metadata into ``results`` so index-based methods such as
+``plot_image_by_index`` work before embeddings or properties are computed.
 
 </div>
 
@@ -265,9 +271,12 @@ PhenoMe.process_images(
 Extract embeddings from images using a pretrained or custom model.
 
 Reads images from the file DataFrame (set via `find_files()` or `set_file_df()`),
-processes them through the model in batches, and stores embeddings and metadata
-in `self.results`. Supports filtering, channel selection, custom preprocessing,
-and checkpointing for resumable processing.
+processes them through the model in batches, and stores embeddings on the
+existing image catalog in `self.results`. Paths and metadata are already set
+by discovery; this method fills embeddings and keeps any properties already
+computed for the same paths. ``filters`` / ``exclude`` narrow the catalog to
+the images that will be embedded. Supports channel selection, custom
+preprocessing, and checkpointing for resumable processing.
 
 **Embedding storage:**
 - Eager (default): Embeddings stored in `results.embeddings` (ndarray).
@@ -811,6 +820,8 @@ Closes any open HDF5 database handle before clearing results.
 By default preserves _file_df so compute_properties and inspect_data
 continue to work after process_images. Set clear_file_df=True for a
 full reset (e.g. when switching to a completely new dataset).
+Clears image and sample mode, including the loader stored by
+``set_data_io``.
 
 </div>
 
@@ -837,6 +848,9 @@ PhenoMeProperties.reset_properties(
 <div class="api-body">
 
 Reset only the computed properties.
+
+Keeps one empty dict per catalog image so property length stays aligned
+with ``img_path``.
 
 **Args:**
 
@@ -1178,18 +1192,22 @@ PhenoMeProperties.compute_properties(
 Compute per-image properties using presets and/or custom functions.
 
 Each function receives a 2D image slice and/or mask slice and returns
-a dict[str, float]. When multiple channels exist, properties are
-suffixed with ``_ch{idx}``, or with labels from ``find_files`` /
-``set_file_df`` ``channel_names`` when provided (e.g. ``_DAPI``).
+a dict[str, float]. When multiple channels exist, image, both, and
+any functions are suffixed with ``_ch{idx}``, or with labels from
+``find_files`` / ``set_file_df`` ``channel_names`` when provided
+(e.g. ``_DAPI``). Mask-only functions run once and keep the returned name.
 
 Use ``property_preset`` for built-in property sets and
 ``additional_property_functions`` to add custom functions on top
 (optional).
 
-This method now relies solely on ``file_df`` (typically produced by
-[PhenoMe.find_files](/PhenoMe/advanced/api/pipeline/#api-phenome-find_files)) for resolving image and mask
-paths. Legacy ``image_dir`` / ``mask_dir`` parameters are no longer
-supported.
+Images come from the catalog written by ``find_files`` or ``set_file_df``.
+Embeddings are not required. Mask paths are resolved from ``file_df``.
+After ``set_data_io``, this method does not read images. It loads each
+catalog path with the stored loader and calls every function in
+``additional_property_functions`` as ``fn(sample, None)``. Presets are
+rejected on that path because they expect a 2D image.
+Legacy ``image_dir`` / ``mask_dir`` parameters are no longer supported.
 
 Images used for properties are loaded, laid out as HxWxC, then scaled
 with ``normalize_by_dtype_max`` (same 0-1 rule as TypeMaxNorm). Masks
@@ -1239,10 +1257,12 @@ processing pipeline of those applied steps is logged at INFO.
 
 **Raises:**
 
-- **`ValueError`**: If no images processed or invalid preset/requirement
-  keys are used.
+- **`ValueError`**: If the image catalog is empty, or invalid preset/requirement
+  keys are used. Run ``find_files`` or ``set_file_df`` first.
 - **`TypeError`**: If ``additional_property_functions`` values are not
   callable.
+- **`RuntimeError`**: After ``set_data_io``, if a 2D preset is requested,
+  ``checkpoint_path`` is set, or the loader is missing.
 
 **Example:**
 
@@ -2126,14 +2146,19 @@ _ImageDisplayMixin.image_preview_png_bytes(
 
 <div class="api-body">
 
-Rasterize the same view as ``plot_image_by_index`` to PNG bytes.
+Rasterize one catalog row to PNG bytes.
 
-Used by the interactive explorer with ``ipywidgets.Image`` because matplotlib
-``display()`` / ``plt.show()`` from Plotly click callbacks does not reliably
-target a nested ``Output`` widget (output goes to the cell or nowhere).
+Image sessions match ``plot_image_by_index``. After ``set_data_io``, the
+bytes match ``plot_data_by_index``: the stored show function draws the
+row, and channel or transform arguments are ignored. The interactive
+explorer uses this so a click can show either an image or that show array.
 
-When ``show_extra_info`` is True, also emits the same details as
-``plot_image_by_index`` via logging and returns their text for UI display.
+Used with ``ipywidgets.Image`` because matplotlib ``display()`` /
+``plt.show()`` from Plotly click callbacks does not reliably target a
+nested ``Output`` widget (output goes to the cell or nowhere).
+
+When ``show_extra_info`` is True, also emits the same details as the
+plot method via logging and returns their text for UI display.
 
 **Returns:**
 
@@ -2289,6 +2314,71 @@ Plot centroids of groups in reduced embedding space.
 
 </div>
 
+<div class="api-method" role="region" aria-labelledby="api-_imagedisplaymixin-plot_data_by_index">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-_imagedisplaymixin-plot_data_by_index"><code>plot_data_by_index</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+_ImageDisplayMixin.plot_data_by_index(
+    self,
+    idx: int | collections.abc.Sequence[int],
+    distance_results: pandas.DataFrame | None = None,
+    figsize: tuple = (6, 6),
+    title_fields: list[str] | None = None,
+    show_extra_info: bool = True,
+    downsample: int | None = 720,
+    ax: Any = None,
+    return_fig: bool = False
+) -> Any
+```
+
+</div>
+
+<div class="api-body">
+
+Plot one non-image row, or a row of them, by index. Experimental.
+
+The picture is the array from the show function stored by ``set_data_io``.
+A single-channel array is drawn in grayscale. An array with several
+color channels keeps those colors. ``plot_image_by_index`` stays the
+image plot. The explorer and the report use the same show function, so
+a click draws this view.
+
+**Args:**
+
+- **`idx`**: Row index in results, or a sequence of indices drawn as one row.
+- **`distance_results`**: Optional distance computation results DataFrame.
+- **`figsize`**: Figure size. For several indices the default is one row of
+  panels about 3 inches wide; a custom size is the whole figure.
+- **`title_fields`**: Optional list of field names to display in the title.
+- **`show_extra_info`**: If True, prints detailed information after plotting.
+  Ignored when ``idx`` is a sequence: extra info is turned off and a
+  warning is logged.
+- **`downsample`**: If not None, approximate desired size (in pixels) for the
+  longest edge. If None, the show array is drawn as returned.
+- **`ax`**: Optional matplotlib axes. For several indices, pass one axes per index.
+- **`return_fig`**: If True, return the show array and do not open a figure.
+  A sequence of indices returns a list of arrays.
+
+**Returns:**
+
+  The show array when ``return_fig`` is True and ``idx`` is a single
+  index; a list of arrays when ``idx`` is a sequence; otherwise None.
+
+**Raises:**
+
+- **`RuntimeError`**: If ``set_data_io`` was not called.
+- **`ValueError`**: If an index is outside the catalog.
+
+</div>
+
+</div>
+
 <div class="api-method" role="region" aria-labelledby="api-_imagedisplaymixin-plot_image_by_index">
 
 <div class="api-method-header">
@@ -2301,7 +2391,7 @@ Plot centroids of groups in reduced embedding space.
 ```python
 _ImageDisplayMixin.plot_image_by_index(
     self,
-    idx: int,
+    idx: int | collections.abc.Sequence[int],
     distance_results: pandas.DataFrame | None = None,
     channels: int | list | None = None,
     figsize: tuple = (6, 6),
@@ -2319,24 +2409,31 @@ _ImageDisplayMixin.plot_image_by_index(
 
 <div class="api-body">
 
-Plot a specific image by its index.
+Plot one image, or a row of images, by index.
+
+Non-image sessions use ``plot_data_by_index``. This method stays the
+image plot.
 
 **Args:**
 
-- **`idx`**: Image index in results
+- **`idx`**: Image index in results, or a sequence of indices drawn as one row.
 - **`distance_results`**: Optional distance computation results DataFrame
 - **`channels`**: specific channels to plot
-- **`figsize`**: Figure size
+- **`figsize`**: Figure size. For several indices the default is one row of
+  panels about 3 inches wide; a custom size is the whole figure.
 - **`title_fields`**: Optional list of field names to display in title
-- **`show_extra_info`**: If True, prints detailed information after plotting
+- **`show_extra_info`**: If True, prints detailed information after plotting.
+  Ignored when ``idx`` is a sequence: extra info is turned off and a
+  warning is logged.
 - **`apply_transforms`**: If True, apply pipeline image_transforms
 - **`downsample`**: If not None, approximate desired size (in pixels) for the
   longest image edge when downsampling. The final image size may
   differ slightly due to integer stepping. If None, no downsampling.
 - **`ax`**: Optional matplotlib axes to plot on. If provided, a new figure is not created.
+  For several indices, pass one axes per index.
 - **`return_fig`**: If True, return the displayed image as a NumPy array
-  and do not open a matplotlib figure. Mask overlay, when requested, is
-  composited onto that array.
+  and do not open a matplotlib figure. A sequence of indices returns a list
+  of arrays. Mask overlay, when requested, is composited onto each array.
 - **`show_mask_overlay`**: If True, draws the segmentation mask as a semi-transparent
   yellow overlay with a crisp contour. Requires masks to have been discovered
   via ``mask_dir`` in ``find_files``. Useful for verifying that masks load
@@ -2344,7 +2441,13 @@ Plot a specific image by its index.
 
 **Returns:**
 
-  The image as a NumPy array when ``return_fig`` is True; otherwise ``None``.
+  The image as a NumPy array when ``return_fig`` is True and ``idx`` is a single
+  index; a list of arrays when ``idx`` is a sequence; otherwise ``None``.
+
+**Raises:**
+
+- **`RuntimeError`**: If this session called ``set_data_io``. Use
+  ``plot_data_by_index`` for that catalog.
 
 </div>
 
@@ -2496,6 +2599,135 @@ Print distance summary statistics without plotting. Safe to use when enable_plot
 - **`distance_results`**: DataFrame containing 'distance' column
 - **`group_by`**: Metadata key to group by
 - **`dist_range`**: Tuple of (min, max) distances to include
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenomesamples-process_data">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenomesamples-process_data"><code>process_data</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMeSamples.process_data(
+    self,
+    model_wrapper: 'ModelWrapper',
+    collate_fn: 'Callable[[Sequence[Any]], torch.Tensor] | None' = None,
+    batch_size: 'int' = 32,
+    checkpoint_path: 'str | None' = None,
+    progress_callback: 'ProgressCallback | None' = None
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Extract embeddings from non-image files. Experimental.
+
+The image loader, channel split, resize, and ImageNet normalization
+are not used. The loader from ``set_data_io`` returns one sample.
+``collate_fn`` turns a list of samples into the tensor
+``model_wrapper`` receives. When ``collate_fn`` is omitted,
+equal-shaped arrays are stacked. Each array or tensor from the loader
+is copied before the next file is read, so a reused buffer does not
+overwrite earlier rows. The model must return ``(B, D)``.
+A 5D batch is passed through as produced.
+
+Call ``find_files`` or ``set_file_df`` first, then ``set_data_io``.
+Pass ``extensions`` so discovery keeps the files you intend to load.
+Compute properties afterwards with ``compute_properties``.
+
+**Args:**
+
+- **`model_wrapper`**: ``ModelWrapper`` subclass. ``_get_embeddings``
+  receives the collated batch and returns ``(B, D)``.
+- **`collate_fn`**: ``collate_fn(samples) -> Tensor``. Default stacks
+  equal-shaped arrays. Required when samples differ in length
+  or are not arrays.
+- **`batch_size`**: Rows per forward pass. Default 32.
+- **`checkpoint_path`**: HDF5 path for the embedding dataset. The file
+  must not already exist. Image config fields are stored empty
+  and ``sample_mode`` is true. Default None (embeddings stay
+  in memory).
+- **`progress_callback`**: Optional ``(current, total, desc) -> None``.
+  When set, the ``tqdm`` bar is disabled.
+
+**Returns:**
+
+  None. Writes ``results.embeddings`` with shape ``(N, D)``. With
+  ``checkpoint_path``, embeddings stay on disk and
+  ``get_embeddings()`` reads them.
+
+**Raises:**
+
+- **`RuntimeError`**: If ``set_data_io`` was not called, the file catalog
+  is missing, or this session already ran ``process_images``.
+- **`TypeError`**: If ``model_wrapper`` is not a ``ModelWrapper``, or a
+  row path is not a single file.
+- **`ValueError`**: If ``batch_size`` is below 1 or the model output is
+  not ``(B, D)``.
+- **`FileExistsError`**: If ``checkpoint_path`` already exists.
+
+**Example:**
+
+```python
+>>> def load_volume(path):
+...     return np.load(path)
+>>> pm.set_data_io(load_volume, orthogonal_projections)
+>>> pm.process_data(wrapper, batch_size=4)
+```
+
+</div>
+
+</div>
+
+<div class="api-method" role="region" aria-labelledby="api-phenomesamples-set_data_io">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-phenomesamples-set_data_io"><code>set_data_io</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+PhenoMeSamples.set_data_io(
+    self,
+    load_fn: 'Callable[[str], Any]',
+    show_fn: 'Callable[[Any], Any]'
+) -> None
+```
+
+</div>
+
+<div class="api-body">
+
+Store how to read a file and how to draw one sample. Experimental.
+
+Call this before ``process_data``, ``compute_properties``, and
+``plot_data_by_index``. Plots, the explorer, and the report use the
+stored functions.
+
+**Args:**
+
+- **`load_fn`**: ``load_fn(path) -> sample``. ``path`` is one file path.
+- **`show_fn`**: ``show_fn(sample) -> array`` of shape ``(H, W)`` or
+  ``(H, W, C)``.
+
+**Returns:**
+
+  None.
+
+**Raises:**
+
+- **`RuntimeError`**: If this session already ran ``process_images``.
+- **`TypeError`**: If either argument is missing or not callable.
 
 </div>
 

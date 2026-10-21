@@ -95,13 +95,20 @@ def _search_llms_small(query: str) -> str:
     except (urllib.error.URLError, TimeoutError, OSError):
         return ""
     tokens = [t.lower() for t in query.split() if t]
-    chunks = text.split("\n#")
+    chunks = text.split("\n# ")
     scored: list[tuple[int, str]] = []
     for chunk in chunks:
         lower = chunk.lower()
         score = sum(lower.count(t) for t in tokens)
         if score:
-            scored.append((score, chunk[:_SNIPPET].strip()))
+            heading = chunk.splitlines()[0].strip() if chunk.splitlines() else ""
+            snippet = _first_snippet(chunk, tokens[0] if tokens else query)
+            body = (
+                f"# {heading}\n{snippet}"
+                if heading and not snippet.startswith(heading)
+                else snippet
+            )
+            scored.append((score, body))
     scored.sort(key=lambda x: x[0], reverse=True)
     if not scored:
         return ""

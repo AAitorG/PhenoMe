@@ -37,8 +37,20 @@ For a non-PyTorch model, convert that tensor to NumPy inside the wrapper and con
 import numpy as np
 import torch
 import tensorflow as tf
+import torchvision.transforms as T
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from phenome import PhenoMe
+from phenome.utils import TypeMaxNorm
 from phenome.utils.model_wrapper import ModelWrapper
+
+# in:  np.float32 (H, W, C), file range
+# out: torch.float32 (3, 224, 224) in [0, 1]
+# custom_transformations replaces TypeMaxNorm, pad, resize, and ImageNet norm.
+keras_preprocess = T.Compose([
+    T.ToTensor(),
+    TypeMaxNorm(),
+    T.Resize((224, 224)),
+])
 
 class KerasModelWrapper(ModelWrapper):
     """Wrapper for Keras/TensorFlow models."""
@@ -55,11 +67,12 @@ class KerasModelWrapper(ModelWrapper):
         #    result back to the correct PyTorch device.
 
     def _get_embeddings(self, tensor: torch.Tensor) -> torch.Tensor:
-        # 1. Convert PyTorch tensor (B, C, H, W) to NumPy
+        # 1. Convert PyTorch tensor (B, C, H, W) in [0, 1] to NumPy
         x_np = tensor.detach().cpu().numpy()
 
-        # 2. Transpose to Keras format (B, H, W, C)
+        # 2. Transpose to Keras format (B, H, W, C) and map 0–255 to [-1, 1]
         x_np = np.transpose(x_np, (0, 2, 3, 1))
+        x_np = preprocess_input(x_np * 255.0)
 
         # 3. Run Keras inference
         # .predict() returns a NumPy array of shape (B, D)
@@ -84,8 +97,13 @@ wrapper = KerasModelWrapper(keras_model)
 pm = PhenoMe()
 pm.find_files("path/to/images")
 
-# The resize_size should match the model's expected input
-pm.process_images(wrapper, resize_size=224)
+# Default channel_mode is "split", and the default transforms are ImageNet.
+# Combined mode plus keras_preprocess matches MobileNetV2.
+pm.process_images(
+    wrapper,
+    channel_mode="combined",
+    custom_transformations=keras_preprocess,
+)
 
 # 4. Access results
 print(f"Extracted {len(pm.results.embeddings)} embeddings")

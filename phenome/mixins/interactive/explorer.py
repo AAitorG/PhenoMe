@@ -3475,7 +3475,9 @@ def create_interactive_explorer(
 
     Args:
         pheno_me: Processed PhenoMe instance with embeddings
-            and optional properties. Must have run ``process_images()`` first.
+            and optional properties. Images use ``process_images``. Other files
+            use ``set_data_io`` and ``process_data``. A click draws
+            ``plot_image_by_index`` or the picture from ``set_data_io``.
         filters: Optional metadata filters to restrict which images are shown.
             Dict mapping metadata keys to allowed values or lists of values.
             Example: ``{'condition': 'Control', 'time': ['24h', '48h']}``.

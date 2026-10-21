@@ -796,13 +796,21 @@ class PhenoMeAnalysis:
                     ax_flat = np.asarray(axes).ravel()
 
                 for j, idx in enumerate(indices):
-                    self.plot_image_by_index(  # type: ignore[attr-defined]
-                        idx,
-                        ax=ax_flat[j],
-                        apply_transforms=False,
-                        downsample=720,
-                        show_extra_info=False,
-                    )
+                    if getattr(self, "_sample_mode", False):
+                        self.plot_data_by_index(  # type: ignore[attr-defined]
+                            idx,
+                            ax=ax_flat[j],
+                            downsample=720,
+                            show_extra_info=False,
+                        )
+                    else:
+                        self.plot_image_by_index(  # type: ignore[attr-defined]
+                            idx,
+                            ax=ax_flat[j],
+                            apply_transforms=False,
+                            downsample=720,
+                            show_extra_info=False,
+                        )
 
                 for j in range(n, len(ax_flat)):
                     ax_flat[j].set_visible(False)
@@ -1445,13 +1453,21 @@ class PhenoMeAnalysis:
                     ax_flat = np.asarray(axes).ravel()
 
                 for j, idx in enumerate(indices):
-                    self.plot_image_by_index(  # type: ignore[attr-defined]
-                        idx,
-                        ax=ax_flat[j],
-                        apply_transforms=False,
-                        downsample=720,
-                        show_extra_info=False,
-                    )
+                    if getattr(self, "_sample_mode", False):
+                        self.plot_data_by_index(  # type: ignore[attr-defined]
+                            idx,
+                            ax=ax_flat[j],
+                            downsample=720,
+                            show_extra_info=False,
+                        )
+                    else:
+                        self.plot_image_by_index(  # type: ignore[attr-defined]
+                            idx,
+                            ax=ax_flat[j],
+                            apply_transforms=False,
+                            downsample=720,
+                            show_extra_info=False,
+                        )
 
                 for j in range(n, len(ax_flat)):
                     ax_flat[j].set_visible(False)

@@ -175,8 +175,10 @@ useful.
 | **Distance correlation** | Suspected non-linear dependency; Pearson is low. |
 | **Mutual information** | Any dependency, including non-monotonic. |
 
-For most morphological traits, **Pearson** is sufficient and
-GPU-accelerated. Switch to Spearman for outliers or dose-response
+For most morphological traits, **Pearson** is sufficient.
+`compute_component_correlation` calculates it with pandas on CPU.
+`compute_embedding_property_correlations` can run Pearson on the
+pipeline device. Switch to Spearman for outliers or dose-response
 curves; switch to distance correlation or mutual information when
 linear metrics miss obvious structure.
 

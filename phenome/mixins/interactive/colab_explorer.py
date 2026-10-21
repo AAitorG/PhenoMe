@@ -851,8 +851,9 @@ def create_colab_interactive_explorer(
     show updates made from a background thread.
 
     Args:
-        pheno_me: Processed PhenoMe instance with embeddings. Must have run
-            ``process_images()`` first.
+        pheno_me: Processed PhenoMe instance with embeddings. Images use
+            ``process_images``. Other files use ``set_data_io`` and
+            ``process_data``. A click draws the same picture as the local explorer.
         filters: Optional metadata filters. Dict mapping metadata keys to
             allowed values or lists of values.
         exclude: Optional metadata exclusions (same structure as filters).

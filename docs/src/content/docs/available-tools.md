@@ -11,10 +11,10 @@ Most analysis methods accept a feature `source`: `"embeddings"`, `"properties"`,
 
 | Category | Tools / options | Notes |
 |----------|-----------------|-------|
-| **Image I/O** | TIFF, NIfTI, NumPy (`.npy`/`.npz`), PNG/JPEG/BMP | `tifffile`, `nibabel`, `numpy`, OpenCV; discovery also matches many microscopy extensions (e.g. `.czi`, `.nd2`) without dedicated readers |
+| **Image I/O** | TIFF, NIfTI, NumPy (`.npy`/`.npz`), PNG/JPEG/BMP | `tifffile`, `nibabel`, `numpy`, OpenCV. With `extensions=None`, discovery keeps every file. Suffixes such as `.czi` and `.nd2` are recognised when stripping names; PhenoMe has no reader for those formats |
 | **Embeddings** | DINOv2 (built-in); custom via `ModelWrapper` | e.g. `dinov2_vitb14_reg`; channel modes `"split"` / `"combined"` |
 | **Dimensionality reduction** | PCA, t-SNE, UMAP | CPU: sklearn + umap-learn; optional GPU: TorchDR (`use_gpu_for_dr=True`) |
-| **Clustering** | k-means, GMM, DBSCAN | Optional normalize, silhouette, and PCA/t-SNE/UMAP pre-reduce |
+| **Clustering** | k-means, GMM, DBSCAN | L2 or StandardScaler normalization and PCA to 100 dimensions run unless turned off. Silhouette is off unless `return_silhouette=True`. Pre-reduction can be PCA, t-SNE, or UMAP |
 | **Distances & similarity** | Euclidean, cosine; prototypes; outliers | Reference modes `centroid` / `all_to_all`; outliers via z-score or IQR |
 | **Group enrichment** | Leave-one-out z-scores; Welch + BH-FDR; property stats | Also top properties vs reference (`cohens_d` / `mean_diff`) |
 | **Properties** | Presets: none, intensity, shape, basic, standard, complete | Backends: scikit-image, scipy, numpy; factories for regionprops, intensity, texture, rings, blur, entropy; blob plugin |

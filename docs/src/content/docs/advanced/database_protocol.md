@@ -27,7 +27,8 @@ Under the HDF5 root **`/`**:
 - **`/metadata/`:** one column-dataset per metadata key (e.g. drug, time, id).
 - **`/properties/`:** one column-dataset per computed property (e.g. area, mean intensity).
 - **`/internal/`:** one column-dataset per internal tracking flag (e.g. `_properties_attempted`).
-- **`/config`:** group with **attributes only** (`channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `l2_normalize_channels`, `channels`); no full filesystem paths.
+- **`/config`:** attributes (`channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `l2_normalize_channels`, `sample_mode`) plus an optional `channels` dataset. No full filesystem paths.
+- **`/batch_correction/`:** optional group. Attributes `method`, `batch_metadata_key`, `source`, and `written_at`. One subgroup per batch holds `mean`, and `whiten_mat` (sphering) or `std` (z-score).
 - **`/processing_pipeline`:** optional group with `step_01`, `step_02`, … subgroups under `embeddings/` and `properties/`. Each step has `title` and `detail` attributes (the same text as the INFO log). Property steps also have `kind=image`, `kind=mask`, or `kind=compute` (mask steps print as M1, M2, …). No JSON blob, no sample dumps. Absent on files written before this feature. Temporal processing is not written.
 
 ## 1. File structure
@@ -57,7 +58,8 @@ Unlike older versions that used JSON blobs, v2.0 stores metadata and properties 
 
 | Path | Description |
 | :--- | :--- |
-| `/config` | Group containing non-path pipeline settings (e.g., `channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `l2_normalize_channels`, `channels`) as HDF5 attributes. Always present. **Never stores full paths** (e.g. `data_dir`) for security and portability. |
+| `/config` | Group of non-path pipeline settings. Attributes: `channel_mode`, `resize_size`, `pad_size`, `force_rgb`, `l2_normalize_channels`, `sample_mode`. Optional `channels` dataset. Always present. **Never stores full paths** (e.g. `data_dir`). |
+| `/batch_correction/` | Optional. Attributes `method`, `batch_metadata_key`, `source`, `written_at`, and one subgroup per batch (`mean`, plus `whiten_mat` or `std`). |
 | `/processing_pipeline` | Optional group of `step_01`, `step_02`, … embedding/property steps (`title`, `detail`; property steps also `kind=image`, `kind=mask`, or `kind=compute`). Not required to load a file. |
 
 ---
@@ -102,11 +104,12 @@ Full paths (e.g. `data_dir`) are never stored.
 | Attribute / dataset | Type | Description |
 | :--- | :--- | :--- |
 | `channel_mode` | `str` attr | `'split'` or `'combined'`. |
-| `resize_size` | `str` attr | Target square resize size, or `"none"` when resizing was skipped. |
-| `pad_size` | `str` attr | Minimum pad size before resize, or `"none"` when padding was skipped. |
+| `resize_size` | `int` attr, or the string `"none"` | Target square resize size. `"none"` when resizing was skipped. |
+| `pad_size` | `int` attr, or the string `"none"` | Minimum pad size before resize. `"none"` when padding was skipped. |
 | `force_rgb` | `bool` attr | Whether grayscale inputs were expanded to 3-channel RGB for the model. |
 | `l2_normalize_channels` | `bool` attr | In split mode: whether each channel embedding was L2-normalized before concatenation (equal channel contribution). Default when absent on older files: `True` (current split-mode behavior). Ignored for combined mode. |
-| `channels` | `int` dataset `(C,)` | Optional channel index subset. Absent when all channels were used. |
+| `sample_mode` | `bool` attr | `True` for `process_data`. Absent means false. |
+| `channels` | `int32` dataset `(C,)` | Optional channel index subset. Absent when all channels were used. |
 
 Example:
 
@@ -194,7 +197,7 @@ def load_pipeline_data(checkpoint_path):
 | Mode | When | Where | Access |
 |------|------|-------|--------|
 | **Eager** | No checkpoint used during `process_images()` | `results.embeddings` (in-memory `np.ndarray`) | Direct slice |
-| **Lazy** | Checkpoint path provided or `load_results()` used | On disk (HDF5); `results.embeddings` is `None` | `get_embeddings()` loads rows on demand |
+| **Lazy** | `checkpoint_path` is set, or `load_results()` is called, and `lazy_checkpoint=True` (the default) | On disk (HDF5); `results.embeddings` is `None` | `get_embeddings()` loads rows on demand |
 
 When a checkpoint is active, `get_embeddings()` reads only the requested rows from disk. This is useful for large datasets. **Temporal** rows (from `process_temporal_images()`) are always in-memory and are merged with checkpoint data when you call `get_embeddings()`.
 
@@ -207,7 +210,8 @@ When a checkpoint is active, `get_embeddings()` reads only the requested rows fr
 | **metadata** | Per-image metadata, **columnar format** (`/metadata/`) |
 | **properties** | Computed scalar properties, **columnar format** (`/properties/`) |
 | **internal** | Internal tracking flags, **columnar format** (`/internal/`) |
-| **config** | Non-path processing settings as `/config` attributes (`channel_mode`, `resize_size`, …). Full paths (e.g. `data_dir`) are **never** stored. |
+| **config** | Non-path processing settings on `/config` (`channel_mode`, `resize_size`, `sample_mode`, …) plus an optional `channels` dataset. Full paths (e.g. `data_dir`) are **never** stored. |
+| **batch_correction** | Optional `/batch_correction/` group after `correct_batches` is saved. |
 | **processing_pipeline** | Optional ordered steps (`/processing_pipeline/embeddings`, `/properties`). Title and detail; property steps also `kind=image`, `kind=mask`, or `kind=compute`. |
 | **version** | Checkpoint format version (`"2.0"`) |
 

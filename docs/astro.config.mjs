@@ -61,6 +61,8 @@ export default defineConfig({
           promote: [
             "getting-started",
             "workflows",
+            "guides/experimental-samples",
+            "guides/experiment-details/path-templates",
             "faq",
             "guides/using-with-llms",
             "guides/mcp",
@@ -86,7 +88,9 @@ export default defineConfig({
             "guides/data-setup",
             "guides/developer-guide",
             "guides/experiment-details",
-            "guides/experiment-details/**",
+            "guides/experiment-details/csv-lookup",
+            "guides/experiment-details/mask-discovery",
+            "guides/experiment-details/advanced-patterns",
             "guides/extending",
             "guides/external-checkpoints",
             "guides/plugins",
@@ -127,6 +131,7 @@ export default defineConfig({
           label: "For your data",
           items: [
             { label: "Data setup", link: "/guides/data-setup/" },
+            { label: "Audio, text, and 3D", link: "/guides/experimental-samples/" },
             {
               label: "Experiment details (metadata)",
               collapsed: true,
@@ -169,6 +174,7 @@ export default defineConfig({
                 { label: "04 Exploratory & explainability", link: `${TUTORIALS_URL}/04_exploratory_analysis_and_explainability.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
                 { label: "05 Extending with plugins", link: `${TUTORIALS_URL}/05_extending_phenome_plugins.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
                 { label: "06 Custom model and preprocessing", link: `${TUTORIALS_URL}/06_custom_model_and_preprocessing.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
+                { label: "07 Audio, text, and 3D", link: `${TUTORIALS_URL}/07_experimental_samples.ipynb`, attrs: { target: "_blank", rel: "noopener" } },
               ],
             },
             {

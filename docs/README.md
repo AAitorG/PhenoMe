@@ -11,7 +11,7 @@ API Markdown under `src/content/docs/advanced/api/` is produced by `scripts/gene
 The docs build has two machine-readable outputs. Do not edit either by hand.
 
 - `scripts/generate_llm_manifest.py` writes `assets/phenome-api.json` from the live public API in `phenome/mcp/manifest.py`. Astro copies that file into `dist/` because `assets/` is `publicDir`.
-- The `starlight-llms-txt` plugin writes `llms.txt`, `llms-small.txt`, and `llms-full.txt` during `astro build`. In `astro.config.mjs`, `promote` only sorts pages. `exclude` removes pages from `llms-small.txt`. `llms.txt` is the index, and its `details` note tells an assistant when to install the optional MCP server. `llms-small.txt` is generated from the user workflow pages (getting started, workflows, and FAQ) plus the short assistant constraints. `llms-full.txt` is the complete site, including the generated function index and API reference.
+- The `starlight-llms-txt` plugin writes `llms.txt`, `llms-small.txt`, and `llms-full.txt` during `astro build`. In `astro.config.mjs`, `promote` only sorts pages. `exclude` removes pages from `llms-small.txt`. `llms.txt` is the index, and its `details` note tells an assistant when to install the optional MCP server. `llms-small.txt` keeps the pages that are not excluded: getting started, workflows, folder patterns, FAQ, the short assistant constraints, the MCP guide, and the audio, text, and 3D guide. `llms-full.txt` is the complete site, including the generated function index and API reference.
 
 Edit the user guides, docstrings, `phenome/mcp/manifest.py`, or `astro.config.mjs`. Keep the short assistant constraints in `src/content/docs/guides/using-with-llms.mdx` and do not paste the same scripts there again.
 

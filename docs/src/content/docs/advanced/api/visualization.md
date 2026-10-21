@@ -233,7 +233,7 @@ Plot centroids of groups in reduced embedding space.
 ```python
 _ImageDisplayMixin.plot_image_by_index(
     self,
-    idx: int,
+    idx: int | collections.abc.Sequence[int],
     distance_results: pandas.DataFrame | None = None,
     channels: int | list | None = None,
     figsize: tuple = (6, 6),
@@ -251,24 +251,31 @@ _ImageDisplayMixin.plot_image_by_index(
 
 <div class="api-body">
 
-Plot a specific image by its index.
+Plot one image, or a row of images, by index.
+
+Non-image sessions use ``plot_data_by_index``. This method stays the
+image plot.
 
 **Args:**
 
-- **`idx`**: Image index in results
+- **`idx`**: Image index in results, or a sequence of indices drawn as one row.
 - **`distance_results`**: Optional distance computation results DataFrame
 - **`channels`**: specific channels to plot
-- **`figsize`**: Figure size
+- **`figsize`**: Figure size. For several indices the default is one row of
+  panels about 3 inches wide; a custom size is the whole figure.
 - **`title_fields`**: Optional list of field names to display in title
-- **`show_extra_info`**: If True, prints detailed information after plotting
+- **`show_extra_info`**: If True, prints detailed information after plotting.
+  Ignored when ``idx`` is a sequence: extra info is turned off and a
+  warning is logged.
 - **`apply_transforms`**: If True, apply pipeline image_transforms
 - **`downsample`**: If not None, approximate desired size (in pixels) for the
   longest image edge when downsampling. The final image size may
   differ slightly due to integer stepping. If None, no downsampling.
 - **`ax`**: Optional matplotlib axes to plot on. If provided, a new figure is not created.
+  For several indices, pass one axes per index.
 - **`return_fig`**: If True, return the displayed image as a NumPy array
-  and do not open a matplotlib figure. Mask overlay, when requested, is
-  composited onto that array.
+  and do not open a matplotlib figure. A sequence of indices returns a list
+  of arrays. Mask overlay, when requested, is composited onto each array.
 - **`show_mask_overlay`**: If True, draws the segmentation mask as a semi-transparent
   yellow overlay with a crisp contour. Requires masks to have been discovered
   via ``mask_dir`` in ``find_files``. Useful for verifying that masks load
@@ -276,7 +283,13 @@ Plot a specific image by its index.
 
 **Returns:**
 
-  The image as a NumPy array when ``return_fig`` is True; otherwise ``None``.
+  The image as a NumPy array when ``return_fig`` is True and ``idx`` is a single
+  index; a list of arrays when ``idx`` is a sequence; otherwise ``None``.
+
+**Raises:**
+
+- **`RuntimeError`**: If this session called ``set_data_io``. Use
+  ``plot_data_by_index`` for that catalog.
 
 </div>
 
@@ -308,14 +321,19 @@ _ImageDisplayMixin.image_preview_png_bytes(
 
 <div class="api-body">
 
-Rasterize the same view as ``plot_image_by_index`` to PNG bytes.
+Rasterize one catalog row to PNG bytes.
 
-Used by the interactive explorer with ``ipywidgets.Image`` because matplotlib
-``display()`` / ``plt.show()`` from Plotly click callbacks does not reliably
-target a nested ``Output`` widget (output goes to the cell or nowhere).
+Image sessions match ``plot_image_by_index``. After ``set_data_io``, the
+bytes match ``plot_data_by_index``: the stored show function draws the
+row, and channel or transform arguments are ignored. The interactive
+explorer uses this so a click can show either an image or that show array.
 
-When ``show_extra_info`` is True, also emits the same details as
-``plot_image_by_index`` via logging and returns their text for UI display.
+Used with ``ipywidgets.Image`` because matplotlib ``display()`` /
+``plt.show()`` from Plotly click callbacks does not reliably target a
+nested ``Output`` widget (output goes to the cell or nowhere).
+
+When ``show_extra_info`` is True, also emits the same details as the
+plot method via logging and returns their text for UI display.
 
 **Returns:**
 
@@ -355,6 +373,73 @@ Print distance summary statistics without plotting. Safe to use when enable_plot
 - **`distance_results`**: DataFrame containing 'distance' column
 - **`group_by`**: Metadata key to group by
 - **`dist_range`**: Tuple of (min, max) distances to include
+
+</div>
+
+</div>
+
+## Other
+
+<div class="api-method" role="region" aria-labelledby="api-_imagedisplaymixin-plot_data_by_index">
+
+<div class="api-method-header">
+<span class="api-badge api-badge--method">Method</span>
+<h4 class="api-method-title" id="api-_imagedisplaymixin-plot_data_by_index"><code>plot_data_by_index</code></h4>
+</div>
+
+<div class="api-signature">
+
+```python
+_ImageDisplayMixin.plot_data_by_index(
+    self,
+    idx: int | collections.abc.Sequence[int],
+    distance_results: pandas.DataFrame | None = None,
+    figsize: tuple = (6, 6),
+    title_fields: list[str] | None = None,
+    show_extra_info: bool = True,
+    downsample: int | None = 720,
+    ax: Any = None,
+    return_fig: bool = False
+) -> Any
+```
+
+</div>
+
+<div class="api-body">
+
+Plot one non-image row, or a row of them, by index. Experimental.
+
+The picture is the array from the show function stored by ``set_data_io``.
+A single-channel array is drawn in grayscale. An array with several
+color channels keeps those colors. ``plot_image_by_index`` stays the
+image plot. The explorer and the report use the same show function, so
+a click draws this view.
+
+**Args:**
+
+- **`idx`**: Row index in results, or a sequence of indices drawn as one row.
+- **`distance_results`**: Optional distance computation results DataFrame.
+- **`figsize`**: Figure size. For several indices the default is one row of
+  panels about 3 inches wide; a custom size is the whole figure.
+- **`title_fields`**: Optional list of field names to display in the title.
+- **`show_extra_info`**: If True, prints detailed information after plotting.
+  Ignored when ``idx`` is a sequence: extra info is turned off and a
+  warning is logged.
+- **`downsample`**: If not None, approximate desired size (in pixels) for the
+  longest edge. If None, the show array is drawn as returned.
+- **`ax`**: Optional matplotlib axes. For several indices, pass one axes per index.
+- **`return_fig`**: If True, return the show array and do not open a figure.
+  A sequence of indices returns a list of arrays.
+
+**Returns:**
+
+  The show array when ``return_fig`` is True and ``idx`` is a single
+  index; a list of arrays when ``idx`` is a sequence; otherwise None.
+
+**Raises:**
+
+- **`RuntimeError`**: If ``set_data_io`` was not called.
+- **`ValueError`**: If an index is outside the catalog.
 
 </div>
 

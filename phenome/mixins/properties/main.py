@@ -245,6 +245,56 @@ class PhenoMeProperties:
             )
         return result_df
 
+    def _compute_loaded_sample_properties(
+        self,
+        *,
+        property_preset: str | None,
+        additional_property_functions: dict[str, Callable | list[Callable]] | None,
+        include_metadata: bool,
+    ) -> pd.DataFrame:
+        """Compute properties from the loader stored by ``set_data_io``.
+
+        Presets are rejected. Each additional function is called as
+        ``fn(sample, None)``.
+
+        Args:
+            property_preset: Must be None or ``\"none\"``.
+            additional_property_functions: Requirement dict of callables.
+            include_metadata: Forwarded to the returned DataFrame.
+
+        Returns:
+            The same properties DataFrame as the image path.
+
+        Raises:
+            RuntimeError: If a 2D preset was requested or the loader is missing.
+            ValueError: If the catalog is empty or no functions were given.
+            TypeError: If a path is not a single file or a function returns a non-dict.
+        """
+        if property_preset not in (None, "none"):
+            raise RuntimeError(
+                "Property presets expect a 2D image. "
+                "Pass additional_property_functions for this session."
+            )
+        if not self.results.img_path:
+            raise ValueError("No images in the catalog. Run find_files() or set_file_df() first.")
+        load_fn = getattr(self, "_sample_load_fn", None)
+        if load_fn is None:
+            raise RuntimeError("Call set_data_io() before compute_properties().")
+        property_functions = _compute.normalize_property_functions(
+            property_preset=None,
+            additional_property_functions=additional_property_functions,
+        )
+        functions = [fn for group in property_functions.values() for fn in group]
+        if not functions:
+            raise ValueError("No property functions provided. Pass additional_property_functions.")
+        from ...experimental.samples import compute_loaded_properties
+
+        self.reset_properties()
+        self.results.properties = compute_loaded_properties(
+            load_fn, list(self.results.img_path), functions
+        )
+        return _build_properties_dataframe_fn(self.results, include_metadata=include_metadata)
+
     # ------------------------------------------------------------------
     # Core: compute_properties
     # ------------------------------------------------------------------
@@ -265,9 +315,10 @@ class PhenoMeProperties:
         """Compute per-image properties using presets and/or custom functions.
 
         Each function receives a 2D image slice and/or mask slice and returns
-        a dict[str, float]. When multiple channels exist, properties are
-        suffixed with ``_ch{idx}``, or with labels from ``find_files`` /
-        ``set_file_df`` ``channel_names`` when provided (e.g. ``_DAPI``).
+        a dict[str, float]. When multiple channels exist, image, both, and
+        any functions are suffixed with ``_ch{idx}``, or with labels from
+        ``find_files`` / ``set_file_df`` ``channel_names`` when provided
+        (e.g. ``_DAPI``). Mask-only functions run once and keep the returned name.
 
         Use ``property_preset`` for built-in property sets and
         ``additional_property_functions`` to add custom functions on top
@@ -275,6 +326,10 @@ class PhenoMeProperties:
 
         Images come from the catalog written by ``find_files`` or ``set_file_df``.
         Embeddings are not required. Mask paths are resolved from ``file_df``.
+        After ``set_data_io``, this method does not read images. It loads each
+        catalog path with the stored loader and calls every function in
+        ``additional_property_functions`` as ``fn(sample, None)``. Presets are
+        rejected on that path because they expect a 2D image.
         Legacy ``image_dir`` / ``mask_dir`` parameters are no longer supported.
 
         Images used for properties are loaded, laid out as HxWxC, then scaled
@@ -326,6 +381,8 @@ class PhenoMeProperties:
                 keys are used. Run ``find_files`` or ``set_file_df`` first.
             TypeError: If ``additional_property_functions`` values are not
                 callable.
+            RuntimeError: After ``set_data_io``, if a 2D preset is requested,
+                ``checkpoint_path`` is set, or the loader is missing.
 
         Example:
             Drive a napari/Qt progress bar from a worker thread:
@@ -355,6 +412,17 @@ class PhenoMeProperties:
                 "progress_callback": progress_callback is not None,
             },
         )
+        if getattr(self, "_sample_mode", False):
+            if checkpoint_path is not None:
+                raise RuntimeError(
+                    "compute_properties does not write a checkpoint after set_data_io(). "
+                    "Omit checkpoint_path. Properties stay on results."
+                )
+            return self._compute_loaded_sample_properties(
+                property_preset=property_preset,
+                additional_property_functions=additional_property_functions,
+                include_metadata=include_metadata,
+            )
         self.reset_properties()
 
         if not self.results.img_path:

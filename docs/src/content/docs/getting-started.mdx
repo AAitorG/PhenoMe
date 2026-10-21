@@ -34,7 +34,7 @@ Pip installs the published package. Conda uses the pinned environment files in t
        PyTorch and the Jupyter packages used by the notebooks are included.
        Embeddings use that install: pass `device` so a CUDA wheel runs on GPU.
 
-       `phenome[full]` adds TorchDR and PyKeOps for large GPU analyses.
+       `phenome[full]` adds TorchDR for large GPU analyses, and PyKeOps on macOS and Linux. Windows installs skip PyKeOps.
        Turn GPU dimensionality reduction on with `PhenoMe(..., use_gpu_for_dr=True)`.
        It does not move embeddings onto the GPU by itself:
 
@@ -64,7 +64,7 @@ Pip installs the published package. Conda uses the pinned environment files in t
        cd PhenoMe
        ```
 
-    2. **Create an environment.** Both files install this checkout with the dependencies in `pyproject.toml`. The GPU file also installs the `full` extra (TorchDR and PyKeOps). Pip selects the CPU or CUDA Torch wheel.
+    2. **Create an environment.** Both files install this checkout with `pip install -e` and pin the same PyTorch build. The GPU file also installs TorchDR (`torchdr>=0.1,<0.5`). It does not install the `full` extra or PyKeOps.
 
        GPU (CUDA):
 
@@ -112,6 +112,7 @@ Pass the same `device` into `load_dinov2_model(...)` and `PhenoMe(...)`.
 | Symptom | Suggestion |
 |---------|------------|
 | `torch` not found or wrong CUDA | Reinstall torch from [PyTorch get started](https://pytorch.org/get-started/locally/); match driver and wheel. |
+| `DLL load failed` on Windows | Install the [Visual C++ Redistributable (x64)](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist). The message names the library (`torch`, `cv2`, or `h5py`). |
 | `opencv` / `h5py` build errors | Use conda-forge or the full conda env file. |
 | Import works but GPU not used | `import torch; print(torch.cuda.is_available())`; ensure `device` is passed into `PhenoMe(...)`. |
 
@@ -190,6 +191,11 @@ guide, reference, or notebook - no duplicates of the quickstart above.
     title="Preparing your data"
     description="Organize folders, add labels via folder patterns or spreadsheets, and find masks."
     href={`${import.meta.env.BASE_URL}guides/data-setup/`}
+  />
+  <LinkCard
+    title="Audio, text, and 3D"
+    description="Experimental. Same plots for a volume, a wav file, text, or any other file that is not a 2D image."
+    href={`${import.meta.env.BASE_URL}guides/experimental-samples/`}
   />
   <LinkCard
     title="Common workflows"

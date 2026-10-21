@@ -11,13 +11,15 @@ sidebar:
 | Area | Path | Role |
 |------|------|------|
 | Orchestrator | `phenome.pipeline` | `PhenoMe` class; user-facing workflow. |
-| Mixins | `phenome.mixins` | Behaviour split into dataset, embeddings, properties, distances, analysis, visualization, interactive. |
+| Mixins | `phenome.mixins` | `PhenoMe` inherits properties, analysis, distances, visualization, batch correction, and experimental samples. Dataset loading and the embedding forward pass are helpers. Explorer methods live on the visualization mixin and load when first used. |
 | Core algorithms | `phenome.core` | DR, correlation, interpretability, results container (`PhenoMeResults`), export, validation. |
 | I/O | `phenome.io` | Images, checkpoints, file discovery. |
 | Metadata | `phenome.metadata` | `MetadataBase` and concrete extractors. |
 | Utilities | `phenome.utils` | Model wrappers, transforms, metadata helpers, property factories. |
 | Plugins | `phenome.plugins` | Registries for properties, metadata extractors, report sections. |
+| Audio, text, and 3D templates | `phenome.experimental` | Optional pictures for non-image `process_data` runs. |
 | Report | `phenome.report` | HTML report generation. |
+| Assistant / MCP | `phenome.mcp` | Optional MCP server, API manifest, recipes, and docs search. |
 
 Imports for users are mostly from **`phenome`** (re-exports). See the
 [Function location guide](/PhenoMe/function-location-guide/) for a full symbol
@@ -33,7 +35,7 @@ name starts with `_` is package-private.
 
 | Area | How the files are split |
 |------|-------------------------|
-| Properties | `PhenoMeProperties` lives in `mixins/properties/main.py`. Computation, grouping, workers, and path handling are sibling modules (`_compute.py`, `grouping.py`, `matrix.py`, `_workers.py`, `_paths.py`). |
+| Properties | `PhenoMeProperties` lives in `mixins/properties/main.py`. Computation, grouping, tables, report helpers, workers, and path handling are sibling modules (`_compute.py`, `grouping.py`, `_grouping_table.py`, `matrix.py`, `_report.py`, `_workers.py`, `_paths.py`). |
 | Plots | `PhenoMeVisualization` in `mixins/visualization/_core.py` stacks one mixin per plot family (`_dr_plots.py`, `_image_display.py`, `_distance_plots.py`, and the correlation, enrichment, and interpretability plot modules) plus `_helpers.py`. |
 | Analysis, distances, batch correction | `mixins/analysis.py`, `distances.py`, `batch_correction.py`. Analysis computes; visualization draws. |
 | Interactive explorers | `mixins/interactive/`, imported when first used. Shared markup is `_html_components.py`. |
@@ -59,6 +61,7 @@ The typical data flow maps directly to the pipeline overview components:
 | Custom metadata from paths or tables | [Experiment details](/PhenoMe/guides/experiment-details/), `MetadataBase`, `get_metadata_from_path`, `make_dataframe_metadata_fn`. |
 | Custom image features | [Select properties](/PhenoMe/guides/select-properties/), `phenome.plugins.register_property`. |
 | Custom vision backbone | [Model wrapper API](/PhenoMe/advanced/api/model-wrapper/); subclass `ModelWrapper`. |
+| Other modalities (experimental) | [Audio, text, and 3D](/PhenoMe/guides/experimental-samples/). New session: `set_data_io`, then `process_data`. Different shapes pass `collate_fn`. Draw a row with `plot_data_by_index`. |
 | Report sections | [Extending PhenoMe](/PhenoMe/guides/extending/), `register_report_section`. |
 
 **Rule of thumb:** prefer hooks (`metadata_fn`, property factories,

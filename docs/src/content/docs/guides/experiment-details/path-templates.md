@@ -5,23 +5,21 @@ sidebar:
   order: 1
 ---
 
-import { FileTree } from '@astrojs/starlight/components';
-
 When folders encode your experiment (for example
 `/data/DrugA/24h/img01.tif`), you can use a **folder pattern** to tell PhenoMe what each
 folder represents.
 
 ## Simplest case: folders by treatment
 
-<FileTree>
-- data/
-  - Control/
-    - img_01.tif
-    - img_02.tif
-  - Drug1/
-    - img_01.tif
-    - img_02.tif
-</FileTree>
+```text
+data/
+├── Control/
+│   ├── img_01.tif
+│   └── img_02.tif
+└── Drug1/
+    ├── img_01.tif
+    └── img_02.tif
+```
 
 ```python
 from phenome import get_metadata_from_path
@@ -42,8 +40,9 @@ the tokens in parentheses—they become the column names in your results.
 | `.*` | Matches any file extension. |
 
 For example, `(drug)` or `(condition)` are common choices. Avoid spaces
-inside the parentheses and keep names consistent across your experiments,
-as downstream filters are case-sensitive.
+inside the parentheses and keep names consistent across your experiments.
+Discovery stores those names in lower case. Filters match keys without
+regard to case; string values such as `"Control"` stay case-sensitive.
 
 ## Multiple levels
 

@@ -2,7 +2,7 @@
 title: "Testing and local quality checks"
 ---
 
-Commands used in CI and recommended before opening a PR.
+Commands to run before a pull request. GitHub Actions runs Gitleaks, Ruff, mypy, and `python -m pytest`. Docstring coverage is a pre-commit hook. Spell check is local only.
 
 ---
 
@@ -44,7 +44,7 @@ python -m mypy phenome
 interrogate phenome
 ```
 
-The project targets **≥95%** coverage (`pyproject.toml` → `[tool.interrogate]`).
+The project targets **≥95%** coverage (`pyproject.toml` → `[tool.interrogate]`). The pre-commit hook enforces that threshold. The GitHub Actions job does not run interrogate.
 
 ---
 
@@ -53,6 +53,8 @@ The project targets **≥95%** coverage (`pyproject.toml` → `[tool.interrogate
 ```bash
 codespell
 ```
+
+`codespell` is not part of the GitHub Actions workflow or the pre-commit hooks. Run it locally when you want a spelling pass.
 
 ---
 

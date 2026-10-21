@@ -15,7 +15,7 @@ To preserve raw channel magnitudes (for models where scale itself is meaningful)
 
 ## Combined mode (recommended for brightfield / RGB)
 
-All channels are treated as a single colour image and processed together.
+Selected channels are processed as one image. `force_rgb=True` (the default) keeps at most the first three channels and pads 1- or 2-channel images to three. Pass `force_rgb=False` to keep every selected channel.
 
 ## Choosing a mode
 

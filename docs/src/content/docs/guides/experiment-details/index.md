@@ -43,10 +43,12 @@ print(pheno.get_available_metadata_keys())
 
 ## Best practices (applies to every pattern)
 
-### Always include `file_path`
+### Return at least one label
 
-Every metadata function must return a dict containing at least
-`file_path`:
+`file_path` is filled from the scanned path when the dict omits it. A
+dict that contains only `file_path` counts as missing metadata and is
+dropped (`on_missing_metadata="drop"`, the default). Return at least one
+other field:
 
 ```python
 return {"file_path": path, "condition": "Control"}
@@ -68,8 +70,9 @@ def robust_metadata_fn(path: str) -> dict:
 ### Use consistent key names
 
 Choose `condition` or `treatment`, `concentration` or `conc`, and stick
-with it across all your experiments. Downstream filtering is
-**case-sensitive**.
+with it across all your experiments. Filter **keys** match without
+regard to case. String **values** such as `"Control"` stay
+case-sensitive.
 
 ### Check before starting
 
