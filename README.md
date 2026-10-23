@@ -84,7 +84,7 @@ conda activate phenome-cpu
 
 **Learn More:** [Core concepts](https://phenome-ecosystem.github.io/PhenoMe/concepts/) · [Workflows](https://phenome-ecosystem.github.io/PhenoMe/workflows/) · [FAQ](https://phenome-ecosystem.github.io/PhenoMe/faq/) · [Glossary](https://phenome-ecosystem.github.io/PhenoMe/glossary/)
 
-Before writing analysis code or changing this library, a coding agent must read and follow [AGENTS.md](AGENTS.md).
+Coding agents must read and follow [AGENTS.md](AGENTS.md) before writing code.
 
 ---
 
