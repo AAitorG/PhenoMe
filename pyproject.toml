@@ -93,6 +93,7 @@ phenome-mcp = "phenome.mcp.server:main"
 Homepage      = "https://github.com/PhenoMe-Ecosystem/PhenoMe"
 Repository    = "https://github.com/PhenoMe-Ecosystem/PhenoMe"
 Documentation = "https://phenome-ecosystem.github.io/PhenoMe/"
+"AI assistants" = "https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/AGENTS.md"
 "Bug Tracker" = "https://github.com/PhenoMe-Ecosystem/PhenoMe/issues"
 Changelog     = "https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/CHANGELOG.md"
 
