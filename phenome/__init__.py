@@ -6,6 +6,12 @@ PhenoMe Package
 A modular, **dataset-agnostic** and **model-agnostic** pipeline for phenotyping
 analysis using deep learning embeddings.
 
+**Coding assistants:**
+Import from `phenome` (`from phenome import PhenoMe, load_dinov2_model`). Do not
+invent methods, presets, or parameters. Follow
+https://github.com/PhenoMe-Ecosystem/PhenoMe/blob/main/AGENTS.md before writing
+PhenoMe code.
+
 **Overview:**
 PhenoMe orchestrates the full phenotyping workflow: discover images, extract embeddings
 with custom or pretrained models, compute cell/object properties, perform statistical
